@@ -1,0 +1,9 @@
+[package]
+name = "presenterm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+comrak = "0.18"
+thiserror = "1"
