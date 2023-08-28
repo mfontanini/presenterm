@@ -1,6 +1,6 @@
 use clap::Parser;
 use comrak::{Arena, ComrakOptions};
-use presenterm::parse::SlideParser;
+use presenterm::{draw::Drawer, parse::SlideParser};
 use std::{fs, path::PathBuf};
 
 #[derive(Parser)]
@@ -16,7 +16,8 @@ fn main() {
 
     let content = fs::read_to_string(cli.path).expect("reading failed");
     let slides = parser.parse(&content).expect("parse failed");
-    for slide in slides {
-        println!("{slide:?}");
-    }
+
+    let mut drawer = Drawer::new().expect("creating drawer failed");
+    drawer.draw(&slides).expect("draw failed");
+    std::thread::sleep(std::time::Duration::from_secs(10));
 }

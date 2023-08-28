@@ -38,6 +38,14 @@ impl TextFormat {
         self.0 |= TextFormatFlags::Italics as u8;
         self
     }
+
+    pub fn has_bold(&self) -> bool {
+        self.0 & TextFormatFlags::Bold as u8 != 0
+    }
+
+    pub fn has_italics(&self) -> bool {
+        self.0 & TextFormatFlags::Italics as u8 != 0
+    }
 }
 
 #[derive(Debug)]
