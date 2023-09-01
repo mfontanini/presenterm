@@ -1,5 +1,5 @@
 use crate::{
-    elements::{Element, Text, TextChunk, TextFormat},
+    elements::{Element, FormattedText, Text, TextChunk, TextFormat},
     slide::Slide,
 };
 use comrak::{
@@ -76,10 +76,13 @@ impl<'a> SlideParser<'a> {
             let value = &node.data.borrow().value;
             match value {
                 NodeValue::Text(text) => {
-                    chunks.push(TextChunk::formatted(text.clone(), format.clone()));
+                    chunks.push(TextChunk::Formatted(FormattedText::formatted(text.clone(), format.clone())));
                 }
                 NodeValue::Strong => chunks.extend(Self::parse_text_chunks(node, format.clone().add_bold())?),
                 NodeValue::Emph => chunks.extend(Self::parse_text_chunks(node, format.clone().add_italics())?),
+                NodeValue::Image(img) => {
+                    chunks.push(TextChunk::Image { title: img.title.clone(), url: img.url.clone() });
+                }
                 other => {
                     return Err(ParseError::UnsupportedStructure { container: "text", element: other.identifier() })
                 }
@@ -163,26 +166,44 @@ mod test {
     fn paragraph() {
         let parsed = parse_single("some **bold text**, _italics_, *italics*, **nested _italics_**");
         let Element::Paragraph { text } = parsed else { panic!("not a paragraph: {parsed:?}"); };
-        let expected_chunks = [
-            TextChunk::unformatted("some "),
-            TextChunk::formatted("bold text", TextFormat::default().add_bold()),
-            TextChunk::unformatted(", "),
-            TextChunk::formatted("italics", TextFormat::default().add_italics()),
-            TextChunk::unformatted(", "),
-            TextChunk::formatted("italics", TextFormat::default().add_italics()),
-            TextChunk::unformatted(", "),
-            TextChunk::formatted("nested ", TextFormat::default().add_bold()),
-            TextChunk::formatted("italics", TextFormat::default().add_italics().add_bold()),
-        ];
+        let expected_chunks: Vec<_> = [
+            FormattedText::unformatted("some "),
+            FormattedText::formatted("bold text", TextFormat::default().add_bold()),
+            FormattedText::unformatted(", "),
+            FormattedText::formatted("italics", TextFormat::default().add_italics()),
+            FormattedText::unformatted(", "),
+            FormattedText::formatted("italics", TextFormat::default().add_italics()),
+            FormattedText::unformatted(", "),
+            FormattedText::formatted("nested ", TextFormat::default().add_bold()),
+            FormattedText::formatted("italics", TextFormat::default().add_italics().add_bold()),
+        ]
+        .into_iter()
+        .map(TextChunk::Formatted)
+        .collect();
         assert_eq!(text.chunks, expected_chunks);
+    }
+
+    #[test]
+    fn image() {
+        let parsed = parse_single("![](potato.png \"hi\")");
+        let Element::Paragraph { text } = parsed else { panic!("not a paragraph: {parsed:?}"); };
+        assert_eq!(text.chunks.len(), 1);
+        let TextChunk::Image{title, url} = &text.chunks[0] else { panic!("not an image") };
+        assert_eq!(title, "hi");
+        assert_eq!(url, "potato.png");
     }
 
     #[test]
     fn heading() {
         let parsed = parse_single("# Title **with bold**");
         let Element::Heading { text, level } = parsed else { panic!("not a heading: {parsed:?}"); };
-        let expected_chunks =
-            [TextChunk::unformatted("Title "), TextChunk::formatted("with bold", TextFormat::default().add_bold())];
+        let expected_chunks: Vec<_> = [
+            FormattedText::unformatted("Title "),
+            FormattedText::formatted("with bold", TextFormat::default().add_bold()),
+        ]
+        .into_iter()
+        .map(TextChunk::Formatted)
+        .collect();
 
         assert_eq!(level, 1);
         assert_eq!(text.chunks, expected_chunks);
@@ -209,7 +230,7 @@ Third
         let expected = ["First", "Second", "Third"];
         for (slide, expected) in slides.into_iter().zip(expected) {
             let Element::Paragraph{ text } = &slide.elements[0] else { panic!("no text") };
-            let chunks = [TextChunk::unformatted(expected)];
+            let chunks = [TextChunk::Formatted(FormattedText::unformatted(expected))];
             assert_eq!(text.chunks, chunks);
         }
     }

@@ -10,12 +10,18 @@ pub struct Text {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct TextChunk {
+pub enum TextChunk {
+    Formatted(FormattedText),
+    Image { title: String, url: String },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct FormattedText {
     pub text: String,
     pub format: TextFormat,
 }
 
-impl TextChunk {
+impl FormattedText {
     pub fn unformatted<S: Into<String>>(text: S) -> Self {
         Self { text: text.into(), format: TextFormat::default() }
     }

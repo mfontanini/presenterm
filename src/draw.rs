@@ -1,5 +1,7 @@
 use crate::{
-    elements::{Element, Text},
+    elements::{Element, FormattedText, Text, TextChunk},
+    media::{DrawMedia, KittyTerminal},
+    resource::Resources,
     slide::Slide,
 };
 use crossterm::{
@@ -12,13 +14,16 @@ use std::io::{self, Write};
 
 pub struct Drawer {
     handle: io::Stdout,
+    resources: Resources,
 }
 
 impl Drawer {
     pub fn new() -> io::Result<Self> {
         let mut handle = io::stdout();
         handle.queue(cursor::Hide)?;
-        Ok(Self { handle })
+
+        let resources = Resources::default();
+        Ok(Self { handle, resources })
     }
 
     pub fn draw(&mut self, slides: &[Slide]) -> io::Result<()> {
@@ -56,15 +61,28 @@ impl Drawer {
 
     fn draw_text(&mut self, text: &Text) -> io::Result<()> {
         for chunk in &text.chunks {
-            let mut styled = chunk.text.clone().stylize();
-            if chunk.format.has_bold() {
-                styled = styled.bold();
+            match chunk {
+                TextChunk::Formatted(text) => self.draw_formatted_text(text)?,
+                TextChunk::Image { url, .. } => self.draw_image(&url)?,
             }
-            if chunk.format.has_italics() {
-                styled = styled.italic();
-            }
-            self.handle.queue(style::PrintStyledContent(styled))?;
         }
         Ok(())
+    }
+
+    fn draw_formatted_text(&mut self, text: &FormattedText) -> io::Result<()> {
+        let mut styled = text.text.clone().stylize();
+        if text.format.has_bold() {
+            styled = styled.bold();
+        }
+        if text.format.has_italics() {
+            styled = styled.italic();
+        }
+        self.handle.queue(style::PrintStyledContent(styled))?;
+        Ok(())
+    }
+
+    fn draw_image(&mut self, path: &str) -> io::Result<()> {
+        let image = self.resources.image(path)?;
+        KittyTerminal.draw_image(&image, &mut self.handle)
     }
 }
