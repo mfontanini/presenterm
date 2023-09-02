@@ -273,6 +273,10 @@ where
                 if element.format.has_italics() {
                     styled = styled.italic();
                 }
+                if element.format.has_code() {
+                    // TODO
+                    styled = styled.cyan().italic();
+                }
                 length_so_far += styled.content().len() as u16;
                 if length_so_far > self.line_length {
                     self.handle.queue(cursor::MoveDown(1))?;

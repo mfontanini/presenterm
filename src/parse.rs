@@ -95,6 +95,12 @@ impl<'a> SlideParser<'a> {
                 NodeValue::Text(text) => {
                     chunks.push(TextChunk::Formatted(FormattedText::formatted(text.clone(), format.clone())));
                 }
+                NodeValue::Code(code) => {
+                    chunks.push(TextChunk::Formatted(FormattedText::formatted(
+                        code.literal.clone(),
+                        TextFormat::default().add_code(),
+                    )));
+                }
                 NodeValue::Strong => chunks.extend(Self::parse_text_chunks(node, format.clone().add_bold())?),
                 NodeValue::Emph => chunks.extend(Self::parse_text_chunks(node, format.clone().add_italics())?),
                 NodeValue::Image(img) => {
@@ -316,7 +322,6 @@ with line breaks",
             TextChunk::LineBreak,
             TextChunk::Formatted(FormattedText::plain("with line breaks")),
         ];
-
         assert_eq!(text.chunks, expected_chunks);
     }
 
@@ -332,6 +337,17 @@ let q = 42;
         let Element::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
         assert_eq!(code.language, CodeLanguage::Rust);
         assert_eq!(code.contents, "let q = 42;\n");
+    }
+
+    #[test]
+    fn inline_code() {
+        let parsed = parse_single("some `inline code`");
+        let Element::Paragraph(text) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_chunks = &[
+            TextChunk::Formatted(FormattedText::plain("some ")),
+            TextChunk::Formatted(FormattedText::formatted("inline code", TextFormat::default().add_code())),
+        ];
+        assert_eq!(text.chunks, expected_chunks);
     }
 
     #[test]
