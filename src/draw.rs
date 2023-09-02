@@ -8,33 +8,31 @@ use crate::{
 use crossterm::{
     cursor,
     style::{self, Stylize},
-    terminal::{self, ClearType},
+    terminal::{self, window_size, ClearType, WindowSize},
     QueueableCommand,
 };
-use std::io::{self, Write};
+use std::{io, iter};
 
-pub struct Drawer {
-    handle: io::Stdout,
-    resources: Resources,
-    highlighter: CodeHighlighter,
+pub struct Drawer<'a, W> {
+    handle: &'a mut W,
+    resources: &'a mut Resources,
+    highlighter: &'a CodeHighlighter,
+    dimensions: WindowSize,
 }
 
-impl Drawer {
-    pub fn new(resources: Resources, highlighter: CodeHighlighter) -> io::Result<Self> {
-        let mut handle = io::stdout();
-        handle.queue(cursor::Hide)?;
-
-        Ok(Self { handle, resources, highlighter })
+impl<'a, W> Drawer<'a, W>
+where
+    W: io::Write,
+{
+    pub fn new(handle: &'a mut W, resources: &'a mut Resources, highlighter: &'a CodeHighlighter) -> io::Result<Self> {
+        let dimensions = window_size()?;
+        Ok(Self { handle, resources, highlighter, dimensions })
     }
 
-    pub fn draw(&mut self, slides: &[Slide]) -> io::Result<()> {
+    pub fn draw_slide(mut self, slide: &Slide) -> io::Result<()> {
+        self.handle.queue(cursor::Hide)?;
         self.handle.queue(terminal::Clear(ClearType::All))?;
         self.handle.queue(cursor::MoveTo(0, 0))?;
-
-        self.draw_slide(&slides[0])
-    }
-
-    fn draw_slide(&mut self, slide: &Slide) -> io::Result<()> {
         for element in &slide.elements {
             self.draw_element(element)?;
         }
@@ -45,15 +43,30 @@ impl Drawer {
     fn draw_element(&mut self, element: &Element) -> io::Result<()> {
         self.handle.queue(cursor::MoveToColumn(0))?;
         match element {
-            // TODO handle level
-            Element::Heading { text, .. } => self.draw_heading(text),
+            Element::SlideTitle { text } => self.draw_slide_title(text),
+            Element::Heading { text, level } => self.draw_heading(text, *level),
             Element::Paragraph(text) => self.draw_paragraph(text),
             Element::List(items) => self.draw_list(items),
             Element::Code(code) => self.draw_code(code),
         }
     }
 
-    fn draw_heading(&mut self, text: &Text) -> io::Result<()> {
+    fn draw_slide_title(&mut self, text: &Text) -> io::Result<()> {
+        self.handle.queue(cursor::MoveDown(1))?;
+        self.handle.queue(style::SetAttribute(style::Attribute::Bold))?;
+        self.draw_text(text)?;
+        self.handle.queue(style::SetAttribute(style::Attribute::Reset))?;
+        self.handle.queue(cursor::MoveDown(2))?;
+        self.handle.queue(cursor::MoveToColumn(0))?;
+
+        let separator: String = iter::repeat('—').take(self.dimensions.columns as usize).collect();
+        self.handle.queue(style::Print(separator))?;
+        self.handle.queue(cursor::MoveDown(2))?;
+        Ok(())
+    }
+
+    fn draw_heading(&mut self, text: &Text, _level: u8) -> io::Result<()> {
+        // TODO handle level
         self.handle.queue(style::SetAttribute(style::Attribute::Bold))?;
         self.draw_text(text)?;
         self.handle.queue(style::SetAttribute(style::Attribute::Reset))?;

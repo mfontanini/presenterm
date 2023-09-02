@@ -1,5 +1,6 @@
 #[derive(Clone, Debug)]
 pub enum Element {
+    SlideTitle { text: Text },
     Heading { level: u8, text: Text },
     Paragraph(Text),
     List(Vec<ListItem>),

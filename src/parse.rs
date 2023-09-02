@@ -69,8 +69,11 @@ impl<'a> SlideParser<'a> {
 
     fn parse_heading(heading: &NodeHeading, node: &'a AstNode<'a>) -> ParseResult<Element> {
         let text = Self::parse_text(node)?;
-        let element = Element::Heading { text, level: heading.level };
-        Ok(element)
+        if heading.setext {
+            Ok(Element::SlideTitle { text })
+        } else {
+            Ok(Element::Heading { text, level: heading.level })
+        }
     }
 
     fn parse_paragraph(node: &'a AstNode<'a>) -> ParseResult<Element> {
@@ -254,6 +257,19 @@ mod test {
     }
 
     #[test]
+    fn slide_title() {
+        let parsed = parse_single(
+            r"
+Title
+===
+",
+        );
+        let Element::SlideTitle { text} = parsed else { panic!("not a slide title: {parsed:?}") };
+        let expected_chunks = [TextChunk::Formatted(FormattedText::plain("Title"))];
+        assert_eq!(text.chunks, expected_chunks);
+    }
+
+    #[test]
     fn heading() {
         let parsed = parse_single("# Title **with bold**");
         let Element::Heading { text, level } = parsed else { panic!("not a heading: {parsed:?}") };
@@ -292,7 +308,6 @@ mod test {
         let parsed = parse_single(
             r"
 some text
-
 with line breaks",
         );
         let Element::Paragraph(text) = parsed else { panic!("not a line break: {parsed:?}") };
