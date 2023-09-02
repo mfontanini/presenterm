@@ -1,7 +1,7 @@
 #[derive(Clone, Debug)]
 pub enum Element {
     Heading { level: u8, text: Text },
-    Paragraph { text: Text },
+    Paragraph(Text),
     List(Vec<ListItem>),
 }
 
@@ -24,7 +24,7 @@ pub struct FormattedText {
 }
 
 impl FormattedText {
-    pub fn unformatted<S: Into<String>>(text: S) -> Self {
+    pub fn plain<S: Into<String>>(text: S) -> Self {
         Self { text: text.into(), format: TextFormat::default() }
     }
 

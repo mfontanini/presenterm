@@ -46,7 +46,7 @@ impl Drawer {
         match element {
             // TODO handle level
             Element::Heading { text, .. } => self.draw_heading(text),
-            Element::Paragraph { text } => self.draw_paragraph(text),
+            Element::Paragraph(text) => self.draw_paragraph(text),
             Element::List(items) => self.draw_list(items),
         }
     }

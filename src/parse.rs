@@ -65,7 +65,7 @@ impl<'a> SlideParser<'a> {
 
     fn parse_paragraph(node: &'a AstNode<'a>) -> ParseResult<Element> {
         let text = Self::parse_text(node)?;
-        let element = Element::Paragraph { text };
+        let element = Element::Paragraph(text);
         Ok(element)
     }
 
@@ -212,15 +212,15 @@ mod test {
     #[test]
     fn paragraph() {
         let parsed = parse_single("some **bold text**, _italics_, *italics*, **nested _italics_**");
-        let Element::Paragraph { text } = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let Element::Paragraph(text) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks: Vec<_> = [
-            FormattedText::unformatted("some "),
+            FormattedText::plain("some "),
             FormattedText::formatted("bold text", TextFormat::default().add_bold()),
-            FormattedText::unformatted(", "),
+            FormattedText::plain(", "),
             FormattedText::formatted("italics", TextFormat::default().add_italics()),
-            FormattedText::unformatted(", "),
+            FormattedText::plain(", "),
             FormattedText::formatted("italics", TextFormat::default().add_italics()),
-            FormattedText::unformatted(", "),
+            FormattedText::plain(", "),
             FormattedText::formatted("nested ", TextFormat::default().add_bold()),
             FormattedText::formatted("italics", TextFormat::default().add_italics().add_bold()),
         ]
@@ -233,7 +233,7 @@ mod test {
     #[test]
     fn image() {
         let parsed = parse_single("![](potato.png \"hi\")");
-        let Element::Paragraph { text } = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let Element::Paragraph(text) = parsed else { panic!("not a paragraph: {parsed:?}") };
         assert_eq!(text.chunks.len(), 1);
         let TextChunk::Image{title, url} = &text.chunks[0] else { panic!("not an image") };
         assert_eq!(title, "hi");
@@ -244,13 +244,11 @@ mod test {
     fn heading() {
         let parsed = parse_single("# Title **with bold**");
         let Element::Heading { text, level } = parsed else { panic!("not a heading: {parsed:?}") };
-        let expected_chunks: Vec<_> = [
-            FormattedText::unformatted("Title "),
-            FormattedText::formatted("with bold", TextFormat::default().add_bold()),
-        ]
-        .into_iter()
-        .map(TextChunk::Formatted)
-        .collect();
+        let expected_chunks: Vec<_> =
+            [FormattedText::plain("Title "), FormattedText::formatted("with bold", TextFormat::default().add_bold())]
+                .into_iter()
+                .map(TextChunk::Formatted)
+                .collect();
 
         assert_eq!(level, 1);
         assert_eq!(text.chunks, expected_chunks);
@@ -284,11 +282,11 @@ some text
 
 with line breaks",
         );
-        let Element::Paragraph { text} = parsed else { panic!("not a heading: {parsed:?}") };
+        let Element::Paragraph(text) = parsed else { panic!("not a heading: {parsed:?}") };
         let expected_chunks = &[
-            TextChunk::Formatted(FormattedText::unformatted("some text")),
+            TextChunk::Formatted(FormattedText::plain("some text")),
             TextChunk::LineBreak,
-            TextChunk::Formatted(FormattedText::unformatted("with line breaks")),
+            TextChunk::Formatted(FormattedText::plain("with line breaks")),
         ];
 
         assert_eq!(text.chunks, expected_chunks);
@@ -314,8 +312,8 @@ Third
 
         let expected = ["First", "Second", "Third"];
         for (slide, expected) in slides.into_iter().zip(expected) {
-            let Element::Paragraph{ text } = &slide.elements[0] else { panic!("no text") };
-            let chunks = [TextChunk::Formatted(FormattedText::unformatted(expected))];
+            let Element::Paragraph(text) = &slide.elements[0] else { panic!("no text") };
+            let chunks = [TextChunk::Formatted(FormattedText::plain(expected))];
             assert_eq!(text.chunks, chunks);
         }
     }
