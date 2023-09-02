@@ -488,6 +488,7 @@ dependencies = [
  "clap",
  "comrak",
  "crossterm",
+ "syntect",
  "thiserror",
 ]
 

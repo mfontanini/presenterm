@@ -3,6 +3,7 @@ pub enum Element {
     Heading { level: u8, text: Text },
     Paragraph(Text),
     List(Vec<ListItem>),
+    Code(Code),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -74,4 +75,16 @@ pub enum ListItemType {
     Unordered,
     OrderedParens(u16),
     OrderedPeriod(u16),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Code {
+    pub contents: String,
+    pub language: CodeLanguage,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CodeLanguage {
+    Rust,
+    Other,
 }

@@ -1,5 +1,6 @@
 use crate::{
-    elements::{Element, FormattedText, ListItem, ListItemType, Text, TextChunk},
+    elements::{Code, Element, FormattedText, ListItem, ListItemType, Text, TextChunk},
+    highlighting::CodeHighlighter,
     media::{DrawMedia, KittyTerminal},
     resource::Resources,
     slide::Slide,
@@ -15,15 +16,15 @@ use std::io::{self, Write};
 pub struct Drawer {
     handle: io::Stdout,
     resources: Resources,
+    highlighter: CodeHighlighter,
 }
 
 impl Drawer {
-    pub fn new() -> io::Result<Self> {
+    pub fn new(resources: Resources, highlighter: CodeHighlighter) -> io::Result<Self> {
         let mut handle = io::stdout();
         handle.queue(cursor::Hide)?;
 
-        let resources = Resources::default();
-        Ok(Self { handle, resources })
+        Ok(Self { handle, resources, highlighter })
     }
 
     pub fn draw(&mut self, slides: &[Slide]) -> io::Result<()> {
@@ -48,6 +49,7 @@ impl Drawer {
             Element::Heading { text, .. } => self.draw_heading(text),
             Element::Paragraph(text) => self.draw_paragraph(text),
             Element::List(items) => self.draw_list(items),
+            Element::Code(code) => self.draw_code(code),
         }
     }
 
@@ -130,6 +132,13 @@ impl Drawer {
         self.handle.queue(style::Print(" "))?;
         self.draw_text(&item.contents)?;
         self.handle.queue(cursor::MoveDown(1))?;
+        Ok(())
+    }
+
+    fn draw_code(&mut self, code: &Code) -> io::Result<()> {
+        for line in self.highlighter.highlight(&code.contents, &code.language) {
+            self.handle.queue(style::Print(line))?;
+        }
         Ok(())
     }
 }

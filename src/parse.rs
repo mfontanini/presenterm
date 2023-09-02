@@ -1,9 +1,9 @@
 use crate::{
-    elements::{Element, FormattedText, ListItem, ListItemType, Text, TextChunk, TextFormat},
+    elements::{Code, CodeLanguage, Element, FormattedText, ListItem, ListItemType, Text, TextChunk, TextFormat},
     slide::Slide,
 };
 use comrak::{
-    nodes::{AstNode, ListDelimType, ListType, NodeHeading, NodeList, NodeValue},
+    nodes::{AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeList, NodeValue},
     parse_document, Arena, ComrakOptions,
 };
 use std::mem;
@@ -45,16 +45,26 @@ impl<'a> SlideParser<'a> {
 
     fn parse_element(node: &'a AstNode<'a>) -> ParseResult<Element> {
         let value = &node.data.borrow().value;
-        let element = match value {
-            NodeValue::Heading(heading) => Self::parse_heading(heading, node)?,
-            NodeValue::Paragraph => Self::parse_paragraph(node)?,
+        match value {
+            NodeValue::Heading(heading) => Self::parse_heading(heading, node),
+            NodeValue::Paragraph => Self::parse_paragraph(node),
             NodeValue::List(_) => {
                 let items = Self::parse_list(node, 0)?;
-                Element::List(items)
+                Ok(Element::List(items))
             }
-            other => return Err(ParseError::UnsupportedElement(other.identifier())),
-        };
-        Ok(element)
+            NodeValue::CodeBlock(block) => Self::parse_code_block(block),
+            other => Err(ParseError::UnsupportedElement(other.identifier())),
+        }
+    }
+
+    fn parse_code_block(block: &NodeCodeBlock) -> ParseResult<Element> {
+        if !block.fenced {
+            return Err(ParseError::UnfencedCodeBlock);
+        }
+        // TODO less naive pls
+        let language = if block.info.contains("rust") { CodeLanguage::Rust } else { CodeLanguage::Other };
+        let code = Code { contents: block.literal.clone(), language };
+        Ok(Element::Code(code))
     }
 
     fn parse_heading(heading: &NodeHeading, node: &'a AstNode<'a>) -> ParseResult<Element> {
@@ -146,6 +156,9 @@ pub enum ParseError {
 
     #[error("unsupported structure in {container}: {element}")]
     UnsupportedStructure { container: &'static str, element: &'static str },
+
+    #[error("only fenced code blocks are supported")]
+    UnfencedCodeBlock,
 }
 
 trait Identifier {
@@ -282,7 +295,7 @@ some text
 
 with line breaks",
         );
-        let Element::Paragraph(text) = parsed else { panic!("not a heading: {parsed:?}") };
+        let Element::Paragraph(text) = parsed else { panic!("not a line break: {parsed:?}") };
         let expected_chunks = &[
             TextChunk::Formatted(FormattedText::plain("some text")),
             TextChunk::LineBreak,
@@ -290,6 +303,20 @@ with line breaks",
         ];
 
         assert_eq!(text.chunks, expected_chunks);
+    }
+
+    #[test]
+    fn code_block() {
+        let parsed = parse_single(
+            r"
+```rust
+let q = 42;
+````
+",
+        );
+        let Element::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
+        assert_eq!(code.language, CodeLanguage::Rust);
+        assert_eq!(code.contents, "let q = 42;\n");
     }
 
     #[test]

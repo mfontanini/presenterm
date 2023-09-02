@@ -8,4 +8,5 @@ base64 = "0.21"
 clap = { version = "4.4", features = ["derive"] }
 comrak = "0.18"
 crossterm = "0.27"
+syntect = "5.1"
 thiserror = "1"
