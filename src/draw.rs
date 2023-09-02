@@ -1,5 +1,5 @@
 use crate::{
-    elements::{Element, FormattedText, Text, TextChunk},
+    elements::{Element, FormattedText, ListItem, ListItemType, Text, TextChunk},
     media::{DrawMedia, KittyTerminal},
     resource::Resources,
     slide::Slide,
@@ -45,17 +45,23 @@ impl Drawer {
         self.handle.queue(cursor::MoveToColumn(0))?;
         match element {
             // TODO handle level
-            Element::Heading { text, .. } => {
-                self.handle.queue(style::SetAttribute(style::Attribute::Bold))?;
-                self.draw_text(text)?;
-                self.handle.queue(cursor::MoveDown(2))?;
-                self.handle.queue(style::SetAttribute(style::Attribute::Reset))?;
-            }
-            Element::Paragraph { text } => {
-                self.draw_text(text)?;
-                self.handle.queue(cursor::MoveDown(2))?;
-            }
-        };
+            Element::Heading { text, .. } => self.draw_heading(text),
+            Element::Paragraph { text } => self.draw_paragraph(text),
+            Element::List(items) => self.draw_list(items),
+        }
+    }
+
+    fn draw_heading(&mut self, text: &Text) -> io::Result<()> {
+        self.handle.queue(style::SetAttribute(style::Attribute::Bold))?;
+        self.draw_text(text)?;
+        self.handle.queue(style::SetAttribute(style::Attribute::Reset))?;
+        self.handle.queue(cursor::MoveDown(2))?;
+        Ok(())
+    }
+
+    fn draw_paragraph(&mut self, text: &Text) -> io::Result<()> {
+        self.draw_text(text)?;
+        self.handle.queue(cursor::MoveDown(1))?;
         Ok(())
     }
 
@@ -84,5 +90,41 @@ impl Drawer {
     fn draw_image(&mut self, path: &str) -> io::Result<()> {
         let image = self.resources.image(path)?;
         KittyTerminal.draw_image(&image, &mut self.handle)
+    }
+
+    fn draw_list(&mut self, items: &[ListItem]) -> io::Result<()> {
+        for item in items {
+            self.draw_list_item(item)?;
+        }
+        self.handle.queue(cursor::MoveDown(2))?;
+        Ok(())
+    }
+
+    fn draw_list_item(&mut self, item: &ListItem) -> io::Result<()> {
+        let padding_length = (item.depth as usize + 1) * 2;
+        let padding: String = std::iter::repeat(' ').take(padding_length).collect();
+        self.handle.queue(cursor::MoveToColumn(0))?;
+        self.handle.queue(style::Print(padding))?;
+        match item.item_type {
+            ListItemType::Unordered => {
+                let delimiter = match item.depth {
+                    0 => '•',
+                    1 => '◦',
+                    _ => '▪',
+                };
+                self.handle.queue(style::Print(delimiter))?;
+            }
+            ListItemType::OrderedParens(number) => {
+                self.handle.queue(style::Print(number))?;
+                self.handle.queue(style::Print(") "))?;
+            }
+            ListItemType::OrderedPeriod(number) => {
+                self.handle.queue(style::Print(number))?;
+                self.handle.queue(style::Print(". "))?;
+            }
+        };
+        self.handle.queue(style::Print(" "))?;
+        self.draw_paragraph(&item.contents)?;
+        Ok(())
     }
 }

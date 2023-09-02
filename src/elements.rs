@@ -1,21 +1,22 @@
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Element {
     Heading { level: u8, text: Text },
     Paragraph { text: Text },
+    List(Vec<ListItem>),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Text {
     pub chunks: Vec<TextChunk>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TextChunk {
     Formatted(FormattedText),
     Image { title: String, url: String },
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FormattedText {
     pub text: String,
     pub format: TextFormat,
@@ -58,4 +59,18 @@ impl TextFormat {
 enum TextFormatFlags {
     Bold = 1,
     Italics = 2,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ListItem {
+    pub depth: u8,
+    pub contents: Text,
+    pub item_type: ListItemType,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ListItemType {
+    Unordered,
+    OrderedParens(u16),
+    OrderedPeriod(u16),
 }

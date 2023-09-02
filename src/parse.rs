@@ -1,9 +1,9 @@
 use crate::{
-    elements::{Element, FormattedText, Text, TextChunk, TextFormat},
+    elements::{Element, FormattedText, ListItem, ListItemType, Text, TextChunk, TextFormat},
     slide::Slide,
 };
 use comrak::{
-    nodes::{AstNode, NodeHeading, NodeValue},
+    nodes::{AstNode, ListDelimType, ListType, NodeHeading, NodeList, NodeValue},
     parse_document, Arena, ComrakOptions,
 };
 use std::mem;
@@ -48,6 +48,10 @@ impl<'a> SlideParser<'a> {
         let element = match value {
             NodeValue::Heading(heading) => Self::parse_heading(heading, node)?,
             NodeValue::Paragraph => Self::parse_paragraph(node)?,
+            NodeValue::List(_) => {
+                let items = Self::parse_list(node, 0)?;
+                Element::List(items)
+            }
             other => return Err(ParseError::UnsupportedElement(other.identifier())),
         };
         Ok(element)
@@ -89,6 +93,48 @@ impl<'a> SlideParser<'a> {
             };
         }
         Ok(chunks)
+    }
+
+    fn parse_list(root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
+        let mut elements = Vec::new();
+        for (index, node) in root.children().enumerate() {
+            let number = (index + 1) as u16;
+            let value = &node.data.borrow().value;
+            match value {
+                NodeValue::Item(item) => {
+                    elements.extend(Self::parse_list_item(item, node, depth, number)?);
+                }
+                other => {
+                    return Err(ParseError::UnsupportedStructure { container: "list", element: other.identifier() })
+                }
+            };
+        }
+        Ok(elements)
+    }
+
+    fn parse_list_item(item: &NodeList, root: &'a AstNode<'a>, depth: u8, number: u16) -> ParseResult<Vec<ListItem>> {
+        let item_type = match (item.list_type, item.delimiter) {
+            (ListType::Bullet, _) => ListItemType::Unordered,
+            (ListType::Ordered, ListDelimType::Paren) => ListItemType::OrderedParens(number),
+            (ListType::Ordered, ListDelimType::Period) => ListItemType::OrderedPeriod(number),
+        };
+        let mut elements = Vec::new();
+        for node in root.children() {
+            let value = &node.data.borrow().value;
+            match value {
+                NodeValue::Paragraph => {
+                    let contents = Self::parse_text(node)?;
+                    elements.push(ListItem { contents, depth, item_type: item_type.clone() });
+                }
+                NodeValue::List(_) => {
+                    elements.extend(Self::parse_list(node, depth + 1)?);
+                }
+                other => {
+                    return Err(ParseError::UnsupportedStructure { container: "list", element: other.identifier() })
+                }
+            }
+        }
+        Ok(elements)
     }
 }
 
@@ -165,7 +211,7 @@ mod test {
     #[test]
     fn paragraph() {
         let parsed = parse_single("some **bold text**, _italics_, *italics*, **nested _italics_**");
-        let Element::Paragraph { text } = parsed else { panic!("not a paragraph: {parsed:?}"); };
+        let Element::Paragraph { text } = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks: Vec<_> = [
             FormattedText::unformatted("some "),
             FormattedText::formatted("bold text", TextFormat::default().add_bold()),
@@ -186,7 +232,7 @@ mod test {
     #[test]
     fn image() {
         let parsed = parse_single("![](potato.png \"hi\")");
-        let Element::Paragraph { text } = parsed else { panic!("not a paragraph: {parsed:?}"); };
+        let Element::Paragraph { text } = parsed else { panic!("not a paragraph: {parsed:?}") };
         assert_eq!(text.chunks.len(), 1);
         let TextChunk::Image{title, url} = &text.chunks[0] else { panic!("not an image") };
         assert_eq!(title, "hi");
@@ -196,7 +242,7 @@ mod test {
     #[test]
     fn heading() {
         let parsed = parse_single("# Title **with bold**");
-        let Element::Heading { text, level } = parsed else { panic!("not a heading: {parsed:?}"); };
+        let Element::Heading { text, level } = parsed else { panic!("not a heading: {parsed:?}") };
         let expected_chunks: Vec<_> = [
             FormattedText::unformatted("Title "),
             FormattedText::formatted("with bold", TextFormat::default().add_bold()),
@@ -207,6 +253,26 @@ mod test {
 
         assert_eq!(level, 1);
         assert_eq!(text.chunks, expected_chunks);
+    }
+
+    #[test]
+    fn unordered_list() {
+        let parsed = parse_single(
+            r"
+ * One
+    * Sub1
+    * Sub2
+ * Two
+ * Three",
+        );
+        let Element::List(items) = parsed else { panic!("not a list: {parsed:?}") };
+        let mut items = items.into_iter();
+        let mut next = || items.next().expect("list ended prematurely");
+        assert_eq!(next().depth, 0);
+        assert_eq!(next().depth, 1);
+        assert_eq!(next().depth, 1);
+        assert_eq!(next().depth, 0);
+        assert_eq!(next().depth, 0);
     }
 
     #[test]
