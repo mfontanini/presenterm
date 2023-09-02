@@ -14,6 +14,7 @@ pub struct Text {
 pub enum TextChunk {
     Formatted(FormattedText),
     Image { title: String, url: String },
+    LineBreak,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

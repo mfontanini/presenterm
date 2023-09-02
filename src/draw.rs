@@ -61,7 +61,7 @@ impl Drawer {
 
     fn draw_paragraph(&mut self, text: &Text) -> io::Result<()> {
         self.draw_text(text)?;
-        self.handle.queue(cursor::MoveDown(1))?;
+        self.handle.queue(cursor::MoveDown(2))?;
         Ok(())
     }
 
@@ -70,6 +70,10 @@ impl Drawer {
             match chunk {
                 TextChunk::Formatted(text) => self.draw_formatted_text(text)?,
                 TextChunk::Image { url, .. } => self.draw_image(&url)?,
+                TextChunk::LineBreak => {
+                    self.handle.queue(cursor::MoveDown(1))?;
+                    self.handle.queue(cursor::MoveToColumn(0))?;
+                }
             }
         }
         Ok(())
@@ -124,7 +128,8 @@ impl Drawer {
             }
         };
         self.handle.queue(style::Print(" "))?;
-        self.draw_paragraph(&item.contents)?;
+        self.draw_text(&item.contents)?;
+        self.handle.queue(cursor::MoveDown(1))?;
         Ok(())
     }
 }

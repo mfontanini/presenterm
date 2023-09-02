@@ -87,6 +87,7 @@ impl<'a> SlideParser<'a> {
                 NodeValue::Image(img) => {
                     chunks.push(TextChunk::Image { title: img.title.clone(), url: img.url.clone() });
                 }
+                NodeValue::SoftBreak | NodeValue::LineBreak => chunks.push(TextChunk::LineBreak),
                 other => {
                     return Err(ParseError::UnsupportedStructure { container: "text", element: other.identifier() })
                 }
@@ -273,6 +274,24 @@ mod test {
         assert_eq!(next().depth, 1);
         assert_eq!(next().depth, 0);
         assert_eq!(next().depth, 0);
+    }
+
+    #[test]
+    fn line_break() {
+        let parsed = parse_single(
+            r"
+some text
+
+with line breaks",
+        );
+        let Element::Paragraph { text} = parsed else { panic!("not a heading: {parsed:?}") };
+        let expected_chunks = &[
+            TextChunk::Formatted(FormattedText::unformatted("some text")),
+            TextChunk::LineBreak,
+            TextChunk::Formatted(FormattedText::unformatted("with line breaks")),
+        ];
+
+        assert_eq!(text.chunks, expected_chunks);
     }
 
     #[test]
