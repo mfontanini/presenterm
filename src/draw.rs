@@ -2,19 +2,55 @@ use crate::{
     elements::{Code, Element, FormattedText, ListItem, ListItemType, Text, TextChunk},
     highlighting::CodeHighlighter,
     media::{DrawMedia, KittyTerminal},
+    presentation::Slide,
     resource::Resources,
-    slide::Slide,
     theme::{Alignment, ElementStyle, ElementType, SlideTheme},
 };
 use crossterm::{
     cursor,
     style::{self, Stylize},
-    terminal::{self, window_size, ClearType, WindowSize},
+    terminal::{self, disable_raw_mode, enable_raw_mode, window_size, ClearType, WindowSize},
     QueueableCommand,
 };
 use std::{io, mem};
 
-pub struct Drawer<'a, W> {
+pub struct Drawer<W: io::Write> {
+    handle: W,
+}
+
+impl<W> Drawer<W>
+where
+    W: io::Write,
+{
+    pub fn new(mut handle: W) -> io::Result<Self> {
+        enable_raw_mode()?;
+        handle.queue(cursor::Hide)?;
+        Ok(Self { handle })
+    }
+
+    pub fn draw_slide<'a>(
+        &mut self,
+        resources: &'a mut Resources,
+        highlighter: &'a CodeHighlighter,
+        theme: &'a SlideTheme,
+        slide: &Slide,
+    ) -> io::Result<()> {
+        let slide_drawer = SlideDrawer::new(&mut self.handle, resources, highlighter, theme)?;
+        slide_drawer.draw_slide(slide)
+    }
+}
+
+impl<W> Drop for Drawer<W>
+where
+    W: io::Write,
+{
+    fn drop(&mut self) {
+        let _ = self.handle.queue(cursor::Show);
+        let _ = disable_raw_mode();
+    }
+}
+
+struct SlideDrawer<'a, W> {
     handle: &'a mut W,
     resources: &'a mut Resources,
     highlighter: &'a CodeHighlighter,
@@ -22,11 +58,11 @@ pub struct Drawer<'a, W> {
     dimensions: WindowSize,
 }
 
-impl<'a, W> Drawer<'a, W>
+impl<'a, W> SlideDrawer<'a, W>
 where
     W: io::Write,
 {
-    pub fn new(
+    fn new(
         handle: &'a mut W,
         resources: &'a mut Resources,
         highlighter: &'a CodeHighlighter,
@@ -36,8 +72,7 @@ where
         Ok(Self { handle, resources, highlighter, theme, dimensions })
     }
 
-    pub fn draw_slide(mut self, slide: &Slide) -> io::Result<()> {
-        self.handle.queue(cursor::Hide)?;
+    fn draw_slide(mut self, slide: &Slide) -> io::Result<()> {
         self.handle.queue(terminal::Clear(ClearType::All))?;
         self.handle.queue(cursor::MoveTo(0, 0))?;
         for element in &slide.elements {
@@ -181,6 +216,8 @@ where
                 self.handle.queue(cursor::MoveToColumn(start_column))?;
             }
         }
+        self.handle.queue(cursor::MoveDown(1))?;
+        self.handle.queue(style::ResetColor)?;
         Ok(())
     }
 }

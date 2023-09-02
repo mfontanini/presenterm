@@ -1,6 +1,6 @@
 use crate::{
     elements::{Code, CodeLanguage, Element, FormattedText, ListItem, ListItemType, Text, TextChunk, TextFormat},
-    slide::Slide,
+    presentation::Slide,
 };
 use comrak::{
     nodes::{AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeList, NodeValue},
