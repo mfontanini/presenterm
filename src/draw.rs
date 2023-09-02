@@ -4,6 +4,7 @@ use crate::{
     media::{DrawMedia, KittyTerminal},
     resource::Resources,
     slide::Slide,
+    theme::{Alignment, ElementStyle, ElementType, SlideTheme},
 };
 use crossterm::{
     cursor,
@@ -11,12 +12,13 @@ use crossterm::{
     terminal::{self, window_size, ClearType, WindowSize},
     QueueableCommand,
 };
-use std::{io, iter};
+use std::{io, mem};
 
 pub struct Drawer<'a, W> {
     handle: &'a mut W,
     resources: &'a mut Resources,
     highlighter: &'a CodeHighlighter,
+    theme: &'a SlideTheme,
     dimensions: WindowSize,
 }
 
@@ -24,9 +26,14 @@ impl<'a, W> Drawer<'a, W>
 where
     W: io::Write,
 {
-    pub fn new(handle: &'a mut W, resources: &'a mut Resources, highlighter: &'a CodeHighlighter) -> io::Result<Self> {
+    pub fn new(
+        handle: &'a mut W,
+        resources: &'a mut Resources,
+        highlighter: &'a CodeHighlighter,
+        theme: &'a SlideTheme,
+    ) -> io::Result<Self> {
         let dimensions = window_size()?;
-        Ok(Self { handle, resources, highlighter, dimensions })
+        Ok(Self { handle, resources, highlighter, theme, dimensions })
     }
 
     pub fn draw_slide(mut self, slide: &Slide) -> io::Result<()> {
@@ -54,12 +61,12 @@ where
     fn draw_slide_title(&mut self, text: &Text) -> io::Result<()> {
         self.handle.queue(cursor::MoveDown(1))?;
         self.handle.queue(style::SetAttribute(style::Attribute::Bold))?;
-        self.draw_text(text)?;
+        self.draw_text(text, ElementType::SlideTitle)?;
         self.handle.queue(style::SetAttribute(style::Attribute::Reset))?;
         self.handle.queue(cursor::MoveDown(2))?;
         self.handle.queue(cursor::MoveToColumn(0))?;
 
-        let separator: String = iter::repeat('—').take(self.dimensions.columns as usize).collect();
+        let separator: String = "—".repeat(self.dimensions.columns as usize);
         self.handle.queue(style::Print(separator))?;
         self.handle.queue(cursor::MoveDown(2))?;
         Ok(())
@@ -68,42 +75,48 @@ where
     fn draw_heading(&mut self, text: &Text, _level: u8) -> io::Result<()> {
         // TODO handle level
         self.handle.queue(style::SetAttribute(style::Attribute::Bold))?;
-        self.draw_text(text)?;
+        // TODO
+        self.draw_text(text, ElementType::Heading1)?;
         self.handle.queue(style::SetAttribute(style::Attribute::Reset))?;
         self.handle.queue(cursor::MoveDown(2))?;
         Ok(())
     }
 
     fn draw_paragraph(&mut self, text: &Text) -> io::Result<()> {
-        self.draw_text(text)?;
+        self.draw_text(text, ElementType::Paragraph)?;
         self.handle.queue(cursor::MoveDown(2))?;
         Ok(())
     }
 
-    fn draw_text(&mut self, text: &Text) -> io::Result<()> {
-        for chunk in &text.chunks {
+    fn draw_text(&mut self, text: &Text, parent_element: ElementType) -> io::Result<()> {
+        let style = self.theme.style(&parent_element);
+        let mut texts = Vec::new();
+        for chunk in text.chunks.iter() {
             match chunk {
-                TextChunk::Formatted(text) => self.draw_formatted_text(text)?,
-                TextChunk::Image { url, .. } => self.draw_image(&url)?,
+                TextChunk::Formatted(text) => {
+                    texts.push(text);
+                }
+                TextChunk::Image { url, .. } => {
+                    self.draw_formatted_texts(&mem::take(&mut texts), style)?;
+                    self.draw_image(url)?;
+                }
                 TextChunk::LineBreak => {
+                    self.draw_formatted_texts(&mem::take(&mut texts), style)?;
                     self.handle.queue(cursor::MoveDown(1))?;
                     self.handle.queue(cursor::MoveToColumn(0))?;
                 }
             }
         }
+        self.draw_formatted_texts(&mem::take(&mut texts), style)?;
         Ok(())
     }
 
-    fn draw_formatted_text(&mut self, text: &FormattedText) -> io::Result<()> {
-        let mut styled = text.text.clone().stylize();
-        if text.format.has_bold() {
-            styled = styled.bold();
+    fn draw_formatted_texts(&mut self, text: &[&FormattedText], style: &ElementStyle) -> io::Result<()> {
+        if text.is_empty() {
+            return Ok(());
         }
-        if text.format.has_italics() {
-            styled = styled.italic();
-        }
-        self.handle.queue(style::PrintStyledContent(styled))?;
-        Ok(())
+        let text_drawer = TextDrawer::new(style, &mut self.handle, text, &self.dimensions);
+        text_drawer.draw()
     }
 
     fn draw_image(&mut self, path: &str) -> io::Result<()> {
@@ -121,9 +134,8 @@ where
 
     fn draw_list_item(&mut self, item: &ListItem) -> io::Result<()> {
         let padding_length = (item.depth as usize + 1) * 2;
-        let padding: String = std::iter::repeat(' ').take(padding_length).collect();
+        let mut prefix: String = " ".repeat(padding_length);
         self.handle.queue(cursor::MoveToColumn(0))?;
-        self.handle.queue(style::Print(padding))?;
         match item.item_type {
             ListItemType::Unordered => {
                 let delimiter = match item.depth {
@@ -131,27 +143,124 @@ where
                     1 => '◦',
                     _ => '▪',
                 };
-                self.handle.queue(style::Print(delimiter))?;
+                prefix.push(delimiter);
             }
             ListItemType::OrderedParens(number) => {
-                self.handle.queue(style::Print(number))?;
-                self.handle.queue(style::Print(") "))?;
+                prefix.push_str(&number.to_string());
+                prefix.push_str(") ");
             }
             ListItemType::OrderedPeriod(number) => {
-                self.handle.queue(style::Print(number))?;
-                self.handle.queue(style::Print(". "))?;
+                prefix.push_str(&number.to_string());
+                prefix.push_str(". ");
             }
         };
-        self.handle.queue(style::Print(" "))?;
-        self.draw_text(&item.contents)?;
+
+        prefix.push(' ');
+        let mut text = item.contents.clone();
+        text.chunks.insert(0, TextChunk::Formatted(FormattedText::plain(prefix)));
+        self.draw_text(&text, ElementType::List)?;
         self.handle.queue(cursor::MoveDown(1))?;
         Ok(())
     }
 
     fn draw_code(&mut self, code: &Code) -> io::Result<()> {
-        for line in self.highlighter.highlight(&code.contents, &code.language) {
-            self.handle.queue(style::Print(line))?;
+        let style = self.theme.style(&ElementType::Code);
+        let start_column = match style.alignment {
+            Alignment::Left { margin } => margin,
+            Alignment::Center { minimum_margin } => {
+                let max_line_length = code.contents.lines().map(|line| line.len()).max().unwrap_or(0);
+                let column = (self.dimensions.columns - max_line_length as u16) / 2;
+                column.max(minimum_margin)
+            }
+        };
+
+        self.handle.queue(cursor::MoveToColumn(start_column))?;
+        for token_block in self.highlighter.highlight(&code.contents, &code.language) {
+            self.handle.queue(style::Print(&token_block))?;
+            if token_block.contains('\n') {
+                self.handle.queue(cursor::MoveToColumn(start_column))?;
+            }
         }
         Ok(())
+    }
+}
+
+struct TextDrawer<'a, W> {
+    handle: &'a mut W,
+    elements: &'a [&'a FormattedText],
+    start_column: u16,
+    line_length: u16,
+}
+
+impl<'a, W> TextDrawer<'a, W>
+where
+    W: io::Write,
+{
+    fn new(
+        style: &'a ElementStyle,
+        handle: &'a mut W,
+        elements: &'a [&'a FormattedText],
+        dimensions: &WindowSize,
+    ) -> Self {
+        let text_length: u16 = elements.iter().map(|chunk| chunk.text.len() as u16).sum();
+        let mut line_length = dimensions.columns;
+        let mut start_column;
+        match style.alignment {
+            Alignment::Left { margin } => {
+                start_column = margin;
+                line_length -= margin * 2;
+            }
+            Alignment::Center { minimum_margin } => {
+                line_length = text_length.min(dimensions.columns - minimum_margin * 2);
+                if line_length > dimensions.columns {
+                    start_column = minimum_margin;
+                } else {
+                    start_column = (dimensions.columns - line_length) / 2;
+                    start_column = start_column.max(minimum_margin);
+                }
+            }
+        };
+        Self { handle, elements, start_column, line_length }
+    }
+
+    fn draw(self) -> io::Result<()> {
+        let mut length_so_far = 0;
+        self.handle.queue(cursor::MoveToColumn(self.start_column))?;
+        for &element in self.elements {
+            let (mut chunk, mut rest) = self.truncate(&element.text);
+            loop {
+                let mut styled = chunk.to_string().stylize();
+                if element.format.has_bold() {
+                    styled = styled.bold();
+                }
+                if element.format.has_italics() {
+                    styled = styled.italic();
+                }
+                length_so_far += styled.content().len() as u16;
+                if length_so_far > self.line_length {
+                    self.handle.queue(cursor::MoveDown(1))?;
+                    self.handle.queue(cursor::MoveToColumn(self.start_column))?;
+                }
+                self.handle.queue(style::PrintStyledContent(styled))?;
+                if rest.is_empty() {
+                    break;
+                }
+                (chunk, rest) = self.truncate(rest);
+            }
+        }
+        Ok(())
+    }
+
+    fn truncate(&self, word: &'a str) -> (&'a str, &'a str) {
+        let line_length = self.line_length as usize;
+        if word.len() <= line_length {
+            return (word, "");
+        }
+        let target_chunk = &word[0..line_length];
+        let output_chunk = match target_chunk.rsplit_once(' ') {
+            Some((before, _)) => before,
+            None => target_chunk,
+        };
+        (output_chunk, word[output_chunk.len()..].trim())
     }
 }
