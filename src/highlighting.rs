@@ -20,22 +20,29 @@ impl CodeHighlighter {
         Ok(Self { syntax_set, theme })
     }
 
-    pub fn highlight(&self, code: &str, language: &CodeLanguage) -> Vec<String> {
+    pub fn highlight<'a>(&self, code: &'a str, language: &CodeLanguage) -> Vec<CodeLine<'a>> {
         let extension = match language {
             CodeLanguage::Rust => "rs",
-            // huh?
-            CodeLanguage::Other => return vec![code.to_string()],
+            CodeLanguage::Other => {
+                return code.lines().map(|line| CodeLine { original: line, formatted: line.to_string() }).collect();
+            }
         };
         let syntax = self.syntax_set.find_syntax_by_extension(extension).unwrap();
         let mut highlight_lines = HighlightLines::new(syntax, &self.theme);
         let mut lines = Vec::new();
         for line in LinesWithEndings::from(code) {
             let ranges: Vec<(Style, &str)> = highlight_lines.highlight_line(line, &self.syntax_set).unwrap();
-            let escaped = as_24_bit_terminal_escaped(&ranges[..], false);
-            lines.push(escaped);
+            let escaped = as_24_bit_terminal_escaped(&ranges, true);
+            let code_line = CodeLine { original: line, formatted: escaped };
+            lines.push(code_line);
         }
         lines
     }
+}
+
+pub struct CodeLine<'a> {
+    pub original: &'a str,
+    pub formatted: String,
 }
 
 #[derive(Debug, thiserror::Error)]

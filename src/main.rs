@@ -60,8 +60,14 @@ fn main() {
     let highlighter = CodeHighlighter::new("base16-ocean.dark").expect("creating highlighter failed");
     let theme = SlideTheme {
         default_style: ElementStyle { alignment: Alignment::Left { margin: 5 } },
-        element_style: [(ElementType::SlideTitle, ElementStyle { alignment: Alignment::Center { minimum_margin: 5 } })]
-            .into(),
+        element_style: [
+            (
+                ElementType::SlideTitle,
+                ElementStyle { alignment: Alignment::Center { minimum_margin: 5, minimum_size: 0 } },
+            ),
+            (ElementType::Code, ElementStyle { alignment: Alignment::Center { minimum_margin: 0, minimum_size: 50 } }),
+        ]
+        .into(),
         colors: Colors { foreground: Some(Color::Black), background: Some(Color::Blue), code: Some(Color::DarkGreen) },
     };
 

@@ -1,6 +1,6 @@
 use crate::{
     elements::{Code, Element, FormattedText, ListItem, ListItemType, Text, TextChunk},
-    highlighting::CodeHighlighter,
+    highlighting::{CodeHighlighter, CodeLine},
     media::{DrawMedia, KittyTerminal},
     presentation::Slide,
     resource::Resources,
@@ -12,7 +12,7 @@ use crossterm::{
     terminal::{self, disable_raw_mode, enable_raw_mode, window_size, ClearType, WindowSize},
     QueueableCommand,
 };
-use std::{io, mem};
+use std::{io, iter, mem};
 
 pub struct Drawer<W: io::Write> {
     handle: W,
@@ -205,19 +205,27 @@ where
         let style = self.theme.style(&ElementType::Code);
         let start_column = match style.alignment {
             Alignment::Left { margin } => margin,
-            Alignment::Center { minimum_margin } => {
-                let max_line_length = code.contents.lines().map(|line| line.len()).max().unwrap_or(0);
+            Alignment::Center { minimum_margin, minimum_size } => {
+                let max_line_length =
+                    code.contents.lines().map(|line| line.len()).max().unwrap_or(0).max(minimum_size as usize);
                 let column = (self.dimensions.columns - max_line_length as u16) / 2;
                 column.max(minimum_margin)
             }
         };
-
         self.handle.queue(cursor::MoveToColumn(start_column))?;
-        for token_block in self.highlighter.highlight(&code.contents, &code.language) {
-            self.handle.queue(style::Print(&token_block))?;
-            if token_block.contains('\n') {
-                self.handle.queue(cursor::MoveToColumn(start_column))?;
-            }
+
+        let max_line_length = (self.dimensions.columns - start_column * 2) as usize;
+        for code_line in self.highlighter.highlight(&code.contents, &code.language) {
+            let CodeLine { original, mut formatted } = code_line;
+            let line_length = original.len();
+            let until_right_edge = max_line_length.saturating_sub(line_length);
+
+            // Pad this code block with spaces so we get a nice little rectangle.
+            formatted.pop();
+            formatted.extend(iter::repeat(" ").take(until_right_edge));
+            formatted.push('\n');
+            self.handle.queue(style::Print(&formatted))?;
+            self.handle.queue(cursor::MoveToColumn(start_column))?;
         }
         self.handle.queue(cursor::MoveDown(1))?;
         Ok(())
@@ -251,8 +259,8 @@ where
                 start_column = margin;
                 line_length -= margin * 2;
             }
-            Alignment::Center { minimum_margin } => {
-                line_length = text_length.min(dimensions.columns - minimum_margin * 2);
+            Alignment::Center { minimum_margin, minimum_size } => {
+                line_length = text_length.min(dimensions.columns - minimum_margin * 2).max(minimum_size);
                 if line_length > dimensions.columns {
                     start_column = minimum_margin;
                 } else {

@@ -20,7 +20,7 @@ pub struct ElementStyle {
 
 pub enum Alignment {
     Left { margin: u16 },
-    Center { minimum_margin: u16 },
+    Center { minimum_margin: u16, minimum_size: u16 },
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
