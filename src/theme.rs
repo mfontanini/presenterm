@@ -1,8 +1,11 @@
 use std::collections::BTreeMap;
 
+use crossterm::style::Color;
+
 pub struct SlideTheme {
     pub default_style: ElementStyle,
     pub element_style: BTreeMap<ElementType, ElementStyle>,
+    pub colors: Colors,
 }
 
 impl SlideTheme {
@@ -32,4 +35,10 @@ pub enum ElementType {
     Paragraph,
     List,
     Code,
+}
+
+pub struct Colors {
+    pub background: Option<Color>,
+    pub foreground: Option<Color>,
+    pub code: Option<Color>,
 }

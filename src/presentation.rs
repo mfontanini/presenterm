@@ -25,15 +25,21 @@ impl Presentation {
         &self.slides[self.current_slide_index]
     }
 
-    pub fn move_next_slide(&mut self) {
+    pub fn move_next_slide(&mut self) -> bool {
         if self.current_slide_index < self.slides.len() - 1 {
             self.current_slide_index += 1;
+            true
+        } else {
+            false
         }
     }
 
-    pub fn move_previous_slide(&mut self) {
+    pub fn move_previous_slide(&mut self) -> bool {
         if self.current_slide_index > 0 {
             self.current_slide_index -= 1;
+            true
+        } else {
+            false
         }
     }
 }

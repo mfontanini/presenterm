@@ -7,6 +7,6 @@ edition = "2021"
 base64 = "0.21"
 clap = { version = "4.4", features = ["derive"] }
 comrak = "0.18"
-crossterm = "0.27"
+crossterm = { version = "0.27", features = ["serde"] }
 syntect = "5.1"
 thiserror = "1"

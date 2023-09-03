@@ -1,5 +1,6 @@
 use clap::Parser;
 use comrak::{Arena, ComrakOptions};
+use crossterm::style::Color;
 use presenterm::{
     draw::Drawer,
     highlighting::CodeHighlighter,
@@ -7,7 +8,7 @@ use presenterm::{
     parse::SlideParser,
     presentation::Presentation,
     resource::Resources,
-    theme::{Alignment, ElementStyle, ElementType, SlideTheme},
+    theme::{Alignment, Colors, ElementStyle, ElementType, SlideTheme},
 };
 use std::{fs, io, path::PathBuf};
 
@@ -31,13 +32,15 @@ impl SlideShow {
 
             loop {
                 let Some(command) = Input::next_command()? else { continue; };
-                match command {
-                    Command::Redraw => (),
+                let needs_redraw = match command {
+                    Command::Redraw => true,
                     Command::NextSlide => presentation.move_next_slide(),
                     Command::PreviousSlide => presentation.move_previous_slide(),
                     Command::Exit => return Ok(()),
                 };
-                break;
+                if needs_redraw {
+                    break;
+                }
             }
         }
     }
@@ -54,11 +57,12 @@ fn main() {
     let presentation = Presentation::new(slides);
 
     let resources = Resources::default();
-    let highlighter = CodeHighlighter::new("Solarized (light)").expect("creating highlighter failed");
+    let highlighter = CodeHighlighter::new("base16-ocean.dark").expect("creating highlighter failed");
     let theme = SlideTheme {
         default_style: ElementStyle { alignment: Alignment::Left { margin: 5 } },
         element_style: [(ElementType::SlideTitle, ElementStyle { alignment: Alignment::Center { minimum_margin: 5 } })]
             .into(),
+        colors: Colors { foreground: Some(Color::Black), background: Some(Color::Blue), code: Some(Color::DarkGreen) },
     };
 
     let slideshow = SlideShow { resources, highlighter, theme };

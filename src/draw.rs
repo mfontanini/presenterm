@@ -4,7 +4,7 @@ use crate::{
     media::{DrawMedia, KittyTerminal},
     presentation::Slide,
     resource::Resources,
-    theme::{Alignment, ElementStyle, ElementType, SlideTheme},
+    theme::{Alignment, Colors, ElementStyle, ElementType, SlideTheme},
 };
 use crossterm::{
     cursor,
@@ -73,17 +73,22 @@ where
     }
 
     fn draw_slide(mut self, slide: &Slide) -> io::Result<()> {
+        self.apply_theme_colors()?;
         self.handle.queue(terminal::Clear(ClearType::All))?;
         self.handle.queue(cursor::MoveTo(0, 0))?;
         for element in &slide.elements {
+            self.apply_theme_colors()?;
             self.draw_element(element)?;
         }
         self.handle.flush()?;
         Ok(())
     }
 
+    fn apply_theme_colors(&mut self) -> io::Result<()> {
+        apply_colors(self.handle, &self.theme.colors)
+    }
+
     fn draw_element(&mut self, element: &Element) -> io::Result<()> {
-        self.handle.queue(cursor::MoveToColumn(0))?;
         match element {
             Element::SlideTitle { text } => self.draw_slide_title(text),
             Element::Heading { text, level } => self.draw_heading(text, *level),
@@ -98,12 +103,12 @@ where
         self.handle.queue(style::SetAttribute(style::Attribute::Bold))?;
         self.draw_text(text, ElementType::SlideTitle)?;
         self.handle.queue(style::SetAttribute(style::Attribute::Reset))?;
-        self.handle.queue(cursor::MoveDown(2))?;
-        self.handle.queue(cursor::MoveToColumn(0))?;
+        self.handle.queue(cursor::MoveToNextLine(2))?;
 
         let separator: String = "—".repeat(self.dimensions.columns as usize);
+        self.apply_theme_colors()?;
         self.handle.queue(style::Print(separator))?;
-        self.handle.queue(cursor::MoveDown(2))?;
+        self.handle.queue(cursor::MoveToNextLine(2))?;
         Ok(())
     }
 
@@ -113,13 +118,13 @@ where
         // TODO
         self.draw_text(text, ElementType::Heading1)?;
         self.handle.queue(style::SetAttribute(style::Attribute::Reset))?;
-        self.handle.queue(cursor::MoveDown(2))?;
+        self.handle.queue(cursor::MoveToNextLine(2))?;
         Ok(())
     }
 
     fn draw_paragraph(&mut self, text: &Text) -> io::Result<()> {
         self.draw_text(text, ElementType::Paragraph)?;
-        self.handle.queue(cursor::MoveDown(2))?;
+        self.handle.queue(cursor::MoveToNextLine(2))?;
         Ok(())
     }
 
@@ -137,8 +142,7 @@ where
                 }
                 TextChunk::LineBreak => {
                     self.draw_formatted_texts(&mem::take(&mut texts), style)?;
-                    self.handle.queue(cursor::MoveDown(1))?;
-                    self.handle.queue(cursor::MoveToColumn(0))?;
+                    self.handle.queue(cursor::MoveToNextLine(1))?;
                 }
             }
         }
@@ -150,7 +154,7 @@ where
         if text.is_empty() {
             return Ok(());
         }
-        let text_drawer = TextDrawer::new(style, &mut self.handle, text, &self.dimensions);
+        let text_drawer = TextDrawer::new(style, &mut self.handle, text, &self.dimensions, &self.theme.colors);
         text_drawer.draw()
     }
 
@@ -170,7 +174,6 @@ where
     fn draw_list_item(&mut self, item: &ListItem) -> io::Result<()> {
         let padding_length = (item.depth as usize + 1) * 2;
         let mut prefix: String = " ".repeat(padding_length);
-        self.handle.queue(cursor::MoveToColumn(0))?;
         match item.item_type {
             ListItemType::Unordered => {
                 let delimiter = match item.depth {
@@ -194,7 +197,7 @@ where
         let mut text = item.contents.clone();
         text.chunks.insert(0, TextChunk::Formatted(FormattedText::plain(prefix)));
         self.draw_text(&text, ElementType::List)?;
-        self.handle.queue(cursor::MoveDown(1))?;
+        self.handle.queue(cursor::MoveToNextLine(1))?;
         Ok(())
     }
 
@@ -217,7 +220,6 @@ where
             }
         }
         self.handle.queue(cursor::MoveDown(1))?;
-        self.handle.queue(style::ResetColor)?;
         Ok(())
     }
 }
@@ -227,6 +229,7 @@ struct TextDrawer<'a, W> {
     elements: &'a [&'a FormattedText],
     start_column: u16,
     line_length: u16,
+    default_colors: &'a Colors,
 }
 
 impl<'a, W> TextDrawer<'a, W>
@@ -238,6 +241,7 @@ where
         handle: &'a mut W,
         elements: &'a [&'a FormattedText],
         dimensions: &WindowSize,
+        default_colors: &'a Colors,
     ) -> Self {
         let text_length: u16 = elements.iter().map(|chunk| chunk.text.len() as u16).sum();
         let mut line_length = dimensions.columns;
@@ -257,7 +261,7 @@ where
                 }
             }
         };
-        Self { handle, elements, start_column, line_length }
+        Self { handle, elements, start_column, line_length, default_colors }
     }
 
     fn draw(self) -> io::Result<()> {
@@ -274,8 +278,10 @@ where
                     styled = styled.italic();
                 }
                 if element.format.has_code() {
-                    // TODO
-                    styled = styled.cyan().italic();
+                    styled = styled.italic();
+                    if let Some(color) = self.default_colors.code {
+                        styled = styled.with(color);
+                    }
                 }
                 length_so_far += styled.content().len() as u16;
                 if length_so_far > self.line_length {
@@ -283,6 +289,7 @@ where
                     self.handle.queue(cursor::MoveToColumn(self.start_column))?;
                 }
                 self.handle.queue(style::PrintStyledContent(styled))?;
+                apply_colors(self.handle, self.default_colors)?;
                 if rest.is_empty() {
                     break;
                 }
@@ -304,4 +311,14 @@ where
         };
         (output_chunk, word[output_chunk.len()..].trim())
     }
+}
+
+fn apply_colors<W: io::Write>(handle: &mut W, colors: &Colors) -> io::Result<()> {
+    if let Some(color) = colors.background {
+        handle.queue(style::SetBackgroundColor(color))?;
+    }
+    if let Some(color) = colors.foreground {
+        handle.queue(style::SetForegroundColor(color))?;
+    }
+    Ok(())
 }
