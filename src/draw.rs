@@ -1,10 +1,12 @@
 use crate::{
-    elements::{Code, Element, FormattedText, ListItem, ListItemType, Text, TextChunk},
+    elements::{
+        Code, Element, FormattedText, ListItem, ListItemType, PresentationMetadata, Text, TextChunk, TextFormat,
+    },
     highlighting::{CodeHighlighter, CodeLine},
     media::{DrawMedia, KittyTerminal},
     presentation::Slide,
     resource::Resources,
-    theme::{Alignment, Colors, ElementStyle, ElementType, SlideTheme},
+    theme::{Alignment, AuthorPositioning, Colors, ElementStyle, ElementType, SlideTheme},
 };
 use crossterm::{
     cursor,
@@ -90,12 +92,50 @@ where
 
     fn draw_element(&mut self, element: &Element) -> io::Result<()> {
         match element {
+            Element::PresentationMetadata(metadata) => self.draw_presentation_metadata(metadata),
             Element::SlideTitle { text } => self.draw_slide_title(text),
             Element::Heading { text, level } => self.draw_heading(text, *level),
             Element::Paragraph(text) => self.draw_paragraph(text),
             Element::List(items) => self.draw_list(items),
             Element::Code(code) => self.draw_code(code),
         }
+    }
+
+    fn draw_presentation_metadata(&mut self, metadata: &PresentationMetadata) -> io::Result<()> {
+        let center_row = self.dimensions.rows / 2;
+        let title = Text {
+            chunks: vec![TextChunk::Formatted(FormattedText::formatted(
+                metadata.title.clone(),
+                TextFormat::default().add_bold(),
+            ))],
+        };
+        let sub_title = metadata
+            .sub_title
+            .as_ref()
+            .map(|text| Text { chunks: vec![TextChunk::Formatted(FormattedText::plain(text.clone()))] });
+        let author = metadata
+            .author
+            .as_ref()
+            .map(|text| Text { chunks: vec![TextChunk::Formatted(FormattedText::plain(text.clone()))] });
+        self.handle.queue(cursor::MoveToRow(center_row))?;
+        self.draw_text(&title, ElementType::PresentationTitle)?;
+        self.handle.queue(cursor::MoveToNextLine(1))?;
+        if let Some(text) = sub_title {
+            self.draw_text(&text, ElementType::PresentationSubTitle)?;
+            self.handle.queue(cursor::MoveToNextLine(1))?;
+        }
+        if let Some(text) = author {
+            match self.theme.author_positioning {
+                AuthorPositioning::BelowTitle => {
+                    self.handle.queue(cursor::MoveToNextLine(3))?;
+                }
+                AuthorPositioning::PageBottom => {
+                    self.handle.queue(cursor::MoveToRow(self.dimensions.rows - 3))?;
+                }
+            };
+            self.draw_text(&text, ElementType::PresentationAuthor)?;
+        }
+        Ok(())
     }
 
     fn draw_slide_title(&mut self, text: &Text) -> io::Result<()> {

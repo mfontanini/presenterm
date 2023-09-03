@@ -1,5 +1,5 @@
 use clap::Parser;
-use comrak::{Arena, ComrakOptions};
+use comrak::Arena;
 use crossterm::style::Color;
 use presenterm::{
     draw::Drawer,
@@ -8,7 +8,7 @@ use presenterm::{
     parse::SlideParser,
     presentation::Presentation,
     resource::Resources,
-    theme::{Alignment, Colors, ElementStyle, ElementType, SlideTheme},
+    theme::{Alignment, AuthorPositioning, Colors, ElementStyle, ElementType, SlideTheme},
 };
 use std::{fs, io, path::PathBuf};
 
@@ -49,8 +49,7 @@ impl SlideShow {
 fn main() {
     let cli = Cli::parse();
     let arena = Arena::new();
-    let options = ComrakOptions::default();
-    let parser = SlideParser::new(&arena, options);
+    let parser = SlideParser::new(&arena);
 
     let content = fs::read_to_string(cli.path).expect("reading failed");
     let slides = parser.parse(&content).expect("parse failed");
@@ -66,9 +65,19 @@ fn main() {
                 ElementStyle { alignment: Alignment::Center { minimum_margin: 5, minimum_size: 0 } },
             ),
             (ElementType::Code, ElementStyle { alignment: Alignment::Center { minimum_margin: 0, minimum_size: 50 } }),
+            (
+                ElementType::PresentationTitle,
+                ElementStyle { alignment: Alignment::Center { minimum_margin: 0, minimum_size: 0 } },
+            ),
+            (
+                ElementType::PresentationSubTitle,
+                ElementStyle { alignment: Alignment::Center { minimum_margin: 0, minimum_size: 0 } },
+            ),
+            (ElementType::PresentationAuthor, ElementStyle { alignment: Alignment::Left { margin: 5 } }),
         ]
         .into(),
         colors: Colors { foreground: Some(Color::Black), background: Some(Color::Blue), code: Some(Color::DarkGreen) },
+        author_positioning: AuthorPositioning::PageBottom,
     };
 
     let slideshow = SlideShow { resources, highlighter, theme };

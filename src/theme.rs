@@ -6,6 +6,7 @@ pub struct SlideTheme {
     pub default_style: ElementStyle,
     pub element_style: BTreeMap<ElementType, ElementStyle>,
     pub colors: Colors,
+    pub author_positioning: AuthorPositioning,
 }
 
 impl SlideTheme {
@@ -35,10 +36,18 @@ pub enum ElementType {
     Paragraph,
     List,
     Code,
+    PresentationTitle,
+    PresentationSubTitle,
+    PresentationAuthor,
 }
 
 pub struct Colors {
     pub background: Option<Color>,
     pub foreground: Option<Color>,
     pub code: Option<Color>,
+}
+
+pub enum AuthorPositioning {
+    BelowTitle,
+    PageBottom,
 }

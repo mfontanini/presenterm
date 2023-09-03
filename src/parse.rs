@@ -10,14 +10,24 @@ use std::mem;
 
 type ParseResult<T> = Result<T, ParseError>;
 
+pub struct ParserOptions(ComrakOptions);
+
+impl Default for ParserOptions {
+    fn default() -> Self {
+        let mut options = ComrakOptions::default();
+        options.extension.front_matter_delimiter = Some("---".into());
+        Self(options)
+    }
+}
+
 pub struct SlideParser<'a> {
     arena: &'a Arena<AstNode<'a>>,
     options: ComrakOptions,
 }
 
 impl<'a> SlideParser<'a> {
-    pub fn new(arena: &'a Arena<AstNode<'a>>, options: ComrakOptions) -> Self {
-        Self { arena, options }
+    pub fn new(arena: &'a Arena<AstNode<'a>>) -> Self {
+        Self { arena, options: ParserOptions::default().0 }
     }
 
     pub fn parse(&self, document: &str) -> ParseResult<Vec<Slide>> {
@@ -30,10 +40,16 @@ impl<'a> SlideParser<'a> {
                 NodeValue::ThematicBreak => {
                     let slide = Slide::new(mem::take(&mut slide_elements));
                     slides.push(slide);
-                    continue;
                 }
                 _ => {
-                    slide_elements.push(Self::parse_element(node)?);
+                    let element = Self::parse_element(node)?;
+                    let is_metadata_slide = matches!(element, Element::PresentationMetadata(_));
+                    slide_elements.push(element);
+
+                    if is_metadata_slide {
+                        let slide = Slide::new(mem::take(&mut slide_elements));
+                        slides.push(slide);
+                    }
                 }
             };
         }
@@ -46,6 +62,7 @@ impl<'a> SlideParser<'a> {
     fn parse_element(node: &'a AstNode<'a>) -> ParseResult<Element> {
         let value = &node.data.borrow().value;
         match value {
+            NodeValue::FrontMatter(contents) => Self::parse_front_matter(contents),
             NodeValue::Heading(heading) => Self::parse_heading(heading, node),
             NodeValue::Paragraph => Self::parse_paragraph(node),
             NodeValue::List(_) => {
@@ -55,6 +72,17 @@ impl<'a> SlideParser<'a> {
             NodeValue::CodeBlock(block) => Self::parse_code_block(block),
             other => Err(ParseError::UnsupportedElement(other.identifier())),
         }
+    }
+
+    fn parse_front_matter(contents: &str) -> ParseResult<Element> {
+        // Remote leading and trailing delimiters before parsing. This is quite poopy but hey, it
+        // works.
+        let contents = contents.strip_prefix("---\n").unwrap_or(contents);
+        let contents = contents.strip_suffix("---\n").unwrap_or(contents);
+        let contents = contents.strip_suffix("---\n\n").unwrap_or(contents);
+        let title = serde_yaml::from_str(contents).map_err(|e| ParseError::InvalidMetadata(e.to_string()))?;
+        let element = Element::PresentationMetadata(title);
+        Ok(element)
     }
 
     fn parse_code_block(block: &NodeCodeBlock) -> ParseResult<Element> {
@@ -168,6 +196,9 @@ pub enum ParseError {
 
     #[error("only fenced code blocks are supported")]
     UnfencedCodeBlock,
+
+    #[error("invalid metadata: {0}")]
+    InvalidMetadata(String),
 }
 
 trait Identifier {
@@ -218,7 +249,10 @@ mod test {
 
     fn parse_single(input: &str) -> Element {
         let arena = Arena::new();
-        let root = parse_document(&arena, input, &ComrakOptions::default());
+        let root = parse_document(&arena, input, &ParserOptions::default().0);
+        for c in root.children() {
+            println!("{:?}", c.data.borrow());
+        }
         assert_eq!(root.children().count(), 1, "expected a single child");
 
         let result = SlideParser::parse_element(root.first_child().unwrap()).expect("parsing failed");
@@ -227,8 +261,24 @@ mod test {
 
     fn parse_slides(input: &str) -> Vec<Slide> {
         let arena = Arena::new();
-        let parser = SlideParser::new(&arena, ComrakOptions::default());
+        let parser = SlideParser::new(&arena);
         parser.parse(input).expect("parsing failed")
+    }
+
+    #[test]
+    fn slide_metadata() {
+        let parsed = parse_single(
+            r"---
+title: hello world
+sub_title: hola
+author: epic potato
+---
+",
+        );
+        let Element::PresentationMetadata(inner) = parsed else{ panic!("not a presentation title: {parsed:?}") };
+        assert_eq!(inner.title, "hello world");
+        assert_eq!(inner.sub_title, Some("hola".into()));
+        assert_eq!(inner.author, Some("epic potato".into()));
     }
 
     #[test]
@@ -374,5 +424,18 @@ Third
             let chunks = [TextChunk::Formatted(FormattedText::plain(expected))];
             assert_eq!(text.chunks, chunks);
         }
+    }
+
+    #[test]
+    fn metadata_creates_slide() {
+        let slides = parse_slides(
+            "---
+title: hallo
+---
+
+hi mom
+",
+        );
+        assert_eq!(slides.len(), 2);
     }
 }

@@ -1,5 +1,8 @@
+use serde::Deserialize;
+
 #[derive(Clone, Debug)]
 pub enum Element {
+    PresentationMetadata(PresentationMetadata),
     SlideTitle { text: Text },
     Heading { level: u8, text: Text },
     Paragraph(Text),
@@ -98,4 +101,15 @@ pub struct Code {
 pub enum CodeLanguage {
     Rust,
     Other,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+pub struct PresentationMetadata {
+    pub title: String,
+
+    #[serde(default)]
+    pub sub_title: Option<String>,
+
+    #[serde(default)]
+    pub author: Option<String>,
 }
