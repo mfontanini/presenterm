@@ -2,7 +2,7 @@ use clap::Parser;
 use comrak::Arena;
 use crossterm::style::Color;
 use presenterm::{
-    draw::Drawer,
+    draw::{DrawResult, Drawer},
     highlighting::CodeHighlighter,
     input::{Command, Input},
     parse::SlideParser,
@@ -24,7 +24,7 @@ struct SlideShow {
 }
 
 impl SlideShow {
-    fn present(mut self, mut presentation: Presentation) -> io::Result<()> {
+    fn present(mut self, mut presentation: Presentation) -> DrawResult {
         let mut drawer = Drawer::new(io::stdout())?;
         loop {
             let slide = presentation.current_slide();

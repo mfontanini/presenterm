@@ -3,7 +3,7 @@ use crate::{
         Code, Element, FormattedText, ListItem, ListItemType, PresentationMetadata, Text, TextChunk, TextFormat,
     },
     highlighting::{CodeHighlighter, CodeLine},
-    media::{DrawMedia, KittyTerminal},
+    media::MediaDrawer,
     presentation::Slide,
     resource::Resources,
     theme::{Alignment, AuthorPositioning, Colors, ElementStyle, ElementType, SlideTheme},
@@ -15,6 +15,8 @@ use crossterm::{
     QueueableCommand,
 };
 use std::{io, iter, mem};
+
+pub type DrawResult = Result<(), DrawSlideError>;
 
 pub struct Drawer<W: io::Write> {
     handle: W,
@@ -36,8 +38,12 @@ where
         highlighter: &'a CodeHighlighter,
         theme: &'a SlideTheme,
         slide: &Slide,
-    ) -> io::Result<()> {
-        let slide_drawer = SlideDrawer::new(&mut self.handle, resources, highlighter, theme)?;
+    ) -> DrawResult {
+        // Leave some room for eventual footer
+        let mut dimensions = window_size()?;
+        dimensions.rows -= 3;
+
+        let slide_drawer = SlideDrawer { handle: &mut self.handle, resources, highlighter, theme, dimensions };
         slide_drawer.draw_slide(slide)
     }
 }
@@ -64,17 +70,7 @@ impl<'a, W> SlideDrawer<'a, W>
 where
     W: io::Write,
 {
-    fn new(
-        handle: &'a mut W,
-        resources: &'a mut Resources,
-        highlighter: &'a CodeHighlighter,
-        theme: &'a SlideTheme,
-    ) -> io::Result<Self> {
-        let dimensions = window_size()?;
-        Ok(Self { handle, resources, highlighter, theme, dimensions })
-    }
-
-    fn draw_slide(mut self, slide: &Slide) -> io::Result<()> {
+    fn draw_slide(mut self, slide: &Slide) -> DrawResult {
         self.apply_theme_colors()?;
         self.handle.queue(terminal::Clear(ClearType::All))?;
         self.handle.queue(cursor::MoveTo(0, 0))?;
@@ -90,7 +86,7 @@ where
         apply_colors(self.handle, &self.theme.colors)
     }
 
-    fn draw_element(&mut self, element: &Element) -> io::Result<()> {
+    fn draw_element(&mut self, element: &Element) -> DrawResult {
         match element {
             Element::PresentationMetadata(metadata) => self.draw_presentation_metadata(metadata),
             Element::SlideTitle { text } => self.draw_slide_title(text),
@@ -101,7 +97,7 @@ where
         }
     }
 
-    fn draw_presentation_metadata(&mut self, metadata: &PresentationMetadata) -> io::Result<()> {
+    fn draw_presentation_metadata(&mut self, metadata: &PresentationMetadata) -> DrawResult {
         let center_row = self.dimensions.rows / 2;
         let title = Text {
             chunks: vec![TextChunk::Formatted(FormattedText::formatted(
@@ -130,7 +126,7 @@ where
                     self.handle.queue(cursor::MoveToNextLine(3))?;
                 }
                 AuthorPositioning::PageBottom => {
-                    self.handle.queue(cursor::MoveToRow(self.dimensions.rows - 3))?;
+                    self.handle.queue(cursor::MoveToRow(self.dimensions.rows))?;
                 }
             };
             self.draw_text(&text, ElementType::PresentationAuthor)?;
@@ -138,7 +134,7 @@ where
         Ok(())
     }
 
-    fn draw_slide_title(&mut self, text: &Text) -> io::Result<()> {
+    fn draw_slide_title(&mut self, text: &Text) -> DrawResult {
         self.handle.queue(cursor::MoveDown(1))?;
         self.handle.queue(style::SetAttribute(style::Attribute::Bold))?;
         self.draw_text(text, ElementType::SlideTitle)?;
@@ -152,7 +148,7 @@ where
         Ok(())
     }
 
-    fn draw_heading(&mut self, text: &Text, _level: u8) -> io::Result<()> {
+    fn draw_heading(&mut self, text: &Text, _level: u8) -> DrawResult {
         // TODO handle level
         self.handle.queue(style::SetAttribute(style::Attribute::Bold))?;
         // TODO
@@ -162,13 +158,13 @@ where
         Ok(())
     }
 
-    fn draw_paragraph(&mut self, text: &Text) -> io::Result<()> {
+    fn draw_paragraph(&mut self, text: &Text) -> DrawResult {
         self.draw_text(text, ElementType::Paragraph)?;
         self.handle.queue(cursor::MoveToNextLine(2))?;
         Ok(())
     }
 
-    fn draw_text(&mut self, text: &Text, parent_element: ElementType) -> io::Result<()> {
+    fn draw_text(&mut self, text: &Text, parent_element: ElementType) -> DrawResult {
         let style = self.theme.style(&parent_element);
         let mut texts = Vec::new();
         for chunk in text.chunks.iter() {
@@ -190,7 +186,7 @@ where
         Ok(())
     }
 
-    fn draw_formatted_texts(&mut self, text: &[&FormattedText], style: &ElementStyle) -> io::Result<()> {
+    fn draw_formatted_texts(&mut self, text: &[&FormattedText], style: &ElementStyle) -> DrawResult {
         if text.is_empty() {
             return Ok(());
         }
@@ -198,12 +194,13 @@ where
         text_drawer.draw()
     }
 
-    fn draw_image(&mut self, path: &str) -> io::Result<()> {
-        let image = self.resources.image(path)?;
-        KittyTerminal.draw_image(&image, &mut self.handle)
+    fn draw_image(&mut self, path: &str) -> Result<(), DrawSlideError> {
+        let image = self.resources.image(path).map_err(|e| DrawSlideError::Other(Box::new(e)))?;
+        MediaDrawer.draw_image(&image, &self.dimensions).map_err(|e| DrawSlideError::Other(Box::new(e)))?;
+        Ok(())
     }
 
-    fn draw_list(&mut self, items: &[ListItem]) -> io::Result<()> {
+    fn draw_list(&mut self, items: &[ListItem]) -> DrawResult {
         for item in items {
             self.draw_list_item(item)?;
         }
@@ -211,7 +208,7 @@ where
         Ok(())
     }
 
-    fn draw_list_item(&mut self, item: &ListItem) -> io::Result<()> {
+    fn draw_list_item(&mut self, item: &ListItem) -> DrawResult {
         let padding_length = (item.depth as usize + 1) * 2;
         let mut prefix: String = " ".repeat(padding_length);
         match item.item_type {
@@ -241,7 +238,7 @@ where
         Ok(())
     }
 
-    fn draw_code(&mut self, code: &Code) -> io::Result<()> {
+    fn draw_code(&mut self, code: &Code) -> DrawResult {
         let style = self.theme.style(&ElementType::Code);
         let start_column = match style.alignment {
             Alignment::Left { margin } => margin,
@@ -312,7 +309,7 @@ where
         Self { handle, elements, start_column, line_length, default_colors }
     }
 
-    fn draw(self) -> io::Result<()> {
+    fn draw(self) -> DrawResult {
         let mut length_so_far = 0;
         self.handle.queue(cursor::MoveToColumn(self.start_column))?;
         for &element in self.elements {
@@ -369,4 +366,13 @@ fn apply_colors<W: io::Write>(handle: &mut W, colors: &Colors) -> io::Result<()>
         handle.queue(style::SetForegroundColor(color))?;
     }
     Ok(())
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum DrawSlideError {
+    #[error("io: {0}")]
+    Io(#[from] io::Error),
+
+    #[error(transparent)]
+    Other(Box<dyn std::error::Error>),
 }
