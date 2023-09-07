@@ -7,6 +7,7 @@ impl Input {
     pub fn next_command() -> io::Result<Option<Command>> {
         match read()? {
             Event::Key(event) => Ok(Self::handle_key_event(&event)),
+            Event::Resize(..) => Ok(Some(Command::Redraw)),
             _ => Ok(None),
         }
     }
