@@ -1,6 +1,5 @@
-use clap::Parser;
+use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
-use crossterm::style::Color;
 use presenterm::{
     draw::{DrawResult, Drawer},
     highlighting::CodeHighlighter,
@@ -8,13 +7,16 @@ use presenterm::{
     parse::SlideParser,
     presentation::Presentation,
     resource::Resources,
-    theme::{Alignment, AuthorPositioning, Colors, ElementStyle, ElementType, SlideTheme},
+    theme::SlideTheme,
 };
 use std::{fs, io, path::PathBuf};
 
 #[derive(Parser)]
 struct Cli {
     path: PathBuf,
+
+    #[clap(default_value = "dark")]
+    theme: String,
 }
 
 struct SlideShow {
@@ -52,6 +54,15 @@ impl SlideShow {
 
 fn main() {
     let cli = Cli::parse();
+    let Some(theme) = SlideTheme::from_name(&cli.theme) else {
+        let mut cmd = Cli::command();
+            cmd.error(
+                ErrorKind::InvalidValue,
+                "invalid theme name",
+            )
+            .exit();
+    };
+
     let arena = Arena::new();
     let parser = SlideParser::new(&arena);
 
@@ -61,28 +72,6 @@ fn main() {
 
     let resources = Resources::default();
     let highlighter = CodeHighlighter::new("base16-ocean.dark").expect("creating highlighter failed");
-    let theme = SlideTheme {
-        default_style: ElementStyle { alignment: Alignment::Left { margin: 5 } },
-        element_style: [
-            (
-                ElementType::SlideTitle,
-                ElementStyle { alignment: Alignment::Center { minimum_margin: 5, minimum_size: 0 } },
-            ),
-            (ElementType::Code, ElementStyle { alignment: Alignment::Center { minimum_margin: 0, minimum_size: 50 } }),
-            (
-                ElementType::PresentationTitle,
-                ElementStyle { alignment: Alignment::Center { minimum_margin: 0, minimum_size: 0 } },
-            ),
-            (
-                ElementType::PresentationSubTitle,
-                ElementStyle { alignment: Alignment::Center { minimum_margin: 0, minimum_size: 0 } },
-            ),
-            (ElementType::PresentationAuthor, ElementStyle { alignment: Alignment::Left { margin: 5 } }),
-        ]
-        .into(),
-        colors: Colors { foreground: Some(Color::Black), background: Some(Color::Blue), code: Some(Color::DarkGreen) },
-        author_positioning: AuthorPositioning::PageBottom,
-    };
     let input = Input::default();
 
     let slideshow = SlideShow { resources, highlighter, theme, input };

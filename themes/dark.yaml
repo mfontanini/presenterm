@@ -1,0 +1,24 @@
+default_style:
+  alignment: Left
+  margin: 5
+
+element_style:
+  slide_title:
+    alignment: Center
+  code:
+    alignment: Center
+    minimum_size: 50
+  presentation_title:
+    alignment: Center
+  presentation_sub_title:
+    alignment: Center
+  presentation_author:
+    alignment: Center
+
+colors:
+  foreground: white
+  background: black
+  code: dark_green
+
+author_positioning: PageBottom
+

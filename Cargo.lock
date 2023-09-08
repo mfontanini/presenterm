@@ -883,6 +883,7 @@ dependencies = [
  "comrak",
  "crossterm 0.27.0",
  "image",
+ "once_cell",
  "serde",
  "serde_yaml",
  "syntect",
