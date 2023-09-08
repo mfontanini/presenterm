@@ -25,7 +25,7 @@ impl Presentation {
         &self.slides[self.current_slide_index]
     }
 
-    pub fn move_next_slide(&mut self) -> bool {
+    pub fn jump_next_slide(&mut self) -> bool {
         if self.current_slide_index < self.slides.len() - 1 {
             self.current_slide_index += 1;
             true
@@ -34,9 +34,37 @@ impl Presentation {
         }
     }
 
-    pub fn move_previous_slide(&mut self) -> bool {
+    pub fn jump_previous_slide(&mut self) -> bool {
         if self.current_slide_index > 0 {
             self.current_slide_index -= 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn jump_first_slide(&mut self) -> bool {
+        if self.current_slide_index != 0 {
+            self.current_slide_index = 0;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn jump_last_slide(&mut self) -> bool {
+        let last_slide_index = self.slides.len().saturating_sub(1);
+        if self.current_slide_index != last_slide_index {
+            self.current_slide_index = last_slide_index;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn jump_slide(&mut self, slide_index: usize) -> bool {
+        if slide_index < self.slides.len() {
+            self.current_slide_index = slide_index;
             true
         } else {
             false

@@ -21,6 +21,7 @@ struct SlideShow {
     resources: Resources,
     highlighter: CodeHighlighter,
     theme: SlideTheme,
+    input: Input,
 }
 
 impl SlideShow {
@@ -31,11 +32,14 @@ impl SlideShow {
             drawer.draw_slide(&mut self.resources, &self.highlighter, &self.theme, slide)?;
 
             loop {
-                let Some(command) = Input::next_command()? else { continue; };
+                let Some(command) = self.input.next_command()? else { continue; };
                 let needs_redraw = match command {
                     Command::Redraw => true,
-                    Command::NextSlide => presentation.move_next_slide(),
-                    Command::PreviousSlide => presentation.move_previous_slide(),
+                    Command::JumpNextSlide => presentation.jump_next_slide(),
+                    Command::JumpPreviousSlide => presentation.jump_previous_slide(),
+                    Command::JumpFirstSlide => presentation.jump_first_slide(),
+                    Command::JumpLastSlide => presentation.jump_last_slide(),
+                    Command::JumpSlide(number) => presentation.jump_slide(number.saturating_sub(1) as usize),
                     Command::Exit => return Ok(()),
                 };
                 if needs_redraw {
@@ -79,8 +83,9 @@ fn main() {
         colors: Colors { foreground: Some(Color::Black), background: Some(Color::Blue), code: Some(Color::DarkGreen) },
         author_positioning: AuthorPositioning::PageBottom,
     };
+    let input = Input::default();
 
-    let slideshow = SlideShow { resources, highlighter, theme };
+    let slideshow = SlideShow { resources, highlighter, theme, input };
     if let Err(e) = slideshow.present(presentation) {
         eprintln!("Error running slideshow: {e}");
     };
