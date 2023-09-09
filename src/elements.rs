@@ -8,11 +8,25 @@ pub enum Element {
     Paragraph(Text),
     List(Vec<ListItem>),
     Code(Code),
+    Table { header: TableRow, rows: Vec<TableRow> },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Text {
     pub chunks: Vec<TextChunk>,
+}
+
+impl Text {
+    pub fn line_len(&self) -> usize {
+        let mut total = 0;
+        for chunk in &self.chunks {
+            // TODO: what about the others?
+            if let TextChunk::Formatted(text) = &chunk {
+                total += text.text.len();
+            }
+        }
+        total
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -113,3 +127,6 @@ pub struct PresentationMetadata {
     #[serde(default)]
     pub author: Option<String>,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TableRow(pub Vec<Text>);

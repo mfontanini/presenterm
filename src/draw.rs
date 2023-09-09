@@ -1,6 +1,7 @@
 use crate::{
     elements::{
-        Code, Element, FormattedText, ListItem, ListItemType, PresentationMetadata, Text, TextChunk, TextFormat,
+        Code, Element, FormattedText, ListItem, ListItemType, PresentationMetadata, TableRow, Text, TextChunk,
+        TextFormat,
     },
     highlighting::{CodeHighlighter, CodeLine},
     media::MediaDrawer,
@@ -94,6 +95,7 @@ where
             Element::Paragraph(text) => self.draw_paragraph(text),
             Element::List(items) => self.draw_list(items),
             Element::Code(code) => self.draw_code(code),
+            Element::Table { header, rows } => self.draw_table(header, rows),
         }
     }
 
@@ -267,6 +269,64 @@ where
         self.handle.queue(cursor::MoveDown(1))?;
         Ok(())
     }
+
+    fn draw_table(&mut self, header: &TableRow, rows: &[TableRow]) -> DrawResult {
+        let widths = Self::calculate_table_column_width(header, rows)?;
+        let flattened_header = Self::prepare_table_row(header, &widths);
+        self.draw_text(&flattened_header, ElementType::Table)?;
+        self.handle.queue(cursor::MoveToNextLine(1))?;
+
+        let mut separator = Text { chunks: Vec::new() };
+        for (index, width) in widths.iter().enumerate() {
+            let mut contents = String::new();
+            let mut extra_lines = 1;
+            if index > 0 {
+                contents.push('┼');
+                extra_lines += 1;
+            }
+            contents.extend(iter::repeat("─").take(*width + extra_lines));
+            separator.chunks.push(TextChunk::Formatted(FormattedText::plain(contents)));
+        }
+        // let separator = Text { chunks: vec![] };
+        self.draw_text(&separator, ElementType::Table)?;
+        self.handle.queue(cursor::MoveToNextLine(1))?;
+
+        for row in rows {
+            let flattened_row = Self::prepare_table_row(row, &widths);
+            self.draw_text(&flattened_row, ElementType::Table)?;
+            self.handle.queue(cursor::MoveToNextLine(1))?;
+        }
+        Ok(())
+    }
+
+    fn prepare_table_row(row: &TableRow, widths: &[usize]) -> Text {
+        let mut flattened_row = Text { chunks: Vec::new() };
+        for (column, text) in row.0.iter().enumerate() {
+            if column > 0 {
+                flattened_row.chunks.push(TextChunk::Formatted(FormattedText::plain(" │ ")));
+            }
+            flattened_row.chunks.extend(text.chunks.iter().cloned());
+
+            let text_length = text.line_len();
+            let cell_width = widths[column];
+            if text_length < cell_width {
+                let padding = " ".repeat(cell_width - text_length);
+                flattened_row.chunks.push(TextChunk::Formatted(FormattedText::plain(padding)));
+            }
+        }
+        flattened_row
+    }
+
+    fn calculate_table_column_width(header: &TableRow, rows: &[TableRow]) -> Result<Vec<usize>, DrawSlideError> {
+        let mut widths = Vec::new();
+        for (column, header_element) in header.0.iter().enumerate() {
+            let row_elements = rows.iter().map(|row| &row.0[column]);
+            let max_width =
+                iter::once(header_element).chain(row_elements).map(|text| text.line_len()).max().unwrap_or(0);
+            widths.push(max_width);
+        }
+        Ok(widths)
+    }
 }
 
 struct TextDrawer<'a, W> {
@@ -372,6 +432,9 @@ fn apply_colors<W: io::Write>(handle: &mut W, colors: &Colors) -> io::Result<()>
 pub enum DrawSlideError {
     #[error("io: {0}")]
     Io(#[from] io::Error),
+
+    #[error("unsupported structure: {0}")]
+    UnsupportedStructure(&'static str),
 
     #[error(transparent)]
     Other(Box<dyn std::error::Error>),

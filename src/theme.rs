@@ -62,6 +62,7 @@ pub enum ElementType {
     PresentationTitle,
     PresentationSubTitle,
     PresentationAuthor,
+    Table,
 }
 
 #[derive(Debug, Deserialize)]

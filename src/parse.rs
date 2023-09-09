@@ -1,5 +1,7 @@
 use crate::{
-    elements::{Code, CodeLanguage, Element, FormattedText, ListItem, ListItemType, Text, TextChunk, TextFormat},
+    elements::{
+        Code, CodeLanguage, Element, FormattedText, ListItem, ListItemType, TableRow, Text, TextChunk, TextFormat,
+    },
     presentation::Slide,
 };
 use comrak::{
@@ -16,6 +18,7 @@ impl Default for ParserOptions {
     fn default() -> Self {
         let mut options = ComrakOptions::default();
         options.extension.front_matter_delimiter = Some("---".into());
+        options.extension.table = true;
         Self(options)
     }
 }
@@ -69,6 +72,7 @@ impl<'a> SlideParser<'a> {
                 let items = Self::parse_list(node, 0)?;
                 Ok(Element::List(items))
             }
+            NodeValue::Table(_) => Self::parse_table(node),
             NodeValue::CodeBlock(block) => Self::parse_code_block(block),
             other => Err(ParseError::UnsupportedElement(other.identifier())),
         }
@@ -183,6 +187,37 @@ impl<'a> SlideParser<'a> {
             }
         }
         Ok(elements)
+    }
+
+    fn parse_table(node: &'a AstNode<'a>) -> ParseResult<Element> {
+        let mut header = TableRow(Vec::new());
+        let mut rows = Vec::new();
+        for node in node.children() {
+            let value = &node.data.borrow().value;
+            let NodeValue::TableRow(_) = value else {
+                return Err(ParseError::UnsupportedStructure{container: "table", element: value.identifier() });
+            };
+            let row = Self::parse_table_row(node)?;
+            if header.0.is_empty() {
+                header = row;
+            } else {
+                rows.push(row)
+            }
+        }
+        Ok(Element::Table { header, rows })
+    }
+
+    fn parse_table_row(node: &'a AstNode<'a>) -> ParseResult<TableRow> {
+        let mut cells = Vec::new();
+        for node in node.children() {
+            let value = &node.data.borrow().value;
+            let NodeValue::TableCell = value else {
+                return Err(ParseError::UnsupportedStructure{container: "table", element: value.identifier() });
+            };
+            let text = Self::parse_text(node)?;
+            cells.push(text);
+        }
+        Ok(TableRow(cells))
     }
 }
 
@@ -398,6 +433,23 @@ let q = 42;
             TextChunk::Formatted(FormattedText::formatted("inline code", TextFormat::default().add_code())),
         ];
         assert_eq!(text.chunks, expected_chunks);
+    }
+
+    #[test]
+    fn table() {
+        let parsed = parse_single(
+            r"
+| Name | Taste |
+| ------ | ------ |
+| Potato | Great |
+| Carrot | Yuck |
+",
+        );
+        let Element::Table{header, rows} = parsed else { panic!("not a table: {parsed:?}") };
+        assert_eq!(header.0.len(), 2);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].0.len(), 2);
+        assert_eq!(rows[1].0.len(), 2);
     }
 
     #[test]
