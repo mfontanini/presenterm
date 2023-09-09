@@ -25,6 +25,14 @@ impl Presentation {
         &self.slides[self.current_slide_index]
     }
 
+    pub fn current_slide_index(&self) -> usize {
+        self.current_slide_index
+    }
+
+    pub fn total_slides(&self) -> usize {
+        self.slides.len()
+    }
+
     pub fn jump_next_slide(&mut self) -> bool {
         if self.current_slide_index < self.slides.len() - 1 {
             self.current_slide_index += 1;

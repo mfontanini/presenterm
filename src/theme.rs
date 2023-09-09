@@ -7,9 +7,16 @@ include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 #[derive(Debug, Deserialize)]
 pub struct SlideTheme {
     pub default_style: ElementStyle,
+
+    #[serde(default)]
     pub element_style: BTreeMap<ElementType, ElementStyle>,
+
     pub colors: Colors,
+
     pub author_positioning: AuthorPositioning,
+
+    #[serde(default = "default_footer_template")]
+    pub footer_template: Option<String>,
 }
 
 impl SlideTheme {
@@ -76,6 +83,10 @@ pub struct Colors {
 pub enum AuthorPositioning {
     BelowTitle,
     PageBottom,
+}
+
+fn default_footer_template() -> Option<String> {
+    Some("{current_slide} / {total_slides}".to_string())
 }
 
 #[cfg(test)]

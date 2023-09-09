@@ -31,7 +31,7 @@ impl SlideShow {
         let mut drawer = Drawer::new(io::stdout())?;
         loop {
             let slide = presentation.current_slide();
-            drawer.draw_slide(&mut self.resources, &self.highlighter, &self.theme, slide)?;
+            drawer.draw_slide(&mut self.resources, &self.highlighter, &self.theme, slide, &presentation)?;
 
             loop {
                 let Some(command) = self.input.next_command()? else { continue; };

@@ -5,7 +5,7 @@ use crate::{
     },
     highlighting::{CodeHighlighter, CodeLine},
     media::MediaDrawer,
-    presentation::Slide,
+    presentation::{Presentation, Slide},
     resource::Resources,
     theme::{Alignment, AuthorPositioning, Colors, ElementStyle, ElementType, SlideTheme},
 };
@@ -39,13 +39,29 @@ where
         highlighter: &'a CodeHighlighter,
         theme: &'a SlideTheme,
         slide: &Slide,
+        presentation: &'a Presentation,
     ) -> DrawResult {
-        // Leave some room for eventual footer
-        let mut dimensions = window_size()?;
-        dimensions.rows -= 3;
+        let dimensions = window_size()?;
+        let slide_dimensions = WindowSize {
+            rows: dimensions.rows - 3,
+            columns: dimensions.columns,
+            width: dimensions.width,
+            height: dimensions.height,
+        };
 
-        let slide_drawer = SlideDrawer { handle: &mut self.handle, resources, highlighter, theme, dimensions };
-        slide_drawer.draw_slide(slide)
+        let slide_drawer =
+            SlideDrawer { handle: &mut self.handle, resources, highlighter, theme, dimensions: slide_dimensions };
+        slide_drawer.draw_slide(slide)?;
+
+        if let Some(template) = &theme.footer_template {
+            let current_slide = (presentation.current_slide_index() + 1).to_string();
+            let total_slides = presentation.total_slides().to_string();
+            let footer = template.replace("{current_slide}", &current_slide).replace("{total_slides}", &total_slides);
+            self.handle.queue(cursor::MoveTo(0, dimensions.rows - 1))?;
+            self.handle.queue(style::Print(footer))?;
+        }
+        self.handle.flush()?;
+        Ok(())
     }
 }
 
@@ -79,7 +95,6 @@ where
             self.apply_theme_colors()?;
             self.draw_element(element)?;
         }
-        self.handle.flush()?;
         Ok(())
     }
 
