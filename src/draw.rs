@@ -7,7 +7,7 @@ use crate::{
     media::MediaDrawer,
     presentation::{Presentation, Slide},
     resource::Resources,
-    theme::{Alignment, AuthorPositioning, Colors, ElementStyle, ElementType, SlideTheme},
+    theme::{Alignment, AuthorPositioning, Colors, ElementType, SlideTheme},
 };
 use crossterm::{
     cursor,
@@ -53,7 +53,7 @@ where
             SlideDrawer { handle: &mut self.handle, resources, highlighter, theme, dimensions: slide_dimensions };
         slide_drawer.draw_slide(slide)?;
 
-        if let Some(template) = &theme.footer_template {
+        if let Some(template) = &theme.styles.footer.template {
             let current_slide = (presentation.current_slide_index() + 1).to_string();
             let total_slides = presentation.total_slides().to_string();
             let footer = template.replace("{current_slide}", &current_slide).replace("{total_slides}", &total_slides);
@@ -99,7 +99,7 @@ where
     }
 
     fn apply_theme_colors(&mut self) -> io::Result<()> {
-        apply_colors(self.handle, &self.theme.colors)
+        apply_colors(self.handle, &self.theme.styles.default_style.colors)
     }
 
     fn draw_element(&mut self, element: &Element) -> DrawResult {
@@ -138,7 +138,7 @@ where
             self.handle.queue(cursor::MoveToNextLine(1))?;
         }
         if let Some(text) = author {
-            match self.theme.author_positioning {
+            match self.theme.styles.presentation.author.positioning {
                 AuthorPositioning::BelowTitle => {
                     self.handle.queue(cursor::MoveToNextLine(3))?;
                 }
@@ -182,7 +182,7 @@ where
     }
 
     fn draw_text(&mut self, text: &Text, parent_element: ElementType) -> DrawResult {
-        let style = self.theme.style(&parent_element);
+        let alignment = self.theme.alignment(&parent_element);
         let mut texts = Vec::new();
         for chunk in text.chunks.iter() {
             match chunk {
@@ -190,25 +190,31 @@ where
                     texts.push(text);
                 }
                 TextChunk::Image { url, .. } => {
-                    self.draw_formatted_texts(&mem::take(&mut texts), style)?;
+                    self.draw_formatted_texts(&mem::take(&mut texts), alignment)?;
                     self.draw_image(url)?;
                 }
                 TextChunk::LineBreak => {
-                    self.draw_formatted_texts(&mem::take(&mut texts), style)?;
+                    self.draw_formatted_texts(&mem::take(&mut texts), alignment)?;
                     self.handle.queue(cursor::MoveToNextLine(1))?;
                 }
             }
         }
-        self.draw_formatted_texts(&mem::take(&mut texts), style)?;
+        self.draw_formatted_texts(&mem::take(&mut texts), alignment)?;
         Ok(())
     }
 
-    fn draw_formatted_texts(&mut self, text: &[&FormattedText], style: &ElementStyle) -> DrawResult {
+    fn draw_formatted_texts(&mut self, text: &[&FormattedText], alignment: &Alignment) -> DrawResult {
         if text.is_empty() {
             return Ok(());
         }
-        let text_drawer = TextDrawer::new(style, &mut self.handle, text, &self.dimensions, &self.theme.colors);
-        text_drawer.draw()
+        let text_drawer = TextDrawer::new(
+            alignment,
+            &mut self.handle,
+            text,
+            &self.dimensions,
+            &self.theme.styles.default_style.colors,
+        );
+        text_drawer.draw(self.theme)
     }
 
     fn draw_image(&mut self, path: &str) -> Result<(), DrawSlideError> {
@@ -256,8 +262,8 @@ where
     }
 
     fn draw_code(&mut self, code: &Code) -> DrawResult {
-        let style = self.theme.style(&ElementType::Code);
-        let start_column = match style.alignment {
+        let style = self.theme.alignment(&ElementType::Code);
+        let start_column = match *style {
             Alignment::Left { margin } => margin,
             Alignment::Center { minimum_margin, minimum_size } => {
                 let max_line_length =
@@ -357,7 +363,7 @@ where
     W: io::Write,
 {
     fn new(
-        style: &'a ElementStyle,
+        alignment: &'a Alignment,
         handle: &'a mut W,
         elements: &'a [&'a FormattedText],
         dimensions: &WindowSize,
@@ -366,7 +372,7 @@ where
         let text_length: u16 = elements.iter().map(|chunk| chunk.text.len() as u16).sum();
         let mut line_length = dimensions.columns;
         let mut start_column;
-        match style.alignment {
+        match *alignment {
             Alignment::Left { margin } => {
                 start_column = margin;
                 line_length -= margin * 2;
@@ -384,7 +390,7 @@ where
         Self { handle, elements, start_column, line_length, default_colors }
     }
 
-    fn draw(self) -> DrawResult {
+    fn draw(self, theme: &SlideTheme) -> DrawResult {
         let mut length_so_far = 0;
         self.handle.queue(cursor::MoveToColumn(self.start_column))?;
         for &element in self.elements {
@@ -402,8 +408,11 @@ where
                 }
                 if element.format.has_code() {
                     styled = styled.italic();
-                    if let Some(color) = self.default_colors.code {
-                        styled = styled.with(color);
+                    if let Some(color) = &theme.styles.code.colors.foreground {
+                        styled = styled.with(*color);
+                    }
+                    if let Some(color) = &theme.styles.code.colors.background {
+                        styled = styled.on(*color);
                     }
                 }
                 length_so_far += styled.content().len() as u16;

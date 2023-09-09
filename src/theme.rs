@@ -1,22 +1,11 @@
 use crossterm::style::Color;
 use serde::Deserialize;
-use std::collections::BTreeMap;
 
 include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 
 #[derive(Debug, Deserialize)]
 pub struct SlideTheme {
-    pub default_style: ElementStyle,
-
-    #[serde(default)]
-    pub element_style: BTreeMap<ElementType, ElementStyle>,
-
-    pub colors: Colors,
-
-    pub author_positioning: AuthorPositioning,
-
-    #[serde(default = "default_footer_template")]
-    pub footer_template: Option<String>,
+    pub styles: Styles,
 }
 
 impl SlideTheme {
@@ -26,18 +15,79 @@ impl SlideTheme {
         Some(serde_yaml::from_slice(contents).expect("corrupted theme"))
     }
 
-    pub fn style(&self, element: &ElementType) -> &ElementStyle {
-        self.element_style.get(element).unwrap_or(&self.default_style)
+    pub fn alignment(&self, element: &ElementType) -> &Alignment {
+        use ElementType::*;
+
+        let alignment = match element {
+            SlideTitle => &self.styles.slide_title,
+            Heading1 => &self.styles.headings.h1,
+            Paragraph => &self.styles.paragraph,
+            List => &self.styles.list,
+            Code => &self.styles.code.alignment,
+            PresentationTitle => &self.styles.presentation.title,
+            PresentationSubTitle => &self.styles.presentation.subtitle,
+            PresentationAuthor => &self.styles.presentation.author.alignment,
+            Table => &self.styles.table,
+        };
+        alignment.as_ref().unwrap_or(&self.styles.default_style.alignment)
     }
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ElementStyle {
-    #[serde(flatten)]
-    pub alignment: Alignment,
+pub struct Styles {
+    #[serde(default, flatten)]
+    pub slide_title: Option<Alignment>,
+
+    #[serde(default)]
+    pub paragraph: Option<Alignment>,
+
+    #[serde(default)]
+    pub code: CodeStyle,
+
+    #[serde(default)]
+    pub table: Option<Alignment>,
+
+    #[serde(default)]
+    pub list: Option<Alignment>,
+
+    #[serde(rename = "default")]
+    pub default_style: PrimaryStyle,
+
+    #[serde(default)]
+    pub headings: HeadingStyles,
+
+    #[serde(default)]
+    pub presentation: PresentationStyles,
+
+    #[serde(default)]
+    pub footer: FooterStyle,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct HeadingStyles {
+    pub h1: Option<Alignment>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct PresentationStyles {
+    #[serde(default)]
+    pub title: Option<Alignment>,
+
+    #[serde(default)]
+    pub subtitle: Option<Alignment>,
+
+    pub author: AuthorStyle,
 }
 
 #[derive(Debug, Deserialize)]
+pub struct PrimaryStyle {
+    #[serde(flatten)]
+    pub alignment: Alignment,
+
+    pub colors: Colors,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "alignment")]
 pub enum Alignment {
     Left {
@@ -53,16 +103,35 @@ pub enum Alignment {
     },
 }
 
+#[derive(Debug, Default, Deserialize)]
+pub struct AuthorStyle {
+    #[serde(flatten, default)]
+    pub alignment: Option<Alignment>,
+
+    #[serde(default)]
+    pub positioning: AuthorPositioning,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct FooterStyle {
+    #[serde(default = "default_footer_template")]
+    pub template: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct CodeStyle {
+    #[serde(flatten)]
+    pub alignment: Option<Alignment>,
+
+    #[serde(default)]
+    pub colors: Colors,
+}
+
 #[derive(Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum ElementType {
     SlideTitle,
     Heading1,
-    Heading2,
-    Heading3,
-    Heading4,
-    Heading5,
-    Heading6,
     Paragraph,
     List,
     Code,
@@ -72,16 +141,17 @@ pub enum ElementType {
     Table,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct Colors {
     pub background: Option<Color>,
     pub foreground: Option<Color>,
-    pub code: Option<Color>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub enum AuthorPositioning {
     BelowTitle,
+
+    #[default]
     PageBottom,
 }
 
