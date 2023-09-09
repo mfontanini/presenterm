@@ -19,6 +19,7 @@ impl Default for ParserOptions {
         let mut options = ComrakOptions::default();
         options.extension.front_matter_delimiter = Some("---".into());
         options.extension.table = true;
+        options.extension.strikethrough = true;
         Self(options)
     }
 }
@@ -135,6 +136,9 @@ impl<'a> SlideParser<'a> {
                 }
                 NodeValue::Strong => chunks.extend(Self::parse_text_chunks(node, format.clone().add_bold())?),
                 NodeValue::Emph => chunks.extend(Self::parse_text_chunks(node, format.clone().add_italics())?),
+                NodeValue::Strikethrough => {
+                    chunks.extend(Self::parse_text_chunks(node, format.clone().add_strikethrough())?)
+                }
                 NodeValue::Image(img) => {
                     chunks.push(TextChunk::Image { title: img.title.clone(), url: img.url.clone() });
                 }
@@ -318,7 +322,7 @@ author: epic potato
 
     #[test]
     fn paragraph() {
-        let parsed = parse_single("some **bold text**, _italics_, *italics*, **nested _italics_**");
+        let parsed = parse_single("some **bold text**, _italics_, *italics*, **nested _italics_**, ~strikethrough~");
         let Element::Paragraph(text) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks: Vec<_> = [
             FormattedText::plain("some "),
@@ -330,6 +334,8 @@ author: epic potato
             FormattedText::plain(", "),
             FormattedText::formatted("nested ", TextFormat::default().add_bold()),
             FormattedText::formatted("italics", TextFormat::default().add_italics().add_bold()),
+            FormattedText::plain(", "),
+            FormattedText::formatted("strikethrough", TextFormat::default().add_strikethrough()),
         ]
         .into_iter()
         .map(TextChunk::Formatted)

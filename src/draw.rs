@@ -397,6 +397,9 @@ where
                 if element.format.has_italics() {
                     styled = styled.italic();
                 }
+                if element.format.has_strikethrough() {
+                    styled = styled.crossed_out();
+                }
                 if element.format.has_code() {
                     styled = styled.italic();
                     if let Some(color) = self.default_colors.code {

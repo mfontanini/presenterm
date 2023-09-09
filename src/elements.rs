@@ -71,6 +71,11 @@ impl TextFormat {
         self
     }
 
+    pub fn add_strikethrough(mut self) -> Self {
+        self.0 |= TextFormatFlags::Strikethrough as u8;
+        self
+    }
+
     pub fn has_bold(&self) -> bool {
         self.0 & TextFormatFlags::Bold as u8 != 0
     }
@@ -82,6 +87,10 @@ impl TextFormat {
     pub fn has_code(&self) -> bool {
         self.0 & TextFormatFlags::Code as u8 != 0
     }
+
+    pub fn has_strikethrough(&self) -> bool {
+        self.0 & TextFormatFlags::Strikethrough as u8 != 0
+    }
 }
 
 #[derive(Debug)]
@@ -89,6 +98,7 @@ enum TextFormatFlags {
     Bold = 1,
     Italics = 2,
     Code = 4,
+    Strikethrough = 8,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
