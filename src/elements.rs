@@ -5,10 +5,16 @@ pub enum Element {
     PresentationMetadata(PresentationMetadata),
     SlideTitle { text: Text },
     Heading { level: u8, text: Text },
-    Paragraph(Text),
+    Paragraph(Vec<ParagraphElement>),
     List(Vec<ListItem>),
     Code(Code),
     Table { header: TableRow, rows: Vec<TableRow> },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ParagraphElement {
+    Text(Text),
+    Image { url: String },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -20,7 +26,7 @@ impl Text {
     pub fn line_len(&self) -> usize {
         let mut total = 0;
         for chunk in &self.chunks {
-            // TODO: what about the others?
+            // TODO: what about line breaks?
             if let TextChunk::Formatted(text) = &chunk {
                 total += text.text.len();
             }
@@ -32,7 +38,6 @@ impl Text {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TextChunk {
     Formatted(FormattedText),
-    Image { title: String, url: String },
     LineBreak,
 }
 

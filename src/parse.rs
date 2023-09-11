@@ -1,6 +1,7 @@
 use crate::{
     elements::{
-        Code, CodeLanguage, Element, FormattedText, ListItem, ListItemType, TableRow, Text, TextChunk, TextFormat,
+        Code, CodeLanguage, Element, FormattedText, ListItem, ListItemType, ParagraphElement, TableRow, Text,
+        TextChunk, TextFormat,
     },
     presentation::Slide,
 };
@@ -110,45 +111,86 @@ impl<'a> SlideParser<'a> {
     }
 
     fn parse_paragraph(node: &'a AstNode<'a>) -> ParseResult<Element> {
-        let text = Self::parse_text(node)?;
-        let element = Element::Paragraph(text);
-        Ok(element)
+        let inlines = Self::parse_inlines(node, TextFormat::default(), &InlinesMode::AllowImages)?;
+        let elements = inlines
+            .into_iter()
+            .map(|inline| match inline {
+                Inline::Text(text) => ParagraphElement::Text(text),
+                Inline::Image(url) => ParagraphElement::Image { url },
+            })
+            .collect();
+        Ok(Element::Paragraph(elements))
     }
 
-    fn parse_text(root: &'a AstNode<'a>) -> ParseResult<Text> {
-        let chunks = Self::parse_text_chunks(root, TextFormat::default())?;
+    fn parse_text(node: &'a AstNode<'a>) -> ParseResult<Text> {
+        let inlines = Self::parse_inlines(node, TextFormat::default(), &InlinesMode::DisallowImages)?;
+        let chunks = inlines
+            .into_iter()
+            .flat_map(|inline| {
+                let Inline::Text(text) = inline else { panic!("got non-text inline") };
+                text.chunks.into_iter()
+            })
+            .collect();
         Ok(Text { chunks })
     }
 
-    fn parse_text_chunks(root: &'a AstNode<'a>, format: TextFormat) -> ParseResult<Vec<TextChunk>> {
+    fn parse_inlines(node: &'a AstNode<'a>, format: TextFormat, mode: &InlinesMode) -> ParseResult<Vec<Inline>> {
+        let mut inlines = Vec::new();
         let mut chunks = Vec::new();
-        for node in root.children() {
+        for node in node.children() {
             let value = &node.data.borrow().value;
             match value {
-                NodeValue::Text(text) => {
-                    chunks.push(TextChunk::Formatted(FormattedText::formatted(text.clone(), format.clone())));
-                }
-                NodeValue::Code(code) => {
-                    chunks.push(TextChunk::Formatted(FormattedText::formatted(
-                        code.literal.clone(),
-                        TextFormat::default().add_code(),
-                    )));
-                }
-                NodeValue::Strong => chunks.extend(Self::parse_text_chunks(node, format.clone().add_bold())?),
-                NodeValue::Emph => chunks.extend(Self::parse_text_chunks(node, format.clone().add_italics())?),
-                NodeValue::Strikethrough => {
-                    chunks.extend(Self::parse_text_chunks(node, format.clone().add_strikethrough())?)
-                }
                 NodeValue::Image(img) => {
-                    chunks.push(TextChunk::Image { title: img.title.clone(), url: img.url.clone() });
+                    if !chunks.is_empty() {
+                        inlines.push(Inline::Text(Text { chunks: mem::take(&mut chunks) }));
+                    }
+                    inlines.push(Inline::Image(img.url.clone()));
                 }
-                NodeValue::SoftBreak | NodeValue::LineBreak => chunks.push(TextChunk::LineBreak),
-                other => {
-                    return Err(ParseError::UnsupportedStructure { container: "text", element: other.identifier() })
-                }
+                _ => Self::collect_text_chunks(node, format.clone(), &mut chunks)?,
             };
         }
-        Ok(chunks)
+        if !chunks.is_empty() {
+            inlines.push(Inline::Text(Text { chunks }));
+        }
+        let any_images = inlines.iter().any(|inline| matches!(inline, Inline::Image(_)));
+        if matches!(mode, InlinesMode::DisallowImages) && any_images {
+            return Err(ParseError::UnsupportedStructure { container: "text", element: "image" });
+        }
+        Ok(inlines)
+    }
+
+    fn collect_child_text_chunks(
+        node: &'a AstNode<'a>,
+        format: TextFormat,
+        chunks: &mut Vec<TextChunk>,
+    ) -> ParseResult<()> {
+        for node in node.children() {
+            Self::collect_text_chunks(node, format.clone(), chunks)?;
+        }
+        Ok(())
+    }
+
+    fn collect_text_chunks(node: &'a AstNode<'a>, format: TextFormat, chunks: &mut Vec<TextChunk>) -> ParseResult<()> {
+        let value = &node.data.borrow().value;
+        match value {
+            NodeValue::Text(text) => {
+                chunks.push(TextChunk::Formatted(FormattedText::formatted(text.clone(), format.clone())));
+            }
+            NodeValue::Code(code) => {
+                chunks.push(TextChunk::Formatted(FormattedText::formatted(
+                    code.literal.clone(),
+                    TextFormat::default().add_code(),
+                )));
+            }
+            NodeValue::Strong => Self::collect_child_text_chunks(node, format.clone().add_bold(), chunks)?,
+            NodeValue::Emph => Self::collect_child_text_chunks(node, format.clone().add_italics(), chunks)?,
+            NodeValue::Strikethrough => {
+                Self::collect_child_text_chunks(node, format.clone().add_strikethrough(), chunks)?
+            }
+            NodeValue::SoftBreak | NodeValue::LineBreak => chunks.push(TextChunk::LineBreak),
+            other => return Err(ParseError::UnsupportedStructure { container: "text", element: other.identifier() }),
+        };
+        Ok(())
     }
 
     fn parse_list(root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
@@ -223,6 +265,16 @@ impl<'a> SlideParser<'a> {
         }
         Ok(TableRow(cells))
     }
+}
+
+enum InlinesMode {
+    AllowImages,
+    DisallowImages,
+}
+
+enum Inline {
+    Text(Text),
+    Image(String),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -323,7 +375,7 @@ author: epic potato
     #[test]
     fn paragraph() {
         let parsed = parse_single("some **bold text**, _italics_, *italics*, **nested _italics_**, ~strikethrough~");
-        let Element::Paragraph(text) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let Element::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks: Vec<_> = [
             FormattedText::plain("some "),
             FormattedText::formatted("bold text", TextFormat::default().add_bold()),
@@ -340,16 +392,17 @@ author: epic potato
         .into_iter()
         .map(TextChunk::Formatted)
         .collect();
-        assert_eq!(text.chunks, expected_chunks);
+
+        let expected_elements = &[ParagraphElement::Text(Text { chunks: expected_chunks })];
+        assert_eq!(elements, expected_elements);
     }
 
     #[test]
     fn image() {
-        let parsed = parse_single("![](potato.png \"hi\")");
-        let Element::Paragraph(text) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        assert_eq!(text.chunks.len(), 1);
-        let TextChunk::Image{title, url} = &text.chunks[0] else { panic!("not an image") };
-        assert_eq!(title, "hi");
+        let parsed = parse_single("![](potato.png)");
+        let Element::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        assert_eq!(elements.len(), 1);
+        let ParagraphElement::Image{ url} = &elements[0] else { panic!("not an image") };
         assert_eq!(url, "potato.png");
     }
 
@@ -407,12 +460,15 @@ Title
 some text
 with line breaks",
         );
-        let Element::Paragraph(text) = parsed else { panic!("not a line break: {parsed:?}") };
+        let Element::Paragraph(elements) = parsed else { panic!("not a line break: {parsed:?}") };
+        assert_eq!(elements.len(), 1);
+
         let expected_chunks = &[
             TextChunk::Formatted(FormattedText::plain("some text")),
             TextChunk::LineBreak,
             TextChunk::Formatted(FormattedText::plain("with line breaks")),
         ];
+        let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };
         assert_eq!(text.chunks, expected_chunks);
     }
 
@@ -433,11 +489,14 @@ let q = 42;
     #[test]
     fn inline_code() {
         let parsed = parse_single("some `inline code`");
-        let Element::Paragraph(text) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let Element::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks = &[
             TextChunk::Formatted(FormattedText::plain("some ")),
             TextChunk::Formatted(FormattedText::formatted("inline code", TextFormat::default().add_code())),
         ];
+        assert_eq!(elements.len(), 1);
+
+        let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };
         assert_eq!(text.chunks, expected_chunks);
     }
 
@@ -478,8 +537,10 @@ Third
 
         let expected = ["First", "Second", "Third"];
         for (slide, expected) in slides.into_iter().zip(expected) {
-            let Element::Paragraph(text) = &slide.elements[0] else { panic!("no text") };
+            let Element::Paragraph(elements) = &slide.elements[0] else { panic!("no text") };
             let chunks = [TextChunk::Formatted(FormattedText::plain(expected))];
+
+            let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };
             assert_eq!(text.chunks, chunks);
         }
     }

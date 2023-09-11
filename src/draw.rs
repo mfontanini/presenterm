@@ -1,7 +1,7 @@
 use crate::{
     elements::{
-        Code, Element, FormattedText, ListItem, ListItemType, PresentationMetadata, TableRow, Text, TextChunk,
-        TextFormat,
+        Code, Element, FormattedText, ListItem, ListItemType, ParagraphElement, PresentationMetadata, TableRow, Text,
+        TextChunk, TextFormat,
     },
     highlighting::{CodeHighlighter, CodeLine},
     media::MediaDrawer,
@@ -175,9 +175,16 @@ where
         Ok(())
     }
 
-    fn draw_paragraph(&mut self, text: &Text) -> DrawResult {
-        self.draw_text(text, ElementType::Paragraph)?;
-        self.handle.queue(cursor::MoveToNextLine(2))?;
+    fn draw_paragraph(&mut self, elements: &[ParagraphElement]) -> DrawResult {
+        for element in elements {
+            match element {
+                ParagraphElement::Text(text) => {
+                    self.draw_text(text, ElementType::Paragraph)?;
+                    self.handle.queue(cursor::MoveToNextLine(2))?;
+                }
+                ParagraphElement::Image { url } => self.draw_image(url)?,
+            };
+        }
         Ok(())
     }
 
@@ -188,10 +195,6 @@ where
             match chunk {
                 TextChunk::Formatted(text) => {
                     texts.push(text);
-                }
-                TextChunk::Image { url, .. } => {
-                    self.draw_formatted_texts(&mem::take(&mut texts), alignment)?;
-                    self.draw_image(url)?;
                 }
                 TextChunk::LineBreak => {
                     self.draw_formatted_texts(&mem::take(&mut texts), alignment)?;
