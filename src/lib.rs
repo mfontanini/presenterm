@@ -1,9 +1,7 @@
-pub mod draw;
 pub mod elements;
-pub mod highlighting;
 pub mod input;
-pub mod media;
 pub mod parse;
 pub mod presentation;
+pub mod render;
 pub mod resource;
 pub mod theme;

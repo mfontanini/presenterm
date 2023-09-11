@@ -1,4 +1,4 @@
-use crate::media::{Image, InvalidImage};
+use crate::render::media::{Image, InvalidImage};
 use std::{collections::HashMap, fs, io};
 
 #[derive(Default)]

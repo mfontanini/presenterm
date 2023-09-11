@@ -203,7 +203,7 @@ impl<'a> SlideParser<'a> {
                     elements.extend(Self::parse_list_item(item, node, depth, number)?);
                 }
                 other => {
-                    return Err(ParseError::UnsupportedStructure { container: "list", element: other.identifier() })
+                    return Err(ParseError::UnsupportedStructure { container: "list", element: other.identifier() });
                 }
             };
         }
@@ -228,7 +228,7 @@ impl<'a> SlideParser<'a> {
                     elements.extend(Self::parse_list(node, depth + 1)?);
                 }
                 other => {
-                    return Err(ParseError::UnsupportedStructure { container: "list", element: other.identifier() })
+                    return Err(ParseError::UnsupportedStructure { container: "list", element: other.identifier() });
                 }
             }
         }
@@ -241,7 +241,7 @@ impl<'a> SlideParser<'a> {
         for node in node.children() {
             let value = &node.data.borrow().value;
             let NodeValue::TableRow(_) = value else {
-                return Err(ParseError::UnsupportedStructure{container: "table", element: value.identifier() });
+                return Err(ParseError::UnsupportedStructure { container: "table", element: value.identifier() });
             };
             let row = Self::parse_table_row(node)?;
             if header.0.is_empty() {
@@ -258,7 +258,7 @@ impl<'a> SlideParser<'a> {
         for node in node.children() {
             let value = &node.data.borrow().value;
             let NodeValue::TableCell = value else {
-                return Err(ParseError::UnsupportedStructure{container: "table", element: value.identifier() });
+                return Err(ParseError::UnsupportedStructure { container: "table", element: value.identifier() });
             };
             let text = Self::parse_text(node)?;
             cells.push(text);
@@ -366,7 +366,7 @@ author: epic potato
 ---
 ",
         );
-        let Element::PresentationMetadata(inner) = parsed else{ panic!("not a presentation title: {parsed:?}") };
+        let Element::PresentationMetadata(inner) = parsed else { panic!("not a presentation title: {parsed:?}") };
         assert_eq!(inner.title, "hello world");
         assert_eq!(inner.sub_title, Some("hola".into()));
         assert_eq!(inner.author, Some("epic potato".into()));
@@ -402,7 +402,7 @@ author: epic potato
         let parsed = parse_single("![](potato.png)");
         let Element::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         assert_eq!(elements.len(), 1);
-        let ParagraphElement::Image{ url} = &elements[0] else { panic!("not an image") };
+        let ParagraphElement::Image { url } = &elements[0] else { panic!("not an image") };
         assert_eq!(url, "potato.png");
     }
 
@@ -414,7 +414,7 @@ Title
 ===
 ",
         );
-        let Element::SlideTitle { text} = parsed else { panic!("not a slide title: {parsed:?}") };
+        let Element::SlideTitle { text } = parsed else { panic!("not a slide title: {parsed:?}") };
         let expected_chunks = [TextChunk::Formatted(FormattedText::plain("Title"))];
         assert_eq!(text.chunks, expected_chunks);
     }
@@ -510,7 +510,7 @@ let q = 42;
 | Carrot | Yuck |
 ",
         );
-        let Element::Table{header, rows} = parsed else { panic!("not a table: {parsed:?}") };
+        let Element::Table { header, rows } = parsed else { panic!("not a table: {parsed:?}") };
         assert_eq!(header.0.len(), 2);
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].0.len(), 2);

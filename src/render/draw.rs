@@ -3,9 +3,11 @@ use crate::{
         Code, Element, FormattedText, ListItem, ListItemType, ParagraphElement, PresentationMetadata, TableRow, Text,
         TextChunk, TextFormat,
     },
-    highlighting::{CodeHighlighter, CodeLine},
-    media::MediaDrawer,
     presentation::{Presentation, Slide},
+    render::{
+        highlighting::{CodeHighlighter, CodeLine},
+        media::MediaDrawer,
+    },
     resource::Resources,
     theme::{Alignment, AuthorPositioning, Colors, ElementType, SlideTheme},
 };

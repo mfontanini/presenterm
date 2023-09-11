@@ -1,11 +1,13 @@
 use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use presenterm::{
-    draw::{DrawResult, Drawer},
-    highlighting::CodeHighlighter,
     input::{Command, Input},
     parse::SlideParser,
     presentation::Presentation,
+    render::{
+        draw::{DrawResult, Drawer},
+        highlighting::CodeHighlighter,
+    },
     resource::Resources,
     theme::SlideTheme,
 };
@@ -34,7 +36,9 @@ impl SlideShow {
             drawer.draw_slide(&mut self.resources, &self.highlighter, &self.theme, slide, &presentation)?;
 
             loop {
-                let Some(command) = self.input.next_command()? else { continue; };
+                let Some(command) = self.input.next_command()? else {
+                    continue;
+                };
                 let needs_redraw = match command {
                     Command::Redraw => true,
                     Command::JumpNextSlide => presentation.jump_next_slide(),
@@ -56,11 +60,7 @@ fn main() {
     let cli = Cli::parse();
     let Some(theme) = SlideTheme::from_name(&cli.theme) else {
         let mut cmd = Cli::command();
-            cmd.error(
-                ErrorKind::InvalidValue,
-                "invalid theme name",
-            )
-            .exit();
+        cmd.error(ErrorKind::InvalidValue, "invalid theme name").exit();
     };
 
     let arena = Arena::new();
