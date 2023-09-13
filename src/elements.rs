@@ -33,6 +33,14 @@ impl Text {
         }
         total
     }
+
+    pub fn apply_format(&mut self, format: &TextFormat) {
+        for chunk in &mut self.chunks {
+            if let TextChunk::Formatted(text) = chunk {
+                text.format.merge(format);
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -54,6 +62,12 @@ impl FormattedText {
 
     pub fn formatted<S: Into<String>>(text: S, format: TextFormat) -> Self {
         Self { text: text.into(), format }
+    }
+}
+
+impl From<String> for FormattedText {
+    fn from(text: String) -> Self {
+        Self::plain(text)
     }
 }
 
@@ -95,6 +109,10 @@ impl TextFormat {
 
     pub fn has_strikethrough(&self) -> bool {
         self.0 & TextFormatFlags::Strikethrough as u8 != 0
+    }
+
+    pub fn merge(&mut self, other: &TextFormat) {
+        self.0 |= other.0
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::elements::Element;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Slide {
     pub elements: Vec<Element>,
 }

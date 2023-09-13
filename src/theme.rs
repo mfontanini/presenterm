@@ -21,6 +21,11 @@ impl SlideTheme {
         let alignment = match element {
             SlideTitle => &self.styles.slide_title,
             Heading1 => &self.styles.headings.h1,
+            Heading2 => &self.styles.headings.h2,
+            Heading3 => &self.styles.headings.h3,
+            Heading4 => &self.styles.headings.h4,
+            Heading5 => &self.styles.headings.h5,
+            Heading6 => &self.styles.headings.h6,
             Paragraph => &self.styles.paragraph,
             List => &self.styles.list,
             Code => &self.styles.code.alignment,
@@ -66,6 +71,11 @@ pub struct Styles {
 #[derive(Debug, Default, Deserialize)]
 pub struct HeadingStyles {
     pub h1: Option<Alignment>,
+    pub h2: Option<Alignment>,
+    pub h3: Option<Alignment>,
+    pub h4: Option<Alignment>,
+    pub h5: Option<Alignment>,
+    pub h6: Option<Alignment>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -127,11 +137,16 @@ pub struct CodeStyle {
     pub colors: Colors,
 }
 
-#[derive(Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(rename_all = "snake_case")]
 pub enum ElementType {
     SlideTitle,
     Heading1,
+    Heading2,
+    Heading3,
+    Heading4,
+    Heading5,
+    Heading6,
     Paragraph,
     List,
     Code,
