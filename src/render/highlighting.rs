@@ -1,11 +1,10 @@
+use crate::markdown::elements::CodeLanguage;
 use syntect::{
     easy::HighlightLines,
     highlighting::{Style, Theme, ThemeSet},
     parsing::SyntaxSet,
     util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
-
-use crate::elements::CodeLanguage;
 
 pub struct CodeHighlighter {
     syntax_set: SyntaxSet,

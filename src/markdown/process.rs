@@ -1,41 +1,48 @@
-use super::highlighting::{CodeHighlighter, CodeLine};
 use crate::{
-    elements::{
-        Code, Element, FormattedText, ListItem, ListItemType, ParagraphElement, PresentationMetadata, TableRow, Text,
-        TextChunk, TextFormat,
+    markdown::elements::{
+        Code, FormattedText, ListItem, ListItemType, MarkdownElement, ParagraphElement, PresentationMetadata, TableRow,
+        Text, TextChunk, TextFormat,
     },
-    presentation::Slide,
+    render::highlighting::{CodeHighlighter, CodeLine},
     theme::ElementType,
 };
 use std::{iter, mem};
 
-pub struct ElementTransformer<'a> {
-    elements: Vec<SlideElement>,
+pub struct MarkdownProcessor<'a> {
+    slide_elements: Vec<SlideElement>,
+    slides: Vec<Slide>,
     highlighter: &'a CodeHighlighter,
 }
 
-impl<'a> ElementTransformer<'a> {
+impl<'a> MarkdownProcessor<'a> {
     pub fn new(highlighter: &'a CodeHighlighter) -> Self {
-        Self { elements: Vec::new(), highlighter }
+        Self { slide_elements: Vec::new(), slides: Vec::new(), highlighter }
     }
 
-    pub fn transform_slide(mut self, slide: Slide) -> TransformedSlide {
-        for element in slide.elements {
+    pub fn transform(mut self, elements: Vec<MarkdownElement>) -> Vec<Slide> {
+        for element in elements {
             self.process_element(element);
             self.push_line_break();
         }
-        TransformedSlide { elements: self.elements }
+        if !self.slide_elements.is_empty() {
+            self.terminate_slide();
+        }
+        self.slides
     }
 
-    fn process_element(&mut self, element: Element) {
+    fn process_element(&mut self, element: MarkdownElement) {
         match element {
-            Element::PresentationMetadata(metadata) => self.elements.push(SlideElement::PresentationMetadata(metadata)),
-            Element::SlideTitle { text } => self.push_slide_title(text),
-            Element::Heading { level, text } => self.push_heading(level, text),
-            Element::Paragraph(elements) => self.push_paragraph(elements),
-            Element::List(elements) => self.push_list(elements),
-            Element::Code(code) => self.push_code(code),
-            Element::Table { header, rows } => self.push_table(header, rows),
+            MarkdownElement::PresentationMetadata(metadata) => {
+                self.slide_elements.push(SlideElement::PresentationMetadata(metadata));
+                self.terminate_slide();
+            }
+            MarkdownElement::SlideTitle { text } => self.push_slide_title(text),
+            MarkdownElement::Heading { level, text } => self.push_heading(level, text),
+            MarkdownElement::Paragraph(elements) => self.push_paragraph(elements),
+            MarkdownElement::List(elements) => self.push_list(elements),
+            MarkdownElement::Code(code) => self.push_code(code),
+            MarkdownElement::Table { header, rows } => self.push_table(header, rows),
+            MarkdownElement::ThematicBreak => self.terminate_slide(),
         }
     }
 
@@ -46,7 +53,7 @@ impl<'a> ElementTransformer<'a> {
         self.push_text(text, ElementType::SlideTitle);
         self.push_line_break();
         self.push_line_break();
-        self.elements.push(SlideElement::Separator);
+        self.slide_elements.push(SlideElement::Separator);
         self.push_line_break();
     }
 
@@ -73,7 +80,7 @@ impl<'a> ElementTransformer<'a> {
                     text.chunks.push(TextChunk::LineBreak);
                     self.push_text(text, ElementType::Paragraph);
                 }
-                ParagraphElement::Image { url } => self.elements.push(SlideElement::Image { url }),
+                ParagraphElement::Image { url } => self.slide_elements.push(SlideElement::Image { url }),
             };
         }
     }
@@ -123,7 +130,7 @@ impl<'a> ElementTransformer<'a> {
                 }
                 TextChunk::LineBreak => {
                     if !texts.is_empty() {
-                        self.elements.push(SlideElement::TextLine {
+                        self.slide_elements.push(SlideElement::TextLine {
                             texts: mem::take(&mut texts),
                             element_type: element_type.clone(),
                         });
@@ -133,12 +140,12 @@ impl<'a> ElementTransformer<'a> {
             }
         }
         if !texts.is_empty() {
-            self.elements.push(SlideElement::TextLine { texts, element_type: element_type.clone() });
+            self.slide_elements.push(SlideElement::TextLine { texts, element_type: element_type.clone() });
         }
     }
 
     fn push_line_break(&mut self) {
-        self.elements.push(SlideElement::LineBreak);
+        self.slide_elements.push(SlideElement::LineBreak);
     }
 
     fn push_code(&mut self, code: Code) {
@@ -146,7 +153,7 @@ impl<'a> ElementTransformer<'a> {
         for code_line in self.highlighter.highlight(&code.contents, &code.language) {
             let CodeLine { formatted, original } = code_line;
             let formatted = formatted.trim_end();
-            self.elements.push(SlideElement::PreformattedLine {
+            self.slide_elements.push(SlideElement::PreformattedLine {
                 text: formatted.into(),
                 // TODO: remove once measuring character widths is in place
                 original_length: original.len(),
@@ -154,6 +161,11 @@ impl<'a> ElementTransformer<'a> {
             });
             self.push_line_break();
         }
+    }
+
+    fn terminate_slide(&mut self) {
+        let elements = mem::take(&mut self.slide_elements);
+        self.slides.push(Slide { elements });
     }
 
     fn push_table(&mut self, header: TableRow, rows: Vec<TableRow>) {
@@ -224,9 +236,8 @@ pub enum SlideElement {
     PreformattedLine { text: String, original_length: usize, block_length: usize },
 }
 
-// TODO naming
 #[derive(Clone, Debug)]
-pub struct TransformedSlide {
+pub struct Slide {
     pub elements: Vec<SlideElement>,
 }
 

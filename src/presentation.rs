@@ -1,15 +1,4 @@
-use crate::elements::Element;
-
-#[derive(Clone, Debug)]
-pub struct Slide {
-    pub elements: Vec<Element>,
-}
-
-impl Slide {
-    pub fn new(elements: Vec<Element>) -> Self {
-        Self { elements }
-    }
-}
+use crate::markdown::process::Slide;
 
 pub struct Presentation {
     slides: Vec<Slide>,

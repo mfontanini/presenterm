@@ -1,8 +1,8 @@
-use super::transform::{ElementTransformer, SlideElement, TransformedSlide};
 use crate::{
-    elements::{FormattedText, PresentationMetadata, TextFormat},
-    presentation::{Presentation, Slide},
-    render::{highlighting::CodeHighlighter, media::MediaDrawer},
+    markdown::elements::{FormattedText, PresentationMetadata, TextFormat},
+    markdown::process::{Slide, SlideElement},
+    presentation::Presentation,
+    render::media::MediaDrawer,
     resource::Resources,
     theme::{Alignment, AuthorPositioning, Colors, ElementType, SlideTheme},
 };
@@ -33,9 +33,7 @@ where
     pub fn draw_slide<'a>(
         &mut self,
         resources: &'a mut Resources,
-        highlighter: &'a CodeHighlighter,
         theme: &'a SlideTheme,
-        slide: &Slide,
         presentation: &'a Presentation,
     ) -> DrawResult {
         let dimensions = window_size()?;
@@ -46,10 +44,9 @@ where
             height: dimensions.height,
         };
 
+        let slide = presentation.current_slide();
         let slide_drawer = SlideDrawer { handle: &mut self.handle, resources, theme, dimensions: slide_dimensions };
-        // TODO: temporary
-        let slide = ElementTransformer::new(highlighter).transform_slide(slide.clone());
-        slide_drawer.draw_slide(&slide)?;
+        slide_drawer.draw_slide(slide)?;
 
         if let Some(template) = &theme.styles.footer.template {
             let current_slide = (presentation.current_slide_index() + 1).to_string();
@@ -84,7 +81,7 @@ impl<'a, W> SlideDrawer<'a, W>
 where
     W: io::Write,
 {
-    fn draw_slide(mut self, slide: &TransformedSlide) -> DrawResult {
+    fn draw_slide(mut self, slide: &Slide) -> DrawResult {
         self.apply_theme_colors()?;
         self.handle.queue(terminal::Clear(ClearType::All))?;
         self.handle.queue(cursor::MoveTo(0, 0))?;
@@ -102,7 +99,7 @@ where
     fn draw_element(&mut self, element: &SlideElement) -> DrawResult {
         match element {
             SlideElement::PresentationMetadata(meta) => self.draw_presentation_metadata(meta),
-            SlideElement::TextLine { texts, element_type } => self.draw_text(texts, &element_type),
+            SlideElement::TextLine { texts, element_type } => self.draw_text(texts, element_type),
             SlideElement::Separator => self.draw_separator(),
             SlideElement::LineBreak => self.draw_line_break(),
             SlideElement::Image { url } => self.draw_image(url),

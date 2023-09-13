@@ -2,7 +2,7 @@ use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use presenterm::{
     input::{Command, Input},
-    parse::SlideParser,
+    markdown::{parse::MarkdownParser, process::MarkdownProcessor},
     presentation::Presentation,
     render::{
         draw::{DrawResult, Drawer},
@@ -23,7 +23,6 @@ struct Cli {
 
 struct SlideShow {
     resources: Resources,
-    highlighter: CodeHighlighter,
     theme: SlideTheme,
     input: Input,
 }
@@ -32,8 +31,7 @@ impl SlideShow {
     fn present(mut self, mut presentation: Presentation) -> DrawResult {
         let mut drawer = Drawer::new(io::stdout())?;
         loop {
-            let slide = presentation.current_slide();
-            drawer.draw_slide(&mut self.resources, &self.highlighter, &self.theme, slide, &presentation)?;
+            drawer.draw_slide(&mut self.resources, &self.theme, &presentation)?;
 
             loop {
                 let Some(command) = self.input.next_command()? else {
@@ -64,17 +62,18 @@ fn main() {
     };
 
     let arena = Arena::new();
-    let parser = SlideParser::new(&arena);
+    let parser = MarkdownParser::new(&arena);
 
     let content = fs::read_to_string(cli.path).expect("reading failed");
-    let slides = parser.parse(&content).expect("parse failed");
+    let highlighter = CodeHighlighter::new("base16-ocean.dark").expect("creating highlighter failed");
+    let elements = parser.parse(&content).expect("parse failed");
+    let slides = MarkdownProcessor::new(&highlighter).transform(elements);
     let presentation = Presentation::new(slides);
 
     let resources = Resources::default();
-    let highlighter = CodeHighlighter::new("base16-ocean.dark").expect("creating highlighter failed");
     let input = Input::default();
 
-    let slideshow = SlideShow { resources, highlighter, theme, input };
+    let slideshow = SlideShow { resources, theme, input };
     if let Err(e) = slideshow.present(presentation) {
         eprintln!("Error running slideshow: {e}");
     };

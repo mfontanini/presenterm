@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 #[derive(Clone, Debug)]
-pub enum Element {
+pub enum MarkdownElement {
     PresentationMetadata(PresentationMetadata),
     SlideTitle { text: Text },
     Heading { level: u8, text: Text },
@@ -9,6 +9,7 @@ pub enum Element {
     List(Vec<ListItem>),
     Code(Code),
     Table { header: TableRow, rows: Vec<TableRow> },
+    ThematicBreak,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

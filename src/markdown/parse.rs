@@ -1,9 +1,6 @@
-use crate::{
-    elements::{
-        Code, CodeLanguage, Element, FormattedText, ListItem, ListItemType, ParagraphElement, TableRow, Text,
-        TextChunk, TextFormat,
-    },
-    presentation::Slide,
+use crate::markdown::elements::{
+    Code, CodeLanguage, FormattedText, ListItem, ListItemType, MarkdownElement, ParagraphElement, TableRow, Text,
+    TextChunk, TextFormat,
 };
 use comrak::{
     nodes::{AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeList, NodeValue},
@@ -25,46 +22,27 @@ impl Default for ParserOptions {
     }
 }
 
-pub struct SlideParser<'a> {
+pub struct MarkdownParser<'a> {
     arena: &'a Arena<AstNode<'a>>,
     options: ComrakOptions,
 }
 
-impl<'a> SlideParser<'a> {
+impl<'a> MarkdownParser<'a> {
     pub fn new(arena: &'a Arena<AstNode<'a>>) -> Self {
         Self { arena, options: ParserOptions::default().0 }
     }
 
-    pub fn parse(&self, document: &str) -> ParseResult<Vec<Slide>> {
-        let root = parse_document(self.arena, document, &self.options);
-        let mut slides = Vec::new();
-        let mut slide_elements = Vec::new();
-        for node in root.children() {
-            let value = &node.data.borrow().value;
-            match value {
-                NodeValue::ThematicBreak => {
-                    let slide = Slide::new(mem::take(&mut slide_elements));
-                    slides.push(slide);
-                }
-                _ => {
-                    let element = Self::parse_element(node)?;
-                    let is_metadata_slide = matches!(element, Element::PresentationMetadata(_));
-                    slide_elements.push(element);
-
-                    if is_metadata_slide {
-                        let slide = Slide::new(mem::take(&mut slide_elements));
-                        slides.push(slide);
-                    }
-                }
-            };
+    pub fn parse(&self, document: &str) -> ParseResult<Vec<MarkdownElement>> {
+        let node = parse_document(self.arena, document, &self.options);
+        let mut elements = Vec::new();
+        for node in node.children() {
+            let element = Self::parse_element(node)?;
+            elements.push(element);
         }
-        if !slide_elements.is_empty() {
-            slides.push(Slide::new(slide_elements));
-        }
-        Ok(slides)
+        Ok(elements)
     }
 
-    fn parse_element(node: &'a AstNode<'a>) -> ParseResult<Element> {
+    fn parse_element(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
         let value = &node.data.borrow().value;
         match value {
             NodeValue::FrontMatter(contents) => Self::parse_front_matter(contents),
@@ -72,45 +50,46 @@ impl<'a> SlideParser<'a> {
             NodeValue::Paragraph => Self::parse_paragraph(node),
             NodeValue::List(_) => {
                 let items = Self::parse_list(node, 0)?;
-                Ok(Element::List(items))
+                Ok(MarkdownElement::List(items))
             }
             NodeValue::Table(_) => Self::parse_table(node),
             NodeValue::CodeBlock(block) => Self::parse_code_block(block),
+            NodeValue::ThematicBreak => Ok(MarkdownElement::ThematicBreak),
             other => Err(ParseError::UnsupportedElement(other.identifier())),
         }
     }
 
-    fn parse_front_matter(contents: &str) -> ParseResult<Element> {
+    fn parse_front_matter(contents: &str) -> ParseResult<MarkdownElement> {
         // Remote leading and trailing delimiters before parsing. This is quite poopy but hey, it
         // works.
         let contents = contents.strip_prefix("---\n").unwrap_or(contents);
         let contents = contents.strip_suffix("---\n").unwrap_or(contents);
         let contents = contents.strip_suffix("---\n\n").unwrap_or(contents);
         let title = serde_yaml::from_str(contents).map_err(|e| ParseError::InvalidMetadata(e.to_string()))?;
-        let element = Element::PresentationMetadata(title);
+        let element = MarkdownElement::PresentationMetadata(title);
         Ok(element)
     }
 
-    fn parse_code_block(block: &NodeCodeBlock) -> ParseResult<Element> {
+    fn parse_code_block(block: &NodeCodeBlock) -> ParseResult<MarkdownElement> {
         if !block.fenced {
             return Err(ParseError::UnfencedCodeBlock);
         }
         // TODO less naive pls
         let language = if block.info.contains("rust") { CodeLanguage::Rust } else { CodeLanguage::Other };
         let code = Code { contents: block.literal.clone(), language };
-        Ok(Element::Code(code))
+        Ok(MarkdownElement::Code(code))
     }
 
-    fn parse_heading(heading: &NodeHeading, node: &'a AstNode<'a>) -> ParseResult<Element> {
+    fn parse_heading(heading: &NodeHeading, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
         let text = Self::parse_text(node)?;
         if heading.setext {
-            Ok(Element::SlideTitle { text })
+            Ok(MarkdownElement::SlideTitle { text })
         } else {
-            Ok(Element::Heading { text, level: heading.level })
+            Ok(MarkdownElement::Heading { text, level: heading.level })
         }
     }
 
-    fn parse_paragraph(node: &'a AstNode<'a>) -> ParseResult<Element> {
+    fn parse_paragraph(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
         let inlines = Self::parse_inlines(node, TextFormat::default(), &InlinesMode::AllowImages)?;
         let elements = inlines
             .into_iter()
@@ -119,7 +98,7 @@ impl<'a> SlideParser<'a> {
                 Inline::Image(url) => ParagraphElement::Image { url },
             })
             .collect();
-        Ok(Element::Paragraph(elements))
+        Ok(MarkdownElement::Paragraph(elements))
     }
 
     fn parse_text(node: &'a AstNode<'a>) -> ParseResult<Text> {
@@ -235,7 +214,7 @@ impl<'a> SlideParser<'a> {
         Ok(elements)
     }
 
-    fn parse_table(node: &'a AstNode<'a>) -> ParseResult<Element> {
+    fn parse_table(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
         let mut header = TableRow(Vec::new());
         let mut rows = Vec::new();
         for node in node.children() {
@@ -250,7 +229,7 @@ impl<'a> SlideParser<'a> {
                 rows.push(row)
             }
         }
-        Ok(Element::Table { header, rows })
+        Ok(MarkdownElement::Table { header, rows })
     }
 
     fn parse_table_row(node: &'a AstNode<'a>) -> ParseResult<TableRow> {
@@ -338,7 +317,7 @@ impl Identifier for NodeValue {
 mod test {
     use super::*;
 
-    fn parse_single(input: &str) -> Element {
+    fn parse_single(input: &str) -> MarkdownElement {
         let arena = Arena::new();
         let root = parse_document(&arena, input, &ParserOptions::default().0);
         for c in root.children() {
@@ -346,14 +325,8 @@ mod test {
         }
         assert_eq!(root.children().count(), 1, "expected a single child");
 
-        let result = SlideParser::parse_element(root.first_child().unwrap()).expect("parsing failed");
+        let result = MarkdownParser::parse_element(root.first_child().unwrap()).expect("parsing failed");
         result
-    }
-
-    fn parse_slides(input: &str) -> Vec<Slide> {
-        let arena = Arena::new();
-        let parser = SlideParser::new(&arena);
-        parser.parse(input).expect("parsing failed")
     }
 
     #[test]
@@ -366,7 +339,7 @@ author: epic potato
 ---
 ",
         );
-        let Element::PresentationMetadata(inner) = parsed else { panic!("not a presentation title: {parsed:?}") };
+        let MarkdownElement::PresentationMetadata(inner) = parsed else { panic!("not a presentation title: {parsed:?}") };
         assert_eq!(inner.title, "hello world");
         assert_eq!(inner.sub_title, Some("hola".into()));
         assert_eq!(inner.author, Some("epic potato".into()));
@@ -375,7 +348,7 @@ author: epic potato
     #[test]
     fn paragraph() {
         let parsed = parse_single("some **bold text**, _italics_, *italics*, **nested _italics_**, ~strikethrough~");
-        let Element::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks: Vec<_> = [
             FormattedText::plain("some "),
             FormattedText::formatted("bold text", TextFormat::default().add_bold()),
@@ -400,7 +373,7 @@ author: epic potato
     #[test]
     fn image() {
         let parsed = parse_single("![](potato.png)");
-        let Element::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         assert_eq!(elements.len(), 1);
         let ParagraphElement::Image { url } = &elements[0] else { panic!("not an image") };
         assert_eq!(url, "potato.png");
@@ -414,7 +387,7 @@ Title
 ===
 ",
         );
-        let Element::SlideTitle { text } = parsed else { panic!("not a slide title: {parsed:?}") };
+        let MarkdownElement::SlideTitle { text } = parsed else { panic!("not a slide title: {parsed:?}") };
         let expected_chunks = [TextChunk::Formatted(FormattedText::plain("Title"))];
         assert_eq!(text.chunks, expected_chunks);
     }
@@ -422,7 +395,7 @@ Title
     #[test]
     fn heading() {
         let parsed = parse_single("# Title **with bold**");
-        let Element::Heading { text, level } = parsed else { panic!("not a heading: {parsed:?}") };
+        let MarkdownElement::Heading { text, level } = parsed else { panic!("not a heading: {parsed:?}") };
         let expected_chunks: Vec<_> =
             [FormattedText::plain("Title "), FormattedText::formatted("with bold", TextFormat::default().add_bold())]
                 .into_iter()
@@ -443,7 +416,7 @@ Title
  * Two
  * Three",
         );
-        let Element::List(items) = parsed else { panic!("not a list: {parsed:?}") };
+        let MarkdownElement::List(items) = parsed else { panic!("not a list: {parsed:?}") };
         let mut items = items.into_iter();
         let mut next = || items.next().expect("list ended prematurely");
         assert_eq!(next().depth, 0);
@@ -460,7 +433,7 @@ Title
 some text
 with line breaks",
         );
-        let Element::Paragraph(elements) = parsed else { panic!("not a line break: {parsed:?}") };
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a line break: {parsed:?}") };
         assert_eq!(elements.len(), 1);
 
         let expected_chunks = &[
@@ -481,7 +454,7 @@ let q = 42;
 ````
 ",
         );
-        let Element::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
+        let MarkdownElement::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
         assert_eq!(code.language, CodeLanguage::Rust);
         assert_eq!(code.contents, "let q = 42;\n");
     }
@@ -489,7 +462,7 @@ let q = 42;
     #[test]
     fn inline_code() {
         let parsed = parse_single("some `inline code`");
-        let Element::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks = &[
             TextChunk::Formatted(FormattedText::plain("some ")),
             TextChunk::Formatted(FormattedText::formatted("inline code", TextFormat::default().add_code())),
@@ -510,51 +483,10 @@ let q = 42;
 | Carrot | Yuck |
 ",
         );
-        let Element::Table { header, rows } = parsed else { panic!("not a table: {parsed:?}") };
+        let MarkdownElement::Table { header, rows } = parsed else { panic!("not a table: {parsed:?}") };
         assert_eq!(header.0.len(), 2);
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].0.len(), 2);
         assert_eq!(rows[1].0.len(), 2);
-    }
-
-    #[test]
-    fn slide_splitting() {
-        let slides = parse_slides(
-            "First
-
----
-Second
-
-***
-Third
-",
-        );
-        assert_eq!(slides.len(), 3);
-
-        assert_eq!(slides[0].elements.len(), 1);
-        assert_eq!(slides[1].elements.len(), 1);
-        assert_eq!(slides[2].elements.len(), 1);
-
-        let expected = ["First", "Second", "Third"];
-        for (slide, expected) in slides.into_iter().zip(expected) {
-            let Element::Paragraph(elements) = &slide.elements[0] else { panic!("no text") };
-            let chunks = [TextChunk::Formatted(FormattedText::plain(expected))];
-
-            let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };
-            assert_eq!(text.chunks, chunks);
-        }
-    }
-
-    #[test]
-    fn metadata_creates_slide() {
-        let slides = parse_slides(
-            "---
-title: hallo
----
-
-hi mom
-",
-        );
-        assert_eq!(slides.len(), 2);
     }
 }
