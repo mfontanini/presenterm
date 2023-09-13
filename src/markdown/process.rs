@@ -3,34 +3,41 @@ use crate::{
         Code, FormattedText, ListItem, ListItemType, MarkdownElement, ParagraphElement, PresentationMetadata, TableRow,
         Text, TextChunk, TextFormat,
     },
-    render::highlighting::{CodeHighlighter, CodeLine},
+    render::{
+        highlighting::{CodeHighlighter, CodeLine},
+        media::Image,
+    },
+    resource::{LoadImageError, Resources},
     theme::ElementType,
 };
 use std::{iter, mem};
+
+pub type ProcessError = LoadImageError;
 
 pub struct MarkdownProcessor<'a> {
     slide_elements: Vec<SlideElement>,
     slides: Vec<Slide>,
     highlighter: &'a CodeHighlighter,
+    resources: &'a mut Resources,
 }
 
 impl<'a> MarkdownProcessor<'a> {
-    pub fn new(highlighter: &'a CodeHighlighter) -> Self {
-        Self { slide_elements: Vec::new(), slides: Vec::new(), highlighter }
+    pub fn new(highlighter: &'a CodeHighlighter, resources: &'a mut Resources) -> Self {
+        Self { slide_elements: Vec::new(), slides: Vec::new(), highlighter, resources }
     }
 
-    pub fn transform(mut self, elements: Vec<MarkdownElement>) -> Vec<Slide> {
+    pub fn transform(mut self, elements: Vec<MarkdownElement>) -> Result<Vec<Slide>, LoadImageError> {
         for element in elements {
-            self.process_element(element);
+            self.process_element(element)?;
             self.push_line_break();
         }
         if !self.slide_elements.is_empty() {
             self.terminate_slide();
         }
-        self.slides
+        Ok(self.slides)
     }
 
-    fn process_element(&mut self, element: MarkdownElement) {
+    fn process_element(&mut self, element: MarkdownElement) -> Result<(), ProcessError> {
         match element {
             MarkdownElement::PresentationMetadata(metadata) => {
                 self.slide_elements.push(SlideElement::PresentationMetadata(metadata));
@@ -38,12 +45,13 @@ impl<'a> MarkdownProcessor<'a> {
             }
             MarkdownElement::SlideTitle { text } => self.push_slide_title(text),
             MarkdownElement::Heading { level, text } => self.push_heading(level, text),
-            MarkdownElement::Paragraph(elements) => self.push_paragraph(elements),
+            MarkdownElement::Paragraph(elements) => self.push_paragraph(elements)?,
             MarkdownElement::List(elements) => self.push_list(elements),
             MarkdownElement::Code(code) => self.push_code(code),
             MarkdownElement::Table { header, rows } => self.push_table(header, rows),
             MarkdownElement::ThematicBreak => self.terminate_slide(),
-        }
+        };
+        Ok(())
     }
 
     fn push_slide_title(&mut self, mut text: Text) {
@@ -72,7 +80,7 @@ impl<'a> MarkdownProcessor<'a> {
         self.push_line_break();
     }
 
-    fn push_paragraph(&mut self, elements: Vec<ParagraphElement>) {
+    fn push_paragraph(&mut self, elements: Vec<ParagraphElement>) -> Result<(), ProcessError> {
         for element in elements {
             match element {
                 ParagraphElement::Text(mut text) => {
@@ -80,9 +88,13 @@ impl<'a> MarkdownProcessor<'a> {
                     text.chunks.push(TextChunk::LineBreak);
                     self.push_text(text, ElementType::Paragraph);
                 }
-                ParagraphElement::Image { url } => self.slide_elements.push(SlideElement::Image { url }),
+                ParagraphElement::Image { url } => {
+                    let image = self.resources.image(&url)?;
+                    self.slide_elements.push(SlideElement::Image(image));
+                }
             };
         }
+        Ok(())
     }
 
     fn push_list(&mut self, items: Vec<ListItem>) {
@@ -226,17 +238,17 @@ impl<'a> MarkdownProcessor<'a> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum SlideElement {
     PresentationMetadata(PresentationMetadata),
     TextLine { texts: Vec<FormattedText>, element_type: ElementType },
     Separator,
     LineBreak,
-    Image { url: String },
+    Image(Image),
     PreformattedLine { text: String, original_length: usize, block_length: usize },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Slide {
     pub elements: Vec<SlideElement>,
 }

@@ -22,7 +22,6 @@ struct Cli {
 }
 
 struct SlideShow {
-    resources: Resources,
     theme: SlideTheme,
     input: Input,
 }
@@ -31,7 +30,7 @@ impl SlideShow {
     fn present(mut self, mut presentation: Presentation) -> DrawResult {
         let mut drawer = Drawer::new(io::stdout())?;
         loop {
-            drawer.draw_slide(&mut self.resources, &self.theme, &presentation)?;
+            drawer.draw_slide(&self.theme, &presentation)?;
 
             loop {
                 let Some(command) = self.input.next_command()? else {
@@ -66,14 +65,14 @@ fn main() {
 
     let content = fs::read_to_string(cli.path).expect("reading failed");
     let highlighter = CodeHighlighter::new("base16-ocean.dark").expect("creating highlighter failed");
-    let elements = parser.parse(&content).expect("parse failed");
-    let slides = MarkdownProcessor::new(&highlighter).transform(elements);
-    let presentation = Presentation::new(slides);
-
-    let resources = Resources::default();
+    let mut resources = Resources::default();
     let input = Input::default();
 
-    let slideshow = SlideShow { resources, theme, input };
+    let elements = parser.parse(&content).expect("parse failed");
+    let slides = MarkdownProcessor::new(&highlighter, &mut resources).transform(elements).expect("processing failed");
+    let presentation = Presentation::new(slides);
+
+    let slideshow = SlideShow { theme, input };
     if let Err(e) = slideshow.present(presentation) {
         eprintln!("Error running slideshow: {e}");
     };

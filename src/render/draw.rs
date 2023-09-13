@@ -3,7 +3,6 @@ use crate::{
     markdown::process::{Slide, SlideElement},
     presentation::Presentation,
     render::media::MediaDrawer,
-    resource::Resources,
     theme::{Alignment, AuthorPositioning, Colors, ElementType, SlideTheme},
 };
 use crossterm::{
@@ -13,6 +12,8 @@ use crossterm::{
     QueueableCommand,
 };
 use std::io;
+
+use super::media::Image;
 
 pub type DrawResult = Result<(), DrawSlideError>;
 
@@ -30,12 +31,7 @@ where
         Ok(Self { handle })
     }
 
-    pub fn draw_slide<'a>(
-        &mut self,
-        resources: &'a mut Resources,
-        theme: &'a SlideTheme,
-        presentation: &'a Presentation,
-    ) -> DrawResult {
+    pub fn draw_slide<'a>(&mut self, theme: &'a SlideTheme, presentation: &'a Presentation) -> DrawResult {
         let dimensions = window_size()?;
         let slide_dimensions = WindowSize {
             rows: dimensions.rows - 3,
@@ -45,7 +41,7 @@ where
         };
 
         let slide = presentation.current_slide();
-        let slide_drawer = SlideDrawer { handle: &mut self.handle, resources, theme, dimensions: slide_dimensions };
+        let slide_drawer = SlideDrawer { handle: &mut self.handle, theme, dimensions: slide_dimensions };
         slide_drawer.draw_slide(slide)?;
 
         if let Some(template) = &theme.styles.footer.template {
@@ -72,7 +68,6 @@ where
 
 struct SlideDrawer<'a, W> {
     handle: &'a mut W,
-    resources: &'a mut Resources,
     theme: &'a SlideTheme,
     dimensions: WindowSize,
 }
@@ -102,7 +97,7 @@ where
             SlideElement::TextLine { texts, element_type } => self.draw_text(texts, element_type),
             SlideElement::Separator => self.draw_separator(),
             SlideElement::LineBreak => self.draw_line_break(),
-            SlideElement::Image { url } => self.draw_image(url),
+            SlideElement::Image(image) => self.draw_image(image),
             SlideElement::PreformattedLine { text, original_length, block_length } => {
                 self.draw_preformatted_line(text, *original_length, *block_length)
             }
@@ -161,9 +156,8 @@ where
         Ok(())
     }
 
-    fn draw_image(&mut self, path: &str) -> Result<(), DrawSlideError> {
-        let image = self.resources.image(path).map_err(|e| DrawSlideError::Other(Box::new(e)))?;
-        MediaDrawer.draw_image(&image, &self.dimensions).map_err(|e| DrawSlideError::Other(Box::new(e)))?;
+    fn draw_image(&mut self, image: &Image) -> Result<(), DrawSlideError> {
+        MediaDrawer.draw_image(image, &self.dimensions).map_err(|e| DrawSlideError::Other(Box::new(e)))?;
         Ok(())
     }
 
