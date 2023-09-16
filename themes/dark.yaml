@@ -23,4 +23,16 @@ styles:
     author:
       alignment: Center
       positioning: PageBottom
-
+  headings:
+    h1:
+      prefix: "██"
+    h2:
+      prefix: "▓▓▓"
+    h3:
+      prefix: "▒▒▒▒"
+    h4:
+      prefix: "░░░░░"
+    h5:
+      prefix: "░░░░░░"
+    h6:
+      prefix: "░░░░░░░"

@@ -3,7 +3,7 @@ use crate::{
     markdown::text::WeightedLine,
     presentation::{Presentation, RenderOperation, Slide},
     render::media::MediaDrawer,
-    theme::{Alignment, Colors, ElementType, SlideTheme},
+    theme::{Alignment, Colors, ElementType, PresentationTheme},
 };
 use crossterm::{
     cursor,
@@ -29,7 +29,7 @@ where
         Ok(Self { handle })
     }
 
-    pub fn render_slide<'a>(&mut self, theme: &'a SlideTheme, presentation: &'a Presentation) -> DrawResult {
+    pub fn render_slide<'a>(&mut self, theme: &'a PresentationTheme, presentation: &'a Presentation) -> DrawResult {
         let dimensions = window_size()?;
         let slide_dimensions = WindowSize {
             rows: dimensions.rows - 3,
@@ -66,7 +66,7 @@ where
 
 struct SlideDrawer<'a, W> {
     handle: &'a mut W,
-    theme: &'a SlideTheme,
+    theme: &'a PresentationTheme,
     dimensions: WindowSize,
 }
 
@@ -203,7 +203,7 @@ where
         Self { handle, line, start_column, line_length, default_colors }
     }
 
-    fn draw(self, theme: &SlideTheme) -> DrawResult {
+    fn draw(self, theme: &PresentationTheme) -> DrawResult {
         self.handle.queue(cursor::MoveToColumn(self.start_column))?;
 
         for (line_index, line) in self.line.split(self.line_length as usize).enumerate() {

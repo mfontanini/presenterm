@@ -1,3 +1,7 @@
+use super::{
+    elements::{PresentationMetadata, Table},
+    text::{WeightedLine, WeightedText},
+};
 use crate::{
     markdown::elements::{
         Code, FormattedText, ListItem, ListItemType, MarkdownElement, ParagraphElement, TableRow, Text, TextChunk,
@@ -6,14 +10,9 @@ use crate::{
     presentation::{RenderOperation, Slide},
     render::highlighting::{CodeHighlighter, CodeLine},
     resource::{LoadImageError, Resources},
-    theme::{AuthorPositioning, ElementType, SlideTheme},
+    theme::{AuthorPositioning, ElementType, PresentationTheme},
 };
 use std::{iter, mem};
-
-use super::{
-    elements::{PresentationMetadata, Table},
-    text::{WeightedLine, WeightedText},
-};
 
 pub type ProcessError = LoadImageError;
 
@@ -21,12 +20,12 @@ pub struct MarkdownProcessor<'a> {
     slide_operations: Vec<RenderOperation>,
     slides: Vec<Slide>,
     highlighter: &'a CodeHighlighter,
-    theme: &'a SlideTheme,
+    theme: &'a PresentationTheme,
     resources: &'a mut Resources,
 }
 
 impl<'a> MarkdownProcessor<'a> {
-    pub fn new(highlighter: &'a CodeHighlighter, theme: &'a SlideTheme, resources: &'a mut Resources) -> Self {
+    pub fn new(highlighter: &'a CodeHighlighter, theme: &'a PresentationTheme, resources: &'a mut Resources) -> Self {
         Self { slide_operations: Vec::new(), slides: Vec::new(), highlighter, theme, resources }
     }
 
@@ -94,16 +93,21 @@ impl<'a> MarkdownProcessor<'a> {
     }
 
     fn push_heading(&mut self, level: u8, mut text: Text) {
-        let element_type = match level {
-            1 => ElementType::Heading1,
-            2 => ElementType::Heading2,
-            3 => ElementType::Heading3,
-            4 => ElementType::Heading4,
-            5 => ElementType::Heading5,
-            6 => ElementType::Heading6,
+        let (element_type, style) = match level {
+            1 => (ElementType::Heading1, &self.theme.styles.headings.h1),
+            2 => (ElementType::Heading2, &self.theme.styles.headings.h2),
+            3 => (ElementType::Heading3, &self.theme.styles.headings.h3),
+            4 => (ElementType::Heading4, &self.theme.styles.headings.h4),
+            5 => (ElementType::Heading5, &self.theme.styles.headings.h5),
+            6 => (ElementType::Heading6, &self.theme.styles.headings.h6),
             other => panic!("unexpected heading level {other}"),
         };
         text.apply_format(&TextFormat::default().add_bold());
+        if !style.prefix.is_empty() {
+            let mut prefix = style.prefix.clone();
+            prefix.push(' ');
+            text.chunks.insert(0, TextChunk::Formatted(FormattedText::plain(prefix)));
+        }
         self.push_text(text, element_type);
         self.push_line_break();
     }

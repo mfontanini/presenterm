@@ -9,7 +9,7 @@ use presenterm::{
         highlighting::CodeHighlighter,
     },
     resource::Resources,
-    theme::SlideTheme,
+    theme::PresentationTheme,
 };
 use std::{fs, io, path::PathBuf};
 
@@ -22,7 +22,7 @@ struct Cli {
 }
 
 struct SlideShow {
-    theme: SlideTheme,
+    theme: PresentationTheme,
     input: Input,
 }
 
@@ -55,7 +55,7 @@ impl SlideShow {
 
 fn main() {
     let cli = Cli::parse();
-    let Some(theme) = SlideTheme::from_name(&cli.theme) else {
+    let Some(theme) = PresentationTheme::from_name(&cli.theme) else {
         let mut cmd = Cli::command();
         cmd.error(ErrorKind::InvalidValue, "invalid theme name").exit();
     };

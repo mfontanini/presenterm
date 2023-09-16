@@ -4,11 +4,11 @@ use serde::Deserialize;
 include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 
 #[derive(Debug, Deserialize)]
-pub struct SlideTheme {
+pub struct PresentationTheme {
     pub styles: Styles,
 }
 
-impl SlideTheme {
+impl PresentationTheme {
     pub fn from_name(name: &str) -> Option<Self> {
         let contents = THEMES.get(name)?;
         // This is going to be caught by the test down here.
@@ -20,12 +20,12 @@ impl SlideTheme {
 
         let alignment = match element {
             SlideTitle => &self.styles.slide_title,
-            Heading1 => &self.styles.headings.h1,
-            Heading2 => &self.styles.headings.h2,
-            Heading3 => &self.styles.headings.h3,
-            Heading4 => &self.styles.headings.h4,
-            Heading5 => &self.styles.headings.h5,
-            Heading6 => &self.styles.headings.h6,
+            Heading1 => &self.styles.headings.h1.alignment,
+            Heading2 => &self.styles.headings.h2.alignment,
+            Heading3 => &self.styles.headings.h3.alignment,
+            Heading4 => &self.styles.headings.h4.alignment,
+            Heading5 => &self.styles.headings.h5.alignment,
+            Heading6 => &self.styles.headings.h6.alignment,
             Paragraph => &self.styles.paragraph,
             List => &self.styles.list,
             Code => &self.styles.code.alignment,
@@ -70,12 +70,32 @@ pub struct Styles {
 
 #[derive(Debug, Default, Deserialize)]
 pub struct HeadingStyles {
-    pub h1: Option<Alignment>,
-    pub h2: Option<Alignment>,
-    pub h3: Option<Alignment>,
-    pub h4: Option<Alignment>,
-    pub h5: Option<Alignment>,
-    pub h6: Option<Alignment>,
+    #[serde(default)]
+    pub h1: HeadingStyle,
+
+    #[serde(default)]
+    pub h2: HeadingStyle,
+
+    #[serde(default)]
+    pub h3: HeadingStyle,
+
+    #[serde(default)]
+    pub h4: HeadingStyle,
+
+    #[serde(default)]
+    pub h5: HeadingStyle,
+
+    #[serde(default)]
+    pub h6: HeadingStyle,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct HeadingStyle {
+    #[serde(flatten, default)]
+    pub alignment: Option<Alignment>,
+
+    #[serde(default)]
+    pub prefix: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -181,7 +201,7 @@ mod test {
     #[test]
     fn validate_themes() {
         for theme_name in THEMES.keys() {
-            assert!(SlideTheme::from_name(theme_name).is_some(), "theme {theme_name} is corrupted");
+            assert!(PresentationTheme::from_name(theme_name).is_some(), "theme {theme_name} is corrupted");
         }
     }
 }
