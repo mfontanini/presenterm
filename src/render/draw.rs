@@ -1,7 +1,9 @@
 use crate::{
-    markdown::elements::{FormattedText, PresentationMetadata, TextFormat},
-    markdown::process::{Slide, SlideElement},
-    presentation::Presentation,
+    markdown::{
+        elements::{FormattedText, PresentationMetadata, TextFormat},
+        text::WeightedLine,
+    },
+    presentation::{Presentation, Slide, SlideElement},
     render::media::MediaDrawer,
     theme::{Alignment, AuthorPositioning, Colors, ElementType, SlideTheme},
 };
@@ -110,10 +112,10 @@ where
         let sub_title = metadata.sub_title.as_ref().map(|text| FormattedText::plain(text.clone()));
         let author = metadata.author.as_ref().map(|text| FormattedText::plain(text.clone()));
         self.handle.queue(cursor::MoveToRow(center_row))?;
-        self.draw_text(&[title], &ElementType::PresentationTitle)?;
+        self.draw_text(&WeightedLine::from(vec![title.into()]), &ElementType::PresentationTitle)?;
         self.handle.queue(cursor::MoveToNextLine(1))?;
         if let Some(text) = sub_title {
-            self.draw_text(&[text], &ElementType::PresentationSubTitle)?;
+            self.draw_text(&WeightedLine::from(vec![text.into()]), &ElementType::PresentationSubTitle)?;
             self.handle.queue(cursor::MoveToNextLine(1))?;
         }
         if let Some(text) = author {
@@ -125,15 +127,12 @@ where
                     self.handle.queue(cursor::MoveToRow(self.dimensions.rows))?;
                 }
             };
-            self.draw_text(&[text], &ElementType::PresentationAuthor)?;
+            self.draw_text(&WeightedLine::from(vec![text.into()]), &ElementType::PresentationAuthor)?;
         }
         Ok(())
     }
 
-    fn draw_text(&mut self, text: &[FormattedText], element_type: &ElementType) -> DrawResult {
-        if text.is_empty() {
-            return Ok(());
-        }
+    fn draw_text(&mut self, text: &WeightedLine, element_type: &ElementType) -> DrawResult {
         let alignment = self.theme.alignment(element_type);
         let text_drawer = TextDrawer::new(
             alignment,
@@ -184,7 +183,7 @@ where
 
 struct TextDrawer<'a, W> {
     handle: &'a mut W,
-    elements: &'a [FormattedText],
+    line: &'a WeightedLine,
     start_column: u16,
     line_length: u16,
     default_colors: &'a Colors,
@@ -197,11 +196,11 @@ where
     fn new(
         alignment: &'a Alignment,
         handle: &'a mut W,
-        elements: &'a [FormattedText],
+        line: &'a WeightedLine,
         dimensions: &WindowSize,
         default_colors: &'a Colors,
     ) -> Self {
-        let text_length: u16 = elements.iter().map(|chunk| chunk.text.len() as u16).sum();
+        let text_length = line.width() as u16;
         let mut line_length = dimensions.columns;
         let mut start_column;
         match *alignment {
@@ -219,26 +218,30 @@ where
                 }
             }
         };
-        Self { handle, elements, start_column, line_length, default_colors }
+        Self { handle, line, start_column, line_length, default_colors }
     }
 
     fn draw(self, theme: &SlideTheme) -> DrawResult {
-        let mut length_so_far = 0;
         self.handle.queue(cursor::MoveToColumn(self.start_column))?;
-        for element in self.elements {
-            let (mut chunk, mut rest) = self.truncate(&element.text);
-            loop {
-                let mut styled = chunk.to_string().stylize();
-                if element.format.has_bold() {
+
+        for (line_index, line) in self.line.split(self.line_length as usize).enumerate() {
+            self.handle.queue(cursor::MoveToColumn(self.start_column))?;
+            if line_index > 0 {
+                self.handle.queue(cursor::MoveDown(1))?;
+            }
+            for chunk in line {
+                let (text, format) = chunk.into_parts();
+                let mut styled = text.to_string().stylize();
+                if format.has_bold() {
                     styled = styled.bold();
                 }
-                if element.format.has_italics() {
+                if format.has_italics() {
                     styled = styled.italic();
                 }
-                if element.format.has_strikethrough() {
+                if format.has_strikethrough() {
                     styled = styled.crossed_out();
                 }
-                if element.format.has_code() {
+                if format.has_code() {
                     styled = styled.italic();
                     if let Some(color) = &theme.styles.code.colors.foreground {
                         styled = styled.with(*color);
@@ -247,33 +250,11 @@ where
                         styled = styled.on(*color);
                     }
                 }
-                length_so_far += styled.content().len() as u16;
-                if length_so_far > self.line_length {
-                    self.handle.queue(cursor::MoveDown(1))?;
-                    self.handle.queue(cursor::MoveToColumn(self.start_column))?;
-                }
                 self.handle.queue(style::PrintStyledContent(styled))?;
                 apply_colors(self.handle, self.default_colors)?;
-                if rest.is_empty() {
-                    break;
-                }
-                (chunk, rest) = self.truncate(rest);
             }
         }
         Ok(())
-    }
-
-    fn truncate(&self, word: &'a str) -> (&'a str, &'a str) {
-        let line_length = self.line_length as usize;
-        if word.len() <= line_length {
-            return (word, "");
-        }
-        let target_chunk = &word[0..line_length];
-        let output_chunk = match target_chunk.rsplit_once(' ') {
-            Some((before, _)) => before,
-            None => target_chunk,
-        };
-        (output_chunk, word[output_chunk.len()..].trim())
     }
 }
 

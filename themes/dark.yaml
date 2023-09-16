@@ -13,6 +13,8 @@ styles:
     colors:
       foreground: dark_green
       background: dark_grey
+  table:
+    alignment: Center
   presentation:
     title:
       alignment: Center

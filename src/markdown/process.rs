@@ -1,16 +1,16 @@
 use crate::{
     markdown::elements::{
-        Code, FormattedText, ListItem, ListItemType, MarkdownElement, ParagraphElement, PresentationMetadata, TableRow,
-        Text, TextChunk, TextFormat,
+        Code, FormattedText, ListItem, ListItemType, MarkdownElement, ParagraphElement, TableRow, Text, TextChunk,
+        TextFormat,
     },
-    render::{
-        highlighting::{CodeHighlighter, CodeLine},
-        media::Image,
-    },
+    presentation::{Slide, SlideElement},
+    render::highlighting::{CodeHighlighter, CodeLine},
     resource::{LoadImageError, Resources},
     theme::ElementType,
 };
 use std::{iter, mem};
+
+use super::text::{WeightedLine, WeightedText};
 
 pub type ProcessError = LoadImageError;
 
@@ -99,11 +99,11 @@ impl<'a> MarkdownProcessor<'a> {
 
     fn push_list(&mut self, items: Vec<ListItem>) {
         for item in items {
-            self.transform_list_item(item);
+            self.push_list_item(item);
         }
     }
 
-    fn transform_list_item(&mut self, item: ListItem) {
+    fn push_list_item(&mut self, item: ListItem) {
         let padding_length = (item.depth as usize + 1) * 2;
         let mut prefix: String = " ".repeat(padding_length);
         match item.item_type {
@@ -133,17 +133,16 @@ impl<'a> MarkdownProcessor<'a> {
     }
 
     fn push_text(&mut self, text: Text, element_type: ElementType) {
-        // TODO move line break outside of TextChunk
-        let mut texts = Vec::new();
+        let mut texts: Vec<WeightedText> = Vec::new();
         for chunk in text.chunks {
             match chunk {
                 TextChunk::Formatted(text) => {
-                    texts.push(text);
+                    texts.push(text.into());
                 }
                 TextChunk::LineBreak => {
                     if !texts.is_empty() {
                         self.slide_elements.push(SlideElement::TextLine {
-                            texts: mem::take(&mut texts),
+                            texts: WeightedLine::from(mem::take(&mut texts)),
                             element_type: element_type.clone(),
                         });
                     }
@@ -152,7 +151,8 @@ impl<'a> MarkdownProcessor<'a> {
             }
         }
         if !texts.is_empty() {
-            self.slide_elements.push(SlideElement::TextLine { texts, element_type: element_type.clone() });
+            self.slide_elements
+                .push(SlideElement::TextLine { texts: WeightedLine::from(texts), element_type: element_type.clone() });
         }
     }
 
@@ -237,25 +237,3 @@ impl<'a> MarkdownProcessor<'a> {
         widths
     }
 }
-
-#[derive(Clone)]
-pub enum SlideElement {
-    PresentationMetadata(PresentationMetadata),
-    TextLine { texts: Vec<FormattedText>, element_type: ElementType },
-    Separator,
-    LineBreak,
-    Image(Image),
-    PreformattedLine { text: String, original_length: usize, block_length: usize },
-}
-
-#[derive(Clone)]
-pub struct Slide {
-    pub elements: Vec<SlideElement>,
-}
-
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//
-//
-// }

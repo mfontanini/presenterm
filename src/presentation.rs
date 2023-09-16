@@ -1,4 +1,8 @@
-use crate::markdown::process::Slide;
+use crate::{
+    markdown::{elements::PresentationMetadata, text::WeightedLine},
+    render::media::Image,
+    theme::ElementType,
+};
 
 pub struct Presentation {
     slides: Vec<Slide>,
@@ -67,4 +71,19 @@ impl Presentation {
             false
         }
     }
+}
+
+#[derive(Clone)]
+pub struct Slide {
+    pub elements: Vec<SlideElement>,
+}
+
+#[derive(Clone)]
+pub enum SlideElement {
+    PresentationMetadata(PresentationMetadata),
+    TextLine { texts: WeightedLine, element_type: ElementType },
+    Separator,
+    LineBreak,
+    Image(Image),
+    PreformattedLine { text: String, original_length: usize, block_length: usize },
 }

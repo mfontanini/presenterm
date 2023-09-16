@@ -13,5 +13,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 syntect = "5.1"
 thiserror = "1"
+unicode-width = "0.1"
 viuer = "0.6"
 

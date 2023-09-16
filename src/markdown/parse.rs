@@ -320,9 +320,6 @@ mod test {
     fn parse_single(input: &str) -> MarkdownElement {
         let arena = Arena::new();
         let root = parse_document(&arena, input, &ParserOptions::default().0);
-        for c in root.children() {
-            println!("{:?}", c.data.borrow());
-        }
         assert_eq!(root.children().count(), 1, "expected a single child");
 
         let result = MarkdownParser::parse_element(root.first_child().unwrap()).expect("parsing failed");
@@ -339,7 +336,9 @@ author: epic potato
 ---
 ",
         );
-        let MarkdownElement::PresentationMetadata(inner) = parsed else { panic!("not a presentation title: {parsed:?}") };
+        let MarkdownElement::PresentationMetadata(inner) = parsed else {
+            panic!("not a presentation title: {parsed:?}")
+        };
         assert_eq!(inner.title, "hello world");
         assert_eq!(inner.sub_title, Some("hola".into()));
         assert_eq!(inner.author, Some("epic potato".into()));
