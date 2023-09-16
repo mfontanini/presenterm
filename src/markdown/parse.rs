@@ -8,6 +8,8 @@ use comrak::{
 };
 use std::mem;
 
+use super::elements::Table;
+
 type ParseResult<T> = Result<T, ParseError>;
 
 pub struct ParserOptions(ComrakOptions);
@@ -229,7 +231,7 @@ impl<'a> MarkdownParser<'a> {
                 rows.push(row)
             }
         }
-        Ok(MarkdownElement::Table { header, rows })
+        Ok(MarkdownElement::Table(Table { header, rows }))
     }
 
     fn parse_table_row(node: &'a AstNode<'a>) -> ParseResult<TableRow> {
@@ -482,7 +484,7 @@ let q = 42;
 | Carrot | Yuck |
 ",
         );
-        let MarkdownElement::Table { header, rows } = parsed else { panic!("not a table: {parsed:?}") };
+        let MarkdownElement::Table(Table{ header, rows }) = parsed else { panic!("not a table: {parsed:?}") };
         assert_eq!(header.0.len(), 2);
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].0.len(), 2);

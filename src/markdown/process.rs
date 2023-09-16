@@ -10,7 +10,10 @@ use crate::{
 };
 use std::{iter, mem};
 
-use super::text::{WeightedLine, WeightedText};
+use super::{
+    elements::Table,
+    text::{WeightedLine, WeightedText},
+};
 
 pub type ProcessError = LoadImageError;
 
@@ -48,7 +51,7 @@ impl<'a> MarkdownProcessor<'a> {
             MarkdownElement::Paragraph(elements) => self.push_paragraph(elements)?,
             MarkdownElement::List(elements) => self.push_list(elements),
             MarkdownElement::Code(code) => self.push_code(code),
-            MarkdownElement::Table { header, rows } => self.push_table(header, rows),
+            MarkdownElement::Table(table) => self.push_table(table),
             MarkdownElement::ThematicBreak => self.terminate_slide(),
         };
         Ok(())
@@ -180,9 +183,11 @@ impl<'a> MarkdownProcessor<'a> {
         self.slides.push(Slide { elements });
     }
 
-    fn push_table(&mut self, header: TableRow, rows: Vec<TableRow>) {
-        let widths = Self::calculate_table_column_width(&header, &rows);
-        let flattened_header = Self::prepare_table_row(header, &widths);
+    fn push_table(&mut self, table: Table) {
+        let widths: Vec<_> = (0..table.columns())
+            .map(|column| table.iter_column(column).map(|text| text.line_len()).max().unwrap_or(0))
+            .collect();
+        let flattened_header = Self::prepare_table_row(table.header, &widths);
         self.push_text(flattened_header, ElementType::Table);
         self.push_line_break();
 
@@ -201,7 +206,7 @@ impl<'a> MarkdownProcessor<'a> {
         self.push_text(separator, ElementType::Table);
         self.push_line_break();
 
-        for row in rows {
+        for row in table.rows {
             let flattened_row = Self::prepare_table_row(row, &widths);
             self.push_text(flattened_row, ElementType::Table);
             self.push_line_break();
@@ -224,16 +229,5 @@ impl<'a> MarkdownProcessor<'a> {
             }
         }
         flattened_row
-    }
-
-    fn calculate_table_column_width(header: &TableRow, rows: &[TableRow]) -> Vec<usize> {
-        let mut widths = Vec::new();
-        for (column, header_element) in header.0.iter().enumerate() {
-            let row_elements = rows.iter().map(|row| &row.0[column]);
-            let max_width =
-                iter::once(header_element).chain(row_elements).map(|text| text.line_len()).max().unwrap_or(0);
-            widths.push(max_width);
-        }
-        widths
     }
 }

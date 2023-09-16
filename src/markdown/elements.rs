@@ -1,3 +1,5 @@
+use std::iter;
+
 use serde::Deserialize;
 
 #[derive(Clone, Debug)]
@@ -8,7 +10,7 @@ pub enum MarkdownElement {
     Paragraph(Vec<ParagraphElement>),
     List(Vec<ListItem>),
     Code(Code),
-    Table { header: TableRow, rows: Vec<TableRow> },
+    Table(Table),
     ThematicBreak,
 }
 
@@ -160,6 +162,24 @@ pub struct PresentationMetadata {
 
     #[serde(default)]
     pub author: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Table {
+    pub header: TableRow,
+    pub rows: Vec<TableRow>,
+}
+
+impl Table {
+    pub fn columns(&self) -> usize {
+        self.header.0.len()
+    }
+
+    pub fn iter_column(&self, column: usize) -> impl Iterator<Item = &Text> {
+        let header_element = &self.header.0[column];
+        let row_elements = self.rows.iter().map(move |row| &row.0[column]);
+        iter::once(header_element).chain(row_elements)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
