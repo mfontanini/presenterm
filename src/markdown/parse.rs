@@ -76,8 +76,16 @@ impl<'a> MarkdownParser<'a> {
         if !block.fenced {
             return Err(ParseError::UnfencedCodeBlock);
         }
-        // TODO less naive pls
-        let language = if block.info.contains("rust") { CodeLanguage::Rust } else { CodeLanguage::Other };
+        let language = match block.info.as_str() {
+            "rust" => CodeLanguage::Rust,
+            "go" => CodeLanguage::Go,
+            "c" => CodeLanguage::C,
+            "cpp" => CodeLanguage::Cpp,
+            "python" => CodeLanguage::Python,
+            "typescript" | "ts" => CodeLanguage::Typescript,
+            "javascript" | "js" => CodeLanguage::Javascript,
+            _ => CodeLanguage::Unknown,
+        };
         let code = Code { contents: block.literal.clone(), language };
         Ok(MarkdownElement::Code(code))
     }

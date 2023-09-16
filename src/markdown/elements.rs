@@ -154,7 +154,13 @@ pub struct Code {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CodeLanguage {
     Rust,
-    Other,
+    Go,
+    C,
+    Cpp,
+    Python,
+    Typescript,
+    Javascript,
+    Unknown,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]

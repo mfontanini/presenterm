@@ -22,10 +22,17 @@ impl CodeHighlighter {
     pub fn highlight<'a>(&self, code: &'a str, language: &CodeLanguage) -> Vec<CodeLine<'a>> {
         let extension = match language {
             CodeLanguage::Rust => "rs",
-            CodeLanguage::Other => {
+            CodeLanguage::Go => "go",
+            CodeLanguage::C => "c",
+            CodeLanguage::Cpp => "cpp",
+            CodeLanguage::Python => "py",
+            CodeLanguage::Typescript => "js",
+            CodeLanguage::Javascript => "js",
+            CodeLanguage::Unknown => {
                 return code.lines().map(|line| CodeLine { original: line, formatted: line.to_string() }).collect();
             }
         };
+        println!("Trying {extension}");
         let syntax = self.syntax_set.find_syntax_by_extension(extension).unwrap();
         let mut highlight_lines = HighlightLines::new(syntax, &self.theme);
         let mut lines = Vec::new();
