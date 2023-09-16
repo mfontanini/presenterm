@@ -82,5 +82,5 @@ pub enum RenderOperation {
     RenderSeparator,
     RenderLineBreak,
     RenderImage(Image),
-    RenderPreformattedLine { text: String, original_length: usize, block_length: usize },
+    RenderPreformattedLine { text: String, unformatted_length: usize, block_length: usize },
 }

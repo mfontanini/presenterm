@@ -42,10 +42,12 @@ where
         let slide_drawer = SlideDrawer { handle: &mut self.handle, theme, dimensions: slide_dimensions };
         slide_drawer.render_slide(slide)?;
 
-        if let Some(template) = &theme.styles.footer.template {
-            let current_slide = (presentation.current_slide_index() + 1).to_string();
-            let total_slides = presentation.total_slides().to_string();
-            let footer = template.replace("{current_slide}", &current_slide).replace("{total_slides}", &total_slides);
+        let rendered_footer = theme.styles.footer.render(
+            presentation.current_slide_index(),
+            presentation.total_slides(),
+            dimensions.columns as usize,
+        );
+        if let Some(footer) = rendered_footer {
             self.handle.queue(cursor::MoveTo(0, dimensions.rows - 1))?;
             self.handle.queue(style::Print(footer))?;
         }
@@ -97,8 +99,8 @@ where
             RenderOperation::RenderSeparator => self.render_separator(),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image) => self.render_image(image),
-            RenderOperation::RenderPreformattedLine { text, original_length, block_length } => {
-                self.render_preformatted_line(text, *original_length, *block_length)
+            RenderOperation::RenderPreformattedLine { text, unformatted_length, block_length } => {
+                self.render_preformatted_line(text, *unformatted_length, *block_length)
             }
         }
     }
@@ -142,7 +144,7 @@ where
         Ok(())
     }
 
-    fn render_preformatted_line(&mut self, text: &str, original_length: usize, block_length: usize) -> DrawResult {
+    fn render_preformatted_line(&mut self, text: &str, unformatted_length: usize, block_length: usize) -> DrawResult {
         let style = self.theme.alignment(&ElementType::Code);
         let start_column = match *style {
             Alignment::Left { margin } => margin,
@@ -155,7 +157,7 @@ where
         self.handle.queue(cursor::MoveToColumn(start_column))?;
 
         let max_line_length = (self.dimensions.columns - start_column * 2) as usize;
-        let until_right_edge = max_line_length.saturating_sub(original_length);
+        let until_right_edge = max_line_length.saturating_sub(unformatted_length);
         // Pad this code block with spaces so we get a nice little rectangle.
         self.handle.queue(style::Print(&text))?;
         self.handle.queue(style::Print(" ".repeat(until_right_edge)))?;

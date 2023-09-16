@@ -201,8 +201,7 @@ impl<'a> MarkdownProcessor<'a> {
             let formatted = formatted.trim_end();
             self.slide_operations.push(RenderOperation::RenderPreformattedLine {
                 text: formatted.into(),
-                // TODO: remove once measuring character widths is in place
-                original_length: original.len(),
+                unformatted_length: original.len(),
                 block_length,
             });
             self.push_line_break();

@@ -36,3 +36,5 @@ styles:
       prefix: "░░░░░░"
     h6:
       prefix: "░░░░░░░"
+  footer: 
+    style: progress_bar

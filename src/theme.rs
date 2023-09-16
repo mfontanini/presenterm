@@ -142,10 +142,38 @@ pub struct AuthorStyle {
     pub positioning: AuthorPositioning,
 }
 
-#[derive(Debug, Default, Deserialize)]
-pub struct FooterStyle {
-    #[serde(default = "default_footer_template")]
-    pub template: Option<String>,
+#[derive(Debug, Deserialize)]
+#[serde(tag = "style", rename_all = "snake_case")]
+pub enum FooterStyle {
+    Template { format: String },
+    ProgressBar,
+    Empty,
+}
+
+impl Default for FooterStyle {
+    fn default() -> Self {
+        Self::Template { format: " {current_slide} / {total_slides}".to_string() }
+    }
+}
+
+impl FooterStyle {
+    pub fn render(&self, current_slide: usize, total_slides: usize, total_columns: usize) -> Option<String> {
+        match self {
+            FooterStyle::Template { format } => {
+                let current_slide = (current_slide + 1).to_string();
+                let total_slides = total_slides.to_string();
+                let footer = format.replace("{current_slide}", &current_slide).replace("{total_slides}", &total_slides);
+                Some(footer)
+            }
+            FooterStyle::ProgressBar => {
+                let progress_ratio = (current_slide + 1) as f64 / total_slides as f64;
+                let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
+                let bar = "█".repeat(columns_ratio as usize);
+                Some(bar)
+            }
+            FooterStyle::Empty => None,
+        }
+    }
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -189,10 +217,6 @@ pub enum AuthorPositioning {
 
     #[default]
     PageBottom,
-}
-
-fn default_footer_template() -> Option<String> {
-    Some("{current_slide} / {total_slides}".to_string())
 }
 
 #[cfg(test)]
