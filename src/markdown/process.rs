@@ -3,30 +3,31 @@ use crate::{
         Code, FormattedText, ListItem, ListItemType, MarkdownElement, ParagraphElement, TableRow, Text, TextChunk,
         TextFormat,
     },
-    presentation::{Slide, SlideElement},
+    presentation::{RenderOperation, Slide},
     render::highlighting::{CodeHighlighter, CodeLine},
     resource::{LoadImageError, Resources},
-    theme::ElementType,
+    theme::{AuthorPositioning, ElementType, SlideTheme},
 };
 use std::{iter, mem};
 
 use super::{
-    elements::Table,
+    elements::{PresentationMetadata, Table},
     text::{WeightedLine, WeightedText},
 };
 
 pub type ProcessError = LoadImageError;
 
 pub struct MarkdownProcessor<'a> {
-    slide_elements: Vec<SlideElement>,
+    slide_operations: Vec<RenderOperation>,
     slides: Vec<Slide>,
     highlighter: &'a CodeHighlighter,
+    theme: &'a SlideTheme,
     resources: &'a mut Resources,
 }
 
 impl<'a> MarkdownProcessor<'a> {
-    pub fn new(highlighter: &'a CodeHighlighter, resources: &'a mut Resources) -> Self {
-        Self { slide_elements: Vec::new(), slides: Vec::new(), highlighter, resources }
+    pub fn new(highlighter: &'a CodeHighlighter, theme: &'a SlideTheme, resources: &'a mut Resources) -> Self {
+        Self { slide_operations: Vec::new(), slides: Vec::new(), highlighter, theme, resources }
     }
 
     pub fn transform(mut self, elements: Vec<MarkdownElement>) -> Result<Vec<Slide>, LoadImageError> {
@@ -34,7 +35,7 @@ impl<'a> MarkdownProcessor<'a> {
             self.process_element(element)?;
             self.push_line_break();
         }
-        if !self.slide_elements.is_empty() {
+        if !self.slide_operations.is_empty() {
             self.terminate_slide();
         }
         Ok(self.slides)
@@ -42,10 +43,7 @@ impl<'a> MarkdownProcessor<'a> {
 
     fn process_element(&mut self, element: MarkdownElement) -> Result<(), ProcessError> {
         match element {
-            MarkdownElement::PresentationMetadata(metadata) => {
-                self.slide_elements.push(SlideElement::PresentationMetadata(metadata));
-                self.terminate_slide();
-            }
+            MarkdownElement::PresentationMetadata(metadata) => self.push_intro_slide(metadata),
             MarkdownElement::SlideTitle { text } => self.push_slide_title(text),
             MarkdownElement::Heading { level, text } => self.push_heading(level, text),
             MarkdownElement::Paragraph(elements) => self.push_paragraph(elements)?,
@@ -57,6 +55,33 @@ impl<'a> MarkdownProcessor<'a> {
         Ok(())
     }
 
+    fn push_intro_slide(&mut self, metadata: PresentationMetadata) {
+        let title = FormattedText::formatted(metadata.title.clone(), TextFormat::default().add_bold());
+        let sub_title = metadata.sub_title.as_ref().map(|text| FormattedText::plain(text.clone()));
+        let author = metadata.author.as_ref().map(|text| FormattedText::plain(text.clone()));
+        self.slide_operations.push(RenderOperation::JumpToVerticalCenter);
+        self.push_text(Text::single(title), ElementType::PresentationTitle);
+        self.push_line_break();
+        if let Some(text) = sub_title {
+            self.push_text(Text::single(text), ElementType::PresentationSubTitle);
+            self.push_line_break();
+        }
+        if let Some(text) = author {
+            match self.theme.styles.presentation.author.positioning {
+                AuthorPositioning::BelowTitle => {
+                    self.push_line_break();
+                    self.push_line_break();
+                    self.push_line_break();
+                }
+                AuthorPositioning::PageBottom => {
+                    self.slide_operations.push(RenderOperation::JumpToBottom);
+                }
+            };
+            self.push_text(Text::single(text), ElementType::PresentationAuthor);
+        }
+        self.terminate_slide();
+    }
+
     fn push_slide_title(&mut self, mut text: Text) {
         text.apply_format(&TextFormat::default().add_bold());
 
@@ -64,7 +89,7 @@ impl<'a> MarkdownProcessor<'a> {
         self.push_text(text, ElementType::SlideTitle);
         self.push_line_break();
         self.push_line_break();
-        self.slide_elements.push(SlideElement::Separator);
+        self.slide_operations.push(RenderOperation::RenderSeparator);
         self.push_line_break();
     }
 
@@ -93,7 +118,7 @@ impl<'a> MarkdownProcessor<'a> {
                 }
                 ParagraphElement::Image { url } => {
                     let image = self.resources.image(&url)?;
-                    self.slide_elements.push(SlideElement::Image(image));
+                    self.slide_operations.push(RenderOperation::RenderImage(image));
                 }
             };
         }
@@ -144,7 +169,7 @@ impl<'a> MarkdownProcessor<'a> {
                 }
                 TextChunk::LineBreak => {
                     if !texts.is_empty() {
-                        self.slide_elements.push(SlideElement::TextLine {
+                        self.slide_operations.push(RenderOperation::RenderTextLine {
                             texts: WeightedLine::from(mem::take(&mut texts)),
                             element_type: element_type.clone(),
                         });
@@ -154,13 +179,15 @@ impl<'a> MarkdownProcessor<'a> {
             }
         }
         if !texts.is_empty() {
-            self.slide_elements
-                .push(SlideElement::TextLine { texts: WeightedLine::from(texts), element_type: element_type.clone() });
+            self.slide_operations.push(RenderOperation::RenderTextLine {
+                texts: WeightedLine::from(texts),
+                element_type: element_type.clone(),
+            });
         }
     }
 
     fn push_line_break(&mut self) {
-        self.slide_elements.push(SlideElement::LineBreak);
+        self.slide_operations.push(RenderOperation::RenderLineBreak);
     }
 
     fn push_code(&mut self, code: Code) {
@@ -168,7 +195,7 @@ impl<'a> MarkdownProcessor<'a> {
         for code_line in self.highlighter.highlight(&code.contents, &code.language) {
             let CodeLine { formatted, original } = code_line;
             let formatted = formatted.trim_end();
-            self.slide_elements.push(SlideElement::PreformattedLine {
+            self.slide_operations.push(RenderOperation::RenderPreformattedLine {
                 text: formatted.into(),
                 // TODO: remove once measuring character widths is in place
                 original_length: original.len(),
@@ -179,8 +206,8 @@ impl<'a> MarkdownProcessor<'a> {
     }
 
     fn terminate_slide(&mut self) {
-        let elements = mem::take(&mut self.slide_elements);
-        self.slides.push(Slide { elements });
+        let elements = mem::take(&mut self.slide_operations);
+        self.slides.push(Slide { render_operations: elements });
     }
 
     fn push_table(&mut self, table: Table) {

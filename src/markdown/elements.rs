@@ -26,6 +26,10 @@ pub struct Text {
 }
 
 impl Text {
+    pub fn single(text: FormattedText) -> Self {
+        Self { chunks: vec![TextChunk::Formatted(text)] }
+    }
+
     pub fn line_len(&self) -> usize {
         let mut total = 0;
         for chunk in &self.chunks {

@@ -1,11 +1,9 @@
+use super::media::Image;
 use crate::{
-    markdown::{
-        elements::{FormattedText, PresentationMetadata, TextFormat},
-        text::WeightedLine,
-    },
-    presentation::{Presentation, Slide, SlideElement},
+    markdown::text::WeightedLine,
+    presentation::{Presentation, RenderOperation, Slide},
     render::media::MediaDrawer,
-    theme::{Alignment, AuthorPositioning, Colors, ElementType, SlideTheme},
+    theme::{Alignment, Colors, ElementType, SlideTheme},
 };
 use crossterm::{
     cursor,
@@ -14,8 +12,6 @@ use crossterm::{
     QueueableCommand,
 };
 use std::io;
-
-use super::media::Image;
 
 pub type DrawResult = Result<(), DrawSlideError>;
 
@@ -33,7 +29,7 @@ where
         Ok(Self { handle })
     }
 
-    pub fn draw_slide<'a>(&mut self, theme: &'a SlideTheme, presentation: &'a Presentation) -> DrawResult {
+    pub fn render_slide<'a>(&mut self, theme: &'a SlideTheme, presentation: &'a Presentation) -> DrawResult {
         let dimensions = window_size()?;
         let slide_dimensions = WindowSize {
             rows: dimensions.rows - 3,
@@ -44,7 +40,7 @@ where
 
         let slide = presentation.current_slide();
         let slide_drawer = SlideDrawer { handle: &mut self.handle, theme, dimensions: slide_dimensions };
-        slide_drawer.draw_slide(slide)?;
+        slide_drawer.render_slide(slide)?;
 
         if let Some(template) = &theme.styles.footer.template {
             let current_slide = (presentation.current_slide_index() + 1).to_string();
@@ -78,13 +74,13 @@ impl<'a, W> SlideDrawer<'a, W>
 where
     W: io::Write,
 {
-    fn draw_slide(mut self, slide: &Slide) -> DrawResult {
+    fn render_slide(mut self, slide: &Slide) -> DrawResult {
         self.apply_theme_colors()?;
         self.handle.queue(terminal::Clear(ClearType::All))?;
         self.handle.queue(cursor::MoveTo(0, 0))?;
-        for element in &slide.elements {
+        for operation in &slide.render_operations {
             self.apply_theme_colors()?;
-            self.draw_element(element)?;
+            self.render(operation)?;
         }
         Ok(())
     }
@@ -93,46 +89,32 @@ where
         apply_colors(self.handle, &self.theme.styles.default_style.colors)
     }
 
-    fn draw_element(&mut self, element: &SlideElement) -> DrawResult {
-        match element {
-            SlideElement::PresentationMetadata(meta) => self.draw_presentation_metadata(meta),
-            SlideElement::TextLine { texts, element_type } => self.draw_text(texts, element_type),
-            SlideElement::Separator => self.draw_separator(),
-            SlideElement::LineBreak => self.draw_line_break(),
-            SlideElement::Image(image) => self.draw_image(image),
-            SlideElement::PreformattedLine { text, original_length, block_length } => {
-                self.draw_preformatted_line(text, *original_length, *block_length)
+    fn render(&mut self, operation: &RenderOperation) -> DrawResult {
+        match operation {
+            RenderOperation::JumpToVerticalCenter => self.jump_to_vertical_center(),
+            RenderOperation::JumpToBottom => self.jump_to_bottom(),
+            RenderOperation::RenderTextLine { texts, element_type } => self.render_text(texts, element_type),
+            RenderOperation::RenderSeparator => self.render_separator(),
+            RenderOperation::RenderLineBreak => self.render_line_break(),
+            RenderOperation::RenderImage(image) => self.render_image(image),
+            RenderOperation::RenderPreformattedLine { text, original_length, block_length } => {
+                self.render_preformatted_line(text, *original_length, *block_length)
             }
         }
     }
 
-    fn draw_presentation_metadata(&mut self, metadata: &PresentationMetadata) -> DrawResult {
+    fn jump_to_vertical_center(&mut self) -> DrawResult {
         let center_row = self.dimensions.rows / 2;
-        let title = FormattedText::formatted(metadata.title.clone(), TextFormat::default().add_bold());
-        let sub_title = metadata.sub_title.as_ref().map(|text| FormattedText::plain(text.clone()));
-        let author = metadata.author.as_ref().map(|text| FormattedText::plain(text.clone()));
         self.handle.queue(cursor::MoveToRow(center_row))?;
-        self.draw_text(&WeightedLine::from(vec![title.into()]), &ElementType::PresentationTitle)?;
-        self.handle.queue(cursor::MoveToNextLine(1))?;
-        if let Some(text) = sub_title {
-            self.draw_text(&WeightedLine::from(vec![text.into()]), &ElementType::PresentationSubTitle)?;
-            self.handle.queue(cursor::MoveToNextLine(1))?;
-        }
-        if let Some(text) = author {
-            match self.theme.styles.presentation.author.positioning {
-                AuthorPositioning::BelowTitle => {
-                    self.handle.queue(cursor::MoveToNextLine(3))?;
-                }
-                AuthorPositioning::PageBottom => {
-                    self.handle.queue(cursor::MoveToRow(self.dimensions.rows))?;
-                }
-            };
-            self.draw_text(&WeightedLine::from(vec![text.into()]), &ElementType::PresentationAuthor)?;
-        }
         Ok(())
     }
 
-    fn draw_text(&mut self, text: &WeightedLine, element_type: &ElementType) -> DrawResult {
+    fn jump_to_bottom(&mut self) -> DrawResult {
+        self.handle.queue(cursor::MoveToRow(self.dimensions.rows))?;
+        Ok(())
+    }
+
+    fn render_text(&mut self, text: &WeightedLine, element_type: &ElementType) -> DrawResult {
         let alignment = self.theme.alignment(element_type);
         let text_drawer = TextDrawer::new(
             alignment,
@@ -144,23 +126,23 @@ where
         text_drawer.draw(self.theme)
     }
 
-    fn draw_separator(&mut self) -> DrawResult {
+    fn render_separator(&mut self) -> DrawResult {
         let separator: String = "—".repeat(self.dimensions.columns as usize);
         self.handle.queue(style::Print(separator))?;
         Ok(())
     }
 
-    fn draw_line_break(&mut self) -> DrawResult {
+    fn render_line_break(&mut self) -> DrawResult {
         self.handle.queue(cursor::MoveToNextLine(1))?;
         Ok(())
     }
 
-    fn draw_image(&mut self, image: &Image) -> Result<(), DrawSlideError> {
+    fn render_image(&mut self, image: &Image) -> Result<(), DrawSlideError> {
         MediaDrawer.draw_image(image, &self.dimensions).map_err(|e| DrawSlideError::Other(Box::new(e)))?;
         Ok(())
     }
 
-    fn draw_preformatted_line(&mut self, text: &str, original_length: usize, block_length: usize) -> DrawResult {
+    fn render_preformatted_line(&mut self, text: &str, original_length: usize, block_length: usize) -> DrawResult {
         let style = self.theme.alignment(&ElementType::Code);
         let start_column = match *style {
             Alignment::Left { margin } => margin,

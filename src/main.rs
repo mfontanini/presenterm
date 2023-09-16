@@ -30,7 +30,7 @@ impl SlideShow {
     fn present(mut self, mut presentation: Presentation) -> DrawResult {
         let mut drawer = Drawer::new(io::stdout())?;
         loop {
-            drawer.draw_slide(&self.theme, &presentation)?;
+            drawer.render_slide(&self.theme, &presentation)?;
 
             loop {
                 let Some(command) = self.input.next_command()? else {
@@ -69,7 +69,8 @@ fn main() {
     let input = Input::default();
 
     let elements = parser.parse(&content).expect("parse failed");
-    let slides = MarkdownProcessor::new(&highlighter, &mut resources).transform(elements).expect("processing failed");
+    let slides =
+        MarkdownProcessor::new(&highlighter, &theme, &mut resources).transform(elements).expect("processing failed");
     let presentation = Presentation::new(slides);
 
     let slideshow = SlideShow { theme, input };
