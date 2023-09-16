@@ -118,7 +118,7 @@ pub struct PrimaryStyle {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-#[serde(tag = "alignment")]
+#[serde(tag = "alignment", rename_all = "snake_case")]
 pub enum Alignment {
     Left {
         #[serde(default)]
@@ -183,6 +183,7 @@ pub struct Colors {
 }
 
 #[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AuthorPositioning {
     BelowTitle,
 

@@ -1,28 +1,28 @@
 styles:
   default:
-    alignment: Left
+    alignment: left
     margin: 5
     colors:
       foreground: white
       background: black
   slide_title:
-    alignment: Center
+    alignment: center
   code:
-    alignment: Center
+    alignment: center
     minimum_size: 50
     colors:
       foreground: dark_green
       background: dark_grey
   table:
-    alignment: Center
+    alignment: center
   presentation:
     title:
-      alignment: Center
+      alignment: center
     subtitle:
-      alignment: Center
+      alignment: center
     author:
-      alignment: Center
-      positioning: PageBottom
+      alignment: center
+      positioning: page_bottom
   headings:
     h1:
       prefix: "██"
