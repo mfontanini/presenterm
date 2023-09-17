@@ -1,16 +1,20 @@
-use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyModifiers};
-use std::io;
+use crossterm::event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers};
+use std::{io, time::Duration};
 
 #[derive(Default)]
-pub struct Input {
+pub struct UserInput {
     state: InputState,
 }
 
-impl Input {
-    pub fn next_command(&mut self) -> io::Result<Option<Command>> {
+impl UserInput {
+    pub fn poll_next_command(&mut self, timeout: Duration) -> io::Result<Option<UserCommand>> {
+        if poll(timeout)? { self.next_command() } else { Ok(None) }
+    }
+
+    pub fn next_command(&mut self) -> io::Result<Option<UserCommand>> {
         let command = match read()? {
             Event::Key(event) => self.handle_key_event(&event),
-            Event::Resize(..) => Some(Command::Redraw),
+            Event::Resize(..) => Some(UserCommand::Redraw),
             _ => None,
         };
         if command.is_some() {
@@ -19,11 +23,11 @@ impl Input {
         Ok(command)
     }
 
-    fn handle_key_event(&mut self, event: &KeyEvent) -> Option<Command> {
+    fn handle_key_event(&mut self, event: &KeyEvent) -> Option<UserCommand> {
         match event.code {
-            KeyCode::Char('h') | KeyCode::Left | KeyCode::PageUp | KeyCode::Up => Some(Command::JumpPreviousSlide),
-            KeyCode::Char('l') | KeyCode::Right | KeyCode::PageDown | KeyCode::Down => Some(Command::JumpNextSlide),
-            KeyCode::Char('c') if event.modifiers == KeyModifiers::CONTROL => Some(Command::Exit),
+            KeyCode::Char('h') | KeyCode::Left | KeyCode::PageUp | KeyCode::Up => Some(UserCommand::JumpPreviousSlide),
+            KeyCode::Char('l') | KeyCode::Right | KeyCode::PageDown | KeyCode::Down => Some(UserCommand::JumpNextSlide),
+            KeyCode::Char('c') if event.modifiers == KeyModifiers::CONTROL => Some(UserCommand::Exit),
             KeyCode::Char('G') => self.handle_uppercase_g(),
             KeyCode::Char('g') => self.handle_lowercase_g(),
             KeyCode::Char(number) if number.is_ascii_digit() => {
@@ -38,9 +42,9 @@ impl Input {
         }
     }
 
-    fn handle_lowercase_g(&mut self) -> Option<Command> {
+    fn handle_lowercase_g(&mut self) -> Option<UserCommand> {
         match self.state {
-            InputState::PendingG => Some(Command::JumpFirstSlide),
+            InputState::PendingG => Some(UserCommand::JumpFirstSlide),
             InputState::Empty => {
                 self.state = InputState::PendingG;
                 None
@@ -52,10 +56,10 @@ impl Input {
         }
     }
 
-    fn handle_uppercase_g(&mut self) -> Option<Command> {
+    fn handle_uppercase_g(&mut self) -> Option<UserCommand> {
         match self.state {
-            InputState::Empty => Some(Command::JumpLastSlide),
-            InputState::PendingNumber(number) => Some(Command::JumpSlide(number)),
+            InputState::Empty => Some(UserCommand::JumpLastSlide),
+            InputState::PendingNumber(number) => Some(UserCommand::JumpSlide(number)),
             _ => {
                 self.state.reset();
                 None
@@ -84,7 +88,8 @@ impl Input {
     }
 }
 
-pub enum Command {
+#[derive(Clone, Debug)]
+pub enum UserCommand {
     Redraw,
     JumpNextSlide,
     JumpPreviousSlide,

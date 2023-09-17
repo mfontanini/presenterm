@@ -32,7 +32,6 @@ impl CodeHighlighter {
                 return code.lines().map(|line| CodeLine { original: line, formatted: line.to_string() }).collect();
             }
         };
-        println!("Trying {extension}");
         let syntax = self.syntax_set.find_syntax_by_extension(extension).unwrap();
         let mut highlight_lines = HighlightLines::new(syntax, &self.theme);
         let mut lines = Vec::new();

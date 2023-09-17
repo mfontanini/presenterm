@@ -492,7 +492,7 @@ let q = 42;
 | Carrot | Yuck |
 ",
         );
-        let MarkdownElement::Table(Table{ header, rows }) = parsed else { panic!("not a table: {parsed:?}") };
+        let MarkdownElement::Table(Table { header, rows }) = parsed else { panic!("not a table: {parsed:?}") };
         assert_eq!(header.0.len(), 2);
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].0.len(), 2);
