@@ -91,7 +91,7 @@ fn main() {
     let arena = Arena::new();
     let parser = MarkdownParser::new(&arena);
     let highlighter = CodeHighlighter::new("base16-ocean.dark").expect("creating highlighter failed");
-    let resources = Resources::default();
+    let resources = Resources::new(cli.path.parent().expect("no parent"));
     let commands = CommandSource::new(&cli.path);
 
     let slideshow = SlideShow { theme, commands, parser, resources, highlighter };
