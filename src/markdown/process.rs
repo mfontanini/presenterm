@@ -195,13 +195,38 @@ impl<'a> MarkdownProcessor<'a> {
     }
 
     fn push_code(&mut self, code: Code) {
-        let block_length = code.contents.lines().map(|line| line.len()).max().unwrap_or(0);
-        for code_line in self.highlighter.highlight(&code.contents, &code.language) {
+        let Code { contents, language } = code;
+        let mut code = String::new();
+        let horizontal_padding = self.theme.styles.code.padding.horizontal;
+        let vertical_padding = self.theme.styles.code.padding.vertical;
+        if horizontal_padding == 0 && vertical_padding == 0 {
+            code = contents;
+        } else {
+            if vertical_padding > 0 {
+                code.push('\n');
+            }
+            if horizontal_padding > 0 {
+                let padding = " ".repeat(horizontal_padding as usize);
+                for line in contents.lines() {
+                    code.push_str(&padding);
+                    code.push_str(line);
+                    code.push('\n');
+                }
+            } else {
+                code.push_str(&contents);
+            }
+            if vertical_padding > 0 {
+                code.push('\n');
+            }
+        }
+        let block_length = code.lines().map(|line| line.len()).max().unwrap_or(0);
+        for code_line in self.highlighter.highlight(&code, &language) {
             let CodeLine { formatted, original } = code_line;
-            let formatted = formatted.trim_end();
+            let trimmed = formatted.trim_end();
+            let original_length = original.len() - (formatted.len() - trimmed.len());
             self.slide_operations.push(RenderOperation::RenderPreformattedLine {
-                text: formatted.into(),
-                unformatted_length: original.len(),
+                text: trimmed.into(),
+                unformatted_length: original_length,
                 block_length,
             });
             self.push_line_break();

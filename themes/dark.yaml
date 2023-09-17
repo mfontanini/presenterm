@@ -10,6 +10,9 @@ styles:
   code:
     alignment: center
     minimum_size: 50
+    padding:
+      horizontal: 2
+      vertical: 1
     colors:
       foreground: dark_green
       background: dark_grey

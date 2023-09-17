@@ -183,6 +183,18 @@ pub struct CodeStyle {
 
     #[serde(default)]
     pub colors: Colors,
+
+    #[serde(default)]
+    pub padding: Padding,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct Padding {
+    #[serde(default)]
+    pub horizontal: u8,
+
+    #[serde(default)]
+    pub vertical: u8,
 }
 
 #[derive(Clone, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
