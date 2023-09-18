@@ -216,7 +216,7 @@ pub enum ElementType {
     Table,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
 pub struct Colors {
     pub background: Option<Color>,
     pub foreground: Option<Color>,

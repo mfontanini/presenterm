@@ -1,6 +1,6 @@
-use std::iter;
-
+use crate::format::TextFormat;
 use serde::Deserialize;
+use std::iter;
 
 #[derive(Clone, Debug)]
 pub enum MarkdownElement {
@@ -76,59 +76,6 @@ impl From<String> for FormattedText {
     fn from(text: String) -> Self {
         Self::plain(text)
     }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct TextFormat(u8);
-
-impl TextFormat {
-    pub fn add_bold(mut self) -> Self {
-        self.0 |= TextFormatFlags::Bold as u8;
-        self
-    }
-
-    pub fn add_italics(mut self) -> Self {
-        self.0 |= TextFormatFlags::Italics as u8;
-        self
-    }
-
-    pub fn add_code(mut self) -> Self {
-        self.0 |= TextFormatFlags::Code as u8;
-        self
-    }
-
-    pub fn add_strikethrough(mut self) -> Self {
-        self.0 |= TextFormatFlags::Strikethrough as u8;
-        self
-    }
-
-    pub fn has_bold(&self) -> bool {
-        self.0 & TextFormatFlags::Bold as u8 != 0
-    }
-
-    pub fn has_italics(&self) -> bool {
-        self.0 & TextFormatFlags::Italics as u8 != 0
-    }
-
-    pub fn has_code(&self) -> bool {
-        self.0 & TextFormatFlags::Code as u8 != 0
-    }
-
-    pub fn has_strikethrough(&self) -> bool {
-        self.0 & TextFormatFlags::Strikethrough as u8 != 0
-    }
-
-    pub fn merge(&mut self, other: &TextFormat) {
-        self.0 |= other.0
-    }
-}
-
-#[derive(Debug)]
-enum TextFormatFlags {
-    Bold = 1,
-    Italics = 2,
-    Code = 4,
-    Strikethrough = 8,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

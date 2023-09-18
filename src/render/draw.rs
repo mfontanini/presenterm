@@ -3,7 +3,7 @@ use crate::{
     markdown::text::WeightedLine,
     presentation::{Presentation, RenderOperation, Slide},
     render::media::MediaDrawer,
-    theme::{Alignment, Colors, ElementType, PresentationTheme},
+    theme::{Alignment, Colors, PresentationTheme},
 };
 use crossterm::{
     cursor,
@@ -39,7 +39,8 @@ where
         };
 
         let slide = presentation.current_slide();
-        let slide_drawer = SlideDrawer { handle: &mut self.handle, theme, dimensions: slide_dimensions };
+        let slide_drawer =
+            SlideDrawer { handle: &mut self.handle, dimensions: slide_dimensions, colors: Default::default() };
         slide_drawer.render_slide(slide)?;
 
         let rendered_footer = theme.styles.footer.render(
@@ -68,8 +69,8 @@ where
 
 struct SlideDrawer<'a, W> {
     handle: &'a mut W,
-    theme: &'a PresentationTheme,
     dimensions: WindowSize,
+    colors: Colors,
 }
 
 impl<'a, W> SlideDrawer<'a, W>
@@ -77,32 +78,42 @@ where
     W: io::Write,
 {
     fn render_slide(mut self, slide: &Slide) -> DrawResult {
-        self.apply_theme_colors()?;
-        self.handle.queue(terminal::Clear(ClearType::All))?;
-        self.handle.queue(cursor::MoveTo(0, 0))?;
         for operation in &slide.render_operations {
-            self.apply_theme_colors()?;
             self.render(operation)?;
         }
         Ok(())
     }
 
-    fn apply_theme_colors(&mut self) -> io::Result<()> {
-        apply_colors(self.handle, &self.theme.styles.default_style.colors)
-    }
-
     fn render(&mut self, operation: &RenderOperation) -> DrawResult {
         match operation {
+            RenderOperation::ClearScreen => self.clear_screen(),
+            RenderOperation::SetColors(colors) => self.set_colors(colors),
             RenderOperation::JumpToVerticalCenter => self.jump_to_vertical_center(),
             RenderOperation::JumpToBottom => self.jump_to_bottom(),
-            RenderOperation::RenderTextLine { texts, element_type } => self.render_text(texts, element_type),
+            RenderOperation::RenderTextLine { texts, alignment } => self.render_text(texts, alignment),
             RenderOperation::RenderSeparator => self.render_separator(),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image) => self.render_image(image),
-            RenderOperation::RenderPreformattedLine { text, unformatted_length, block_length } => {
-                self.render_preformatted_line(text, *unformatted_length, *block_length)
+            RenderOperation::RenderPreformattedLine { text, unformatted_length, block_length, alignment } => {
+                self.render_preformatted_line(text, *unformatted_length, *block_length, alignment)
             }
         }
+    }
+
+    fn clear_screen(&mut self) -> DrawResult {
+        self.handle.queue(terminal::Clear(ClearType::All))?;
+        self.handle.queue(cursor::MoveTo(0, 0))?;
+        Ok(())
+    }
+
+    fn set_colors(&mut self, colors: &Colors) -> DrawResult {
+        self.colors = colors.clone();
+        self.apply_colors()
+    }
+
+    fn apply_colors(&mut self) -> DrawResult {
+        apply_colors(self.handle, &self.colors)?;
+        Ok(())
     }
 
     fn jump_to_vertical_center(&mut self) -> DrawResult {
@@ -116,16 +127,9 @@ where
         Ok(())
     }
 
-    fn render_text(&mut self, text: &WeightedLine, element_type: &ElementType) -> DrawResult {
-        let alignment = self.theme.alignment(element_type);
-        let text_drawer = TextDrawer::new(
-            alignment,
-            &mut self.handle,
-            text,
-            &self.dimensions,
-            &self.theme.styles.default_style.colors,
-        );
-        text_drawer.draw(self.theme)
+    fn render_text(&mut self, text: &WeightedLine, alignment: &Alignment) -> DrawResult {
+        let text_drawer = TextDrawer::new(alignment, &mut self.handle, text, &self.dimensions, &self.colors);
+        text_drawer.draw()
     }
 
     fn render_separator(&mut self) -> DrawResult {
@@ -144,9 +148,14 @@ where
         Ok(())
     }
 
-    fn render_preformatted_line(&mut self, text: &str, unformatted_length: usize, block_length: usize) -> DrawResult {
-        let style = self.theme.alignment(&ElementType::Code);
-        let start_column = match *style {
+    fn render_preformatted_line(
+        &mut self,
+        text: &str,
+        unformatted_length: usize,
+        block_length: usize,
+        alignment: &Alignment,
+    ) -> DrawResult {
+        let start_column = match *alignment {
             Alignment::Left { margin } => margin,
             Alignment::Center { minimum_margin, minimum_size } => {
                 let max_line_length = block_length.max(minimum_size as usize);
@@ -158,9 +167,13 @@ where
 
         let max_line_length = (self.dimensions.columns - start_column * 2) as usize;
         let until_right_edge = max_line_length.saturating_sub(unformatted_length);
+
         // Pad this code block with spaces so we get a nice little rectangle.
         self.handle.queue(style::Print(&text))?;
         self.handle.queue(style::Print(" ".repeat(until_right_edge)))?;
+
+        // Restore colors
+        self.apply_colors()?;
         Ok(())
     }
 }
@@ -205,7 +218,7 @@ where
         Self { handle, line, start_column, line_length, default_colors }
     }
 
-    fn draw(self, theme: &PresentationTheme) -> DrawResult {
+    fn draw(self) -> DrawResult {
         self.handle.queue(cursor::MoveToColumn(self.start_column))?;
 
         for (line_index, line) in self.line.split(self.line_length as usize).enumerate() {
@@ -216,25 +229,23 @@ where
             for chunk in line {
                 let (text, format) = chunk.into_parts();
                 let mut styled = text.to_string().stylize();
-                if format.has_bold() {
+                if format.is_bold() {
                     styled = styled.bold();
                 }
-                if format.has_italics() {
+                if format.is_italics() {
                     styled = styled.italic();
                 }
-                if format.has_strikethrough() {
+                if format.is_strikethrough() {
                     styled = styled.crossed_out();
                 }
-                if format.has_code() {
-                    styled = styled.italic();
-                    if let Some(color) = &theme.styles.code.colors.foreground {
-                        styled = styled.with(*color);
-                    }
-                    if let Some(color) = &theme.styles.code.colors.background {
-                        styled = styled.on(*color);
-                    }
+                if let Some(color) = format.colors.background {
+                    styled = styled.on(color);
+                }
+                if let Some(color) = format.colors.foreground {
+                    styled = styled.with(color);
                 }
                 self.handle.queue(style::PrintStyledContent(styled))?;
+                // TODO: this probably doesn't need to happen every time (or even happen at all?)
                 apply_colors(self.handle, self.default_colors)?;
             }
         }
@@ -243,12 +254,7 @@ where
 }
 
 fn apply_colors<W: io::Write>(handle: &mut W, colors: &Colors) -> io::Result<()> {
-    if let Some(color) = colors.background {
-        handle.queue(style::SetBackgroundColor(color))?;
-    }
-    if let Some(color) = colors.foreground {
-        handle.queue(style::SetForegroundColor(color))?;
-    }
+    handle.queue(style::SetColors(style::Colors { background: colors.background, foreground: colors.foreground }))?;
     Ok(())
 }
 

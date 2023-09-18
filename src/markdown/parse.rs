@@ -1,14 +1,16 @@
-use crate::markdown::elements::{
-    Code, CodeLanguage, FormattedText, ListItem, ListItemType, MarkdownElement, ParagraphElement, TableRow, Text,
-    TextChunk, TextFormat,
+use super::elements::Table;
+use crate::{
+    format::TextFormat,
+    markdown::elements::{
+        Code, CodeLanguage, FormattedText, ListItem, ListItemType, MarkdownElement, ParagraphElement, TableRow, Text,
+        TextChunk,
+    },
 };
 use comrak::{
     nodes::{AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeList, NodeValue},
     parse_document, Arena, ComrakOptions,
 };
 use std::mem;
-
-use super::elements::Table;
 
 type ParseResult<T> = Result<T, ParseError>;
 
@@ -168,14 +170,12 @@ impl<'a> MarkdownParser<'a> {
             NodeValue::Code(code) => {
                 chunks.push(TextChunk::Formatted(FormattedText::formatted(
                     code.literal.clone(),
-                    TextFormat::default().add_code(),
+                    TextFormat::default().code(),
                 )));
             }
-            NodeValue::Strong => Self::collect_child_text_chunks(node, format.clone().add_bold(), chunks)?,
-            NodeValue::Emph => Self::collect_child_text_chunks(node, format.clone().add_italics(), chunks)?,
-            NodeValue::Strikethrough => {
-                Self::collect_child_text_chunks(node, format.clone().add_strikethrough(), chunks)?
-            }
+            NodeValue::Strong => Self::collect_child_text_chunks(node, format.clone().bold(), chunks)?,
+            NodeValue::Emph => Self::collect_child_text_chunks(node, format.clone().italics(), chunks)?,
+            NodeValue::Strikethrough => Self::collect_child_text_chunks(node, format.clone().strikethrough(), chunks)?,
             NodeValue::SoftBreak | NodeValue::LineBreak => chunks.push(TextChunk::LineBreak),
             other => return Err(ParseError::UnsupportedStructure { container: "text", element: other.identifier() }),
         };
@@ -360,16 +360,16 @@ author: epic potato
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks: Vec<_> = [
             FormattedText::plain("some "),
-            FormattedText::formatted("bold text", TextFormat::default().add_bold()),
+            FormattedText::formatted("bold text", TextFormat::default().bold()),
             FormattedText::plain(", "),
-            FormattedText::formatted("italics", TextFormat::default().add_italics()),
+            FormattedText::formatted("italics", TextFormat::default().italics()),
             FormattedText::plain(", "),
-            FormattedText::formatted("italics", TextFormat::default().add_italics()),
+            FormattedText::formatted("italics", TextFormat::default().italics()),
             FormattedText::plain(", "),
-            FormattedText::formatted("nested ", TextFormat::default().add_bold()),
-            FormattedText::formatted("italics", TextFormat::default().add_italics().add_bold()),
+            FormattedText::formatted("nested ", TextFormat::default().bold()),
+            FormattedText::formatted("italics", TextFormat::default().italics().bold()),
             FormattedText::plain(", "),
-            FormattedText::formatted("strikethrough", TextFormat::default().add_strikethrough()),
+            FormattedText::formatted("strikethrough", TextFormat::default().strikethrough()),
         ]
         .into_iter()
         .map(TextChunk::Formatted)
@@ -406,7 +406,7 @@ Title
         let parsed = parse_single("# Title **with bold**");
         let MarkdownElement::Heading { text, level } = parsed else { panic!("not a heading: {parsed:?}") };
         let expected_chunks: Vec<_> =
-            [FormattedText::plain("Title "), FormattedText::formatted("with bold", TextFormat::default().add_bold())]
+            [FormattedText::plain("Title "), FormattedText::formatted("with bold", TextFormat::default().bold())]
                 .into_iter()
                 .map(TextChunk::Formatted)
                 .collect();
@@ -474,7 +474,7 @@ let q = 42;
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks = &[
             TextChunk::Formatted(FormattedText::plain("some ")),
-            TextChunk::Formatted(FormattedText::formatted("inline code", TextFormat::default().add_code())),
+            TextChunk::Formatted(FormattedText::formatted("inline code", TextFormat::default().code())),
         ];
         assert_eq!(elements.len(), 1);
 

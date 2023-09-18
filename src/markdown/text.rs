@@ -1,4 +1,6 @@
-use super::elements::{FormattedText, TextFormat};
+use crate::format::TextFormat;
+
+use super::elements::FormattedText;
 use unicode_width::UnicodeWidthChar;
 
 #[derive(Clone, Debug, Default)]

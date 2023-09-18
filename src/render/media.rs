@@ -1,10 +1,16 @@
 use crossterm::{cursor, terminal::WindowSize};
 use image::{DynamicImage, ImageError};
-use std::{fs, io, rc::Rc};
+use std::{fmt::Debug, fs, io, rc::Rc};
 use viuer::ViuError;
 
 #[derive(Clone)]
 pub struct Image(Rc<DynamicImage>);
+
+impl Debug for Image {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Image<{}x{}>", self.0.width(), self.0.height())
+    }
+}
 
 impl Image {
     pub fn new(contents: &[u8]) -> Result<Self, InvalidImage> {
