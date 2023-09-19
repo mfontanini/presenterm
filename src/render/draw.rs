@@ -1,13 +1,13 @@
 use super::media::Image;
 use crate::{
+    format::TextFormat,
     markdown::text::WeightedLine,
     presentation::{Presentation, RenderOperation, Slide},
     render::media::MediaDrawer,
     theme::{Alignment, Colors, PresentationTheme},
 };
 use crossterm::{
-    cursor,
-    style::{self, Stylize},
+    cursor, style,
     terminal::{self, disable_raw_mode, enable_raw_mode, window_size, ClearType, WindowSize},
     QueueableCommand,
 };
@@ -228,25 +228,14 @@ where
             }
             for chunk in line {
                 let (text, format) = chunk.into_parts();
-                let mut styled = text.to_string().stylize();
-                if format.is_bold() {
-                    styled = styled.bold();
+                let text = format.apply(text);
+                self.handle.queue(style::PrintStyledContent(text))?;
+
+                // Crossterm resets colors if any attributes are set so let's just re-apply colors
+                // if the format has anything on it at all.
+                if format != TextFormat::default() {
+                    apply_colors(self.handle, self.default_colors)?;
                 }
-                if format.is_italics() {
-                    styled = styled.italic();
-                }
-                if format.is_strikethrough() {
-                    styled = styled.crossed_out();
-                }
-                if let Some(color) = format.colors.background {
-                    styled = styled.on(color);
-                }
-                if let Some(color) = format.colors.foreground {
-                    styled = styled.with(color);
-                }
-                self.handle.queue(style::PrintStyledContent(styled))?;
-                // TODO: this probably doesn't need to happen every time (or even happen at all?)
-                apply_colors(self.handle, self.default_colors)?;
             }
         }
         Ok(())

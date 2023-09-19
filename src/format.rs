@@ -1,4 +1,5 @@
 use crate::theme::Colors;
+use crossterm::style::Stylize;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TextFormat {
@@ -45,6 +46,27 @@ impl TextFormat {
 
     pub fn merge(&mut self, other: &TextFormat) {
         self.flags |= other.flags
+    }
+
+    pub fn apply<T: Into<String>>(&self, text: T) -> <String as Stylize>::Styled {
+        let text: String = text.into();
+        let mut styled = text.stylize();
+        if self.is_bold() {
+            styled = styled.bold();
+        }
+        if self.is_italics() {
+            styled = styled.italic();
+        }
+        if self.is_strikethrough() {
+            styled = styled.crossed_out();
+        }
+        if let Some(color) = self.colors.background {
+            styled = styled.on(color);
+        }
+        if let Some(color) = self.colors.foreground {
+            styled = styled.with(color);
+        }
+        styled
     }
 }
 
