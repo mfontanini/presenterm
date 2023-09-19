@@ -7,7 +7,7 @@ use crate::{
     style::TextStyle,
 };
 use comrak::{
-    nodes::{AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeList, NodeValue},
+    nodes::{AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList, NodeValue},
     parse_document, Arena, ComrakOptions,
 };
 use std::mem;
@@ -59,6 +59,7 @@ impl<'a> MarkdownParser<'a> {
             NodeValue::Table(_) => Self::parse_table(node),
             NodeValue::CodeBlock(block) => Self::parse_code_block(block),
             NodeValue::ThematicBreak => Ok(MarkdownElement::ThematicBreak),
+            NodeValue::HtmlBlock(block) => Self::parse_html_block(block),
             other => Err(ParseError::UnsupportedElement(other.identifier())),
         }
     }
@@ -72,6 +73,19 @@ impl<'a> MarkdownParser<'a> {
         let title = serde_yaml::from_str(contents).map_err(|e| ParseError::InvalidMetadata(e.to_string()))?;
         let element = MarkdownElement::PresentationMetadata(title);
         Ok(element)
+    }
+
+    fn parse_html_block(block: &NodeHtmlBlock) -> ParseResult<MarkdownElement> {
+        let block = block.literal.trim();
+        let start_tag = "<!--";
+        let end_tag = "-->";
+        if !block.starts_with(start_tag) || !block.ends_with(end_tag) {
+            return Err(ParseError::UnsupportedElement("html block"));
+        }
+        let block = &block[start_tag.len()..];
+        let block = &block[0..block.len() - end_tag.len()];
+        let block = block.trim();
+        Ok(MarkdownElement::Comment(block.into()))
     }
 
     fn parse_code_block(block: &NodeCodeBlock) -> ParseResult<MarkdownElement> {
@@ -494,5 +508,16 @@ let q = 42;
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].0.len(), 2);
         assert_eq!(rows[1].0.len(), 2);
+    }
+
+    #[test]
+    fn comment() {
+        let parsed = parse_single(
+            r"
+<!-- foo -->
+",
+        );
+        let MarkdownElement::Comment(text) = parsed else { panic!("not a comment: {parsed:?}") };
+        assert_eq!(text, "foo");
     }
 }

@@ -57,6 +57,7 @@ impl<'a> MarkdownProcessor<'a> {
             MarkdownElement::Code(code) => self.push_code(code),
             MarkdownElement::Table(table) => self.push_table(table),
             MarkdownElement::ThematicBreak => self.terminate_slide(),
+            MarkdownElement::Comment(comment) => self.process_comment(comment),
         };
         Ok(())
     }
@@ -86,6 +87,15 @@ impl<'a> MarkdownProcessor<'a> {
             self.push_text(Text::single(text), ElementType::PresentationAuthor);
         }
         self.terminate_slide();
+    }
+
+    fn process_comment(&mut self, comment: String) {
+        if comment != "pause" {
+            return;
+        }
+        let next_operations = self.slide_operations.clone();
+        self.terminate_slide();
+        self.slide_operations = next_operations;
     }
 
     fn push_slide_title(&mut self, mut text: Text) {
