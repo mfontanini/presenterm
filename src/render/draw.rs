@@ -1,9 +1,9 @@
 use super::media::Image;
 use crate::{
-    format::TextFormat,
     markdown::text::WeightedLine,
     presentation::{Presentation, RenderOperation, Slide},
     render::media::MediaDrawer,
+    style::TextStyle,
     theme::{Alignment, Colors, PresentationTheme},
 };
 use crossterm::{
@@ -227,13 +227,13 @@ where
                 self.handle.queue(cursor::MoveDown(1))?;
             }
             for chunk in line {
-                let (text, format) = chunk.into_parts();
-                let text = format.apply(text);
+                let (text, style) = chunk.into_parts();
+                let text = style.apply(text);
                 self.handle.queue(style::PrintStyledContent(text))?;
 
                 // Crossterm resets colors if any attributes are set so let's just re-apply colors
                 // if the format has anything on it at all.
-                if format != TextFormat::default() {
+                if style != TextStyle::default() {
                     apply_colors(self.handle, self.default_colors)?;
                 }
             }

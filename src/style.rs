@@ -2,12 +2,12 @@ use crate::theme::Colors;
 use crossterm::style::Stylize;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct TextFormat {
+pub struct TextStyle {
     flags: u8,
     pub colors: Colors,
 }
 
-impl TextFormat {
+impl TextStyle {
     pub fn bold(mut self) -> Self {
         self.flags |= TextFormatFlags::Bold as u8;
         self
@@ -44,7 +44,7 @@ impl TextFormat {
         self.flags & TextFormatFlags::Strikethrough as u8 != 0
     }
 
-    pub fn merge(&mut self, other: &TextFormat) {
+    pub fn merge(&mut self, other: &TextStyle) {
         self.flags |= other.flags
     }
 

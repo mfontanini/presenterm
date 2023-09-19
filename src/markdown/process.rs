@@ -3,13 +3,13 @@ use super::{
     text::{WeightedLine, WeightedText},
 };
 use crate::{
-    format::TextFormat,
     markdown::elements::{
-        Code, FormattedText, ListItem, ListItemType, MarkdownElement, ParagraphElement, TableRow, Text, TextChunk,
+        Code, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, TableRow, Text, TextChunk,
     },
     presentation::{RenderOperation, Slide},
     render::highlighting::{CodeHighlighter, CodeLine},
     resource::{LoadImageError, Resources},
+    style::TextStyle,
     theme::{AuthorPositioning, ElementType, PresentationTheme},
 };
 use std::{iter, mem};
@@ -62,9 +62,9 @@ impl<'a> MarkdownProcessor<'a> {
     }
 
     fn push_intro_slide(&mut self, metadata: PresentationMetadata) {
-        let title = FormattedText::formatted(metadata.title.clone(), TextFormat::default().bold());
-        let sub_title = metadata.sub_title.as_ref().map(|text| FormattedText::plain(text.clone()));
-        let author = metadata.author.as_ref().map(|text| FormattedText::plain(text.clone()));
+        let title = StyledText::styled(metadata.title.clone(), TextStyle::default().bold());
+        let sub_title = metadata.sub_title.as_ref().map(|text| StyledText::plain(text.clone()));
+        let author = metadata.author.as_ref().map(|text| StyledText::plain(text.clone()));
         self.slide_operations.push(RenderOperation::JumpToVerticalCenter);
         self.push_text(Text::single(title), ElementType::PresentationTitle);
         self.push_line_break();
@@ -89,7 +89,7 @@ impl<'a> MarkdownProcessor<'a> {
     }
 
     fn push_slide_title(&mut self, mut text: Text) {
-        text.apply_format(&TextFormat::default().bold());
+        text.apply_style(&TextStyle::default().bold());
 
         self.push_line_break();
         self.push_text(text, ElementType::SlideTitle);
@@ -109,11 +109,11 @@ impl<'a> MarkdownProcessor<'a> {
             6 => (ElementType::Heading6, &self.theme.styles.headings.h6),
             other => panic!("unexpected heading level {other}"),
         };
-        text.apply_format(&TextFormat::default().bold());
+        text.apply_style(&TextStyle::default().bold());
         if !style.prefix.is_empty() {
             let mut prefix = style.prefix.clone();
             prefix.push(' ');
-            text.chunks.insert(0, TextChunk::Formatted(FormattedText::plain(prefix)));
+            text.chunks.insert(0, TextChunk::Styled(StyledText::plain(prefix)));
         }
         self.push_text(text, element_type);
         self.push_line_break();
@@ -166,7 +166,7 @@ impl<'a> MarkdownProcessor<'a> {
 
         prefix.push(' ');
         let mut text = item.contents.clone();
-        text.chunks.insert(0, TextChunk::Formatted(FormattedText::plain(prefix)));
+        text.chunks.insert(0, TextChunk::Styled(StyledText::plain(prefix)));
         self.push_text(text, ElementType::List);
         self.push_line_break();
     }
@@ -176,9 +176,9 @@ impl<'a> MarkdownProcessor<'a> {
         let mut texts: Vec<WeightedText> = Vec::new();
         for chunk in text.chunks {
             match chunk {
-                TextChunk::Formatted(mut text) => {
-                    if text.format.is_code() {
-                        text.format.colors = self.theme.styles.code.colors.clone();
+                TextChunk::Styled(mut text) => {
+                    if text.style.is_code() {
+                        text.style.colors = self.theme.styles.code.colors.clone();
                     }
                     texts.push(text.into());
                 }
@@ -268,7 +268,7 @@ impl<'a> MarkdownProcessor<'a> {
                 extra_lines += 1;
             }
             contents.extend(iter::repeat("─").take(*width + extra_lines));
-            separator.chunks.push(TextChunk::Formatted(FormattedText::plain(contents)));
+            separator.chunks.push(TextChunk::Styled(StyledText::plain(contents)));
         }
 
         self.push_text(separator, ElementType::Table);
@@ -285,7 +285,7 @@ impl<'a> MarkdownProcessor<'a> {
         let mut flattened_row = Text { chunks: Vec::new() };
         for (column, text) in row.0.into_iter().enumerate() {
             if column > 0 {
-                flattened_row.chunks.push(TextChunk::Formatted(FormattedText::plain(" │ ")));
+                flattened_row.chunks.push(TextChunk::Styled(StyledText::plain(" │ ")));
             }
             let text_length = text.line_len();
             flattened_row.chunks.extend(text.chunks.into_iter());
@@ -293,7 +293,7 @@ impl<'a> MarkdownProcessor<'a> {
             let cell_width = widths[column];
             if text_length < cell_width {
                 let padding = " ".repeat(cell_width - text_length);
-                flattened_row.chunks.push(TextChunk::Formatted(FormattedText::plain(padding)));
+                flattened_row.chunks.push(TextChunk::Styled(StyledText::plain(padding)));
             }
         }
         flattened_row

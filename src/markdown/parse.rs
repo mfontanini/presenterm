@@ -1,10 +1,10 @@
 use super::elements::Table;
 use crate::{
-    format::TextFormat,
     markdown::elements::{
-        Code, CodeLanguage, FormattedText, ListItem, ListItemType, MarkdownElement, ParagraphElement, TableRow, Text,
+        Code, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, TableRow, Text,
         TextChunk,
     },
+    style::TextStyle,
 };
 use comrak::{
     nodes::{AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeList, NodeValue},
@@ -102,7 +102,7 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn parse_paragraph(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
-        let inlines = Self::parse_inlines(node, TextFormat::default(), &InlinesMode::AllowImages)?;
+        let inlines = Self::parse_inlines(node, TextStyle::default(), &InlinesMode::AllowImages)?;
         let elements = inlines
             .into_iter()
             .map(|inline| match inline {
@@ -114,7 +114,7 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn parse_text(node: &'a AstNode<'a>) -> ParseResult<Text> {
-        let inlines = Self::parse_inlines(node, TextFormat::default(), &InlinesMode::DisallowImages)?;
+        let inlines = Self::parse_inlines(node, TextStyle::default(), &InlinesMode::DisallowImages)?;
         let chunks = inlines
             .into_iter()
             .flat_map(|inline| {
@@ -125,7 +125,7 @@ impl<'a> MarkdownParser<'a> {
         Ok(Text { chunks })
     }
 
-    fn parse_inlines(node: &'a AstNode<'a>, format: TextFormat, mode: &InlinesMode) -> ParseResult<Vec<Inline>> {
+    fn parse_inlines(node: &'a AstNode<'a>, style: TextStyle, mode: &InlinesMode) -> ParseResult<Vec<Inline>> {
         let mut inlines = Vec::new();
         let mut chunks = Vec::new();
         for node in node.children() {
@@ -137,7 +137,7 @@ impl<'a> MarkdownParser<'a> {
                     }
                     inlines.push(Inline::Image(img.url.clone()));
                 }
-                _ => Self::collect_text_chunks(node, format.clone(), &mut chunks)?,
+                _ => Self::collect_text_chunks(node, style.clone(), &mut chunks)?,
             };
         }
         if !chunks.is_empty() {
@@ -152,30 +152,27 @@ impl<'a> MarkdownParser<'a> {
 
     fn collect_child_text_chunks(
         node: &'a AstNode<'a>,
-        format: TextFormat,
+        style: TextStyle,
         chunks: &mut Vec<TextChunk>,
     ) -> ParseResult<()> {
         for node in node.children() {
-            Self::collect_text_chunks(node, format.clone(), chunks)?;
+            Self::collect_text_chunks(node, style.clone(), chunks)?;
         }
         Ok(())
     }
 
-    fn collect_text_chunks(node: &'a AstNode<'a>, format: TextFormat, chunks: &mut Vec<TextChunk>) -> ParseResult<()> {
+    fn collect_text_chunks(node: &'a AstNode<'a>, style: TextStyle, chunks: &mut Vec<TextChunk>) -> ParseResult<()> {
         let value = &node.data.borrow().value;
         match value {
             NodeValue::Text(text) => {
-                chunks.push(TextChunk::Formatted(FormattedText::formatted(text.clone(), format.clone())));
+                chunks.push(TextChunk::Styled(StyledText::styled(text.clone(), style.clone())));
             }
             NodeValue::Code(code) => {
-                chunks.push(TextChunk::Formatted(FormattedText::formatted(
-                    code.literal.clone(),
-                    TextFormat::default().code(),
-                )));
+                chunks.push(TextChunk::Styled(StyledText::styled(code.literal.clone(), TextStyle::default().code())));
             }
-            NodeValue::Strong => Self::collect_child_text_chunks(node, format.clone().bold(), chunks)?,
-            NodeValue::Emph => Self::collect_child_text_chunks(node, format.clone().italics(), chunks)?,
-            NodeValue::Strikethrough => Self::collect_child_text_chunks(node, format.clone().strikethrough(), chunks)?,
+            NodeValue::Strong => Self::collect_child_text_chunks(node, style.clone().bold(), chunks)?,
+            NodeValue::Emph => Self::collect_child_text_chunks(node, style.clone().italics(), chunks)?,
+            NodeValue::Strikethrough => Self::collect_child_text_chunks(node, style.clone().strikethrough(), chunks)?,
             NodeValue::SoftBreak | NodeValue::LineBreak => chunks.push(TextChunk::LineBreak),
             other => return Err(ParseError::UnsupportedStructure { container: "text", element: other.identifier() }),
         };
@@ -359,20 +356,20 @@ author: epic potato
         let parsed = parse_single("some **bold text**, _italics_, *italics*, **nested _italics_**, ~strikethrough~");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks: Vec<_> = [
-            FormattedText::plain("some "),
-            FormattedText::formatted("bold text", TextFormat::default().bold()),
-            FormattedText::plain(", "),
-            FormattedText::formatted("italics", TextFormat::default().italics()),
-            FormattedText::plain(", "),
-            FormattedText::formatted("italics", TextFormat::default().italics()),
-            FormattedText::plain(", "),
-            FormattedText::formatted("nested ", TextFormat::default().bold()),
-            FormattedText::formatted("italics", TextFormat::default().italics().bold()),
-            FormattedText::plain(", "),
-            FormattedText::formatted("strikethrough", TextFormat::default().strikethrough()),
+            StyledText::plain("some "),
+            StyledText::styled("bold text", TextStyle::default().bold()),
+            StyledText::plain(", "),
+            StyledText::styled("italics", TextStyle::default().italics()),
+            StyledText::plain(", "),
+            StyledText::styled("italics", TextStyle::default().italics()),
+            StyledText::plain(", "),
+            StyledText::styled("nested ", TextStyle::default().bold()),
+            StyledText::styled("italics", TextStyle::default().italics().bold()),
+            StyledText::plain(", "),
+            StyledText::styled("strikethrough", TextStyle::default().strikethrough()),
         ]
         .into_iter()
-        .map(TextChunk::Formatted)
+        .map(TextChunk::Styled)
         .collect();
 
         let expected_elements = &[ParagraphElement::Text(Text { chunks: expected_chunks })];
@@ -397,7 +394,7 @@ Title
 ",
         );
         let MarkdownElement::SlideTitle { text } = parsed else { panic!("not a slide title: {parsed:?}") };
-        let expected_chunks = [TextChunk::Formatted(FormattedText::plain("Title"))];
+        let expected_chunks = [TextChunk::Styled(StyledText::plain("Title"))];
         assert_eq!(text.chunks, expected_chunks);
     }
 
@@ -406,9 +403,9 @@ Title
         let parsed = parse_single("# Title **with bold**");
         let MarkdownElement::Heading { text, level } = parsed else { panic!("not a heading: {parsed:?}") };
         let expected_chunks: Vec<_> =
-            [FormattedText::plain("Title "), FormattedText::formatted("with bold", TextFormat::default().bold())]
+            [StyledText::plain("Title "), StyledText::styled("with bold", TextStyle::default().bold())]
                 .into_iter()
-                .map(TextChunk::Formatted)
+                .map(TextChunk::Styled)
                 .collect();
 
         assert_eq!(level, 1);
@@ -446,9 +443,9 @@ with line breaks",
         assert_eq!(elements.len(), 1);
 
         let expected_chunks = &[
-            TextChunk::Formatted(FormattedText::plain("some text")),
+            TextChunk::Styled(StyledText::plain("some text")),
             TextChunk::LineBreak,
-            TextChunk::Formatted(FormattedText::plain("with line breaks")),
+            TextChunk::Styled(StyledText::plain("with line breaks")),
         ];
         let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };
         assert_eq!(text.chunks, expected_chunks);
@@ -473,8 +470,8 @@ let q = 42;
         let parsed = parse_single("some `inline code`");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks = &[
-            TextChunk::Formatted(FormattedText::plain("some ")),
-            TextChunk::Formatted(FormattedText::formatted("inline code", TextFormat::default().code())),
+            TextChunk::Styled(StyledText::plain("some ")),
+            TextChunk::Styled(StyledText::styled("inline code", TextStyle::default().code())),
         ];
         assert_eq!(elements.len(), 1);
 

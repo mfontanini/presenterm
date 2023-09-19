@@ -1,4 +1,4 @@
-use crate::format::TextFormat;
+use crate::style::TextStyle;
 use serde::Deserialize;
 use std::iter;
 
@@ -26,25 +26,25 @@ pub struct Text {
 }
 
 impl Text {
-    pub fn single(text: FormattedText) -> Self {
-        Self { chunks: vec![TextChunk::Formatted(text)] }
+    pub fn single(text: StyledText) -> Self {
+        Self { chunks: vec![TextChunk::Styled(text)] }
     }
 
     pub fn line_len(&self) -> usize {
         let mut total = 0;
         for chunk in &self.chunks {
             // TODO: what about line breaks?
-            if let TextChunk::Formatted(text) = &chunk {
+            if let TextChunk::Styled(text) = &chunk {
                 total += text.text.len();
             }
         }
         total
     }
 
-    pub fn apply_format(&mut self, format: &TextFormat) {
+    pub fn apply_style(&mut self, style: &TextStyle) {
         for chunk in &mut self.chunks {
-            if let TextChunk::Formatted(text) = chunk {
-                text.format.merge(format);
+            if let TextChunk::Styled(text) = chunk {
+                text.style.merge(style);
             }
         }
     }
@@ -52,27 +52,27 @@ impl Text {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TextChunk {
-    Formatted(FormattedText),
+    Styled(StyledText),
     LineBreak,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct FormattedText {
+pub struct StyledText {
     pub text: String,
-    pub format: TextFormat,
+    pub style: TextStyle,
 }
 
-impl FormattedText {
+impl StyledText {
     pub fn plain<S: Into<String>>(text: S) -> Self {
-        Self { text: text.into(), format: TextFormat::default() }
+        Self { text: text.into(), style: TextStyle::default() }
     }
 
-    pub fn formatted<S: Into<String>>(text: S, format: TextFormat) -> Self {
-        Self { text: text.into(), format }
+    pub fn styled<S: Into<String>>(text: S, style: TextStyle) -> Self {
+        Self { text: text.into(), style }
     }
 }
 
-impl From<String> for FormattedText {
+impl From<String> for StyledText {
     fn from(text: String) -> Self {
         Self::plain(text)
     }
