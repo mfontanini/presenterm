@@ -119,12 +119,14 @@ impl<'a> MarkdownProcessor<'a> {
             6 => (ElementType::Heading6, &self.theme.styles.headings.h6),
             other => panic!("unexpected heading level {other}"),
         };
-        text.apply_style(&TextStyle::default().bold());
         if !style.prefix.is_empty() {
             let mut prefix = style.prefix.clone();
             prefix.push(' ');
             text.chunks.insert(0, TextChunk::Styled(StyledText::plain(prefix)));
         }
+        let text_style = TextStyle::default().bold().colors(style.colors.clone());
+        text.apply_style(&text_style);
+
         self.push_text(text, element_type);
         self.push_line_break();
     }

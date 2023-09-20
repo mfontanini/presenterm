@@ -29,15 +29,27 @@ styles:
   headings:
     h1:
       prefix: "██"
+      colors:
+        foreground: dark_blue
     h2:
       prefix: "▓▓▓"
+      colors:
+        foreground: dark_green
     h3:
       prefix: "▒▒▒▒"
+      colors:
+        foreground: dark_magenta
     h4:
       prefix: "░░░░░"
+      colors:
+        foreground: grey
     h5:
       prefix: "░░░░░░"
+      colors:
+        foreground: grey
     h6:
       prefix: "░░░░░░░"
+      colors:
+        foreground: grey
   footer: 
     style: progress_bar

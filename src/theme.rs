@@ -96,6 +96,9 @@ pub struct HeadingStyle {
 
     #[serde(default)]
     pub prefix: String,
+
+    #[serde(default)]
+    pub colors: Colors,
 }
 
 #[derive(Debug, Default, Deserialize)]

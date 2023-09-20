@@ -28,6 +28,11 @@ impl TextStyle {
         self
     }
 
+    pub fn colors(mut self, colors: Colors) -> Self {
+        self.colors = colors;
+        self
+    }
+
     pub fn is_bold(&self) -> bool {
         self.flags & TextFormatFlags::Bold as u8 != 0
     }
@@ -45,7 +50,9 @@ impl TextStyle {
     }
 
     pub fn merge(&mut self, other: &TextStyle) {
-        self.flags |= other.flags
+        self.flags |= other.flags;
+        self.colors.background = self.colors.background.or(other.colors.background);
+        self.colors.foreground = self.colors.foreground.or(other.colors.foreground);
     }
 
     pub fn apply<T: Into<String>>(&self, text: T) -> <String as Stylize>::Styled {
