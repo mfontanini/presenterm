@@ -22,18 +22,29 @@ pub struct MarkdownProcessor<'a> {
     highlighter: &'a CodeHighlighter,
     theme: &'a PresentationTheme,
     resources: &'a mut Resources,
+    ignore_element_line_break: bool,
 }
 
 impl<'a> MarkdownProcessor<'a> {
     pub fn new(highlighter: &'a CodeHighlighter, theme: &'a PresentationTheme, resources: &'a mut Resources) -> Self {
-        Self { slide_operations: Vec::new(), slides: Vec::new(), highlighter, theme, resources }
+        Self {
+            slide_operations: Vec::new(),
+            slides: Vec::new(),
+            highlighter,
+            theme,
+            resources,
+            ignore_element_line_break: false,
+        }
     }
 
     pub fn transform(mut self, elements: Vec<MarkdownElement>) -> Result<Vec<Slide>, LoadImageError> {
         self.push_slide_prelude();
         for element in elements {
+            self.ignore_element_line_break = false;
             self.process_element(element)?;
-            self.push_line_break();
+            if !self.ignore_element_line_break {
+                self.push_line_break();
+            }
         }
         if !self.slide_operations.is_empty() {
             self.terminate_slide();
@@ -93,9 +104,15 @@ impl<'a> MarkdownProcessor<'a> {
         if comment != "pause" {
             return;
         }
+        // Remove the last line break, if any.
+        if matches!(self.slide_operations.last(), Some(RenderOperation::RenderLineBreak)) {
+            self.slide_operations.pop();
+        }
+
         let next_operations = self.slide_operations.clone();
         self.terminate_slide();
         self.slide_operations = next_operations;
+        self.ignore_element_line_break = true;
     }
 
     fn push_slide_title(&mut self, mut text: Text) {
@@ -135,7 +152,6 @@ impl<'a> MarkdownProcessor<'a> {
         for element in elements {
             match element {
                 ParagraphElement::Text(mut text) => {
-                    // TODO: 2?
                     text.chunks.push(TextChunk::LineBreak);
                     self.push_text(text, ElementType::Paragraph);
                 }
@@ -177,7 +193,7 @@ impl<'a> MarkdownProcessor<'a> {
         };
 
         prefix.push(' ');
-        let mut text = item.contents.clone();
+        let mut text = item.contents;
         text.chunks.insert(0, TextChunk::Styled(StyledText::plain(prefix)));
         self.push_text(text, ElementType::List);
         self.push_line_break();

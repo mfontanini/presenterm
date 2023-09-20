@@ -52,8 +52,8 @@ impl<'a> MarkdownParser<'a> {
             NodeValue::FrontMatter(contents) => Self::parse_front_matter(contents),
             NodeValue::Heading(heading) => Self::parse_heading(heading, node),
             NodeValue::Paragraph => Self::parse_paragraph(node),
-            NodeValue::List(_) => {
-                let items = Self::parse_list(node, 0)?;
+            NodeValue::List(list) => {
+                let items = Self::parse_list(node, list.marker_offset as u8 / 2)?;
                 Ok(MarkdownElement::List(items))
             }
             NodeValue::Table(_) => Self::parse_table(node),
@@ -347,6 +347,12 @@ mod test {
         result
     }
 
+    fn parse_all(input: &str) -> Vec<MarkdownElement> {
+        let arena = Arena::new();
+        let result = MarkdownParser::new(&arena).parse(input).expect("parsing failed");
+        result
+    }
+
     #[test]
     fn slide_metadata() {
         let parsed = parse_single(
@@ -519,5 +525,19 @@ let q = 42;
         );
         let MarkdownElement::Comment(text) = parsed else { panic!("not a comment: {parsed:?}") };
         assert_eq!(text, "foo");
+    }
+
+    #[test]
+    fn list_comment_in_between() {
+        let parsed = parse_all(
+            r"
+* A
+<!-- foo -->
+  * B
+",
+        );
+        assert_eq!(parsed.len(), 3);
+        let MarkdownElement::List(items) = &parsed[2] else { panic!("not a list item: {parsed:?}") };
+        assert_eq!(items[0].depth, 1);
     }
 }
