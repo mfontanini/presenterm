@@ -7,10 +7,15 @@ use crate::{
     style::TextStyle,
 };
 use comrak::{
-    nodes::{AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList, NodeValue},
+    nodes::{
+        AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList, NodeValue, Sourcepos,
+    },
     parse_document, Arena, ComrakOptions,
 };
-use std::mem;
+use std::{
+    fmt::{self, Debug, Display},
+    mem,
+};
 
 type ParseResult<T> = Result<T, ParseError>;
 
@@ -47,9 +52,9 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn parse_element(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
-        let value = &node.data.borrow().value;
-        match value {
-            NodeValue::FrontMatter(contents) => Self::parse_front_matter(contents),
+        let data = node.data.borrow();
+        match &data.value {
+            NodeValue::FrontMatter(contents) => Self::parse_front_matter(contents, data.sourcepos),
             NodeValue::Heading(heading) => Self::parse_heading(heading, node),
             NodeValue::Paragraph => Self::parse_paragraph(node),
             NodeValue::List(list) => {
@@ -57,30 +62,31 @@ impl<'a> MarkdownParser<'a> {
                 Ok(MarkdownElement::List(items))
             }
             NodeValue::Table(_) => Self::parse_table(node),
-            NodeValue::CodeBlock(block) => Self::parse_code_block(block),
+            NodeValue::CodeBlock(block) => Self::parse_code_block(block, data.sourcepos),
             NodeValue::ThematicBreak => Ok(MarkdownElement::ThematicBreak),
-            NodeValue::HtmlBlock(block) => Self::parse_html_block(block),
-            other => Err(ParseError::UnsupportedElement(other.identifier())),
+            NodeValue::HtmlBlock(block) => Self::parse_html_block(block, data.sourcepos),
+            other => Err(ParseErrorKind::UnsupportedElement(other.identifier()).with_sourcepos(data.sourcepos)),
         }
     }
 
-    fn parse_front_matter(contents: &str) -> ParseResult<MarkdownElement> {
+    fn parse_front_matter(contents: &str, sourcepos: Sourcepos) -> ParseResult<MarkdownElement> {
         // Remote leading and trailing delimiters before parsing. This is quite poopy but hey, it
         // works.
         let contents = contents.strip_prefix("---\n").unwrap_or(contents);
         let contents = contents.strip_suffix("---\n").unwrap_or(contents);
         let contents = contents.strip_suffix("---\n\n").unwrap_or(contents);
-        let title = serde_yaml::from_str(contents).map_err(|e| ParseError::InvalidMetadata(e.to_string()))?;
+        let title = serde_yaml::from_str(contents)
+            .map_err(|e| ParseErrorKind::InvalidMetadata(e.to_string()).with_sourcepos(sourcepos))?;
         let element = MarkdownElement::PresentationMetadata(title);
         Ok(element)
     }
 
-    fn parse_html_block(block: &NodeHtmlBlock) -> ParseResult<MarkdownElement> {
+    fn parse_html_block(block: &NodeHtmlBlock, sourcepos: Sourcepos) -> ParseResult<MarkdownElement> {
         let block = block.literal.trim();
         let start_tag = "<!--";
         let end_tag = "-->";
         if !block.starts_with(start_tag) || !block.ends_with(end_tag) {
-            return Err(ParseError::UnsupportedElement("html block"));
+            return Err(ParseErrorKind::UnsupportedElement("html block").with_sourcepos(sourcepos));
         }
         let block = &block[start_tag.len()..];
         let block = &block[0..block.len() - end_tag.len()];
@@ -88,9 +94,9 @@ impl<'a> MarkdownParser<'a> {
         Ok(MarkdownElement::Comment(block.into()))
     }
 
-    fn parse_code_block(block: &NodeCodeBlock) -> ParseResult<MarkdownElement> {
+    fn parse_code_block(block: &NodeCodeBlock, sourcepos: Sourcepos) -> ParseResult<MarkdownElement> {
         if !block.fenced {
-            return Err(ParseError::UnfencedCodeBlock);
+            return Err(ParseErrorKind::UnfencedCodeBlock.with_sourcepos(sourcepos));
         }
         let language = match block.info.as_str() {
             "rust" => CodeLanguage::Rust,
@@ -159,7 +165,10 @@ impl<'a> MarkdownParser<'a> {
         }
         let any_images = inlines.iter().any(|inline| matches!(inline, Inline::Image(_)));
         if matches!(mode, InlinesMode::DisallowImages) && any_images {
-            return Err(ParseError::UnsupportedStructure { container: "text", element: "image" });
+            let sourcepos = node.data.borrow().sourcepos;
+            return Err(
+                ParseErrorKind::UnsupportedStructure { container: "text", element: "image" }.with_sourcepos(sourcepos)
+            );
         }
         Ok(inlines)
     }
@@ -176,8 +185,8 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn collect_text_chunks(node: &'a AstNode<'a>, style: TextStyle, chunks: &mut Vec<TextChunk>) -> ParseResult<()> {
-        let value = &node.data.borrow().value;
-        match value {
+        let data = node.data.borrow();
+        match &data.value {
             NodeValue::Text(text) => {
                 chunks.push(TextChunk::Styled(StyledText::styled(text.clone(), style.clone())));
             }
@@ -188,7 +197,10 @@ impl<'a> MarkdownParser<'a> {
             NodeValue::Emph => Self::collect_child_text_chunks(node, style.clone().italics(), chunks)?,
             NodeValue::Strikethrough => Self::collect_child_text_chunks(node, style.clone().strikethrough(), chunks)?,
             NodeValue::SoftBreak | NodeValue::LineBreak => chunks.push(TextChunk::LineBreak),
-            other => return Err(ParseError::UnsupportedStructure { container: "text", element: other.identifier() }),
+            other => {
+                return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.identifier() }
+                    .with_sourcepos(data.sourcepos))
+            }
         };
         Ok(())
     }
@@ -197,13 +209,17 @@ impl<'a> MarkdownParser<'a> {
         let mut elements = Vec::new();
         for (index, node) in root.children().enumerate() {
             let number = (index + 1) as u16;
-            let value = &node.data.borrow().value;
-            match value {
+            let data = node.data.borrow();
+            match &data.value {
                 NodeValue::Item(item) => {
                     elements.extend(Self::parse_list_item(item, node, depth, number)?);
                 }
                 other => {
-                    return Err(ParseError::UnsupportedStructure { container: "list", element: other.identifier() });
+                    return Err(ParseErrorKind::UnsupportedStructure {
+                        container: "list",
+                        element: other.identifier(),
+                    }
+                    .with_sourcepos(data.sourcepos));
                 }
             };
         }
@@ -218,8 +234,8 @@ impl<'a> MarkdownParser<'a> {
         };
         let mut elements = Vec::new();
         for node in root.children() {
-            let value = &node.data.borrow().value;
-            match value {
+            let data = node.data.borrow();
+            match &data.value {
                 NodeValue::Paragraph => {
                     let contents = Self::parse_text(node)?;
                     elements.push(ListItem { contents, depth, item_type: item_type.clone() });
@@ -228,7 +244,11 @@ impl<'a> MarkdownParser<'a> {
                     elements.extend(Self::parse_list(node, depth + 1)?);
                 }
                 other => {
-                    return Err(ParseError::UnsupportedStructure { container: "list", element: other.identifier() });
+                    return Err(ParseErrorKind::UnsupportedStructure {
+                        container: "list",
+                        element: other.identifier(),
+                    }
+                    .with_sourcepos(data.sourcepos));
                 }
             }
         }
@@ -239,9 +259,9 @@ impl<'a> MarkdownParser<'a> {
         let mut header = TableRow(Vec::new());
         let mut rows = Vec::new();
         for node in node.children() {
-            let value = &node.data.borrow().value;
-            let NodeValue::TableRow(_) = value else {
-                return Err(ParseError::UnsupportedStructure { container: "table", element: value.identifier() });
+            let data = node.data.borrow();
+            let NodeValue::TableRow(_) = &data.value else {
+                return Err(ParseErrorKind::UnsupportedStructure { container: "table", element: data.value.identifier() }.with_sourcepos(data.sourcepos));
             };
             let row = Self::parse_table_row(node)?;
             if header.0.is_empty() {
@@ -256,9 +276,9 @@ impl<'a> MarkdownParser<'a> {
     fn parse_table_row(node: &'a AstNode<'a>) -> ParseResult<TableRow> {
         let mut cells = Vec::new();
         for node in node.children() {
-            let value = &node.data.borrow().value;
-            let NodeValue::TableCell = value else {
-                return Err(ParseError::UnsupportedStructure { container: "table", element: value.identifier() });
+            let data = node.data.borrow();
+            let NodeValue::TableCell = &data.value else {
+                return Err(ParseErrorKind::UnsupportedStructure { container: "table", element: data.value.identifier() }.with_sourcepos(data.sourcepos));
             };
             let text = Self::parse_text(node)?;
             cells.push(text);
@@ -278,18 +298,48 @@ enum Inline {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum ParseError {
-    #[error("unsupported element: {0}")]
+pub struct ParseError {
+    pub kind: ParseErrorKind,
+    pub sourcepos: Sourcepos,
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "parse error at {}:{}: {}", self.sourcepos.start.line, self.sourcepos.start.column, self.kind)
+    }
+}
+
+impl ParseError {
+    fn new(kind: ParseErrorKind, sourcepos: Sourcepos) -> Self {
+        Self { kind, sourcepos }
+    }
+}
+
+#[derive(Debug)]
+pub enum ParseErrorKind {
     UnsupportedElement(&'static str),
-
-    #[error("unsupported structure in {container}: {element}")]
     UnsupportedStructure { container: &'static str, element: &'static str },
-
-    #[error("only fenced code blocks are supported")]
     UnfencedCodeBlock,
-
-    #[error("invalid metadata: {0}")]
     InvalidMetadata(String),
+}
+
+impl Display for ParseErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnsupportedElement(element) => write!(f, "unsupported element: {element}"),
+            Self::UnsupportedStructure { container, element } => {
+                write!(f, "unsupported structure in {container}: {element}")
+            }
+            Self::UnfencedCodeBlock => write!(f, "only fenced code blocks are supported"),
+            Self::InvalidMetadata(meta) => write!(f, "invalid metadata: {meta}"),
+        }
+    }
+}
+
+impl ParseErrorKind {
+    fn with_sourcepos(self, sourcepos: Sourcepos) -> ParseError {
+        ParseError::new(self, sourcepos)
+    }
 }
 
 trait Identifier {

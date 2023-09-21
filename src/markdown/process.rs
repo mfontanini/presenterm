@@ -14,8 +14,6 @@ use crate::{
 };
 use std::{iter, mem};
 
-pub type ProcessError = LoadImageError;
-
 pub struct MarkdownProcessor<'a> {
     slide_operations: Vec<RenderOperation>,
     slides: Vec<Slide>,
@@ -37,7 +35,7 @@ impl<'a> MarkdownProcessor<'a> {
         }
     }
 
-    pub fn transform(mut self, elements: Vec<MarkdownElement>) -> Result<Vec<Slide>, LoadImageError> {
+    pub fn transform(mut self, elements: Vec<MarkdownElement>) -> Result<Vec<Slide>, ProcessError> {
         self.push_slide_prelude();
         for element in elements {
             self.ignore_element_line_break = false;
@@ -326,4 +324,10 @@ impl<'a> MarkdownProcessor<'a> {
         }
         flattened_row
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ProcessError {
+    #[error("loading image: {0}")]
+    LoadImage(#[from] LoadImageError),
 }

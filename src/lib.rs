@@ -3,5 +3,6 @@ pub mod markdown;
 pub mod presentation;
 pub mod render;
 pub mod resource;
+pub mod slideshow;
 pub mod style;
 pub mod theme;

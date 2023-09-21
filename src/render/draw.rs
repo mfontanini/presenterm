@@ -1,13 +1,17 @@
 use super::media::Image;
 use crate::{
-    markdown::text::WeightedLine,
-    presentation::{Presentation, RenderOperation, Slide},
+    markdown::{
+        elements::StyledText,
+        text::{WeightedLine, WeightedText},
+    },
+    presentation::{Presentation, RenderOperation},
     render::media::MediaDrawer,
     style::TextStyle,
     theme::{Alignment, Colors, PresentationTheme},
 };
 use crossterm::{
-    cursor, style,
+    cursor,
+    style::{self, Color},
     terminal::{self, disable_raw_mode, enable_raw_mode, window_size, ClearType, WindowSize},
     QueueableCommand,
 };
@@ -39,9 +43,11 @@ where
         };
 
         let slide = presentation.current_slide();
-        let slide_drawer =
-            SlideDrawer { handle: &mut self.handle, dimensions: slide_dimensions, colors: Default::default() };
-        slide_drawer.render_slide(slide)?;
+        let mut operator =
+            RenderOperator { handle: &mut self.handle, dimensions: slide_dimensions, colors: Default::default() };
+        for element in &slide.render_operations {
+            operator.render(element)?;
+        }
 
         let rendered_footer = theme.styles.footer.render(
             presentation.current_slide_index(),
@@ -51,6 +57,31 @@ where
         if let Some(footer) = rendered_footer {
             self.handle.queue(cursor::MoveTo(0, dimensions.rows - 1))?;
             self.handle.queue(style::Print(footer))?;
+        }
+        self.handle.flush()?;
+        Ok(())
+    }
+
+    pub fn render_error(&mut self, message: &str) -> DrawResult {
+        let dimensions = window_size()?;
+        let heading = vec![
+            WeightedText::from(StyledText::styled("Error loading presentation", TextStyle::default().bold())),
+            WeightedText::from(StyledText::plain(": ")),
+        ];
+        let error = vec![WeightedText::from(StyledText::plain(message))];
+        let alignment = Alignment::Center { minimum_size: 0, minimum_margin: 5 };
+        let operations = vec![
+            RenderOperation::ClearScreen,
+            RenderOperation::SetColors(Colors { foreground: Some(Color::Red), background: Some(Color::Black) }),
+            RenderOperation::JumpToVerticalCenter,
+            RenderOperation::RenderTextLine { texts: WeightedLine::from(heading), alignment: alignment.clone() },
+            RenderOperation::RenderLineBreak,
+            RenderOperation::RenderLineBreak,
+            RenderOperation::RenderTextLine { texts: WeightedLine::from(error), alignment: alignment.clone() },
+        ];
+        let mut operator = RenderOperator { handle: &mut self.handle, dimensions, colors: Default::default() };
+        for operation in operations {
+            operator.render(&operation)?;
         }
         self.handle.flush()?;
         Ok(())
@@ -67,23 +98,16 @@ where
     }
 }
 
-struct SlideDrawer<'a, W> {
+struct RenderOperator<'a, W> {
     handle: &'a mut W,
     dimensions: WindowSize,
     colors: Colors,
 }
 
-impl<'a, W> SlideDrawer<'a, W>
+impl<'a, W> RenderOperator<'a, W>
 where
     W: io::Write,
 {
-    fn render_slide(mut self, slide: &Slide) -> DrawResult {
-        for operation in &slide.render_operations {
-            self.render(operation)?;
-        }
-        Ok(())
-    }
-
     fn render(&mut self, operation: &RenderOperation) -> DrawResult {
         match operation {
             RenderOperation::ClearScreen => self.clear_screen(),
