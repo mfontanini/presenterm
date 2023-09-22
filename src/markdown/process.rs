@@ -21,6 +21,7 @@ pub struct MarkdownProcessor<'a> {
     theme: &'a PresentationTheme,
     resources: &'a mut Resources,
     ignore_element_line_break: bool,
+    last_element_is_list: bool,
 }
 
 impl<'a> MarkdownProcessor<'a> {
@@ -32,6 +33,7 @@ impl<'a> MarkdownProcessor<'a> {
             theme,
             resources,
             ignore_element_line_break: false,
+            last_element_is_list: false,
         }
     }
 
@@ -57,6 +59,7 @@ impl<'a> MarkdownProcessor<'a> {
     }
 
     fn process_element(&mut self, element: MarkdownElement) -> Result<(), ProcessError> {
+        let is_list = matches!(element, MarkdownElement::List(_));
         match element {
             MarkdownElement::PresentationMetadata(metadata) => self.push_intro_slide(metadata),
             MarkdownElement::SlideTitle { text } => self.push_slide_title(text),
@@ -68,6 +71,7 @@ impl<'a> MarkdownProcessor<'a> {
             MarkdownElement::ThematicBreak => self.terminate_slide(),
             MarkdownElement::Comment(comment) => self.process_comment(comment),
         };
+        self.last_element_is_list = is_list;
         Ok(())
     }
 
@@ -102,8 +106,9 @@ impl<'a> MarkdownProcessor<'a> {
         if comment != "pause" {
             return;
         }
-        // Remove the last line break, if any.
-        if matches!(self.slide_operations.last(), Some(RenderOperation::RenderLineBreak)) {
+        // Remove the last line, if any, if the previous element is a list. This allows each
+        // element in a list showing up without newlines in between..
+        if self.last_element_is_list && matches!(self.slide_operations.last(), Some(RenderOperation::RenderLineBreak)) {
             self.slide_operations.pop();
         }
 
