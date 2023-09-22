@@ -53,7 +53,7 @@ impl<'a> MarkdownProcessor<'a> {
     }
 
     fn push_slide_prelude(&mut self) {
-        let colors = self.theme.styles.default_style.colors.clone();
+        let colors = self.theme.default_style.colors.clone();
         self.slide_operations.push(RenderOperation::SetColors(colors));
         self.slide_operations.push(RenderOperation::ClearScreen);
     }
@@ -93,7 +93,7 @@ impl<'a> MarkdownProcessor<'a> {
             self.push_line_break();
         }
         if let Some(text) = author {
-            match self.theme.styles.presentation.author.positioning {
+            match self.theme.presentation.author.positioning {
                 AuthorPositioning::BelowTitle => {
                     self.push_line_break();
                     self.push_line_break();
@@ -137,12 +137,12 @@ impl<'a> MarkdownProcessor<'a> {
 
     fn push_heading(&mut self, level: u8, mut text: Text) {
         let (element_type, style) = match level {
-            1 => (ElementType::Heading1, &self.theme.styles.headings.h1),
-            2 => (ElementType::Heading2, &self.theme.styles.headings.h2),
-            3 => (ElementType::Heading3, &self.theme.styles.headings.h3),
-            4 => (ElementType::Heading4, &self.theme.styles.headings.h4),
-            5 => (ElementType::Heading5, &self.theme.styles.headings.h5),
-            6 => (ElementType::Heading6, &self.theme.styles.headings.h6),
+            1 => (ElementType::Heading1, &self.theme.headings.h1),
+            2 => (ElementType::Heading2, &self.theme.headings.h2),
+            3 => (ElementType::Heading3, &self.theme.headings.h3),
+            4 => (ElementType::Heading4, &self.theme.headings.h4),
+            5 => (ElementType::Heading5, &self.theme.headings.h5),
+            6 => (ElementType::Heading6, &self.theme.headings.h6),
             other => panic!("unexpected heading level {other}"),
         };
         if !style.prefix.is_empty() {
@@ -215,7 +215,7 @@ impl<'a> MarkdownProcessor<'a> {
             match chunk {
                 TextChunk::Styled(mut text) => {
                     if text.style.is_code() {
-                        text.style.colors = self.theme.styles.code.colors.clone();
+                        text.style.colors = self.theme.code.colors.clone();
                     }
                     texts.push(text.into());
                 }
@@ -245,8 +245,8 @@ impl<'a> MarkdownProcessor<'a> {
     fn push_code(&mut self, code: Code) {
         let Code { contents, language } = code;
         let mut code = String::new();
-        let horizontal_padding = self.theme.styles.code.padding.horizontal;
-        let vertical_padding = self.theme.styles.code.padding.vertical;
+        let horizontal_padding = self.theme.code.padding.horizontal;
+        let vertical_padding = self.theme.code.padding.vertical;
         if horizontal_padding == 0 && vertical_padding == 0 {
             code = contents;
         } else {

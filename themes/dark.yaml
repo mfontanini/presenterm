@@ -1,55 +1,54 @@
-styles:
-  default:
-    alignment: left
-    margin: 5
+default:
+  alignment: left
+  margin: 5
+  colors:
+    foreground: white
+    background: black
+slide_title:
+  alignment: center
+code:
+  alignment: center
+  minimum_size: 50
+  padding:
+    horizontal: 2
+    vertical: 1
+  colors:
+    foreground: dark_green
+    background: dark_grey
+table:
+  alignment: center
+presentation:
+  title:
+    alignment: center
+  subtitle:
+    alignment: center
+  author:
+    alignment: center
+    positioning: page_bottom
+headings:
+  h1:
+    prefix: "██"
     colors:
-      foreground: white
-      background: black
-  slide_title:
-    alignment: center
-  code:
-    alignment: center
-    minimum_size: 50
-    padding:
-      horizontal: 2
-      vertical: 1
+      foreground: dark_blue
+  h2:
+    prefix: "▓▓▓"
     colors:
       foreground: dark_green
-      background: dark_grey
-  table:
-    alignment: center
-  presentation:
-    title:
-      alignment: center
-    subtitle:
-      alignment: center
-    author:
-      alignment: center
-      positioning: page_bottom
-  headings:
-    h1:
-      prefix: "██"
-      colors:
-        foreground: dark_blue
-    h2:
-      prefix: "▓▓▓"
-      colors:
-        foreground: dark_green
-    h3:
-      prefix: "▒▒▒▒"
-      colors:
-        foreground: dark_magenta
-    h4:
-      prefix: "░░░░░"
-      colors:
-        foreground: grey
-    h5:
-      prefix: "░░░░░░"
-      colors:
-        foreground: grey
-    h6:
-      prefix: "░░░░░░░"
-      colors:
-        foreground: grey
-  footer: 
-    style: progress_bar
+  h3:
+    prefix: "▒▒▒▒"
+    colors:
+      foreground: dark_magenta
+  h4:
+    prefix: "░░░░░"
+    colors:
+      foreground: grey
+  h5:
+    prefix: "░░░░░░"
+    colors:
+      foreground: grey
+  h6:
+    prefix: "░░░░░░░"
+    colors:
+      foreground: grey
+footer: 
+  style: progress_bar

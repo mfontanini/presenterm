@@ -5,41 +5,6 @@ include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 
 #[derive(Debug, Deserialize)]
 pub struct PresentationTheme {
-    pub styles: Styles,
-}
-
-impl PresentationTheme {
-    pub fn from_name(name: &str) -> Option<Self> {
-        let contents = THEMES.get(name)?;
-        // This is going to be caught by the test down here.
-        Some(serde_yaml::from_slice(contents).expect("corrupted theme"))
-    }
-
-    pub fn alignment(&self, element: &ElementType) -> &Alignment {
-        use ElementType::*;
-
-        let alignment = match element {
-            SlideTitle => &self.styles.slide_title,
-            Heading1 => &self.styles.headings.h1.alignment,
-            Heading2 => &self.styles.headings.h2.alignment,
-            Heading3 => &self.styles.headings.h3.alignment,
-            Heading4 => &self.styles.headings.h4.alignment,
-            Heading5 => &self.styles.headings.h5.alignment,
-            Heading6 => &self.styles.headings.h6.alignment,
-            Paragraph => &self.styles.paragraph,
-            List => &self.styles.list,
-            Code => &self.styles.code.alignment,
-            PresentationTitle => &self.styles.presentation.title,
-            PresentationSubTitle => &self.styles.presentation.subtitle,
-            PresentationAuthor => &self.styles.presentation.author.alignment,
-            Table => &self.styles.table,
-        };
-        alignment.as_ref().unwrap_or(&self.styles.default_style.alignment)
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Styles {
     #[serde(default, flatten)]
     pub slide_title: Option<Alignment>,
 
@@ -66,6 +31,36 @@ pub struct Styles {
 
     #[serde(default)]
     pub footer: FooterStyle,
+}
+
+impl PresentationTheme {
+    pub fn from_name(name: &str) -> Option<Self> {
+        let contents = THEMES.get(name)?;
+        // This is going to be caught by the test down here.
+        Some(serde_yaml::from_slice(contents).expect("corrupted theme"))
+    }
+
+    pub fn alignment(&self, element: &ElementType) -> &Alignment {
+        use ElementType::*;
+
+        let alignment = match element {
+            SlideTitle => &self.slide_title,
+            Heading1 => &self.headings.h1.alignment,
+            Heading2 => &self.headings.h2.alignment,
+            Heading3 => &self.headings.h3.alignment,
+            Heading4 => &self.headings.h4.alignment,
+            Heading5 => &self.headings.h5.alignment,
+            Heading6 => &self.headings.h6.alignment,
+            Paragraph => &self.paragraph,
+            List => &self.list,
+            Code => &self.code.alignment,
+            PresentationTitle => &self.presentation.title,
+            PresentationSubTitle => &self.presentation.subtitle,
+            PresentationAuthor => &self.presentation.author.alignment,
+            Table => &self.table,
+        };
+        alignment.as_ref().unwrap_or(&self.default_style.alignment)
+    }
 }
 
 #[derive(Debug, Default, Deserialize)]

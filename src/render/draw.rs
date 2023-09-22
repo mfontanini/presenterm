@@ -49,7 +49,7 @@ where
             operator.render(element)?;
         }
 
-        let rendered_footer = theme.styles.footer.render(
+        let rendered_footer = theme.footer.render(
             presentation.current_slide_index(),
             presentation.total_slides(),
             dimensions.columns as usize,
