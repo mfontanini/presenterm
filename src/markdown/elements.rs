@@ -4,7 +4,7 @@ use std::iter;
 
 #[derive(Clone, Debug)]
 pub enum MarkdownElement {
-    PresentationMetadata(PresentationMetadata),
+    FrontMatter(String),
     SlideTitle { text: Text },
     Heading { level: u8, text: Text },
     Paragraph(Vec<ParagraphElement>),

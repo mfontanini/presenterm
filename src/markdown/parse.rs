@@ -1,8 +1,7 @@
-use super::elements::Table;
 use crate::{
     markdown::elements::{
-        Code, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, TableRow, Text,
-        TextChunk,
+        Code, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table, TableRow,
+        Text, TextChunk,
     },
     style::TextStyle,
 };
@@ -54,7 +53,7 @@ impl<'a> MarkdownParser<'a> {
     fn parse_element(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
         let data = node.data.borrow();
         match &data.value {
-            NodeValue::FrontMatter(contents) => Self::parse_front_matter(contents, data.sourcepos),
+            NodeValue::FrontMatter(contents) => Self::parse_front_matter(contents),
             NodeValue::Heading(heading) => Self::parse_heading(heading, node),
             NodeValue::Paragraph => Self::parse_paragraph(node),
             NodeValue::List(list) => {
@@ -69,16 +68,13 @@ impl<'a> MarkdownParser<'a> {
         }
     }
 
-    fn parse_front_matter(contents: &str, sourcepos: Sourcepos) -> ParseResult<MarkdownElement> {
+    fn parse_front_matter(contents: &str) -> ParseResult<MarkdownElement> {
         // Remote leading and trailing delimiters before parsing. This is quite poopy but hey, it
         // works.
         let contents = contents.strip_prefix("---\n").unwrap_or(contents);
         let contents = contents.strip_suffix("---\n").unwrap_or(contents);
         let contents = contents.strip_suffix("---\n\n").unwrap_or(contents);
-        let title = serde_yaml::from_str(contents)
-            .map_err(|e| ParseErrorKind::InvalidMetadata(e.to_string()).with_sourcepos(sourcepos))?;
-        let element = MarkdownElement::PresentationMetadata(title);
-        Ok(element)
+        Ok(MarkdownElement::FrontMatter(contents.into()))
     }
 
     fn parse_html_block(block: &NodeHtmlBlock, sourcepos: Sourcepos) -> ParseResult<MarkdownElement> {
@@ -199,7 +195,7 @@ impl<'a> MarkdownParser<'a> {
             NodeValue::SoftBreak | NodeValue::LineBreak => chunks.push(TextChunk::LineBreak),
             other => {
                 return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.identifier() }
-                    .with_sourcepos(data.sourcepos))
+                    .with_sourcepos(data.sourcepos));
             }
         };
         Ok(())
@@ -261,7 +257,11 @@ impl<'a> MarkdownParser<'a> {
         for node in node.children() {
             let data = node.data.borrow();
             let NodeValue::TableRow(_) = &data.value else {
-                return Err(ParseErrorKind::UnsupportedStructure { container: "table", element: data.value.identifier() }.with_sourcepos(data.sourcepos));
+                return Err(ParseErrorKind::UnsupportedStructure {
+                    container: "table",
+                    element: data.value.identifier(),
+                }
+                .with_sourcepos(data.sourcepos));
             };
             let row = Self::parse_table_row(node)?;
             if header.0.is_empty() {
@@ -278,7 +278,11 @@ impl<'a> MarkdownParser<'a> {
         for node in node.children() {
             let data = node.data.borrow();
             let NodeValue::TableCell = &data.value else {
-                return Err(ParseErrorKind::UnsupportedStructure { container: "table", element: data.value.identifier() }.with_sourcepos(data.sourcepos));
+                return Err(ParseErrorKind::UnsupportedStructure {
+                    container: "table",
+                    element: data.value.identifier(),
+                }
+                .with_sourcepos(data.sourcepos));
             };
             let text = Self::parse_text(node)?;
             cells.push(text);
@@ -320,7 +324,6 @@ pub enum ParseErrorKind {
     UnsupportedElement(&'static str),
     UnsupportedStructure { container: &'static str, element: &'static str },
     UnfencedCodeBlock,
-    InvalidMetadata(String),
 }
 
 impl Display for ParseErrorKind {
@@ -331,7 +334,6 @@ impl Display for ParseErrorKind {
                 write!(f, "unsupported structure in {container}: {element}")
             }
             Self::UnfencedCodeBlock => write!(f, "only fenced code blocks are supported"),
-            Self::InvalidMetadata(meta) => write!(f, "invalid metadata: {meta}"),
         }
     }
 }
@@ -407,18 +409,13 @@ mod test {
     fn slide_metadata() {
         let parsed = parse_single(
             r"---
-title: hello world
-sub_title: hola
-author: epic potato
+beep
+boop
 ---
 ",
         );
-        let MarkdownElement::PresentationMetadata(inner) = parsed else {
-            panic!("not a presentation title: {parsed:?}")
-        };
-        assert_eq!(inner.title, "hello world");
-        assert_eq!(inner.sub_title, Some("hola".into()));
-        assert_eq!(inner.author, Some("epic potato".into()));
+        let MarkdownElement::FrontMatter(contents) = parsed else { panic!("not a front matter: {parsed:?}") };
+        assert_eq!(contents, "beep\nboop\n");
     }
 
     #[test]

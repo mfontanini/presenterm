@@ -61,7 +61,7 @@ impl<'a> MarkdownProcessor<'a> {
     fn process_element(&mut self, element: MarkdownElement) -> Result<(), ProcessError> {
         let is_list = matches!(element, MarkdownElement::List(_));
         match element {
-            MarkdownElement::PresentationMetadata(metadata) => self.push_intro_slide(metadata),
+            MarkdownElement::FrontMatter(contents) => self.process_front_matter(contents)?,
             MarkdownElement::SlideTitle { text } => self.push_slide_title(text),
             MarkdownElement::Heading { level, text } => self.push_heading(level, text),
             MarkdownElement::Paragraph(elements) => self.push_paragraph(elements)?,
@@ -72,6 +72,12 @@ impl<'a> MarkdownProcessor<'a> {
             MarkdownElement::Comment(comment) => self.process_comment(comment),
         };
         self.last_element_is_list = is_list;
+        Ok(())
+    }
+
+    fn process_front_matter(&mut self, contents: String) -> Result<(), ProcessError> {
+        let metadata = serde_yaml::from_str(&contents).map_err(|e| ProcessError::InvalidMetadata(e.to_string()))?;
+        self.push_intro_slide(metadata);
         Ok(())
     }
 
@@ -335,4 +341,7 @@ impl<'a> MarkdownProcessor<'a> {
 pub enum ProcessError {
     #[error("loading image: {0}")]
     LoadImage(#[from] LoadImageError),
+
+    #[error("invalid presentation metadata: {0}")]
+    InvalidMetadata(String),
 }
