@@ -701,6 +701,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "merge-struct"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d82012d21e24135b839b6b9bebd622b7ff0cb40071498bc2d066d3a6d04dd4a"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -883,6 +893,7 @@ dependencies = [
  "comrak",
  "crossterm 0.27.0",
  "image",
+ "merge-struct",
  "once_cell",
  "serde",
  "serde_yaml",

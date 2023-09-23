@@ -1,11 +1,10 @@
-use std::{fs, io, path::Path};
-
 use crossterm::style::Color;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::{fs, io, path::Path};
 
 include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Default, Clone, Debug, Deserialize, Serialize)]
 pub struct PresentationTheme {
     #[serde(default, flatten)]
     pub slide_title: Option<Alignment>,
@@ -22,7 +21,7 @@ pub struct PresentationTheme {
     #[serde(default)]
     pub list: Option<Alignment>,
 
-    #[serde(rename = "default")]
+    #[serde(rename = "default", default)]
     pub default_style: PrimaryStyle,
 
     #[serde(default)]
@@ -48,7 +47,7 @@ impl PresentationTheme {
         Ok(theme)
     }
 
-    pub fn alignment(&self, element: &ElementType) -> &Alignment {
+    pub fn alignment(&self, element: &ElementType) -> Alignment {
         use ElementType::*;
 
         let alignment = match element {
@@ -67,11 +66,11 @@ impl PresentationTheme {
             PresentationAuthor => &self.presentation.author.alignment,
             Table => &self.table,
         };
-        alignment.as_ref().unwrap_or(&self.default_style.alignment)
+        alignment.clone().or_else(|| self.default_style.alignment.clone()).unwrap_or(Alignment::default())
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct HeadingStyles {
     #[serde(default)]
     pub h1: HeadingStyle,
@@ -92,19 +91,19 @@ pub struct HeadingStyles {
     pub h6: HeadingStyle,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct HeadingStyle {
     #[serde(flatten, default)]
     pub alignment: Option<Alignment>,
 
     #[serde(default)]
-    pub prefix: String,
+    pub prefix: Option<String>,
 
     #[serde(default)]
     pub colors: Colors,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct PresentationStyles {
     #[serde(default)]
     pub title: Option<Alignment>,
@@ -115,15 +114,15 @@ pub struct PresentationStyles {
     pub author: AuthorStyle,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct PrimaryStyle {
-    #[serde(flatten)]
-    pub alignment: Alignment,
+    #[serde(flatten, default)]
+    pub alignment: Option<Alignment>,
 
     pub colors: Colors,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "alignment", rename_all = "snake_case")]
 pub enum Alignment {
     Left {
@@ -139,7 +138,13 @@ pub enum Alignment {
     },
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+impl Default for Alignment {
+    fn default() -> Self {
+        Self::Left { margin: 0 }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct AuthorStyle {
     #[serde(flatten, default)]
     pub alignment: Option<Alignment>,
@@ -148,7 +153,7 @@ pub struct AuthorStyle {
     pub positioning: AuthorPositioning,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "style", rename_all = "snake_case")]
 pub enum FooterStyle {
     Template { format: String },
@@ -182,7 +187,7 @@ impl FooterStyle {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct CodeStyle {
     #[serde(flatten)]
     pub alignment: Option<Alignment>,
@@ -194,16 +199,16 @@ pub struct CodeStyle {
     pub padding: Padding,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Padding {
     #[serde(default)]
-    pub horizontal: u8,
+    pub horizontal: Option<u8>,
 
     #[serde(default)]
-    pub vertical: u8,
+    pub vertical: Option<u8>,
 }
 
-#[derive(Clone, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ElementType {
     SlideTitle,
@@ -222,13 +227,13 @@ pub enum ElementType {
     Table,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 pub struct Colors {
     pub background: Option<Color>,
     pub foreground: Option<Color>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthorPositioning {
     BelowTitle,

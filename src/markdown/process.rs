@@ -105,6 +105,12 @@ impl<'a> MarkdownProcessor<'a> {
             let theme = PresentationTheme::from_path(theme_path)?;
             self.theme = Cow::Owned(theme);
         }
+        if let Some(overrides) = &metadata.overrides {
+            // This shouldn't fail as the models are already correct.
+            let theme = merge_struct::merge(self.theme.as_ref(), overrides)
+                .map_err(|_| ProcessError::InvalidMetadata("invalid theme".to_string()))?;
+            self.theme = Cow::Owned(theme);
+        }
         Ok(())
     }
 
@@ -172,8 +178,8 @@ impl<'a> MarkdownProcessor<'a> {
             6 => (ElementType::Heading6, &self.theme.headings.h6),
             other => panic!("unexpected heading level {other}"),
         };
-        if !style.prefix.is_empty() {
-            let mut prefix = style.prefix.clone();
+        if let Some(prefix) = &style.prefix {
+            let mut prefix = prefix.clone();
             prefix.push(' ');
             text.chunks.insert(0, TextChunk::Styled(StyledText::plain(prefix)));
         }
@@ -236,7 +242,7 @@ impl<'a> MarkdownProcessor<'a> {
     }
 
     fn push_text(&mut self, text: Text, element_type: ElementType) {
-        let alignment = self.theme.alignment(&element_type).clone();
+        let alignment = self.theme.alignment(&element_type);
         let mut texts: Vec<WeightedText> = Vec::new();
         for chunk in text.chunks {
             match chunk {
@@ -272,8 +278,8 @@ impl<'a> MarkdownProcessor<'a> {
     fn push_code(&mut self, code: Code) {
         let Code { contents, language } = code;
         let mut code = String::new();
-        let horizontal_padding = self.theme.code.padding.horizontal;
-        let vertical_padding = self.theme.code.padding.vertical;
+        let horizontal_padding = self.theme.code.padding.horizontal.unwrap_or(0);
+        let vertical_padding = self.theme.code.padding.vertical.unwrap_or(0);
         if horizontal_padding == 0 && vertical_padding == 0 {
             code = contents;
         } else {

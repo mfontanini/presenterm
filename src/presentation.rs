@@ -81,7 +81,7 @@ pub struct Slide {
     pub render_operations: Vec<RenderOperation>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct PresentationMetadata {
     pub title: Option<String>,
 
@@ -95,13 +95,16 @@ pub struct PresentationMetadata {
     pub theme: PresentationThemeMetadata,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct PresentationThemeMetadata {
     #[serde(default)]
     pub theme_name: Option<String>,
 
     #[serde(default)]
     pub theme_path: Option<String>,
+
+    #[serde(default, rename = "override")]
+    pub overrides: Option<PresentationTheme>,
 }
 
 #[derive(Clone, Debug)]
