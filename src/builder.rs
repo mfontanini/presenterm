@@ -3,7 +3,7 @@ use crate::{
         Code, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table, TableRow, Text, TextChunk,
     },
     markdown::text::{WeightedLine, WeightedText},
-    presentation::{PresentationMetadata, PresentationThemeMetadata, RenderOperation, Slide},
+    presentation::{Presentation, PresentationMetadata, PresentationThemeMetadata, RenderOperation, Slide},
     render::highlighting::{CodeHighlighter, CodeLine},
     resource::{LoadImageError, Resources},
     style::TextStyle,
@@ -11,20 +11,20 @@ use crate::{
 };
 use std::{borrow::Cow, iter, mem};
 
-pub struct MarkdownProcessor<'a> {
+pub struct PresentationBuilder<'a, 'b> {
     slide_operations: Vec<RenderOperation>,
     slides: Vec<Slide>,
     highlighter: &'a CodeHighlighter,
-    theme: Cow<'a, PresentationTheme>,
+    theme: Cow<'b, PresentationTheme>,
     resources: &'a mut Resources,
     ignore_element_line_break: bool,
     last_element_is_list: bool,
 }
 
-impl<'a> MarkdownProcessor<'a> {
+impl<'a, 'b> PresentationBuilder<'a, 'b> {
     pub fn new(
         highlighter: &'a CodeHighlighter,
-        default_theme: &'a PresentationTheme,
+        default_theme: &'b PresentationTheme,
         resources: &'a mut Resources,
     ) -> Self {
         Self {
@@ -38,7 +38,7 @@ impl<'a> MarkdownProcessor<'a> {
         }
     }
 
-    pub fn transform(mut self, elements: Vec<MarkdownElement>) -> Result<Vec<Slide>, ProcessError> {
+    pub fn build(mut self, elements: Vec<MarkdownElement>) -> Result<Presentation<'b>, BuildError> {
         if let Some(MarkdownElement::FrontMatter(contents)) = elements.first() {
             self.process_front_matter(contents)?;
         }
@@ -53,7 +53,8 @@ impl<'a> MarkdownProcessor<'a> {
         if !self.slide_operations.is_empty() {
             self.terminate_slide();
         }
-        Ok(self.slides)
+        let presentation = Presentation::new(self.slides, self.theme);
+        Ok(presentation)
     }
 
     fn push_slide_prelude(&mut self) {
@@ -62,7 +63,7 @@ impl<'a> MarkdownProcessor<'a> {
         self.slide_operations.push(RenderOperation::ClearScreen);
     }
 
-    fn process_element(&mut self, element: MarkdownElement) -> Result<(), ProcessError> {
+    fn process_element(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
         let is_list = matches!(element, MarkdownElement::List(_));
         match element {
             // This one is processed before everything else as it affects how the rest of the
@@ -81,9 +82,9 @@ impl<'a> MarkdownProcessor<'a> {
         Ok(())
     }
 
-    fn process_front_matter(&mut self, contents: &str) -> Result<(), ProcessError> {
+    fn process_front_matter(&mut self, contents: &str) -> Result<(), BuildError> {
         let metadata: PresentationMetadata =
-            serde_yaml::from_str(contents).map_err(|e| ProcessError::InvalidMetadata(e.to_string()))?;
+            serde_yaml::from_str(contents).map_err(|e| BuildError::InvalidMetadata(e.to_string()))?;
         self.set_theme(&metadata.theme)?;
         if metadata.title.is_some() || metadata.sub_title.is_some() || metadata.author.is_some() {
             self.push_slide_prelude();
@@ -92,13 +93,13 @@ impl<'a> MarkdownProcessor<'a> {
         Ok(())
     }
 
-    fn set_theme(&mut self, metadata: &PresentationThemeMetadata) -> Result<(), ProcessError> {
+    fn set_theme(&mut self, metadata: &PresentationThemeMetadata) -> Result<(), BuildError> {
         if metadata.theme_name.is_some() && metadata.theme_path.is_some() {
-            return Err(ProcessError::InvalidMetadata("cannot have both theme path and theme name".into()));
+            return Err(BuildError::InvalidMetadata("cannot have both theme path and theme name".into()));
         }
         if let Some(theme_name) = &metadata.theme_name {
             let theme = PresentationTheme::from_name(theme_name)
-                .ok_or_else(|| ProcessError::InvalidMetadata(format!("theme '{theme_name}' does not exist")))?;
+                .ok_or_else(|| BuildError::InvalidMetadata(format!("theme '{theme_name}' does not exist")))?;
             self.theme = Cow::Owned(theme);
         }
         if let Some(theme_path) = &metadata.theme_path {
@@ -108,7 +109,7 @@ impl<'a> MarkdownProcessor<'a> {
         if let Some(overrides) = &metadata.overrides {
             // This shouldn't fail as the models are already correct.
             let theme = merge_struct::merge(self.theme.as_ref(), overrides)
-                .map_err(|_| ProcessError::InvalidMetadata("invalid theme".to_string()))?;
+                .map_err(|_| BuildError::InvalidMetadata("invalid theme".to_string()))?;
             self.theme = Cow::Owned(theme);
         }
         Ok(())
@@ -190,7 +191,7 @@ impl<'a> MarkdownProcessor<'a> {
         self.push_line_break();
     }
 
-    fn push_paragraph(&mut self, elements: Vec<ParagraphElement>) -> Result<(), ProcessError> {
+    fn push_paragraph(&mut self, elements: Vec<ParagraphElement>) -> Result<(), BuildError> {
         for element in elements {
             match element {
                 ParagraphElement::Text(mut text) => {
@@ -371,7 +372,7 @@ impl<'a> MarkdownProcessor<'a> {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum ProcessError {
+pub enum BuildError {
     #[error("loading image: {0}")]
     LoadImage(#[from] LoadImageError),
 

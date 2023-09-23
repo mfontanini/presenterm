@@ -1,12 +1,10 @@
 use crate::{
+    builder::{BuildError, PresentationBuilder},
     input::{
         source::{Command, CommandSource},
         user::UserCommand,
     },
-    markdown::{
-        parse::{MarkdownParser, ParseError},
-        process::{MarkdownProcessor, ProcessError},
-    },
+    markdown::parse::{MarkdownParser, ParseError},
     presentation::Presentation,
     render::{
         draw::{DrawSlideError, Drawer},
@@ -15,7 +13,7 @@ use crate::{
     resource::Resources,
     theme::PresentationTheme,
 };
-use std::{borrow::Cow, fs, io, path::Path};
+use std::{fs, io, path::Path};
 
 pub struct SlideShow<'a> {
     default_theme: &'a PresentationTheme,
@@ -107,9 +105,9 @@ impl<'a> SlideShow<'a> {
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation<'a>, LoadPresentationError> {
         let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
         let elements = self.parser.parse(&content)?;
-        let slides =
-            MarkdownProcessor::new(&self.highlighter, self.default_theme, &mut self.resources).transform(elements)?;
-        Ok(Presentation::new(slides, Cow::Borrowed(self.default_theme)))
+        let presentation =
+            PresentationBuilder::new(&self.highlighter, self.default_theme, &mut self.resources).build(elements)?;
+        Ok(presentation)
     }
 }
 
@@ -134,7 +132,7 @@ pub enum LoadPresentationError {
     Reading(io::Error),
 
     #[error(transparent)]
-    Processing(#[from] ProcessError),
+    Processing(#[from] BuildError),
 }
 
 #[derive(thiserror::Error, Debug)]
