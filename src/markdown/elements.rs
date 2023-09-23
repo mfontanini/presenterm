@@ -1,5 +1,4 @@
 use crate::style::TextStyle;
-use serde::Deserialize;
 use std::iter;
 
 #[derive(Clone, Debug)]
@@ -109,17 +108,6 @@ pub enum CodeLanguage {
     Typescript,
     Javascript,
     Unknown,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
-pub struct PresentationMetadata {
-    pub title: String,
-
-    #[serde(default)]
-    pub sub_title: Option<String>,
-
-    #[serde(default)]
-    pub author: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

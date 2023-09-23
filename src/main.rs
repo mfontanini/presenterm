@@ -16,7 +16,7 @@ struct Cli {
 
 fn main() {
     let cli = Cli::parse();
-    let Some(theme) = PresentationTheme::from_name(&cli.theme) else {
+    let Some(default_theme) = PresentationTheme::from_name(&cli.theme) else {
         let mut cmd = Cli::command();
         cmd.error(ErrorKind::InvalidValue, "invalid theme name").exit();
     };
@@ -27,7 +27,7 @@ fn main() {
     let resources = Resources::new(cli.path.parent().expect("no parent"));
     let commands = CommandSource::new(&cli.path);
 
-    let slideshow = SlideShow::new(theme, commands, parser, resources, highlighter);
+    let slideshow = SlideShow::new(&default_theme, commands, parser, resources, highlighter);
     if let Err(e) = slideshow.present(&cli.path) {
         eprintln!("Error running slideshow: {e}");
     };

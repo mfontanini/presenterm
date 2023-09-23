@@ -1,9 +1,11 @@
+use std::{fs, io, path::Path};
+
 use crossterm::style::Color;
 use serde::Deserialize;
 
 include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct PresentationTheme {
     #[serde(default, flatten)]
     pub slide_title: Option<Alignment>,
@@ -40,6 +42,12 @@ impl PresentationTheme {
         Some(serde_yaml::from_slice(contents).expect("corrupted theme"))
     }
 
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, LoadThemeError> {
+        let contents = fs::read_to_string(path)?;
+        let theme = serde_yaml::from_str(&contents)?;
+        Ok(theme)
+    }
+
     pub fn alignment(&self, element: &ElementType) -> &Alignment {
         use ElementType::*;
 
@@ -63,7 +71,7 @@ impl PresentationTheme {
     }
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct HeadingStyles {
     #[serde(default)]
     pub h1: HeadingStyle,
@@ -84,7 +92,7 @@ pub struct HeadingStyles {
     pub h6: HeadingStyle,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct HeadingStyle {
     #[serde(flatten, default)]
     pub alignment: Option<Alignment>,
@@ -96,7 +104,7 @@ pub struct HeadingStyle {
     pub colors: Colors,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct PresentationStyles {
     #[serde(default)]
     pub title: Option<Alignment>,
@@ -107,7 +115,7 @@ pub struct PresentationStyles {
     pub author: AuthorStyle,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct PrimaryStyle {
     #[serde(flatten)]
     pub alignment: Alignment,
@@ -131,7 +139,7 @@ pub enum Alignment {
     },
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct AuthorStyle {
     #[serde(flatten, default)]
     pub alignment: Option<Alignment>,
@@ -140,7 +148,7 @@ pub struct AuthorStyle {
     pub positioning: AuthorPositioning,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "style", rename_all = "snake_case")]
 pub enum FooterStyle {
     Template { format: String },
@@ -174,7 +182,7 @@ impl FooterStyle {
     }
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct CodeStyle {
     #[serde(flatten)]
     pub alignment: Option<Alignment>,
@@ -186,7 +194,7 @@ pub struct CodeStyle {
     pub padding: Padding,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct Padding {
     #[serde(default)]
     pub horizontal: u8,
@@ -220,13 +228,22 @@ pub struct Colors {
     pub foreground: Option<Color>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuthorPositioning {
     BelowTitle,
 
     #[default]
     PageBottom,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum LoadThemeError {
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
+    #[error(transparent)]
+    Corrupted(#[from] serde_yaml::Error),
 }
 
 #[cfg(test)]

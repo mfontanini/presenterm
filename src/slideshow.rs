@@ -15,26 +15,33 @@ use crate::{
     resource::Resources,
     theme::PresentationTheme,
 };
-use std::{fs, io, path::Path};
+use std::{borrow::Cow, fs, io, path::Path};
 
 pub struct SlideShow<'a> {
-    theme: PresentationTheme,
+    default_theme: &'a PresentationTheme,
     commands: CommandSource,
     parser: MarkdownParser<'a>,
     resources: Resources,
     highlighter: CodeHighlighter,
-    state: SlideShowState,
+    state: SlideShowState<'a>,
 }
 
 impl<'a> SlideShow<'a> {
     pub fn new(
-        theme: PresentationTheme,
+        default_theme: &'a PresentationTheme,
         commands: CommandSource,
         parser: MarkdownParser<'a>,
         resources: Resources,
         highlighter: CodeHighlighter,
     ) -> Self {
-        Self { theme, commands, parser, resources, highlighter, state: SlideShowState::RenderError("".to_string()) }
+        Self {
+            default_theme,
+            commands,
+            parser,
+            resources,
+            highlighter,
+            state: SlideShowState::RenderError("".to_string()),
+        }
     }
 
     pub fn present(mut self, path: &Path) -> Result<(), SlideShowError> {
@@ -45,7 +52,7 @@ impl<'a> SlideShow<'a> {
         loop {
             match &self.state {
                 SlideShowState::RenderSlide(presentation) => {
-                    drawer.render_slide(&self.theme, presentation)?;
+                    drawer.render_slide(&presentation.theme, presentation)?;
                     current_slide = presentation.current_slide_index()
                 }
                 SlideShowState::RenderError(error) => drawer.render_error(error)?,
@@ -90,14 +97,19 @@ impl<'a> SlideShow<'a> {
             UserCommand::JumpSlide(number) => presentation.jump_slide(number.saturating_sub(1) as usize),
             UserCommand::Exit => return CommandSideEffect::Exit,
         };
-        if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
+        if needs_redraw {
+            CommandSideEffect::Redraw
+        } else {
+            CommandSideEffect::None
+        }
     }
 
-    fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
+    fn load_presentation(&mut self, path: &Path) -> Result<Presentation<'a>, LoadPresentationError> {
         let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
         let elements = self.parser.parse(&content)?;
-        let slides = MarkdownProcessor::new(&self.highlighter, &self.theme, &mut self.resources).transform(elements)?;
-        Ok(Presentation::new(slides))
+        let slides =
+            MarkdownProcessor::new(&self.highlighter, self.default_theme, &mut self.resources).transform(elements)?;
+        Ok(Presentation::new(slides, Cow::Borrowed(self.default_theme)))
     }
 }
 
@@ -107,8 +119,9 @@ enum CommandSideEffect {
     None,
 }
 
-enum SlideShowState {
-    RenderSlide(Presentation),
+#[allow(clippy::large_enum_variant)]
+enum SlideShowState<'a> {
+    RenderSlide(Presentation<'a>),
     RenderError(String),
 }
 
