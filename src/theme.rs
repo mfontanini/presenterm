@@ -6,7 +6,7 @@ include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 
 #[derive(Default, Clone, Debug, Deserialize, Serialize)]
 pub struct PresentationTheme {
-    #[serde(default, flatten)]
+    #[serde(default)]
     pub slide_title: Option<Alignment>,
 
     #[serde(default)]
