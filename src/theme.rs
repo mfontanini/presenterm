@@ -1,6 +1,7 @@
 use crossterm::style::Color;
 use serde::{Deserialize, Serialize};
 use std::{fs, io, path::Path};
+use unicode_width::UnicodeWidthStr;
 
 include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 
@@ -157,7 +158,7 @@ pub struct AuthorStyle {
 #[serde(tag = "style", rename_all = "snake_case")]
 pub enum FooterStyle {
     Template { format: String },
-    ProgressBar,
+    ProgressBar { character: Option<char> },
     Empty,
 }
 
@@ -176,10 +177,12 @@ impl FooterStyle {
                 let footer = format.replace("{current_slide}", &current_slide).replace("{total_slides}", &total_slides);
                 Some(footer)
             }
-            FooterStyle::ProgressBar => {
+            FooterStyle::ProgressBar { character } => {
+                let character = character.unwrap_or('█').to_string();
+                let total_columns = total_columns / character.width();
                 let progress_ratio = (current_slide + 1) as f64 / total_slides as f64;
                 let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
-                let bar = "█".repeat(columns_ratio as usize);
+                let bar = character.repeat(columns_ratio as usize);
                 Some(bar)
             }
             FooterStyle::Empty => None,
