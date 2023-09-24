@@ -1,5 +1,6 @@
 use super::{
     draw::{DrawResult, DrawSlideError},
+    layout::FixedLayout,
     media::{Image, MediaDrawer},
     text::TextDrawer,
 };
@@ -15,7 +16,7 @@ use crossterm::{
 };
 use std::io;
 
-pub(super) struct RenderOperator<'a, W> {
+pub(crate) struct RenderOperator<'a, W> {
     handle: &'a mut W,
     dimensions: WindowSize,
     colors: Colors,
@@ -25,11 +26,11 @@ impl<'a, W> RenderOperator<'a, W>
 where
     W: io::Write,
 {
-    pub(super) fn new(handle: &'a mut W, dimensions: WindowSize, colors: Colors) -> Self {
+    pub(crate) fn new(handle: &'a mut W, dimensions: WindowSize, colors: Colors) -> Self {
         Self { handle, dimensions, colors }
     }
 
-    pub(super) fn render(&mut self, operation: &RenderOperation) -> DrawResult {
+    pub(crate) fn render(&mut self, operation: &RenderOperation) -> DrawResult {
         match operation {
             RenderOperation::ClearScreen => self.clear_screen(),
             RenderOperation::SetColors(colors) => self.set_colors(colors),
@@ -103,14 +104,7 @@ where
         block_length: usize,
         alignment: &Alignment,
     ) -> DrawResult {
-        let start_column = match *alignment {
-            Alignment::Left { margin } => margin,
-            Alignment::Center { minimum_margin, minimum_size } => {
-                let max_line_length = block_length.max(minimum_size as usize);
-                let column = (self.dimensions.columns - max_line_length as u16) / 2;
-                column.max(minimum_margin)
-            }
-        };
+        let start_column = FixedLayout(alignment).start_column(&self.dimensions, block_length as u16);
         self.handle.queue(cursor::MoveToColumn(start_column))?;
 
         let max_line_length = (self.dimensions.columns - start_column * 2) as usize;

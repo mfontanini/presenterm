@@ -1,3 +1,7 @@
+use super::{
+    draw::DrawResult,
+    layout::{TextPositioning, WordWrapLayout},
+};
 use crate::{
     markdown::text::WeightedLine,
     style::TextStyle,
@@ -6,13 +10,10 @@ use crate::{
 use crossterm::{cursor, style, terminal::WindowSize, QueueableCommand};
 use std::io;
 
-use super::draw::DrawResult;
-
-pub(super) struct TextDrawer<'a, W> {
+pub(crate) struct TextDrawer<'a, W> {
     handle: &'a mut W,
     line: &'a WeightedLine,
-    start_column: u16,
-    line_length: u16,
+    positioning: TextPositioning,
     default_colors: &'a Colors,
 }
 
@@ -20,7 +21,7 @@ impl<'a, W> TextDrawer<'a, W>
 where
     W: io::Write,
 {
-    pub(super) fn new(
+    pub(crate) fn new(
         alignment: &'a Alignment,
         handle: &'a mut W,
         line: &'a WeightedLine,
@@ -28,31 +29,16 @@ where
         default_colors: &'a Colors,
     ) -> Self {
         let text_length = line.width() as u16;
-        let mut line_length = dimensions.columns;
-        let mut start_column;
-        match *alignment {
-            Alignment::Left { margin } => {
-                start_column = margin;
-                line_length -= margin * 2;
-            }
-            Alignment::Center { minimum_margin, minimum_size } => {
-                line_length = text_length.min(dimensions.columns - minimum_margin * 2).max(minimum_size);
-                if line_length > dimensions.columns {
-                    start_column = minimum_margin;
-                } else {
-                    start_column = (dimensions.columns - line_length) / 2;
-                    start_column = start_column.max(minimum_margin);
-                }
-            }
-        };
-        Self { handle, line, start_column, line_length, default_colors }
+        let positioning = WordWrapLayout(alignment).compute(dimensions, text_length);
+        Self { handle, line, positioning, default_colors }
     }
 
-    pub(super) fn draw(self) -> DrawResult {
-        self.handle.queue(cursor::MoveToColumn(self.start_column))?;
+    pub(crate) fn draw(self) -> DrawResult {
+        let TextPositioning { line_length, start_column } = self.positioning;
+        self.handle.queue(cursor::MoveToColumn(start_column))?;
 
-        for (line_index, line) in self.line.split(self.line_length as usize).enumerate() {
-            self.handle.queue(cursor::MoveToColumn(self.start_column))?;
+        for (line_index, line) in self.line.split(line_length as usize).enumerate() {
+            self.handle.queue(cursor::MoveToColumn(start_column))?;
             if line_index > 0 {
                 self.handle.queue(cursor::MoveDown(1))?;
             }
