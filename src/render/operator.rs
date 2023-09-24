@@ -1,12 +1,13 @@
 use super::{
     draw::{DrawResult, DrawSlideError},
-    layout::FixedLayout,
+    layout::Layout,
     media::{Image, MediaDrawer},
     text::TextDrawer,
 };
 use crate::{
     markdown::text::WeightedLine,
     presentation::RenderOperation,
+    render::layout::Positioning,
     theme::{Alignment, Colors},
 };
 use crossterm::{
@@ -104,11 +105,11 @@ where
         block_length: usize,
         alignment: &Alignment,
     ) -> DrawResult {
-        let start_column = FixedLayout(alignment).start_column(&self.dimensions, block_length as u16);
+        let Positioning { max_line_length, start_column } =
+            Layout(alignment).compute(&self.dimensions, block_length as u16);
         self.handle.queue(cursor::MoveToColumn(start_column))?;
 
-        let max_line_length = (self.dimensions.columns - start_column * 2) as usize;
-        let until_right_edge = max_line_length.saturating_sub(unformatted_length);
+        let until_right_edge = usize::from(max_line_length).saturating_sub(unformatted_length);
 
         // Pad this code block with spaces so we get a nice little rectangle.
         self.handle.queue(style::Print(&text))?;

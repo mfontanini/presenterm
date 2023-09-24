@@ -1,6 +1,6 @@
 use super::{
     draw::DrawResult,
-    layout::{TextPositioning, WordWrapLayout},
+    layout::{Layout, Positioning},
 };
 use crate::{
     markdown::text::WeightedLine,
@@ -13,7 +13,7 @@ use std::io;
 pub(crate) struct TextDrawer<'a, W> {
     handle: &'a mut W,
     line: &'a WeightedLine,
-    positioning: TextPositioning,
+    positioning: Positioning,
     default_colors: &'a Colors,
 }
 
@@ -29,12 +29,12 @@ where
         default_colors: &'a Colors,
     ) -> Self {
         let text_length = line.width() as u16;
-        let positioning = WordWrapLayout(alignment).compute(dimensions, text_length);
+        let positioning = Layout(alignment).compute(dimensions, text_length);
         Self { handle, line, positioning, default_colors }
     }
 
     pub(crate) fn draw(self) -> DrawResult {
-        let TextPositioning { line_length, start_column } = self.positioning;
+        let Positioning { max_line_length: line_length, start_column } = self.positioning;
         self.handle.queue(cursor::MoveToColumn(start_column))?;
 
         for (line_index, line) in self.line.split(line_length as usize).enumerate() {

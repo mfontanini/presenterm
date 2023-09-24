@@ -130,6 +130,10 @@ pub enum Alignment {
         #[serde(default)]
         margin: u16,
     },
+    Right {
+        #[serde(default)]
+        margin: u16,
+    },
     Center {
         #[serde(default)]
         minimum_margin: u16,
