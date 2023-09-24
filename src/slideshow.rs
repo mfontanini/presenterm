@@ -95,11 +95,7 @@ impl<'a> SlideShow<'a> {
             UserCommand::JumpSlide(number) => presentation.jump_slide(number.saturating_sub(1) as usize),
             UserCommand::Exit => return CommandSideEffect::Exit,
         };
-        if needs_redraw {
-            CommandSideEffect::Redraw
-        } else {
-            CommandSideEffect::None
-        }
+        if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
     }
 
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation<'a>, LoadPresentationError> {

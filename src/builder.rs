@@ -1,8 +1,11 @@
 use crate::{
-    markdown::elements::{
-        Code, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table, TableRow, Text, TextChunk,
+    markdown::{
+        elements::{
+            Code, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table, TableRow, Text,
+            TextChunk,
+        },
+        text::{WeightedLine, WeightedText},
     },
-    markdown::text::{WeightedLine, WeightedText},
     presentation::{Presentation, PresentationMetadata, PresentationThemeMetadata, RenderOperation, Slide},
     render::highlighting::{CodeHighlighter, CodeLine},
     resource::{LoadImageError, Resources},
