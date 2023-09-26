@@ -326,7 +326,7 @@ impl<'a> PresentationBuilder<'a> {
                 code.push('\n');
             }
         }
-        let block_length = code.lines().map(|line| line.len()).max().unwrap_or(0);
+        let block_length = code.lines().map(|line| line.len()).max().unwrap_or(0) + horizontal_padding as usize;
         for code_line in self.highlighter.highlight(&code, &language) {
             let CodeLine { formatted, original } = code_line;
             let trimmed = formatted.trim_end();
