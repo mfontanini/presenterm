@@ -6,11 +6,11 @@ use crate::{
     },
     presentation::{Presentation, RenderOperation},
     style::TextStyle,
-    theme::{Alignment, Colors, PresentationTheme},
+    theme::{Alignment, Colors},
 };
 use crossterm::{
     cursor,
-    style::{self, Color},
+    style::Color,
     terminal::{disable_raw_mode, enable_raw_mode, window_size, WindowSize},
     QueueableCommand,
 };
@@ -32,9 +32,10 @@ where
         Ok(Self { handle })
     }
 
-    pub fn render_slide<'a>(&mut self, theme: &'a PresentationTheme, presentation: &'a Presentation) -> DrawResult {
+    pub fn render_slide(&mut self, presentation: &Presentation) -> DrawResult {
         let dimensions = window_size()?;
         let slide_dimensions = WindowSize {
+            // TODO this adjustment needs to tweak `height` too
             rows: dimensions.rows - 3,
             columns: dimensions.columns,
             width: dimensions.width,
@@ -42,26 +43,18 @@ where
         };
 
         let slide = presentation.current_slide();
-        let mut operator = RenderOperator::new(&mut self.handle, slide_dimensions, Default::default());
+        let mut operator = RenderOperator::new(&mut self.handle, slide_dimensions, dimensions, Default::default());
         for element in &slide.render_operations {
             operator.render(element)?;
-        }
-
-        let rendered_footer = theme.footer.render(
-            presentation.current_slide_index(),
-            presentation.total_slides(),
-            dimensions.columns as usize,
-        );
-        if let Some(footer) = rendered_footer {
-            self.handle.queue(cursor::MoveTo(0, dimensions.rows - 1))?;
-            self.handle.queue(style::Print(footer))?;
         }
         self.handle.flush()?;
         Ok(())
     }
 
     pub fn render_error(&mut self, message: &str) -> DrawResult {
-        let dimensions = window_size()?;
+        // WindowSize isn't clone...
+        let slide_dimensions = window_size()?;
+        let window_dimensions = window_size()?;
         let heading = vec![
             WeightedText::from(StyledText::styled("Error loading presentation", TextStyle::default().bold())),
             WeightedText::from(StyledText::plain(": ")),
@@ -77,7 +70,8 @@ where
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderTextLine { texts: WeightedLine::from(error), alignment: alignment.clone() },
         ];
-        let mut operator = RenderOperator::new(&mut self.handle, dimensions, Default::default());
+        let mut operator =
+            RenderOperator::new(&mut self.handle, slide_dimensions, window_dimensions, Default::default());
         for operation in operations {
             operator.render(&operation)?;
         }

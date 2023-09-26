@@ -21,7 +21,7 @@ pub struct SlideShow<'a> {
     parser: MarkdownParser<'a>,
     resources: Resources,
     highlighter: CodeHighlighter,
-    state: SlideShowState<'a>,
+    state: SlideShowState,
 }
 
 impl<'a> SlideShow<'a> {
@@ -50,7 +50,7 @@ impl<'a> SlideShow<'a> {
         loop {
             match &self.state {
                 SlideShowState::RenderSlide(presentation) => {
-                    drawer.render_slide(&presentation.theme, presentation)?;
+                    drawer.render_slide(presentation)?;
                     current_slide = presentation.current_slide_index()
                 }
                 SlideShowState::RenderError(error) => drawer.render_error(error)?,
@@ -98,7 +98,7 @@ impl<'a> SlideShow<'a> {
         if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
     }
 
-    fn load_presentation(&mut self, path: &Path) -> Result<Presentation<'a>, LoadPresentationError> {
+    fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
         let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
         let elements = self.parser.parse(&content)?;
         let presentation =
@@ -113,9 +113,8 @@ enum CommandSideEffect {
     None,
 }
 
-#[allow(clippy::large_enum_variant)]
-enum SlideShowState<'a> {
-    RenderSlide(Presentation<'a>),
+enum SlideShowState {
+    RenderSlide(Presentation),
     RenderError(String),
 }
 

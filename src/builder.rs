@@ -6,28 +6,32 @@ use crate::{
         },
         text::{WeightedLine, WeightedText},
     },
-    presentation::{Presentation, PresentationMetadata, PresentationThemeMetadata, RenderOperation, Slide},
+    presentation::{
+        AsRenderOperations, Presentation, PresentationMetadata, PresentationThemeMetadata, RenderOperation, Slide,
+    },
     render::highlighting::{CodeHighlighter, CodeLine},
     resource::{LoadImageError, Resources},
     style::TextStyle,
-    theme::{AuthorPositioning, ElementType, LoadThemeError, PresentationTheme},
+    theme::{Alignment, AuthorPositioning, ElementType, FooterStyle, LoadThemeError, PresentationTheme},
 };
-use std::{borrow::Cow, iter, mem};
+use std::{borrow::Cow, cell::RefCell, iter, mem, rc::Rc};
+use unicode_width::UnicodeWidthStr;
 
-pub struct PresentationBuilder<'a, 'b> {
+pub struct PresentationBuilder<'a> {
     slide_operations: Vec<RenderOperation>,
     slides: Vec<Slide>,
     highlighter: &'a CodeHighlighter,
-    theme: Cow<'b, PresentationTheme>,
+    theme: Cow<'a, PresentationTheme>,
     resources: &'a mut Resources,
     ignore_element_line_break: bool,
     last_element_is_list: bool,
+    total_slides: Rc<RefCell<usize>>,
 }
 
-impl<'a, 'b> PresentationBuilder<'a, 'b> {
+impl<'a> PresentationBuilder<'a> {
     pub fn new(
         highlighter: &'a CodeHighlighter,
-        default_theme: &'b PresentationTheme,
+        default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
     ) -> Self {
         Self {
@@ -38,10 +42,11 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             resources,
             ignore_element_line_break: false,
             last_element_is_list: false,
+            total_slides: Default::default(),
         }
     }
 
-    pub fn build(mut self, elements: Vec<MarkdownElement>) -> Result<Presentation<'b>, BuildError> {
+    pub fn build(mut self, elements: Vec<MarkdownElement>) -> Result<Presentation, BuildError> {
         if let Some(MarkdownElement::FrontMatter(contents)) = elements.first() {
             self.process_front_matter(contents)?;
         }
@@ -56,7 +61,9 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         if !self.slide_operations.is_empty() {
             self.terminate_slide();
         }
-        let presentation = Presentation::new(self.slides, self.theme);
+        *self.total_slides.borrow_mut() = self.slides.len();
+
+        let presentation = Presentation::new(self.slides);
         Ok(presentation)
     }
 
@@ -137,7 +144,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
                     self.push_line_break();
                 }
                 AuthorPositioning::PageBottom => {
-                    self.slide_operations.push(RenderOperation::JumpToBottom);
+                    self.slide_operations.push(RenderOperation::JumpToSlideBottom);
                 }
             };
             self.push_text(Text::single(text), ElementType::PresentationAuthor);
@@ -320,9 +327,20 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
     }
 
     fn terminate_slide(&mut self) {
+        self.push_footer();
+
         let elements = mem::take(&mut self.slide_operations);
         self.slides.push(Slide { render_operations: elements });
         self.push_slide_prelude();
+    }
+
+    fn push_footer(&mut self) {
+        let generator = FooterGenerator {
+            style: self.theme.footer.clone(),
+            current_slide: self.slides.len(),
+            total_slides: self.total_slides.clone(),
+        };
+        self.slide_operations.push(RenderOperation::RenderDynamic(Rc::new(generator)));
     }
 
     fn push_table(&mut self, table: Table) {
@@ -371,6 +389,42 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             }
         }
         flattened_row
+    }
+}
+
+#[derive(Debug)]
+struct FooterGenerator {
+    current_slide: usize,
+    total_slides: Rc<RefCell<usize>>,
+    style: FooterStyle,
+}
+
+impl AsRenderOperations for FooterGenerator {
+    fn as_render_operations(&self, dimensions: &crossterm::terminal::WindowSize) -> Vec<RenderOperation> {
+        let total_slides = *self.total_slides.borrow();
+        match &self.style {
+            FooterStyle::Template { format } => {
+                let current_slide = (self.current_slide + 1).to_string();
+                let total_slides = total_slides.to_string();
+                let footer = format.replace("{current_slide}", &current_slide).replace("{total_slides}", &total_slides);
+                vec![
+                    RenderOperation::JumpToWindowBottom,
+                    RenderOperation::RenderTextLine { texts: footer.into(), alignment: Alignment::Left { margin: 0 } },
+                ]
+            }
+            FooterStyle::ProgressBar { character } => {
+                let character = character.unwrap_or('█').to_string();
+                let total_columns = dimensions.columns as usize / character.width();
+                let progress_ratio = (self.current_slide + 1) as f64 / total_slides as f64;
+                let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
+                let bar = character.repeat(columns_ratio as usize);
+                vec![
+                    RenderOperation::JumpToWindowBottom,
+                    RenderOperation::RenderTextLine { texts: bar.into(), alignment: Alignment::Left { margin: 0 } },
+                ]
+            }
+            FooterStyle::Empty => vec![],
+        }
     }
 }
 

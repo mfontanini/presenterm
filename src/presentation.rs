@@ -3,18 +3,18 @@ use crate::{
     render::media::Image,
     theme::{Alignment, Colors, PresentationTheme},
 };
+use crossterm::terminal::WindowSize;
 use serde::Deserialize;
-use std::borrow::Cow;
+use std::rc::Rc;
 
-pub struct Presentation<'a> {
+pub struct Presentation {
     slides: Vec<Slide>,
-    pub theme: Cow<'a, PresentationTheme>,
     current_slide_index: usize,
 }
 
-impl<'a> Presentation<'a> {
-    pub fn new(slides: Vec<Slide>, theme: Cow<'a, PresentationTheme>) -> Self {
-        Self { slides, theme, current_slide_index: 0 }
+impl Presentation {
+    pub fn new(slides: Vec<Slide>) -> Self {
+        Self { slides, current_slide_index: 0 }
     }
 
     pub fn current_slide(&self) -> &Slide {
@@ -112,10 +112,16 @@ pub enum RenderOperation {
     ClearScreen,
     SetColors(Colors),
     JumpToVerticalCenter,
-    JumpToBottom,
+    JumpToSlideBottom,
+    JumpToWindowBottom,
     RenderTextLine { texts: WeightedLine, alignment: Alignment },
     RenderSeparator,
     RenderLineBreak,
     RenderImage(Image),
     RenderPreformattedLine { text: String, unformatted_length: usize, block_length: usize, alignment: Alignment },
+    RenderDynamic(Rc<dyn AsRenderOperations>),
+}
+
+pub trait AsRenderOperations: std::fmt::Debug {
+    fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation>;
 }

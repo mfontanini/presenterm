@@ -21,6 +21,13 @@ impl From<Vec<WeightedText>> for WeightedLine {
     }
 }
 
+impl From<String> for WeightedLine {
+    fn from(text: String) -> Self {
+        let texts = vec![WeightedText::from(StyledText::plain(text))];
+        Self(texts)
+    }
+}
+
 #[derive(Clone, Debug)]
 struct CharAccumulator {
     width: usize,
