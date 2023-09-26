@@ -14,7 +14,7 @@ use crate::{
     style::TextStyle,
     theme::{Alignment, AuthorPositioning, ElementType, FooterStyle, LoadThemeError, PresentationTheme},
 };
-use std::{borrow::Cow, cell::RefCell, iter, mem, rc::Rc};
+use std::{borrow::Cow, cell::RefCell, iter, mem, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 
 pub struct PresentationBuilder<'a> {
@@ -155,9 +155,14 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_comment(&mut self, comment: String) {
-        if comment != "pause" {
-            return;
+        let Ok(comment) = comment.parse::<Comment>() else { return; };
+        match comment {
+            Comment::Pause => self.process_pause(),
+            Comment::EndSlide => self.terminate_slide(),
         }
+    }
+
+    fn process_pause(&mut self) {
         // Remove the last line, if any, if the previous element is a list. This allows each
         // element in a list showing up without newlines in between..
         if self.last_element_is_list && matches!(self.slide_operations.last(), Some(RenderOperation::RenderLineBreak)) {
@@ -477,4 +482,21 @@ pub enum BuildError {
 
     #[error("invalid theme: {0}")]
     InvalidTheme(#[from] LoadThemeError),
+}
+
+enum Comment {
+    Pause,
+    EndSlide,
+}
+
+impl FromStr for Comment {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "pause" => Ok(Self::Pause),
+            "end_slide" => Ok(Self::EndSlide),
+            _ => Err(()),
+        }
+    }
 }
