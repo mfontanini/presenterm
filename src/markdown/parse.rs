@@ -94,15 +94,40 @@ impl<'a> MarkdownParser<'a> {
         if !block.fenced {
             return Err(ParseErrorKind::UnfencedCodeBlock.with_sourcepos(sourcepos));
         }
+        use CodeLanguage::*;
         let language = match block.info.as_str() {
-            "rust" => CodeLanguage::Rust,
-            "go" => CodeLanguage::Go,
-            "c" => CodeLanguage::C,
-            "cpp" => CodeLanguage::Cpp,
-            "python" => CodeLanguage::Python,
-            "typescript" | "ts" => CodeLanguage::Typescript,
-            "javascript" | "js" => CodeLanguage::Javascript,
-            _ => CodeLanguage::Unknown,
+            "asp" => Asp,
+            "bash" => Bash,
+            "c" => C,
+            "csharp" => CSharp,
+            "clojure" => Clojure,
+            "cpp" | "c++" => Cpp,
+            "css" => Css,
+            "d" => DLang,
+            "erlang" => Erlang,
+            "go" => Go,
+            "haskell" => Haskell,
+            "html" => Html,
+            "java" => Java,
+            "javascript" | "js" => JavaScript,
+            "json" => Json,
+            "latex" => Latex,
+            "lua" => Lua,
+            "make" => Makefile,
+            "markdown" => Markdown,
+            "ocaml" => OCaml,
+            "perl" => Perl,
+            "php" => Php,
+            "python" => Python,
+            "r" => R,
+            "rust" => Rust,
+            "scala" => Scala,
+            "shell" | "sh" | "zsh" | "fish" => Shell,
+            "sql" => Sql,
+            "typescript" | "ts" => TypeScript,
+            "xml" => Xml,
+            "yaml" => Yaml,
+            _ => Unknown,
         };
         let code = Code { contents: block.literal.clone(), language };
         Ok(MarkdownElement::Code(code))

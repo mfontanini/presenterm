@@ -20,18 +20,7 @@ impl CodeHighlighter {
     }
 
     pub fn highlight<'a>(&self, code: &'a str, language: &CodeLanguage) -> Vec<CodeLine<'a>> {
-        let extension = match language {
-            CodeLanguage::Rust => "rs",
-            CodeLanguage::Go => "go",
-            CodeLanguage::C => "c",
-            CodeLanguage::Cpp => "cpp",
-            CodeLanguage::Python => "py",
-            CodeLanguage::Typescript => "js",
-            CodeLanguage::Javascript => "js",
-            CodeLanguage::Unknown => {
-                return code.lines().map(|line| CodeLine { original: line, formatted: line.to_string() }).collect();
-            }
-        };
+        let extension = Self::language_extension(language);
         let syntax = self.syntax_set.find_syntax_by_extension(extension).unwrap();
         let mut highlight_lines = HighlightLines::new(syntax, &self.theme);
         let mut lines = Vec::new();
@@ -42,6 +31,46 @@ impl CodeHighlighter {
             lines.push(code_line);
         }
         lines
+    }
+
+    fn language_extension(language: &CodeLanguage) -> &'static str {
+        use CodeLanguage::*;
+        match language {
+            Asp => "asa",
+            Bash => "bash",
+            BatchFile => "bat",
+            C => "c",
+            CSharp => "cs",
+            Clojure => "clj",
+            Cpp => "cpp",
+            Css => "css",
+            DLang => "d",
+            Erlang => "erl",
+            Go => "go",
+            Haskell => "hs",
+            Html => "html",
+            Java => "java",
+            JavaScript => "js",
+            Json => "json",
+            Latex => "tex",
+            Lua => "lua",
+            Makefile => "make",
+            Markdown => "md",
+            OCaml => "ml",
+            Perl => "pl",
+            Php => "php",
+            Python => "py",
+            R => "r",
+            Rust => "rs",
+            Scala => "scala",
+            Shell => "shell",
+            Sql => "sql",
+            TypeScript => "js",
+            Xml => "xml",
+            Yaml => "yaml",
+            // default to plain text so we get the same look&feel
+            Unknown => "txt",
+        }
     }
 }
 
