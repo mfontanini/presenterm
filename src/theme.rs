@@ -7,7 +7,7 @@ include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 #[derive(Default, Clone, Debug, Deserialize, Serialize)]
 pub struct PresentationTheme {
     #[serde(default)]
-    pub slide_title: Option<Alignment>,
+    pub slide_title: SlideTitleStyle,
 
     #[serde(default)]
     pub paragraph: Option<Alignment>,
@@ -51,7 +51,7 @@ impl PresentationTheme {
         use ElementType::*;
 
         let alignment = match element {
-            SlideTitle => &self.slide_title,
+            SlideTitle => &self.slide_title.alignment,
             Heading1 => &self.headings.h1.alignment,
             Heading2 => &self.headings.h2.alignment,
             Heading3 => &self.headings.h3.alignment,
@@ -68,6 +68,24 @@ impl PresentationTheme {
         };
         alignment.clone().or_else(|| self.default_style.alignment.clone()).unwrap_or(Alignment::default())
     }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct SlideTitleStyle {
+    #[serde(flatten, default)]
+    pub alignment: Option<Alignment>,
+
+    #[serde(default)]
+    pub separator: bool,
+
+    #[serde(default)]
+    pub padding_top: Option<u8>,
+
+    #[serde(default)]
+    pub padding_bottom: Option<u8>,
+
+    #[serde(default)]
+    pub colors: Colors,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

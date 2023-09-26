@@ -6,6 +6,10 @@ default:
     background: black
 slide_title:
   alignment: center
+  padding_bottom: 1
+  padding_top: 1
+  colors:
+    foreground: "rgb_(255,128,0)"
 code:
   alignment: center
   minimum_size: 50

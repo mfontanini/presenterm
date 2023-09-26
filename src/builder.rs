@@ -171,13 +171,21 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_slide_title(&mut self, mut text: Text) {
-        text.apply_style(&TextStyle::default().bold());
+        let style = self.theme.slide_title.clone();
+        text.apply_style(&TextStyle::default().bold().colors(style.colors.clone()));
 
-        self.push_line_break();
+        for _ in 0..style.padding_top.unwrap_or(0) {
+            self.push_line_break();
+        }
         self.push_text(text, ElementType::SlideTitle);
         self.push_line_break();
-        self.push_line_break();
-        self.slide_operations.push(RenderOperation::RenderSeparator);
+
+        for _ in 0..style.padding_bottom.unwrap_or(0) {
+            self.push_line_break();
+        }
+        if style.separator {
+            self.slide_operations.push(RenderOperation::RenderSeparator);
+        }
         self.push_line_break();
     }
 
