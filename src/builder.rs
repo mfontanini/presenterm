@@ -25,7 +25,7 @@ pub struct PresentationBuilder<'a> {
     resources: &'a mut Resources,
     ignore_element_line_break: bool,
     last_element_is_list: bool,
-    total_slides: Rc<RefCell<usize>>,
+    footer_context: Rc<RefCell<FooterContext>>,
 }
 
 impl<'a> PresentationBuilder<'a> {
@@ -42,7 +42,7 @@ impl<'a> PresentationBuilder<'a> {
             resources,
             ignore_element_line_break: false,
             last_element_is_list: false,
-            total_slides: Default::default(),
+            footer_context: Default::default(),
         }
     }
 
@@ -61,7 +61,7 @@ impl<'a> PresentationBuilder<'a> {
         if !self.slide_operations.is_empty() {
             self.terminate_slide();
         }
-        *self.total_slides.borrow_mut() = self.slides.len();
+        self.footer_context.borrow_mut().total_slides = self.slides.len();
 
         let presentation = Presentation::new(self.slides);
         Ok(presentation)
@@ -95,6 +95,8 @@ impl<'a> PresentationBuilder<'a> {
     fn process_front_matter(&mut self, contents: &str) -> Result<(), BuildError> {
         let metadata: PresentationMetadata =
             serde_yaml::from_str(contents).map_err(|e| BuildError::InvalidMetadata(e.to_string()))?;
+
+        self.footer_context.borrow_mut().author = metadata.author.clone().unwrap_or_default();
         self.set_theme(&metadata.theme)?;
         if metadata.title.is_some() || metadata.sub_title.is_some() || metadata.author.is_some() {
             self.push_slide_prelude();
@@ -338,7 +340,7 @@ impl<'a> PresentationBuilder<'a> {
         let generator = FooterGenerator {
             style: self.theme.footer.clone(),
             current_slide: self.slides.len(),
-            total_slides: self.total_slides.clone(),
+            context: self.footer_context.clone(),
         };
         self.slide_operations.push(RenderOperation::RenderDynamic(Rc::new(generator)));
     }
@@ -392,30 +394,59 @@ impl<'a> PresentationBuilder<'a> {
     }
 }
 
+#[derive(Debug, Default)]
+struct FooterContext {
+    total_slides: usize,
+    author: String,
+}
+
 #[derive(Debug)]
 struct FooterGenerator {
     current_slide: usize,
-    total_slides: Rc<RefCell<usize>>,
+    context: Rc<RefCell<FooterContext>>,
     style: FooterStyle,
+}
+
+impl FooterGenerator {
+    fn render_template(template: &str, current_slide: &str, context: &FooterContext) -> String {
+        template
+            .replace("{current_slide}", current_slide)
+            .replace("{total_slides}", &context.total_slides.to_string())
+            .replace("{author}", &context.author)
+    }
 }
 
 impl AsRenderOperations for FooterGenerator {
     fn as_render_operations(&self, dimensions: &crossterm::terminal::WindowSize) -> Vec<RenderOperation> {
-        let total_slides = *self.total_slides.borrow();
+        let context = self.context.borrow();
         match &self.style {
-            FooterStyle::Template { format } => {
+            FooterStyle::Template { left, right } => {
                 let current_slide = (self.current_slide + 1).to_string();
-                let total_slides = total_slides.to_string();
-                let footer = format.replace("{current_slide}", &current_slide).replace("{total_slides}", &total_slides);
-                vec![
-                    RenderOperation::JumpToWindowBottom,
-                    RenderOperation::RenderTextLine { texts: footer.into(), alignment: Alignment::Left { margin: 0 } },
-                ]
+                let mut operations = Vec::new();
+                if let Some(left) = left {
+                    operations.extend([
+                        RenderOperation::JumpToWindowBottom,
+                        RenderOperation::RenderTextLine {
+                            texts: Self::render_template(left, &current_slide, &context).into(),
+                            alignment: Alignment::Left { margin: 1 },
+                        },
+                    ]);
+                }
+                if let Some(right) = right {
+                    operations.extend([
+                        RenderOperation::JumpToWindowBottom,
+                        RenderOperation::RenderTextLine {
+                            texts: Self::render_template(right, &current_slide, &context).into(),
+                            alignment: Alignment::Right { margin: 1 },
+                        },
+                    ]);
+                }
+                operations
             }
             FooterStyle::ProgressBar { character } => {
                 let character = character.unwrap_or('█').to_string();
                 let total_columns = dimensions.columns as usize / character.width();
-                let progress_ratio = (self.current_slide + 1) as f64 / total_slides as f64;
+                let progress_ratio = (self.current_slide + 1) as f64 / context.total_slides as f64;
                 let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
                 let bar = character.repeat(columns_ratio as usize);
                 vec![
