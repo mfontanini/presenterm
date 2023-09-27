@@ -9,7 +9,10 @@ use crate::{
     presentation::{
         AsRenderOperations, Presentation, PresentationMetadata, PresentationThemeMetadata, RenderOperation, Slide,
     },
-    render::highlighting::{CodeHighlighter, CodeLine},
+    render::{
+        highlighting::{CodeHighlighter, CodeLine},
+        properties::WindowSize,
+    },
     resource::{LoadImageError, Resources},
     style::TextStyle,
     theme::{Alignment, AuthorPositioning, ElementType, FooterStyle, LoadThemeError, PresentationTheme},
@@ -155,7 +158,9 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_comment(&mut self, comment: String) {
-        let Ok(comment) = comment.parse::<Comment>() else { return; };
+        let Ok(comment) = comment.parse::<Comment>() else {
+            return;
+        };
         match comment {
             Comment::Pause => self.process_pause(),
             Comment::EndSlide => self.terminate_slide(),
@@ -430,7 +435,7 @@ impl FooterGenerator {
 }
 
 impl AsRenderOperations for FooterGenerator {
-    fn as_render_operations(&self, dimensions: &crossterm::terminal::WindowSize) -> Vec<RenderOperation> {
+    fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let context = self.context.borrow();
         match &self.style {
             FooterStyle::Template { left, right } => {

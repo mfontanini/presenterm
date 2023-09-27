@@ -1,4 +1,5 @@
-use crossterm::{cursor, terminal::WindowSize};
+use crate::render::properties::WindowSize;
+use crossterm::cursor;
 use image::{DynamicImage, ImageError};
 use std::{fmt::Debug, fs, io, rc::Rc};
 use viuer::ViuError;

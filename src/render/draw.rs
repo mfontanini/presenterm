@@ -5,13 +5,14 @@ use crate::{
         text::{WeightedLine, WeightedText},
     },
     presentation::{Presentation, RenderOperation},
+    render::properties::WindowSize,
     style::TextStyle,
     theme::{Alignment, Colors},
 };
 use crossterm::{
     cursor,
     style::Color,
-    terminal::{disable_raw_mode, enable_raw_mode, window_size, WindowSize},
+    terminal::{disable_raw_mode, enable_raw_mode},
     QueueableCommand,
 };
 use std::io;
@@ -33,7 +34,7 @@ where
     }
 
     pub fn render_slide(&mut self, presentation: &Presentation) -> DrawResult {
-        let dimensions = window_size()?;
+        let dimensions = WindowSize::current()?;
         let slide_dimensions = WindowSize {
             // TODO this adjustment needs to tweak `height` too
             rows: dimensions.rows - 3,
@@ -52,9 +53,7 @@ where
     }
 
     pub fn render_error(&mut self, message: &str) -> DrawResult {
-        // WindowSize isn't clone...
-        let slide_dimensions = window_size()?;
-        let window_dimensions = window_size()?;
+        let dimensions = WindowSize::current()?;
         let heading = vec![
             WeightedText::from(StyledText::styled("Error loading presentation", TextStyle::default().bold())),
             WeightedText::from(StyledText::plain(": ")),
@@ -70,8 +69,7 @@ where
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderTextLine { texts: WeightedLine::from(error), alignment: alignment.clone() },
         ];
-        let mut operator =
-            RenderOperator::new(&mut self.handle, slide_dimensions, window_dimensions, Default::default());
+        let mut operator = RenderOperator::new(&mut self.handle, dimensions.clone(), dimensions, Default::default());
         for operation in operations {
             operator.render(&operation)?;
         }

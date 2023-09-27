@@ -1,13 +1,14 @@
-use super::{
-    draw::DrawResult,
-    layout::{Layout, Positioning},
-};
 use crate::{
     markdown::text::WeightedLine,
+    render::{
+        draw::DrawResult,
+        layout::{Layout, Positioning},
+        properties::WindowSize,
+    },
     style::TextStyle,
     theme::{Alignment, Colors},
 };
-use crossterm::{cursor, style, terminal::WindowSize, QueueableCommand};
+use crossterm::{cursor, style, QueueableCommand};
 use std::io;
 
 pub(crate) struct TextDrawer<'a, W> {

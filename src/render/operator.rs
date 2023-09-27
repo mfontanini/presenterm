@@ -7,12 +7,12 @@ use super::{
 use crate::{
     markdown::text::WeightedLine,
     presentation::{AsRenderOperations, RenderOperation},
-    render::layout::Positioning,
+    render::{layout::Positioning, properties::WindowSize},
     theme::{Alignment, Colors},
 };
 use crossterm::{
     cursor, style,
-    terminal::{self, ClearType, WindowSize},
+    terminal::{self, ClearType},
     QueueableCommand,
 };
 use std::io;
