@@ -82,7 +82,7 @@ impl<'a> PresentationBuilder<'a> {
             // This one is processed before everything else as it affects how the rest of the
             // elements is rendered.
             MarkdownElement::FrontMatter(_) => (),
-            MarkdownElement::SlideTitle { text } => self.push_slide_title(text),
+            MarkdownElement::SetexHeading { text } => self.push_slide_title(text),
             MarkdownElement::Heading { level, text } => self.push_heading(level, text),
             MarkdownElement::Paragraph(elements) => self.push_paragraph(elements)?,
             MarkdownElement::List(elements) => self.push_list(elements),

@@ -158,7 +158,7 @@ impl<'a> MarkdownParser<'a> {
     fn parse_heading(heading: &NodeHeading, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
         let text = Self::parse_text(node)?;
         if heading.setext {
-            Ok(MarkdownElement::SlideTitle { text })
+            Ok(MarkdownElement::SetexHeading { text })
         } else {
             Ok(MarkdownElement::Heading { text, level: heading.level })
         }
@@ -502,14 +502,14 @@ boop
     }
 
     #[test]
-    fn slide_title() {
+    fn setex_heading() {
         let parsed = parse_single(
             r"
 Title
 ===
 ",
         );
-        let MarkdownElement::SlideTitle { text } = parsed else { panic!("not a slide title: {parsed:?}") };
+        let MarkdownElement::SetexHeading { text } = parsed else { panic!("not a slide title: {parsed:?}") };
         let expected_chunks = [TextChunk::Styled(StyledText::plain("Title"))];
         assert_eq!(text.chunks, expected_chunks);
     }
