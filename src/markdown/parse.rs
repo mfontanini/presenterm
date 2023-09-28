@@ -6,13 +6,15 @@ use crate::{
     style::TextStyle,
 };
 use comrak::{
+    format_commonmark,
     nodes::{
         AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList, NodeValue, Sourcepos,
     },
-    parse_document, Arena, ComrakOptions,
+    parse_document, Arena, ComrakOptions, ListStyleType,
 };
 use std::{
     fmt::{self, Debug, Display},
+    io::BufWriter,
     mem,
 };
 
@@ -40,8 +42,8 @@ impl<'a> MarkdownParser<'a> {
         Self { arena, options: ParserOptions::default().0 }
     }
 
-    pub fn parse(&self, document: &str) -> ParseResult<Vec<MarkdownElement>> {
-        let node = parse_document(self.arena, document, &self.options);
+    pub fn parse(&self, contents: &str) -> ParseResult<Vec<MarkdownElement>> {
+        let node = parse_document(self.arena, contents, &self.options);
         let mut elements = Vec::new();
         for node in node.children() {
             let element = Self::parse_element(node)?;
@@ -64,6 +66,7 @@ impl<'a> MarkdownParser<'a> {
             NodeValue::CodeBlock(block) => Self::parse_code_block(block, data.sourcepos),
             NodeValue::ThematicBreak => Ok(MarkdownElement::ThematicBreak),
             NodeValue::HtmlBlock(block) => Self::parse_html_block(block, data.sourcepos),
+            NodeValue::BlockQuote => Self::parse_block_quote(node),
             other => Err(ParseErrorKind::UnsupportedElement(other.identifier()).with_sourcepos(data.sourcepos)),
         }
     }
@@ -88,6 +91,25 @@ impl<'a> MarkdownParser<'a> {
         let block = &block[0..block.len() - end_tag.len()];
         let block = block.trim();
         Ok(MarkdownElement::Comment(block.into()))
+    }
+
+    fn parse_block_quote(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
+        let mut buffer = BufWriter::new(Vec::new());
+        let mut options = ParserOptions::default().0;
+        options.render.list_style = ListStyleType::Star;
+        format_commonmark(node, &options, &mut buffer)
+            .map_err(|e| ParseErrorKind::Internal(e.to_string()).with_sourcepos(node.data.borrow().sourcepos))?;
+
+        let buffer = buffer.into_inner().expect("unwrapping writer failed");
+        let mut lines = Vec::new();
+        for line in String::from_utf8_lossy(&buffer).lines() {
+            let line = match line.find('>') {
+                Some(index) => line[index + 1..].trim(),
+                None => line,
+            };
+            lines.push(line.to_string());
+        }
+        Ok(MarkdownElement::BlockQuote(lines))
     }
 
     fn parse_code_block(block: &NodeCodeBlock, sourcepos: Sourcepos) -> ParseResult<MarkdownElement> {
@@ -349,6 +371,7 @@ pub enum ParseErrorKind {
     UnsupportedElement(&'static str),
     UnsupportedStructure { container: &'static str, element: &'static str },
     UnfencedCodeBlock,
+    Internal(String),
 }
 
 impl Display for ParseErrorKind {
@@ -359,6 +382,7 @@ impl Display for ParseErrorKind {
                 write!(f, "unsupported structure in {container}: {element}")
             }
             Self::UnfencedCodeBlock => write!(f, "only fenced code blocks are supported"),
+            Self::Internal(message) => write!(f, "internal error: {message}"),
         }
     }
 }
@@ -611,5 +635,25 @@ let q = 42;
         assert_eq!(parsed.len(), 3);
         let MarkdownElement::List(items) = &parsed[2] else { panic!("not a list item: {parsed:?}") };
         assert_eq!(items[0].depth, 1);
+    }
+
+    #[test]
+    fn block_quote() {
+        let parsed = parse_single(
+            r"
+> bar
+> foo
+> 
+> * a
+> * b
+",
+        );
+        let MarkdownElement::BlockQuote(lines) = parsed else { panic!("not a block quote: {parsed:?}") };
+        assert_eq!(lines.len(), 5);
+        assert_eq!(lines[0], "bar");
+        assert_eq!(lines[1], "foo");
+        assert_eq!(lines[2], "");
+        assert_eq!(lines[3], "* a");
+        assert_eq!(lines[4], "* b");
     }
 }

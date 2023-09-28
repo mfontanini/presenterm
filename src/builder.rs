@@ -90,6 +90,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::Table(table) => self.push_table(table),
             MarkdownElement::ThematicBreak => self.terminate_slide(),
             MarkdownElement::Comment(comment) => self.process_comment(comment),
+            MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines),
         };
         self.last_element_is_list = is_list;
         Ok(())
@@ -270,6 +271,26 @@ impl<'a> PresentationBuilder<'a> {
         text.chunks.insert(0, TextChunk::Styled(StyledText::plain(prefix)));
         self.push_text(text, ElementType::List);
         self.push_line_break();
+    }
+
+    fn push_block_quote(&mut self, lines: Vec<String>) {
+        let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
+        let block_length = lines.iter().map(|line| line.len() + prefix.width()).max().unwrap_or(0);
+
+        self.slide_operations.push(RenderOperation::SetColors(self.theme.block_quote.colors.clone()));
+        for mut line in lines {
+            line.insert_str(0, &prefix);
+
+            let line_length = line.len();
+            self.slide_operations.push(RenderOperation::RenderPreformattedLine {
+                text: line,
+                unformatted_length: line_length,
+                block_length,
+                alignment: self.theme.alignment(&ElementType::BlockQuote).clone(),
+            });
+            self.push_line_break();
+        }
+        self.slide_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
     }
 
     fn push_text(&mut self, text: Text, element_type: ElementType) {

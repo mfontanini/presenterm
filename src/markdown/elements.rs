@@ -12,6 +12,7 @@ pub enum MarkdownElement {
     Table(Table),
     ThematicBreak,
     Comment(String),
+    BlockQuote(Vec<String>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

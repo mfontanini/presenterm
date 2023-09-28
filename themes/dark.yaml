@@ -2,14 +2,16 @@ default:
   alignment: left
   margin: 5
   colors:
-    foreground: white
-    background: black
+    foreground: "rgb_(230,230,230)"
+    background: "rgb_(15,15,15)"
+
 slide_title:
   alignment: center
   padding_bottom: 1
   padding_top: 1
   colors:
     foreground: "rgb_(255,128,0)"
+
 code:
   alignment: center
   minimum_size: 50
@@ -19,8 +21,10 @@ code:
   colors:
     foreground: dark_green
     background: dark_grey
+
 table:
   alignment: center
+
 presentation:
   title:
     alignment: center
@@ -29,6 +33,7 @@ presentation:
   author:
     alignment: center
     positioning: page_bottom
+
 headings:
   h1:
     prefix: "██"
@@ -54,5 +59,12 @@ headings:
     prefix: "░░░░░░░"
     colors:
       foreground: grey
+
+block_quote:
+  prefix: "▍ "
+  colors:
+      foreground: "rgb_(240,240,240)"
+      background: "rgb_(50,50,50)"
+
 footer: 
   style: progress_bar

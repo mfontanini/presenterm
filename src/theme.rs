@@ -21,6 +21,9 @@ pub struct PresentationTheme {
     #[serde(default)]
     pub list: Option<Alignment>,
 
+    #[serde(default)]
+    pub block_quote: BlockQuoteStyle,
+
     #[serde(rename = "default", default)]
     pub default_style: PrimaryStyle,
 
@@ -65,6 +68,7 @@ impl PresentationTheme {
             PresentationSubTitle => &self.presentation.subtitle,
             PresentationAuthor => &self.presentation.author.alignment,
             Table => &self.table,
+            BlockQuote => &self.block_quote.alignment,
         };
         alignment.clone().or_else(|| self.default_style.alignment.clone()).unwrap_or(Alignment::default())
     }
@@ -119,6 +123,18 @@ pub struct HeadingStyle {
 
     #[serde(default)]
     pub colors: Colors,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct BlockQuoteStyle {
+    #[serde(flatten, default)]
+    pub alignment: Option<Alignment>,
+
+    #[serde(default)]
+    pub colors: Colors,
+
+    #[serde(default)]
+    pub prefix: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -227,6 +243,7 @@ pub enum ElementType {
     PresentationSubTitle,
     PresentationAuthor,
     Table,
+    BlockQuote,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
