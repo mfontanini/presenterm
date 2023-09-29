@@ -79,6 +79,12 @@ impl From<String> for StyledText {
     }
 }
 
+impl From<&str> for StyledText {
+    fn from(text: &str) -> Self {
+        Self::plain(text)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ListItem {
     pub depth: u8,

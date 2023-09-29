@@ -7,7 +7,7 @@ use serde::Deserialize;
 use std::rc::Rc;
 
 pub struct Presentation {
-    slides: Vec<Slide>,
+    pub slides: Vec<Slide>,
     current_slide_index: usize,
 }
 
@@ -22,10 +22,6 @@ impl Presentation {
 
     pub fn current_slide_index(&self) -> usize {
         self.current_slide_index
-    }
-
-    pub fn total_slides(&self) -> usize {
-        self.slides.len()
     }
 
     pub fn jump_next_slide(&mut self) -> bool {

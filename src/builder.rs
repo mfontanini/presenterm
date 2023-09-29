@@ -53,7 +53,9 @@ impl<'a> PresentationBuilder<'a> {
         if let Some(MarkdownElement::FrontMatter(contents)) = elements.first() {
             self.process_front_matter(contents)?;
         }
-        self.push_slide_prelude();
+        if self.slide_operations.is_empty() {
+            self.push_slide_prelude();
+        }
         for element in elements {
             self.ignore_element_line_break = false;
             self.process_element(element)?;
@@ -276,13 +278,13 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_block_quote(&mut self, lines: Vec<String>) {
         let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
-        let block_length = lines.iter().map(|line| line.len() + prefix.width()).max().unwrap_or(0);
+        let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0);
 
         self.slide_operations.push(RenderOperation::SetColors(self.theme.block_quote.colors.clone()));
         for mut line in lines {
             line.insert_str(0, &prefix);
 
-            let line_length = line.len();
+            let line_length = line.width();
             self.slide_operations.push(RenderOperation::RenderPreformattedLine {
                 text: line,
                 unformatted_length: line_length,
@@ -353,11 +355,11 @@ impl<'a> PresentationBuilder<'a> {
                 code.push('\n');
             }
         }
-        let block_length = code.lines().map(|line| line.len()).max().unwrap_or(0) + horizontal_padding as usize;
+        let block_length = code.lines().map(|line| line.width()).max().unwrap_or(0) + horizontal_padding as usize;
         for code_line in self.highlighter.highlight(&code, &language) {
             let CodeLine { formatted, original } = code_line;
             let trimmed = formatted.trim_end();
-            let original_length = original.len() - (formatted.len() - trimmed.len());
+            let original_length = original.width() - (formatted.width() - trimmed.width());
             self.slide_operations.push(RenderOperation::RenderPreformattedLine {
                 text: trimmed.into(),
                 unformatted_length: original_length,
@@ -526,5 +528,93 @@ impl FromStr for Comment {
             "end_slide" => Ok(Self::EndSlide),
             _ => Err(()),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::markdown::elements::CodeLanguage;
+
+    use super::*;
+
+    fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
+        let highlighter = CodeHighlighter::new("base16-ocean.dark").unwrap();
+        let theme = PresentationTheme::default();
+        let mut resources = Resources::new("/tmp");
+        let builder = PresentationBuilder::new(&highlighter, &theme, &mut resources);
+        builder.build(elements).expect("build failed")
+    }
+
+    fn is_visible(operation: &RenderOperation) -> bool {
+        use RenderOperation::*;
+        match operation {
+            ClearScreen | SetColors(_) | JumpToVerticalCenter | JumpToSlideBottom | JumpToWindowBottom => false,
+            _ => true,
+        }
+    }
+
+    #[test]
+    fn prelude_appears_once() {
+        let elements = vec![
+            MarkdownElement::FrontMatter("author: bob".to_string()),
+            MarkdownElement::Heading { text: Text::single("hello".into()), level: 1 },
+            MarkdownElement::Comment("end_slide".to_string()),
+            MarkdownElement::Heading { text: Text::single("bye".into()), level: 1 },
+        ];
+        let presentation = build_presentation(elements);
+        for (index, slide) in presentation.slides.into_iter().enumerate() {
+            let clear_screen_count =
+                slide.render_operations.iter().filter(|op| matches!(op, RenderOperation::ClearScreen)).count();
+            let set_colors_count =
+                slide.render_operations.iter().filter(|op| matches!(op, RenderOperation::SetColors(_))).count();
+            assert_eq!(clear_screen_count, 1, "{clear_screen_count} clear screens in slide {index}");
+            assert_eq!(set_colors_count, 1, "{set_colors_count} clear screens in slide {index}");
+        }
+    }
+
+    #[test]
+    fn slides_start_with_one_newline() {
+        let elements = vec![
+            MarkdownElement::FrontMatter("author: bob".to_string()),
+            MarkdownElement::Heading { text: Text::single("hello".into()), level: 1 },
+            MarkdownElement::Comment("end_slide".to_string()),
+            MarkdownElement::Heading { text: Text::single("bye".into()), level: 1 },
+        ];
+        let presentation = build_presentation(elements);
+        assert_eq!(presentation.slides.len(), 3);
+
+        // Don't process the intro slide as it's special
+        let slides = presentation.slides.into_iter().skip(1);
+        for slide in slides {
+            let mut ops = slide.render_operations.into_iter().filter(is_visible);
+            // We should start with a newline
+            assert!(matches!(ops.next(), Some(RenderOperation::RenderLineBreak)));
+            // And the second one should _not_ be a newline
+            assert!(!matches!(ops.next(), Some(RenderOperation::RenderLineBreak)));
+        }
+    }
+
+    #[test]
+    fn preformatted_blocks_account_for_unicode_widths() {
+        let text = "苹果".to_string();
+        let elements = vec![
+            MarkdownElement::BlockQuote(vec![text.clone()]),
+            MarkdownElement::Code(Code { contents: text.clone(), language: CodeLanguage::Unknown }),
+        ];
+        let presentation = build_presentation(elements);
+        let lengths: Vec<_> = presentation.slides[0]
+            .render_operations
+            .iter()
+            .filter_map(|op| match op {
+                RenderOperation::RenderPreformattedLine { block_length, unformatted_length, .. } => {
+                    Some((block_length, unformatted_length))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(lengths.len(), 2);
+        let width = &text.width();
+        assert_eq!(lengths[0], (width, width));
+        assert_eq!(lengths[1], (width, width));
     }
 }
