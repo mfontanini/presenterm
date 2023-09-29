@@ -656,4 +656,19 @@ let q = 42;
         assert_eq!(lines[3], "* a");
         assert_eq!(lines[4], "* b");
     }
+
+    #[test]
+    fn thematic_break() {
+        let parsed = parse_all(
+            r"
+hello
+
+---
+
+bye
+",
+        );
+        assert_eq!(parsed.len(), 3);
+        assert!(matches!(parsed[1], MarkdownElement::ThematicBreak));
+    }
 }

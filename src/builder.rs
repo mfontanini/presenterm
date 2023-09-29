@@ -74,6 +74,7 @@ impl<'a> PresentationBuilder<'a> {
         let colors = self.theme.default_style.colors.clone();
         self.slide_operations.push(RenderOperation::SetColors(colors));
         self.slide_operations.push(RenderOperation::ClearScreen);
+        self.push_line_break();
     }
 
     fn process_element(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
@@ -81,7 +82,7 @@ impl<'a> PresentationBuilder<'a> {
         match element {
             // This one is processed before everything else as it affects how the rest of the
             // elements is rendered.
-            MarkdownElement::FrontMatter(_) => (),
+            MarkdownElement::FrontMatter(_) => self.ignore_element_line_break = true,
             MarkdownElement::SetexHeading { text } => self.push_slide_title(text),
             MarkdownElement::Heading { level, text } => self.push_heading(level, text),
             MarkdownElement::Paragraph(elements) => self.push_paragraph(elements)?,
@@ -178,7 +179,6 @@ impl<'a> PresentationBuilder<'a> {
         let next_operations = self.slide_operations.clone();
         self.terminate_slide();
         self.slide_operations = next_operations;
-        self.ignore_element_line_break = true;
     }
 
     fn push_slide_title(&mut self, mut text: Text) {
@@ -198,6 +198,7 @@ impl<'a> PresentationBuilder<'a> {
             self.slide_operations.push(RenderOperation::RenderSeparator);
         }
         self.push_line_break();
+        self.ignore_element_line_break = true;
     }
 
     fn push_heading(&mut self, level: u8, mut text: Text) {
@@ -373,6 +374,7 @@ impl<'a> PresentationBuilder<'a> {
         let elements = mem::take(&mut self.slide_operations);
         self.slides.push(Slide { render_operations: elements });
         self.push_slide_prelude();
+        self.ignore_element_line_break = true;
     }
 
     fn push_footer(&mut self) {
