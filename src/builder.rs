@@ -2,7 +2,6 @@ use crate::{
     markdown::{
         elements::{
             Code, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table, TableRow, Text,
-            TextChunk,
         },
         text::{WeightedLine, WeightedText},
     },
@@ -216,7 +215,7 @@ impl<'a> PresentationBuilder<'a> {
         if let Some(prefix) = &style.prefix {
             let mut prefix = prefix.clone();
             prefix.push(' ');
-            text.chunks.insert(0, TextChunk::Styled(StyledText::plain(prefix)));
+            text.chunks.insert(0, StyledText::plain(prefix));
         }
         let text_style = TextStyle::default().bold().colors(style.colors.clone());
         text.apply_style(&text_style);
@@ -271,7 +270,7 @@ impl<'a> PresentationBuilder<'a> {
 
         prefix.push(' ');
         let mut text = item.contents;
-        text.chunks.insert(0, TextChunk::Styled(StyledText::plain(prefix)));
+        text.chunks.insert(0, StyledText::plain(prefix));
         self.push_text(text, ElementType::List);
         self.push_line_break();
     }
@@ -299,24 +298,11 @@ impl<'a> PresentationBuilder<'a> {
     fn push_text(&mut self, text: Text, element_type: ElementType) {
         let alignment = self.theme.alignment(&element_type);
         let mut texts: Vec<WeightedText> = Vec::new();
-        for chunk in text.chunks {
-            match chunk {
-                TextChunk::Styled(mut text) => {
-                    if text.style.is_code() {
-                        text.style.colors = self.theme.code.colors.clone();
-                    }
-                    texts.push(text.into());
-                }
-                TextChunk::LineBreak => {
-                    if !texts.is_empty() {
-                        self.slide_operations.push(RenderOperation::RenderTextLine {
-                            texts: WeightedLine::from(mem::take(&mut texts)),
-                            alignment: alignment.clone(),
-                        });
-                    }
-                    self.push_line_break()
-                }
+        for mut chunk in text.chunks {
+            if chunk.style.is_code() {
+                chunk.style.colors = self.theme.code.colors.clone();
             }
+            texts.push(chunk.into());
         }
         if !texts.is_empty() {
             self.slide_operations.push(RenderOperation::RenderTextLine {
@@ -405,7 +391,7 @@ impl<'a> PresentationBuilder<'a> {
                 extra_lines += 1;
             }
             contents.extend(iter::repeat("─").take(*width + extra_lines));
-            separator.chunks.push(TextChunk::Styled(StyledText::plain(contents)));
+            separator.chunks.push(StyledText::plain(contents));
         }
 
         self.push_text(separator, ElementType::Table);
@@ -422,7 +408,7 @@ impl<'a> PresentationBuilder<'a> {
         let mut flattened_row = Text { chunks: Vec::new() };
         for (column, text) in row.0.into_iter().enumerate() {
             if column > 0 {
-                flattened_row.chunks.push(TextChunk::Styled(StyledText::plain(" │ ")));
+                flattened_row.chunks.push(StyledText::plain(" │ "));
             }
             let text_length = text.line_len();
             flattened_row.chunks.extend(text.chunks.into_iter());
@@ -430,7 +416,7 @@ impl<'a> PresentationBuilder<'a> {
             let cell_width = widths[column];
             if text_length < cell_width {
                 let padding = " ".repeat(cell_width - text_length);
-                flattened_row.chunks.push(TextChunk::Styled(StyledText::plain(padding)));
+                flattened_row.chunks.push(StyledText::plain(padding));
             }
         }
         flattened_row

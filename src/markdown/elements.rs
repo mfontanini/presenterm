@@ -23,38 +23,23 @@ pub enum ParagraphElement {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Text {
-    pub chunks: Vec<TextChunk>,
+    pub chunks: Vec<StyledText>,
 }
 
 impl Text {
     pub fn single(text: StyledText) -> Self {
-        Self { chunks: vec![TextChunk::Styled(text)] }
+        Self { chunks: vec![text] }
     }
 
     pub fn line_len(&self) -> usize {
-        let mut total = 0;
-        for chunk in &self.chunks {
-            // TODO: what about line breaks?
-            if let TextChunk::Styled(text) = &chunk {
-                total += text.text.len();
-            }
-        }
-        total
+        self.chunks.iter().map(|text| text.text.len()).sum()
     }
 
     pub fn apply_style(&mut self, style: &TextStyle) {
-        for chunk in &mut self.chunks {
-            if let TextChunk::Styled(text) = chunk {
-                text.style.merge(style);
-            }
+        for text in &mut self.chunks {
+            text.style.merge(style);
         }
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TextChunk {
-    Styled(StyledText),
-    LineBreak,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
