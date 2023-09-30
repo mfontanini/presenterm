@@ -7,6 +7,7 @@ pub enum MarkdownElement {
     SetexHeading { text: Text },
     Heading { level: u8, text: Text },
     Paragraph(Vec<ParagraphElement>),
+    Image(String),
     List(Vec<ListItem>),
     Code(Code),
     Table(Table),
@@ -18,7 +19,7 @@ pub enum MarkdownElement {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParagraphElement {
     Text(Text),
-    Image { url: String },
+    LineBreak,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

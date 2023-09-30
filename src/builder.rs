@@ -93,6 +93,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::ThematicBreak => self.terminate_slide(),
             MarkdownElement::Comment(comment) => self.process_comment(comment),
             MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines),
+            MarkdownElement::Image(path) => self.push_image(path)?,
         };
         self.last_element_is_list = is_list;
         Ok(())
@@ -231,12 +232,17 @@ impl<'a> PresentationBuilder<'a> {
                     self.push_text(text, ElementType::Paragraph);
                     self.push_line_break();
                 }
-                ParagraphElement::Image { url } => {
-                    let image = self.resources.image(&url)?;
-                    self.slide_operations.push(RenderOperation::RenderImage(image));
+                ParagraphElement::LineBreak => {
+                    // Line breaks are already pushed after every text chunk.
                 }
             };
         }
+        Ok(())
+    }
+
+    fn push_image(&mut self, path: String) -> Result<(), BuildError> {
+        let image = self.resources.image(&path)?;
+        self.slide_operations.push(RenderOperation::RenderImage(image));
         Ok(())
     }
 

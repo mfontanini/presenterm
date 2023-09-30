@@ -169,13 +169,21 @@ impl<'a> MarkdownParser<'a> {
     fn parse_paragraph(node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
         let mut elements = Vec::new();
         let inlines = InlinesParser::new(InlinesMode::AllowImages).parse(node)?;
+        let mut paragraph_elements = Vec::new();
         for inline in inlines {
             match inline {
-                // TODO no paragraph element
-                Inline::Text(text) => elements.push(MarkdownElement::Paragraph(vec![ParagraphElement::Text(text)])),
-                Inline::Image(url) => elements.push(MarkdownElement::Paragraph(vec![ParagraphElement::Image { url }])),
-                Inline::LineBreak => (),
+                Inline::Text(text) => paragraph_elements.push(ParagraphElement::Text(text)),
+                Inline::LineBreak => paragraph_elements.push(ParagraphElement::LineBreak),
+                Inline::Image(path) => {
+                    if !paragraph_elements.is_empty() {
+                        elements.push(MarkdownElement::Paragraph(mem::take(&mut paragraph_elements)));
+                    }
+                    elements.push(MarkdownElement::Image(path));
+                }
             }
+        }
+        if !paragraph_elements.is_empty() {
+            elements.push(MarkdownElement::Paragraph(mem::take(&mut paragraph_elements)));
         }
         Ok(elements)
     }
@@ -342,7 +350,7 @@ impl InlinesParser {
             NodeValue::Strong => self.collect_child_text_chunks(node, style.clone().bold())?,
             NodeValue::Emph => self.collect_child_text_chunks(node, style.clone().italics())?,
             NodeValue::Strikethrough => self.collect_child_text_chunks(node, style.clone().strikethrough())?,
-            NodeValue::SoftBreak => (),
+            NodeValue::SoftBreak => self.text_chunks.push(StyledText::plain(" ")),
             NodeValue::LineBreak => {
                 self.store_pending_text();
                 self.inlines.push(Inline::LineBreak);
@@ -509,10 +517,18 @@ boop
     #[test]
     fn image() {
         let parsed = parse_single("![](potato.png)");
-        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        assert_eq!(elements.len(), 1);
-        let ParagraphElement::Image { url } = &elements[0] else { panic!("not an image") };
-        assert_eq!(url, "potato.png");
+        let MarkdownElement::Image(path) = parsed else { panic!("not an image: {parsed:?}") };
+        assert_eq!(path, "potato.png");
+    }
+
+    #[test]
+    fn image_within_text() {
+        let parsed = parse_all(
+            r"
+picture of potato: ![](potato.png)
+",
+        );
+        assert_eq!(parsed.len(), 2);
     }
 
     #[test]
@@ -560,7 +576,7 @@ Title
     }
 
     #[test]
-    fn line_break() {
+    fn line_breaks() {
         let parsed = parse_all(
             r"
 some text
@@ -570,14 +586,17 @@ a hard break
 another",
         );
         // note that "with line breaks" also has a hard break ("  ") at the end, hence the 3.
-        assert_eq!(parsed.len(), 3);
+        assert_eq!(parsed.len(), 2);
 
         let MarkdownElement::Paragraph(elements) = &parsed[0] else { panic!("not a line break: {parsed:?}") };
-        assert_eq!(elements.len(), 1);
+        assert_eq!(elements.len(), 3);
 
-        let expected_chunks = &[StyledText::plain("some text"), StyledText::plain("with line breaks")];
+        let expected_chunks =
+            &[StyledText::plain("some text"), StyledText::plain(" "), StyledText::plain("with line breaks")];
         let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };
         assert_eq!(text.chunks, expected_chunks);
+        assert!(matches!(&elements[1], ParagraphElement::LineBreak));
+        assert!(matches!(&elements[2], ParagraphElement::Text(_)));
     }
 
     #[test]
