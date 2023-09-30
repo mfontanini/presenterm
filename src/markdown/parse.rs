@@ -46,29 +46,31 @@ impl<'a> MarkdownParser<'a> {
         let node = parse_document(self.arena, contents, &self.options);
         let mut elements = Vec::new();
         for node in node.children() {
-            let element = Self::parse_element(node)?;
-            elements.push(element);
+            let element = Self::parse_node(node)?;
+            elements.extend(element);
         }
         Ok(elements)
     }
 
-    fn parse_element(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
+    fn parse_node(node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
         let data = node.data.borrow();
-        match &data.value {
-            NodeValue::FrontMatter(contents) => Self::parse_front_matter(contents),
-            NodeValue::Heading(heading) => Self::parse_heading(heading, node),
-            NodeValue::Paragraph => Self::parse_paragraph(node),
+        let element = match &data.value {
+            // Paragraphs are the only ones that can actually yield more than one.
+            NodeValue::Paragraph => return Self::parse_paragraph(node),
+            NodeValue::FrontMatter(contents) => Self::parse_front_matter(contents)?,
+            NodeValue::Heading(heading) => Self::parse_heading(heading, node)?,
             NodeValue::List(list) => {
                 let items = Self::parse_list(node, list.marker_offset as u8 / 2)?;
-                Ok(MarkdownElement::List(items))
+                MarkdownElement::List(items)
             }
-            NodeValue::Table(_) => Self::parse_table(node),
-            NodeValue::CodeBlock(block) => Self::parse_code_block(block, data.sourcepos),
-            NodeValue::ThematicBreak => Ok(MarkdownElement::ThematicBreak),
-            NodeValue::HtmlBlock(block) => Self::parse_html_block(block, data.sourcepos),
-            NodeValue::BlockQuote => Self::parse_block_quote(node),
-            other => Err(ParseErrorKind::UnsupportedElement(other.identifier()).with_sourcepos(data.sourcepos)),
-        }
+            NodeValue::Table(_) => Self::parse_table(node)?,
+            NodeValue::CodeBlock(block) => Self::parse_code_block(block, data.sourcepos)?,
+            NodeValue::ThematicBreak => MarkdownElement::ThematicBreak,
+            NodeValue::HtmlBlock(block) => Self::parse_html_block(block, data.sourcepos)?,
+            NodeValue::BlockQuote => Self::parse_block_quote(node)?,
+            other => return Err(ParseErrorKind::UnsupportedElement(other.identifier()).with_sourcepos(data.sourcepos)),
+        };
+        Ok(vec![element])
     }
 
     fn parse_front_matter(contents: &str) -> ParseResult<MarkdownElement> {
@@ -164,20 +166,22 @@ impl<'a> MarkdownParser<'a> {
         }
     }
 
-    fn parse_paragraph(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
-        let inlines = Self::parse_inlines(node, TextStyle::default(), &InlinesMode::AllowImages)?;
-        let elements = inlines
-            .into_iter()
-            .map(|inline| match inline {
-                Inline::Text(text) => ParagraphElement::Text(text),
-                Inline::Image(url) => ParagraphElement::Image { url },
-            })
-            .collect();
-        Ok(MarkdownElement::Paragraph(elements))
+    fn parse_paragraph(node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
+        let mut elements = Vec::new();
+        let inlines = InlinesParser::new(InlinesMode::AllowImages).parse(node)?;
+        for inline in inlines {
+            match inline {
+                // TODO no paragraph element
+                Inline::Text(text) => elements.push(MarkdownElement::Paragraph(vec![ParagraphElement::Text(text)])),
+                Inline::Image(url) => elements.push(MarkdownElement::Paragraph(vec![ParagraphElement::Image { url }])),
+                Inline::LineBreak => (),
+            }
+        }
+        Ok(elements)
     }
 
     fn parse_text(node: &'a AstNode<'a>) -> ParseResult<Text> {
-        let inlines = Self::parse_inlines(node, TextStyle::default(), &InlinesMode::DisallowImages)?;
+        let inlines = InlinesParser::new(InlinesMode::DisallowImages).parse(node)?;
         let chunks = inlines
             .into_iter()
             .flat_map(|inline| {
@@ -186,66 +190,6 @@ impl<'a> MarkdownParser<'a> {
             })
             .collect();
         Ok(Text { chunks })
-    }
-
-    fn parse_inlines(node: &'a AstNode<'a>, style: TextStyle, mode: &InlinesMode) -> ParseResult<Vec<Inline>> {
-        let mut inlines = Vec::new();
-        let mut chunks = Vec::new();
-        for node in node.children() {
-            let value = &node.data.borrow().value;
-            match value {
-                NodeValue::Image(img) => {
-                    if !chunks.is_empty() {
-                        inlines.push(Inline::Text(Text { chunks: mem::take(&mut chunks) }));
-                    }
-                    inlines.push(Inline::Image(img.url.clone()));
-                }
-                _ => Self::collect_text_chunks(node, style.clone(), &mut chunks)?,
-            };
-        }
-        if !chunks.is_empty() {
-            inlines.push(Inline::Text(Text { chunks }));
-        }
-        let any_images = inlines.iter().any(|inline| matches!(inline, Inline::Image(_)));
-        if matches!(mode, InlinesMode::DisallowImages) && any_images {
-            let sourcepos = node.data.borrow().sourcepos;
-            return Err(
-                ParseErrorKind::UnsupportedStructure { container: "text", element: "image" }.with_sourcepos(sourcepos)
-            );
-        }
-        Ok(inlines)
-    }
-
-    fn collect_child_text_chunks(
-        node: &'a AstNode<'a>,
-        style: TextStyle,
-        chunks: &mut Vec<TextChunk>,
-    ) -> ParseResult<()> {
-        for node in node.children() {
-            Self::collect_text_chunks(node, style.clone(), chunks)?;
-        }
-        Ok(())
-    }
-
-    fn collect_text_chunks(node: &'a AstNode<'a>, style: TextStyle, chunks: &mut Vec<TextChunk>) -> ParseResult<()> {
-        let data = node.data.borrow();
-        match &data.value {
-            NodeValue::Text(text) => {
-                chunks.push(TextChunk::Styled(StyledText::styled(text.clone(), style.clone())));
-            }
-            NodeValue::Code(code) => {
-                chunks.push(TextChunk::Styled(StyledText::styled(code.literal.clone(), TextStyle::default().code())));
-            }
-            NodeValue::Strong => Self::collect_child_text_chunks(node, style.clone().bold(), chunks)?,
-            NodeValue::Emph => Self::collect_child_text_chunks(node, style.clone().italics(), chunks)?,
-            NodeValue::Strikethrough => Self::collect_child_text_chunks(node, style.clone().strikethrough(), chunks)?,
-            NodeValue::SoftBreak | NodeValue::LineBreak => chunks.push(TextChunk::LineBreak),
-            other => {
-                return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.identifier() }
-                    .with_sourcepos(data.sourcepos));
-            }
-        };
-        Ok(())
     }
 
     fn parse_list(root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
@@ -338,6 +282,82 @@ impl<'a> MarkdownParser<'a> {
     }
 }
 
+struct InlinesParser {
+    mode: InlinesMode,
+    inlines: Vec<Inline>,
+    text_chunks: Vec<StyledText>,
+}
+
+impl InlinesParser {
+    fn new(mode: InlinesMode) -> Self {
+        Self { mode, inlines: Default::default(), text_chunks: Default::default() }
+    }
+
+    fn parse<'a>(mut self, node: &'a AstNode<'a>) -> ParseResult<Vec<Inline>> {
+        for node in node.children() {
+            let value = &node.data.borrow().value;
+            match value {
+                NodeValue::Image(img) => {
+                    self.store_pending_text();
+                    self.inlines.push(Inline::Image(img.url.clone()));
+                }
+                _ => self.collect_text_chunks(node, TextStyle::default())?,
+            };
+        }
+        self.store_pending_text();
+
+        let any_images = self.inlines.iter().any(|inline| matches!(inline, Inline::Image(_)));
+        if matches!(self.mode, InlinesMode::DisallowImages) && any_images {
+            let sourcepos = node.data.borrow().sourcepos;
+            return Err(
+                ParseErrorKind::UnsupportedStructure { container: "text", element: "image" }.with_sourcepos(sourcepos)
+            );
+        }
+        Ok(self.inlines)
+    }
+
+    fn store_pending_text(&mut self) {
+        let chunks = mem::take(&mut self.text_chunks);
+        if !chunks.is_empty() {
+            // TODO
+            let chunks = chunks.into_iter().map(TextChunk::Styled).collect();
+            self.inlines.push(Inline::Text(Text { chunks }));
+        }
+    }
+
+    fn collect_child_text_chunks<'a>(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
+        for node in node.children() {
+            self.collect_text_chunks(node, style.clone())?;
+        }
+        Ok(())
+    }
+
+    fn collect_text_chunks<'a>(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
+        let data = node.data.borrow();
+        match &data.value {
+            NodeValue::Text(text) => {
+                self.text_chunks.push(StyledText::styled(text.clone(), style.clone()));
+            }
+            NodeValue::Code(code) => {
+                self.text_chunks.push(StyledText::styled(code.literal.clone(), TextStyle::default().code()));
+            }
+            NodeValue::Strong => self.collect_child_text_chunks(node, style.clone().bold())?,
+            NodeValue::Emph => self.collect_child_text_chunks(node, style.clone().italics())?,
+            NodeValue::Strikethrough => self.collect_child_text_chunks(node, style.clone().strikethrough())?,
+            NodeValue::SoftBreak => (),
+            NodeValue::LineBreak => {
+                self.store_pending_text();
+                self.inlines.push(Inline::LineBreak);
+            }
+            other => {
+                return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.identifier() }
+                    .with_sourcepos(data.sourcepos));
+            }
+        };
+        Ok(())
+    }
+}
+
 enum InlinesMode {
     AllowImages,
     DisallowImages,
@@ -346,6 +366,7 @@ enum InlinesMode {
 enum Inline {
     Text(Text),
     Image(String),
+    LineBreak,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -441,11 +462,9 @@ mod test {
 
     fn parse_single(input: &str) -> MarkdownElement {
         let arena = Arena::new();
-        let root = parse_document(&arena, input, &ParserOptions::default().0);
-        assert_eq!(root.children().count(), 1, "expected a single child");
-
-        let result = MarkdownParser::parse_element(root.first_child().unwrap()).expect("parsing failed");
-        result
+        let result = MarkdownParser::new(&arena).parse(input).expect("parsing failed");
+        assert_eq!(result.len(), 1, "more than one element: {result:?}");
+        result.into_iter().next().unwrap()
     }
 
     fn parse_all(input: &str) -> Vec<MarkdownElement> {
@@ -550,17 +569,22 @@ Title
 
     #[test]
     fn line_break() {
-        let parsed = parse_single(
+        let parsed = parse_all(
             r"
 some text
-with line breaks",
+with line breaks  
+a hard break
+
+another",
         );
-        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a line break: {parsed:?}") };
+        // note that "with line breaks" also has a hard break ("  ") at the end, hence the 3.
+        assert_eq!(parsed.len(), 3);
+
+        let MarkdownElement::Paragraph(elements) = &parsed[0] else { panic!("not a line break: {parsed:?}") };
         assert_eq!(elements.len(), 1);
 
         let expected_chunks = &[
             TextChunk::Styled(StyledText::plain("some text")),
-            TextChunk::LineBreak,
             TextChunk::Styled(StyledText::plain("with line breaks")),
         ];
         let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };

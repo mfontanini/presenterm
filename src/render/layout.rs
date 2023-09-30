@@ -41,11 +41,7 @@ impl<'a> Layout<'a> {
     }
 
     fn fit_to_columns(dimensions: &WindowSize, required_fit: u16, actual_fit: u16) -> u16 {
-        if required_fit > dimensions.columns {
-            0
-        } else {
-            actual_fit
-        }
+        if required_fit > dimensions.columns { 0 } else { actual_fit }
     }
 }
 

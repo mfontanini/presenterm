@@ -228,9 +228,9 @@ impl<'a> PresentationBuilder<'a> {
     fn push_paragraph(&mut self, elements: Vec<ParagraphElement>) -> Result<(), BuildError> {
         for element in elements {
             match element {
-                ParagraphElement::Text(mut text) => {
-                    text.chunks.push(TextChunk::LineBreak);
+                ParagraphElement::Text(text) => {
                     self.push_text(text, ElementType::Paragraph);
+                    self.push_line_break();
                 }
                 ParagraphElement::Image { url } => {
                     let image = self.resources.image(&url)?;
