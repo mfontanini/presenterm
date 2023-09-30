@@ -351,6 +351,9 @@ impl InlinesParser {
             NodeValue::Emph => self.collect_child_text_chunks(node, style.clone().italics())?,
             NodeValue::Strikethrough => self.collect_child_text_chunks(node, style.clone().strikethrough())?,
             NodeValue::SoftBreak => self.text_chunks.push(StyledText::plain(" ")),
+            NodeValue::Link(link) => {
+                self.text_chunks.push(StyledText::styled(link.url.clone(), TextStyle::default().link()))
+            }
             NodeValue::LineBreak => {
                 self.store_pending_text();
                 self.inlines.push(Inline::LineBreak);
@@ -509,6 +512,17 @@ boop
             StyledText::plain(", "),
             StyledText::styled("strikethrough", TextStyle::default().strikethrough()),
         ];
+
+        let expected_elements = &[ParagraphElement::Text(Text { chunks: expected_chunks })];
+        assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn link() {
+        let parsed = parse_single("my [website](https://example.com)");
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_chunks =
+            vec![StyledText::plain("my "), StyledText::styled("https://example.com", TextStyle::default().link())];
 
         let expected_elements = &[ParagraphElement::Text(Text { chunks: expected_chunks })];
         assert_eq!(elements, expected_elements);
