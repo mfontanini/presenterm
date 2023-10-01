@@ -135,9 +135,19 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_intro_slide(&mut self, metadata: PresentationMetadata) {
-        let title = StyledText::styled(metadata.title.unwrap_or_default().clone(), TextStyle::default().bold());
-        let sub_title = metadata.sub_title.as_ref().map(|text| StyledText::plain(text.clone()));
-        let author = metadata.author.as_ref().map(|text| StyledText::plain(text.clone()));
+        let styles = &self.theme.intro_slide;
+        let title = StyledText::styled(
+            metadata.title.unwrap_or_default().clone(),
+            TextStyle::default().bold().colors(styles.title.colors.clone()),
+        );
+        let sub_title = metadata
+            .sub_title
+            .as_ref()
+            .map(|text| StyledText::styled(text.clone(), TextStyle::default().colors(styles.subtitle.colors.clone())));
+        let author = metadata
+            .author
+            .as_ref()
+            .map(|text| StyledText::styled(text.clone(), TextStyle::default().colors(styles.author.colors.clone())));
         self.slide_operations.push(RenderOperation::JumpToVerticalCenter);
         self.push_text(Text::single(title), ElementType::PresentationTitle);
         self.push_line_break();
@@ -146,7 +156,7 @@ impl<'a> PresentationBuilder<'a> {
             self.push_line_break();
         }
         if let Some(text) = author {
-            match self.theme.presentation.author.positioning {
+            match self.theme.intro_slide.author.positioning {
                 AuthorPositioning::BelowTitle => {
                     self.push_line_break();
                     self.push_line_break();

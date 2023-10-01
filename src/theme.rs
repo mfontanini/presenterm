@@ -25,13 +25,13 @@ pub struct PresentationTheme {
     pub block_quote: BlockQuoteStyle,
 
     #[serde(rename = "default", default)]
-    pub default_style: PrimaryStyle,
+    pub default_style: BasicStyle,
 
     #[serde(default)]
     pub headings: HeadingStyles,
 
     #[serde(default)]
-    pub presentation: PresentationStyles,
+    pub intro_slide: IntroSludeStyle,
 
     #[serde(default)]
     pub footer: FooterStyle,
@@ -64,9 +64,9 @@ impl PresentationTheme {
             Paragraph => &self.paragraph,
             List => &self.list,
             Code => &self.code.alignment,
-            PresentationTitle => &self.presentation.title,
-            PresentationSubTitle => &self.presentation.subtitle,
-            PresentationAuthor => &self.presentation.author.alignment,
+            PresentationTitle => &self.intro_slide.title.alignment,
+            PresentationSubTitle => &self.intro_slide.subtitle.alignment,
+            PresentationAuthor => &self.intro_slide.author.alignment,
             Table => &self.table,
             BlockQuote => &self.block_quote.alignment,
         };
@@ -138,21 +138,23 @@ pub struct BlockQuoteStyle {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct PresentationStyles {
+pub struct IntroSludeStyle {
     #[serde(default)]
-    pub title: Option<Alignment>,
+    pub title: BasicStyle,
 
     #[serde(default)]
-    pub subtitle: Option<Alignment>,
+    pub subtitle: BasicStyle,
 
+    #[serde(default)]
     pub author: AuthorStyle,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct PrimaryStyle {
+pub struct BasicStyle {
     #[serde(flatten, default)]
     pub alignment: Option<Alignment>,
 
+    #[serde(default)]
     pub colors: Colors,
 }
 
@@ -186,6 +188,9 @@ impl Default for Alignment {
 pub struct AuthorStyle {
     #[serde(flatten, default)]
     pub alignment: Option<Alignment>,
+
+    #[serde(default)]
+    pub colors: Colors,
 
     #[serde(default)]
     pub positioning: AuthorPositioning,
