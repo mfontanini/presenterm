@@ -2,15 +2,15 @@ default:
   alignment: left
   margin: 5
   colors:
-    foreground: "rgb_(230,230,230)"
-    background: "rgb_(4,3,18)"
+    foreground: "rgb_(192,202,245)"
+    background: "rgb_(36,40,59)"
 
 slide_title:
   alignment: center
   padding_bottom: 1
   padding_top: 1
   colors:
-    foreground: "rgb_(238,147,34)"
+    foreground: "rgb_(224,175,104)"
 
 code:
   alignment: center
@@ -19,8 +19,8 @@ code:
     horizontal: 2
     vertical: 1
   colors:
-    foreground: "rgb_(4,222,32)"
-    background: "rgb_(69,80,69)"
+    foreground: "rgb_(158,206,106)"
+    background: "rgb_(54,74,130)"
 
 table:
   alignment: center
@@ -29,48 +29,48 @@ intro_slide:
   title:
     alignment: center
     colors:
-      foreground: "rgb_(87,108,188)"
+      foreground: "rgb_(122,162,247)"
   subtitle:
     alignment: center
     colors:
-      foreground: "rgb_(165,215,232)"
+      foreground: "rgb_(169,177,214)"
   author:
     alignment: center
     colors:
-      foreground: "rgb_(182,234,218)"
+      foreground: "rgb_(158,206,106)"
     positioning: page_bottom
 
 headings:
   h1:
     prefix: "██"
     colors:
-      foreground: "rgb_(48,133,195)"
+      foreground: "rgb_(158,206,106)"
   h2:
     prefix: "▓▓▓"
     colors:
-      foreground: "rgb_(168,223,142)"
+      foreground: "rgb_(247,118,142)"
   h3:
     prefix: "▒▒▒▒"
     colors:
-      foreground: "rgb_(247,140,162)"
+      foreground: "rgb_(122,162,247)"
   h4:
     prefix: "░░░░░"
     colors:
-      foreground: "rgb_(210,210,210)"
+      foreground: "rgb_(187,154,247)"
   h5:
     prefix: "░░░░░░"
     colors:
-      foreground: "rgb_(210,210,210)"
+      foreground: "rgb_(187,154,247)"
   h6:
     prefix: "░░░░░░░"
     colors:
-      foreground: "rgb_(210,210,210)"
+      foreground: "rgb_(187,154,247)"
 
 block_quote:
   prefix: "▍ "
   colors:
     foreground: "rgb_(240,240,240)"
-    background: "rgb_(41,46,66)"
+    background: "rgb_(84,92,126)"
 
 footer: 
   style: progress_bar

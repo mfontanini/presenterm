@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 struct Cli {
     path: PathBuf,
 
-    #[clap(default_value = "dark")]
+    #[clap(short, long, default_value = "dark")]
     theme: String,
 }
 
