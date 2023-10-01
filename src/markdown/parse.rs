@@ -168,7 +168,7 @@ impl<'a> MarkdownParser<'a> {
 
     fn parse_paragraph(node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
         let mut elements = Vec::new();
-        let inlines = InlinesParser::new(InlinesMode::AllowImages).parse(node)?;
+        let inlines = InlinesParser::default().parse(node)?;
         let mut paragraph_elements = Vec::new();
         for inline in inlines {
             match inline {
@@ -189,14 +189,17 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn parse_text(node: &'a AstNode<'a>) -> ParseResult<Text> {
-        let inlines = InlinesParser::new(InlinesMode::DisallowImages).parse(node)?;
-        let chunks = inlines
-            .into_iter()
-            .flat_map(|inline| {
-                let Inline::Text(text) = inline else { panic!("got non-text inline") };
-                text.chunks.into_iter()
-            })
-            .collect();
+        let inlines = InlinesParser::default().parse(node)?;
+        let mut chunks = Vec::new();
+        for inline in inlines {
+            match inline {
+                Inline::Text(text) => chunks.extend(text.chunks),
+                other => {
+                    return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.kind() }
+                        .with_sourcepos(node.data.borrow().sourcepos));
+                }
+            };
+        }
         Ok(Text { chunks })
     }
 
@@ -290,73 +293,49 @@ impl<'a> MarkdownParser<'a> {
     }
 }
 
+#[derive(Default)]
 struct InlinesParser {
-    mode: InlinesMode,
     inlines: Vec<Inline>,
-    text_chunks: Vec<StyledText>,
+    pending_text: Vec<StyledText>,
 }
 
 impl InlinesParser {
-    fn new(mode: InlinesMode) -> Self {
-        Self { mode, inlines: Default::default(), text_chunks: Default::default() }
-    }
-
     fn parse<'a>(mut self, node: &'a AstNode<'a>) -> ParseResult<Vec<Inline>> {
-        for node in node.children() {
-            let value = &node.data.borrow().value;
-            match value {
-                NodeValue::Image(img) => {
-                    self.store_pending_text();
-                    self.inlines.push(Inline::Image(img.url.clone()));
-                }
-                _ => self.collect_text_chunks(node, TextStyle::default())?,
-            };
-        }
+        self.process_children(node, TextStyle::default())?;
         self.store_pending_text();
-
-        let any_images = self.inlines.iter().any(|inline| matches!(inline, Inline::Image(_)));
-        if matches!(self.mode, InlinesMode::DisallowImages) && any_images {
-            let sourcepos = node.data.borrow().sourcepos;
-            return Err(
-                ParseErrorKind::UnsupportedStructure { container: "text", element: "image" }.with_sourcepos(sourcepos)
-            );
-        }
         Ok(self.inlines)
     }
 
     fn store_pending_text(&mut self) {
-        let chunks = mem::take(&mut self.text_chunks);
+        let chunks = mem::take(&mut self.pending_text);
         if !chunks.is_empty() {
             self.inlines.push(Inline::Text(Text { chunks }));
         }
     }
 
-    fn collect_child_text_chunks<'a>(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
-        for node in node.children() {
-            self.collect_text_chunks(node, style.clone())?;
-        }
-        Ok(())
-    }
-
-    fn collect_text_chunks<'a>(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
+    fn process_node<'a>(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
         let data = node.data.borrow();
         match &data.value {
             NodeValue::Text(text) => {
-                self.text_chunks.push(StyledText::styled(text.clone(), style.clone()));
+                self.pending_text.push(StyledText::styled(text.clone(), style.clone()));
             }
             NodeValue::Code(code) => {
-                self.text_chunks.push(StyledText::styled(code.literal.clone(), TextStyle::default().code()));
+                self.pending_text.push(StyledText::styled(code.literal.clone(), TextStyle::default().code()));
             }
-            NodeValue::Strong => self.collect_child_text_chunks(node, style.clone().bold())?,
-            NodeValue::Emph => self.collect_child_text_chunks(node, style.clone().italics())?,
-            NodeValue::Strikethrough => self.collect_child_text_chunks(node, style.clone().strikethrough())?,
-            NodeValue::SoftBreak => self.text_chunks.push(StyledText::plain(" ")),
+            NodeValue::Strong => self.process_children(node, style.clone().bold())?,
+            NodeValue::Emph => self.process_children(node, style.clone().italics())?,
+            NodeValue::Strikethrough => self.process_children(node, style.clone().strikethrough())?,
+            NodeValue::SoftBreak => self.pending_text.push(StyledText::plain(" ")),
             NodeValue::Link(link) => {
-                self.text_chunks.push(StyledText::styled(link.url.clone(), TextStyle::default().link()))
+                self.pending_text.push(StyledText::styled(link.url.clone(), TextStyle::default().link()))
             }
             NodeValue::LineBreak => {
                 self.store_pending_text();
                 self.inlines.push(Inline::LineBreak);
+            }
+            NodeValue::Image(link) => {
+                self.store_pending_text();
+                self.inlines.push(Inline::Image(link.url.clone()));
             }
             other => {
                 return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.identifier() }
@@ -365,17 +344,29 @@ impl InlinesParser {
         };
         Ok(())
     }
-}
 
-enum InlinesMode {
-    AllowImages,
-    DisallowImages,
+    fn process_children<'a>(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
+        for node in node.children() {
+            self.process_node(node, style.clone())?;
+        }
+        Ok(())
+    }
 }
 
 enum Inline {
     Text(Text),
     Image(String),
     LineBreak,
+}
+
+impl Inline {
+    fn kind(&self) -> &'static str {
+        match self {
+            Self::Text(_) => "text",
+            Self::Image(_) => "image",
+            Self::LineBreak => "line break",
+        }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
