@@ -4,7 +4,7 @@ use presenterm::{
     input::source::CommandSource, markdown::parse::MarkdownParser, render::highlighting::CodeHighlighter,
     resource::Resources, slideshow::SlideShow, theme::PresentationTheme,
 };
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 struct Cli {
@@ -14,8 +14,7 @@ struct Cli {
     theme: String,
 }
 
-fn main() {
-    let cli = Cli::parse();
+fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let Some(default_theme) = PresentationTheme::from_name(&cli.theme) else {
         let mut cmd = Cli::command();
         cmd.error(ErrorKind::InvalidValue, "invalid theme name").exit();
@@ -23,12 +22,19 @@ fn main() {
 
     let arena = Arena::new();
     let parser = MarkdownParser::new(&arena);
-    let highlighter = CodeHighlighter::new("base16-ocean.dark").expect("creating highlighter failed");
-    let resources = Resources::new(cli.path.parent().expect("no parent"));
+    let highlighter = CodeHighlighter::new("base16-ocean.dark")?;
+    let resources_path = cli.path.parent().unwrap_or(Path::new("/"));
+    let resources = Resources::new(resources_path);
     let commands = CommandSource::new(&cli.path);
 
     let slideshow = SlideShow::new(&default_theme, commands, parser, resources, highlighter);
-    if let Err(e) = slideshow.present(&cli.path) {
-        eprintln!("Error running slideshow: {e}");
-    };
+    slideshow.present(&cli.path)?;
+    Ok(())
+}
+
+fn main() {
+    let cli = Cli::parse();
+    if let Err(e) = run(cli) {
+        eprintln!("Failed to run presentation: {e}");
+    }
 }
