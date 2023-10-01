@@ -12,7 +12,7 @@ use crate::{
 use crossterm::{
     cursor,
     style::Color,
-    terminal::{disable_raw_mode, enable_raw_mode},
+    terminal::{self, disable_raw_mode, enable_raw_mode},
     QueueableCommand,
 };
 use std::io;
@@ -30,6 +30,7 @@ where
     pub fn new(mut handle: W) -> io::Result<Self> {
         enable_raw_mode()?;
         handle.queue(cursor::Hide)?;
+        handle.queue(terminal::EnterAlternateScreen)?;
         Ok(Self { handle })
     }
 
@@ -77,6 +78,7 @@ where
     W: io::Write,
 {
     fn drop(&mut self) {
+        let _ = self.handle.queue(terminal::LeaveAlternateScreen);
         let _ = self.handle.queue(cursor::Show);
         let _ = disable_raw_mode();
     }
