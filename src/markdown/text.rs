@@ -56,10 +56,11 @@ impl From<StyledText> for WeightedText {
         let mut width = 0;
         let mut bytes = 0;
         for c in text.text.chars() {
+            accumulators.push(CharAccumulator { width, bytes });
             width += c.width().unwrap_or(0);
             bytes += c.len_utf8();
-            accumulators.push(CharAccumulator { width, bytes });
         }
+        accumulators.push(CharAccumulator { width, bytes });
         Self { text, accumulators }
     }
 }
@@ -136,15 +137,15 @@ impl<'a> WeightedTextRef<'a> {
     }
 
     fn substr(&self, max_length: usize) -> &'a str {
-        let max_length = self.bytes_until(max_length);
-        &self.text[0..max_length]
+        let last_index = self.bytes_until(max_length);
+        &self.text[0..last_index]
     }
 
     fn make_ref(&self, from: usize, to: usize) -> Self {
         let text = &self.text[from..to];
-        let from_char_count = self.text[0..from].chars().count();
-        let to_char_count = self.text[from..to].chars().count();
-        let character_lengths = &self.accumulators[from_char_count..from_char_count + to_char_count];
+        let leading_char_count = self.text[0..from].chars().count();
+        let output_char_count = text.chars().count();
+        let character_lengths = &self.accumulators[leading_char_count..leading_char_count + output_char_count + 1];
         WeightedTextRef { text, accumulators: character_lengths, style: self.style.clone() }
     }
 
@@ -158,7 +159,7 @@ impl<'a> WeightedTextRef<'a> {
     fn width(&self) -> usize {
         let last_width = self.accumulators.last().map(|a| a.width).unwrap_or(0);
         let first_width = self.accumulators.get(0).map(|a| a.width).unwrap_or(0);
-        last_width - first_width + 1
+        last_width - first_width
     }
 
     fn bytes_until(&self, index: usize) -> usize {
@@ -178,13 +179,83 @@ mod test {
     }
 
     #[test]
+    fn text_creation() {
+        let text = WeightedText::from(StyledText::plain("hello world"));
+
+        let text_ref = text.to_ref();
+        assert_eq!(text_ref.width(), 11);
+    }
+
+    #[test]
+    fn text_creation_utf8() {
+        let text = WeightedText::from(StyledText::plain("█████"));
+
+        let text_ref = text.to_ref();
+        assert_eq!(text_ref.width(), 5);
+        assert_eq!(text_ref.bytes_until(0), 0);
+        assert_eq!(text_ref.bytes_until(1), 3);
+        assert_eq!(text_ref.bytes_until(2), 6);
+        assert_eq!(text_ref.bytes_until(3), 9);
+        assert_eq!(text_ref.bytes_until(4), 12);
+
+        let text_ref = text_ref.make_ref(3, 12);
+        assert_eq!(text_ref.width(), 3);
+        assert_eq!(text_ref.bytes_until(0), 0);
+        assert_eq!(text_ref.bytes_until(1), 3);
+        assert_eq!(text_ref.bytes_until(2), 6);
+
+        let text_ref = text_ref.make_ref(0, 9);
+        assert_eq!(text_ref.width(), 3);
+        assert_eq!(text_ref.bytes_until(0), 0);
+        assert_eq!(text_ref.bytes_until(1), 3);
+        assert_eq!(text_ref.bytes_until(2), 6);
+    }
+
+    #[test]
+    fn minimal_split() {
+        let text = WeightedText::from(StyledText::plain("█████"));
+        let text_ref = text.to_ref();
+        let (head, rest) = text_ref.word_split_at_length(1);
+        assert_eq!(head.width(), 1);
+        assert_eq!(rest.width(), 4);
+    }
+
+    #[test]
+    fn no_spaces_split() {
+        let text = WeightedText::from(StyledText::plain("█████"));
+        let text_ref = text.to_ref();
+        let (head, rest) = text_ref.word_split_at_length(2);
+        assert_eq!(head.width(), 2);
+        assert_eq!(rest.width(), 3);
+    }
+
+    #[test]
+    fn make_ref() {
+        let text = WeightedText::from(StyledText::plain("hello world"));
+        let text_ref = text.to_ref();
+        let head = text_ref.make_ref(0, 1);
+        assert_eq!(head.text, "h");
+        assert_eq!(head.width(), 1);
+
+        let rest = text_ref.make_ref(1, 11);
+        assert_eq!(rest.text, "ello world");
+        assert_eq!(rest.width(), 10);
+    }
+
+    #[test]
     fn word_split() {
         let text = WeightedText::from(StyledText::plain("short string"));
         let (head, rest) = text.to_ref().word_split_at_length(7);
         assert_eq!(head.text, "short");
         assert_eq!(rest.text, " string");
-        assert_eq!(head.accumulators.len(), 5);
-        assert_eq!(rest.accumulators.len(), 7);
+    }
+
+    #[test]
+    fn split_at_full_length() {
+        let text = WeightedLine(vec![WeightedText::from(StyledText::plain("hello world"))]);
+        let lines = join_lines(text.split(11));
+        let expected = vec!["hello world"];
+        assert_eq!(lines, expected);
     }
 
     #[test]
@@ -247,7 +318,25 @@ mod test {
     }
 
     #[test]
-    fn only_utf8_characters() {
+    fn many_utf8_characters() {
+        let content = "█████ ██";
+        let text = WeightedLine(vec![WeightedText::from(StyledText::plain(content))]);
+        let lines = join_lines(text.split(3));
+        let expected = vec!["███", "██", "██"];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn no_whitespaces_ascii() {
+        let content = "X".repeat(10);
+        let text = WeightedLine(vec![WeightedText::from(StyledText::plain(content))]);
+        let lines = join_lines(text.split(3));
+        let expected = vec!["XXX", "XXX", "XXX", "X"];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn no_whitespaces_utf8() {
         let content = "─".repeat(10);
         let text = WeightedLine(vec![WeightedText::from(StyledText::plain(content))]);
         let lines = join_lines(text.split(3));
