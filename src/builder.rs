@@ -14,7 +14,7 @@ use crate::{
     },
     resource::{LoadImageError, Resources},
     style::TextStyle,
-    theme::{Alignment, AuthorPositioning, ElementType, FooterStyle, LoadThemeError, PresentationTheme},
+    theme::{Alignment, AuthorPositioning, Colors, ElementType, FooterStyle, LoadThemeError, PresentationTheme},
 };
 use std::{borrow::Cow, cell::RefCell, iter, mem, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
@@ -453,11 +453,12 @@ struct FooterGenerator {
 }
 
 impl FooterGenerator {
-    fn render_template(template: &str, current_slide: &str, context: &FooterContext) -> String {
-        template
+    fn render_template(template: &str, current_slide: &str, context: &FooterContext, colors: Colors) -> WeightedText {
+        let contents = template
             .replace("{current_slide}", current_slide)
             .replace("{total_slides}", &context.total_slides.to_string())
-            .replace("{author}", &context.author)
+            .replace("{author}", &context.author);
+        WeightedText::from(StyledText::styled(contents, TextStyle::default().colors(colors)))
     }
 }
 
@@ -465,14 +466,14 @@ impl AsRenderOperations for FooterGenerator {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let context = self.context.borrow();
         match &self.style {
-            FooterStyle::Template { left, right } => {
+            FooterStyle::Template { left, right, colors } => {
                 let current_slide = (self.current_slide + 1).to_string();
                 let mut operations = Vec::new();
                 if let Some(left) = left {
                     operations.extend([
                         RenderOperation::JumpToWindowBottom,
                         RenderOperation::RenderTextLine {
-                            texts: Self::render_template(left, &current_slide, &context).into(),
+                            texts: vec![Self::render_template(left, &current_slide, &context, colors.clone())].into(),
                             alignment: Alignment::Left { margin: 1 },
                         },
                     ]);
@@ -481,19 +482,21 @@ impl AsRenderOperations for FooterGenerator {
                     operations.extend([
                         RenderOperation::JumpToWindowBottom,
                         RenderOperation::RenderTextLine {
-                            texts: Self::render_template(right, &current_slide, &context).into(),
+                            texts: vec![Self::render_template(right, &current_slide, &context, colors.clone())].into(),
                             alignment: Alignment::Right { margin: 1 },
                         },
                     ]);
                 }
                 operations
             }
-            FooterStyle::ProgressBar { character } => {
+            FooterStyle::ProgressBar { character, colors } => {
                 let character = character.unwrap_or('█').to_string();
                 let total_columns = dimensions.columns as usize / character.width();
                 let progress_ratio = (self.current_slide + 1) as f64 / context.total_slides as f64;
                 let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
                 let bar = character.repeat(columns_ratio as usize);
+                let bar =
+                    vec![WeightedText::from(StyledText::styled(bar, TextStyle::default().colors(colors.clone())))];
                 vec![
                     RenderOperation::JumpToWindowBottom,
                     RenderOperation::RenderTextLine { texts: bar.into(), alignment: Alignment::Left { margin: 0 } },

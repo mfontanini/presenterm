@@ -199,14 +199,28 @@ pub struct AuthorStyle {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "style", rename_all = "snake_case")]
 pub enum FooterStyle {
-    Template { left: Option<String>, right: Option<String> },
-    ProgressBar { character: Option<char> },
+    Template {
+        left: Option<String>,
+        right: Option<String>,
+        #[serde(default)]
+        colors: Colors,
+    },
+    ProgressBar {
+        character: Option<char>,
+
+        #[serde(default)]
+        colors: Colors,
+    },
     Empty,
 }
 
 impl Default for FooterStyle {
     fn default() -> Self {
-        Self::Template { left: Some("{current_slide} / {total_slides}".to_string()), right: None }
+        Self::Template {
+            left: Some("{current_slide} / {total_slides}".to_string()),
+            right: None,
+            colors: Colors::default(),
+        }
     }
 }
 
