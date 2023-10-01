@@ -17,10 +17,7 @@ use crossterm::{
 };
 use std::io;
 
-pub type DrawResult = Result<(), DrawSlideError>;
-
-const MINIMUM_COLUMNS: u16 = 10;
-const MINIMUM_ROWS: u16 = 5;
+pub type RenderResult = Result<(), RenderError>;
 
 pub struct Drawer<W: io::Write> {
     handle: W,
@@ -36,15 +33,11 @@ where
         Ok(Self { handle })
     }
 
-    pub fn render_slide(&mut self, presentation: &Presentation) -> DrawResult {
+    pub fn render_slide(&mut self, presentation: &Presentation) -> RenderResult {
         let dimensions = WindowSize::current()?;
-        if dimensions.rows < MINIMUM_ROWS || dimensions.columns < MINIMUM_COLUMNS {
-            self.render_error("terminal too small")?;
-            return Ok(());
-        }
         let slide_dimensions = WindowSize {
             // TODO this adjustment needs to tweak `height` too
-            rows: dimensions.rows - 3,
+            rows: dimensions.rows.saturating_sub(3),
             columns: dimensions.columns,
             width: dimensions.width,
             height: dimensions.height,
@@ -59,7 +52,7 @@ where
         Ok(())
     }
 
-    pub fn render_error(&mut self, message: &str) -> DrawResult {
+    pub fn render_error(&mut self, message: &str) -> RenderResult {
         let dimensions = WindowSize::current()?;
         let heading = vec![
             WeightedText::from(StyledText::styled("Error loading presentation", TextStyle::default().bold())),
@@ -96,12 +89,15 @@ where
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum DrawSlideError {
+pub enum RenderError {
     #[error("io: {0}")]
     Io(#[from] io::Error),
 
     #[error("unsupported structure: {0}")]
     UnsupportedStructure(&'static str),
+
+    #[error("screen is too small")]
+    TerminalTooSmall,
 
     #[error(transparent)]
     Other(Box<dyn std::error::Error>),

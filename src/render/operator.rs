@@ -1,5 +1,5 @@
 use super::{
-    draw::{DrawResult, DrawSlideError},
+    draw::{RenderError, RenderResult},
     layout::Layout,
     media::{Image, MediaDrawer},
     text::TextDrawer,
@@ -37,7 +37,7 @@ where
         Self { handle, slide_dimensions, window_dimensions, colors }
     }
 
-    pub(crate) fn render(&mut self, operation: &RenderOperation) -> DrawResult {
+    pub(crate) fn render(&mut self, operation: &RenderOperation) -> RenderResult {
         match operation {
             RenderOperation::ClearScreen => self.clear_screen(),
             RenderOperation::SetColors(colors) => self.set_colors(colors),
@@ -55,18 +55,18 @@ where
         }
     }
 
-    fn clear_screen(&mut self) -> DrawResult {
+    fn clear_screen(&mut self) -> RenderResult {
         self.handle.queue(terminal::Clear(ClearType::All))?;
         self.handle.queue(cursor::MoveTo(0, 0))?;
         Ok(())
     }
 
-    fn set_colors(&mut self, colors: &Colors) -> DrawResult {
+    fn set_colors(&mut self, colors: &Colors) -> RenderResult {
         self.colors = colors.clone();
         self.apply_colors()
     }
 
-    fn apply_colors(&mut self) -> DrawResult {
+    fn apply_colors(&mut self) -> RenderResult {
         self.handle.queue(style::SetColors(style::Colors {
             background: self.colors.background,
             foreground: self.colors.foreground,
@@ -74,40 +74,40 @@ where
         Ok(())
     }
 
-    fn jump_to_vertical_center(&mut self) -> DrawResult {
+    fn jump_to_vertical_center(&mut self) -> RenderResult {
         let center_row = self.slide_dimensions.rows / 2;
         self.handle.queue(cursor::MoveToRow(center_row))?;
         Ok(())
     }
 
-    fn jump_to_slide_bottom(&mut self) -> DrawResult {
+    fn jump_to_slide_bottom(&mut self) -> RenderResult {
         self.handle.queue(cursor::MoveToRow(self.slide_dimensions.rows))?;
         Ok(())
     }
 
-    fn jump_to_window_bottom(&mut self) -> DrawResult {
+    fn jump_to_window_bottom(&mut self) -> RenderResult {
         self.handle.queue(cursor::MoveToRow(self.window_dimensions.rows))?;
         Ok(())
     }
 
-    fn render_text(&mut self, text: &WeightedLine, alignment: &Alignment) -> DrawResult {
-        let text_drawer = TextDrawer::new(alignment, &mut self.handle, text, &self.slide_dimensions, &self.colors);
+    fn render_text(&mut self, text: &WeightedLine, alignment: &Alignment) -> RenderResult {
+        let text_drawer = TextDrawer::new(alignment, &mut self.handle, text, &self.slide_dimensions, &self.colors)?;
         text_drawer.draw()
     }
 
-    fn render_separator(&mut self) -> DrawResult {
+    fn render_separator(&mut self) -> RenderResult {
         let separator: String = "—".repeat(self.slide_dimensions.columns as usize);
         self.handle.queue(style::Print(separator))?;
         Ok(())
     }
 
-    fn render_line_break(&mut self) -> DrawResult {
+    fn render_line_break(&mut self) -> RenderResult {
         self.handle.queue(cursor::MoveToNextLine(1))?;
         Ok(())
     }
 
-    fn render_image(&mut self, image: &Image) -> DrawResult {
-        MediaDrawer.draw_image(image, &self.slide_dimensions).map_err(|e| DrawSlideError::Other(Box::new(e)))?;
+    fn render_image(&mut self, image: &Image) -> RenderResult {
+        MediaDrawer.draw_image(image, &self.slide_dimensions).map_err(|e| RenderError::Other(Box::new(e)))?;
         Ok(())
     }
 
@@ -117,7 +117,7 @@ where
         unformatted_length: usize,
         block_length: usize,
         alignment: &Alignment,
-    ) -> DrawResult {
+    ) -> RenderResult {
         let Positioning { max_line_length, start_column } =
             Layout(alignment).compute(&self.slide_dimensions, block_length as u16);
         self.handle.queue(cursor::MoveToColumn(start_column))?;
@@ -133,7 +133,7 @@ where
         Ok(())
     }
 
-    fn render_dynamic(&mut self, generator: &dyn AsRenderOperations) -> DrawResult {
+    fn render_dynamic(&mut self, generator: &dyn AsRenderOperations) -> RenderResult {
         let operations = generator.as_render_operations(&self.slide_dimensions);
         for operation in operations {
             self.render(&operation)?;

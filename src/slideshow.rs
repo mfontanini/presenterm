@@ -7,7 +7,7 @@ use crate::{
     markdown::parse::{MarkdownParser, ParseError},
     presentation::Presentation,
     render::{
-        draw::{DrawResult, DrawSlideError, Drawer},
+        draw::{Drawer, RenderError, RenderResult},
         highlighting::CodeHighlighter,
     },
     resource::Resources,
@@ -77,11 +77,18 @@ impl<'a> SlideShow<'a> {
         }
     }
 
-    fn render(&mut self, drawer: &mut Drawer<Stdout>) -> DrawResult {
-        match &self.state {
+    fn render(&mut self, drawer: &mut Drawer<Stdout>) -> RenderResult {
+        let result = match &self.state {
             SlideShowState::Presenting(presentation) => drawer.render_slide(presentation),
             SlideShowState::Failure { error, .. } => drawer.render_error(error),
             SlideShowState::Empty => panic!("cannot render without state"),
+        };
+        // If the screen is too small, simply ignore this. Eventually the user will resize the
+        // screen.
+        if matches!(result, Err(RenderError::TerminalTooSmall)) {
+            Ok(())
+        } else {
+            result
         }
     }
 
@@ -98,7 +105,11 @@ impl<'a> SlideShow<'a> {
             UserCommand::JumpSlide(number) => presentation.jump_slide(number.saturating_sub(1) as usize),
             UserCommand::Exit => return CommandSideEffect::Exit,
         };
-        if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
+        if needs_redraw {
+            CommandSideEffect::Redraw
+        } else {
+            CommandSideEffect::None
+        }
     }
 
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
@@ -155,7 +166,7 @@ pub enum LoadPresentationError {
 #[derive(thiserror::Error, Debug)]
 pub enum SlideShowError {
     #[error(transparent)]
-    Draw(#[from] DrawSlideError),
+    Render(#[from] RenderError),
 
     #[error(transparent)]
     LoadPresentationError(#[from] LoadPresentationError),

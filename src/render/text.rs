@@ -1,7 +1,7 @@
 use crate::{
     markdown::text::WeightedLine,
     render::{
-        draw::DrawResult,
+        draw::{RenderError, RenderResult},
         layout::{Layout, Positioning},
         properties::WindowSize,
     },
@@ -10,6 +10,8 @@ use crate::{
 };
 use crossterm::{cursor, style, QueueableCommand};
 use std::io;
+
+const MINIMUM_LINE_LENGTH: u16 = 10;
 
 pub(crate) struct TextDrawer<'a, W> {
     handle: &'a mut W,
@@ -28,17 +30,22 @@ where
         line: &'a WeightedLine,
         dimensions: &WindowSize,
         default_colors: &'a Colors,
-    ) -> Self {
+    ) -> Result<Self, RenderError> {
         let text_length = line.width() as u16;
         let positioning = Layout(alignment).compute(dimensions, text_length);
-        Self { handle, line, positioning, default_colors }
+        // If our line doesn't fit and it's just too small then abort
+        if text_length > positioning.max_line_length && positioning.max_line_length <= MINIMUM_LINE_LENGTH {
+            Err(RenderError::TerminalTooSmall)
+        } else {
+            Ok(Self { handle, line, positioning, default_colors })
+        }
     }
 
-    pub(crate) fn draw(self) -> DrawResult {
-        let Positioning { max_line_length: line_length, start_column } = self.positioning;
+    pub(crate) fn draw(self) -> RenderResult {
+        let Positioning { max_line_length, start_column } = self.positioning;
         self.handle.queue(cursor::MoveToColumn(start_column))?;
 
-        for (line_index, line) in self.line.split(line_length as usize).enumerate() {
+        for (line_index, line) in self.line.split(max_line_length as usize).enumerate() {
             self.handle.queue(cursor::MoveToColumn(start_column))?;
             if line_index > 0 {
                 self.handle.queue(cursor::MoveDown(1))?;
