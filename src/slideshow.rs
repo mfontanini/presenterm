@@ -93,6 +93,10 @@ impl<'a> SlideShow<'a> {
     }
 
     fn apply_user_command(&mut self, command: UserCommand) -> CommandSideEffect {
+        // This one always happens no matter our state.
+        if matches!(command, UserCommand::Exit) {
+            return CommandSideEffect::Exit;
+        }
         let SlideShowState::Presenting(presentation) = &mut self.state else {
             return CommandSideEffect::None;
         };
