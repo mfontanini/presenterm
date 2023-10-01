@@ -19,6 +19,9 @@ use std::io;
 
 pub type DrawResult = Result<(), DrawSlideError>;
 
+const MINIMUM_COLUMNS: u16 = 10;
+const MINIMUM_ROWS: u16 = 5;
+
 pub struct Drawer<W: io::Write> {
     handle: W,
 }
@@ -35,6 +38,10 @@ where
 
     pub fn render_slide(&mut self, presentation: &Presentation) -> DrawResult {
         let dimensions = WindowSize::current()?;
+        if dimensions.rows < MINIMUM_ROWS || dimensions.columns < MINIMUM_COLUMNS {
+            self.render_error("terminal too small")?;
+            return Ok(());
+        }
         let slide_dimensions = WindowSize {
             // TODO this adjustment needs to tweak `height` too
             rows: dimensions.rows - 3,

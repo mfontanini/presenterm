@@ -7,13 +7,17 @@ use crate::{
     markdown::parse::{MarkdownParser, ParseError},
     presentation::Presentation,
     render::{
-        draw::{DrawSlideError, Drawer},
+        draw::{DrawResult, DrawSlideError, Drawer},
         highlighting::CodeHighlighter,
     },
     resource::Resources,
     theme::PresentationTheme,
 };
-use std::{fs, io, path::Path};
+use std::{
+    fs,
+    io::{self, Stdout},
+    path::Path,
+};
 
 pub struct SlideShow<'a> {
     default_theme: &'a PresentationTheme,
@@ -32,29 +36,15 @@ impl<'a> SlideShow<'a> {
         resources: Resources,
         highlighter: CodeHighlighter,
     ) -> Self {
-        Self {
-            default_theme,
-            commands,
-            parser,
-            resources,
-            highlighter,
-            state: SlideShowState::RenderError("".to_string()),
-        }
+        Self { default_theme, commands, parser, resources, highlighter, state: SlideShowState::Empty }
     }
 
     pub fn present(mut self, path: &Path) -> Result<(), SlideShowError> {
-        self.state = SlideShowState::RenderSlide(self.load_presentation(path)?);
+        self.state = SlideShowState::Presenting(self.load_presentation(path)?);
 
         let mut drawer = Drawer::new(io::stdout())?;
-        let mut current_slide = 0;
         loop {
-            match &self.state {
-                SlideShowState::RenderSlide(presentation) => {
-                    drawer.render_slide(presentation)?;
-                    current_slide = presentation.current_slide_index()
-                }
-                SlideShowState::RenderError(error) => drawer.render_error(error)?,
-            };
+            self.render(&mut drawer)?;
 
             loop {
                 let command = match self.commands.next_command()? {
@@ -62,11 +52,14 @@ impl<'a> SlideShow<'a> {
                     Command::ReloadPresentation => {
                         match self.load_presentation(path) {
                             Ok(mut presentation) => {
-                                presentation.jump_slide(current_slide);
-                                self.state = SlideShowState::RenderSlide(presentation)
+                                presentation.jump_slide(self.state.presentation().current_slide_index());
+                                self.state = SlideShowState::Presenting(presentation)
                             }
                             Err(e) => {
-                                self.state = SlideShowState::RenderError(e.to_string());
+                                self.state = SlideShowState::Failure {
+                                    error: e.to_string(),
+                                    presentation: self.state.into_presentation(),
+                                }
                             }
                         };
                         break;
@@ -75,15 +68,25 @@ impl<'a> SlideShow<'a> {
                 };
                 match self.apply_user_command(command) {
                     CommandSideEffect::Exit => return Ok(()),
-                    CommandSideEffect::Redraw => break,
+                    CommandSideEffect::Redraw => {
+                        break;
+                    }
                     CommandSideEffect::None => (),
                 };
             }
         }
     }
 
+    fn render(&mut self, drawer: &mut Drawer<Stdout>) -> DrawResult {
+        match &self.state {
+            SlideShowState::Presenting(presentation) => drawer.render_slide(presentation),
+            SlideShowState::Failure { error, .. } => drawer.render_error(error),
+            SlideShowState::Empty => panic!("cannot render without state"),
+        }
+    }
+
     fn apply_user_command(&mut self, command: UserCommand) -> CommandSideEffect {
-        let SlideShowState::RenderSlide(presentation) = &mut self.state else {
+        let SlideShowState::Presenting(presentation) = &mut self.state else {
             return CommandSideEffect::None;
         };
         let needs_redraw = match command {
@@ -114,8 +117,27 @@ enum CommandSideEffect {
 }
 
 enum SlideShowState {
-    RenderSlide(Presentation),
-    RenderError(String),
+    Empty,
+    Presenting(Presentation),
+    Failure { error: String, presentation: Presentation },
+}
+
+impl SlideShowState {
+    fn presentation(&self) -> &Presentation {
+        match self {
+            Self::Presenting(presentation) => presentation,
+            Self::Failure { presentation, .. } => presentation,
+            Self::Empty => panic!("state is empty"),
+        }
+    }
+
+    fn into_presentation(self) -> Presentation {
+        match self {
+            Self::Presenting(presentation) => presentation,
+            Self::Failure { presentation, .. } => presentation,
+            Self::Empty => panic!("state is empty"),
+        }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
