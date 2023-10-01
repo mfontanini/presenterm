@@ -34,17 +34,11 @@ where
     }
 
     pub fn render_slide(&mut self, presentation: &Presentation) -> RenderResult {
-        let dimensions = WindowSize::current()?;
-        let slide_dimensions = WindowSize {
-            // TODO this adjustment needs to tweak `height` too
-            rows: dimensions.rows.saturating_sub(3),
-            columns: dimensions.columns,
-            width: dimensions.width,
-            height: dimensions.height,
-        };
-
+        let window_dimensions = WindowSize::current()?;
+        let slide_dimensions = window_dimensions.shrink_rows(3);
         let slide = presentation.current_slide();
-        let mut operator = RenderOperator::new(&mut self.handle, slide_dimensions, dimensions, Default::default());
+        let mut operator =
+            RenderOperator::new(&mut self.handle, slide_dimensions, window_dimensions, Default::default());
         for element in &slide.render_operations {
             operator.render(element)?;
         }

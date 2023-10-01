@@ -29,12 +29,12 @@ impl MediaDrawer {
         let image = &image.0;
 
         // Compute the image's width in columns by translating pixels -> columns.
-        let column_in_pixels = dimensions.width as f64 / dimensions.columns as f64;
+        let column_in_pixels = dimensions.pixels_per_column();
         let column_margin = (dimensions.columns as f64 * 0.95) as u32;
         let mut width_in_columns = (image.width() as f64 / column_in_pixels) as u32;
 
         // Do the same for its height.
-        let row_in_pixels = dimensions.height as f64 / dimensions.rows as f64;
+        let row_in_pixels = dimensions.pixels_per_row();
         let height_in_rows = (image.height() as f64 / row_in_pixels) as u32;
 
         // If the image doesn't fit vertically, shrink it.
