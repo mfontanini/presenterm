@@ -3,14 +3,14 @@ default:
   margin: 5
   colors:
     foreground: "rgb_(230,230,230)"
-    background: "rgb_(15,15,15)"
+    background: "rgb_(4,3,18)"
 
 slide_title:
   alignment: center
   padding_bottom: 1
   padding_top: 1
   colors:
-    foreground: "rgb_(255,128,0)"
+    foreground: "rgb_(238,147,34)"
 
 code:
   alignment: center
@@ -19,8 +19,8 @@ code:
     horizontal: 2
     vertical: 1
   colors:
-    foreground: dark_green
-    background: dark_grey
+    foreground: "rgb_(4,222,32)"
+    background: "rgb_(69,80,69)"
 
 table:
   alignment: center
@@ -38,27 +38,27 @@ headings:
   h1:
     prefix: "██"
     colors:
-      foreground: dark_blue
+      foreground: "rgb_(48,133,195)"
   h2:
     prefix: "▓▓▓"
     colors:
-      foreground: dark_green
+      foreground: "rgb_(168,223,142)"
   h3:
     prefix: "▒▒▒▒"
     colors:
-      foreground: dark_magenta
+      foreground: "rgb_(247,140,162)"
   h4:
     prefix: "░░░░░"
     colors:
-      foreground: grey
+      foreground: "rgb_(210,210,210)"
   h5:
     prefix: "░░░░░░"
     colors:
-      foreground: grey
+      foreground: "rgb_(210,210,210)"
   h6:
     prefix: "░░░░░░░"
     colors:
-      foreground: grey
+      foreground: "rgb_(210,210,210)"
 
 block_quote:
   prefix: "▍ "
