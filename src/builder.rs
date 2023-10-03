@@ -19,6 +19,10 @@ use crate::{
 use std::{borrow::Cow, cell::RefCell, iter, mem, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 
+/// Builds a presentation.
+///
+/// This type transforms [MarkdownElement]s and turns them into a presentation, which is made up of
+/// render operations.
 pub struct PresentationBuilder<'a> {
     slide_operations: Vec<RenderOperation>,
     slides: Vec<Slide>,
@@ -31,6 +35,7 @@ pub struct PresentationBuilder<'a> {
 }
 
 impl<'a> PresentationBuilder<'a> {
+    /// Construct a new builder.
     pub fn new(
         highlighter: &'a CodeHighlighter,
         default_theme: &'a PresentationTheme,
@@ -48,6 +53,7 @@ impl<'a> PresentationBuilder<'a> {
         }
     }
 
+    /// Build a presentation.
     pub fn build(mut self, elements: Vec<MarkdownElement>) -> Result<Presentation, BuildError> {
         if let Some(MarkdownElement::FrontMatter(contents)) = elements.first() {
             self.process_front_matter(contents)?;
@@ -136,23 +142,23 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_intro_slide(&mut self, metadata: PresentationMetadata) {
         let styles = &self.theme.intro_slide;
-        let title = StyledText::styled(
+        let title = StyledText::new(
             metadata.title.unwrap_or_default().clone(),
             TextStyle::default().bold().colors(styles.title.colors.clone()),
         );
         let sub_title = metadata
             .sub_title
             .as_ref()
-            .map(|text| StyledText::styled(text.clone(), TextStyle::default().colors(styles.subtitle.colors.clone())));
+            .map(|text| StyledText::new(text.clone(), TextStyle::default().colors(styles.subtitle.colors.clone())));
         let author = metadata
             .author
             .as_ref()
-            .map(|text| StyledText::styled(text.clone(), TextStyle::default().colors(styles.author.colors.clone())));
+            .map(|text| StyledText::new(text.clone(), TextStyle::default().colors(styles.author.colors.clone())));
         self.slide_operations.push(RenderOperation::JumpToVerticalCenter);
-        self.push_text(Text::single(title), ElementType::PresentationTitle);
+        self.push_text(Text::from(title), ElementType::PresentationTitle);
         self.push_line_break();
         if let Some(text) = sub_title {
-            self.push_text(Text::single(text), ElementType::PresentationSubTitle);
+            self.push_text(Text::from(text), ElementType::PresentationSubTitle);
             self.push_line_break();
         }
         if let Some(text) = author {
@@ -166,7 +172,7 @@ impl<'a> PresentationBuilder<'a> {
                     self.slide_operations.push(RenderOperation::JumpToSlideBottom);
                 }
             };
-            self.push_text(Text::single(text), ElementType::PresentationAuthor);
+            self.push_text(Text::from(text), ElementType::PresentationAuthor);
         }
         self.terminate_slide();
     }
@@ -226,7 +232,7 @@ impl<'a> PresentationBuilder<'a> {
         if let Some(prefix) = &style.prefix {
             let mut prefix = prefix.clone();
             prefix.push(' ');
-            text.chunks.insert(0, StyledText::plain(prefix));
+            text.chunks.insert(0, StyledText::from(prefix));
         }
         let text_style = TextStyle::default().bold().colors(style.colors.clone());
         text.apply_style(&text_style);
@@ -286,7 +292,7 @@ impl<'a> PresentationBuilder<'a> {
 
         prefix.push(' ');
         let mut text = item.contents;
-        text.chunks.insert(0, StyledText::plain(prefix));
+        text.chunks.insert(0, StyledText::from(prefix));
         self.push_text(text, ElementType::List);
         self.push_line_break();
     }
@@ -392,7 +398,7 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_table(&mut self, table: Table) {
         let widths: Vec<_> = (0..table.columns())
-            .map(|column| table.iter_column(column).map(|text| text.line_len()).max().unwrap_or(0))
+            .map(|column| table.iter_column(column).map(|text| text.width()).max().unwrap_or(0))
             .collect();
         let flattened_header = Self::prepare_table_row(table.header, &widths);
         self.push_text(flattened_header, ElementType::Table);
@@ -407,7 +413,7 @@ impl<'a> PresentationBuilder<'a> {
                 extra_lines += 1;
             }
             contents.extend(iter::repeat("─").take(*width + extra_lines));
-            separator.chunks.push(StyledText::plain(contents));
+            separator.chunks.push(StyledText::from(contents));
         }
 
         self.push_text(separator, ElementType::Table);
@@ -424,15 +430,15 @@ impl<'a> PresentationBuilder<'a> {
         let mut flattened_row = Text { chunks: Vec::new() };
         for (column, text) in row.0.into_iter().enumerate() {
             if column > 0 {
-                flattened_row.chunks.push(StyledText::plain(" │ "));
+                flattened_row.chunks.push(StyledText::from(" │ "));
             }
-            let text_length = text.line_len();
+            let text_length = text.width();
             flattened_row.chunks.extend(text.chunks.into_iter());
 
             let cell_width = widths[column];
             if text_length < cell_width {
                 let padding = " ".repeat(cell_width - text_length);
-                flattened_row.chunks.push(StyledText::plain(padding));
+                flattened_row.chunks.push(StyledText::from(padding));
             }
         }
         flattened_row
@@ -458,7 +464,7 @@ impl FooterGenerator {
             .replace("{current_slide}", current_slide)
             .replace("{total_slides}", &context.total_slides.to_string())
             .replace("{author}", &context.author);
-        WeightedText::from(StyledText::styled(contents, TextStyle::default().colors(colors)))
+        WeightedText::from(StyledText::new(contents, TextStyle::default().colors(colors)))
     }
 }
 
@@ -495,8 +501,7 @@ impl AsRenderOperations for FooterGenerator {
                 let progress_ratio = (self.current_slide + 1) as f64 / context.total_slides as f64;
                 let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
                 let bar = character.repeat(columns_ratio as usize);
-                let bar =
-                    vec![WeightedText::from(StyledText::styled(bar, TextStyle::default().colors(colors.clone())))];
+                let bar = vec![WeightedText::from(StyledText::new(bar, TextStyle::default().colors(colors.clone())))];
                 vec![
                     RenderOperation::JumpToWindowBottom,
                     RenderOperation::RenderTextLine { texts: bar.into(), alignment: Alignment::Left { margin: 0 } },
@@ -507,6 +512,7 @@ impl AsRenderOperations for FooterGenerator {
     }
 }
 
+/// An error when building a presentation.
 #[derive(thiserror::Error, Debug)]
 pub enum BuildError {
     #[error("loading image: {0}")]
@@ -538,9 +544,8 @@ impl FromStr for Comment {
 
 #[cfg(test)]
 mod test {
-    use crate::markdown::elements::CodeLanguage;
-
     use super::*;
+    use crate::markdown::elements::ProgrammingLanguage;
 
     fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
         let highlighter = CodeHighlighter::new("base16-ocean.dark").unwrap();
@@ -562,9 +567,9 @@ mod test {
     fn prelude_appears_once() {
         let elements = vec![
             MarkdownElement::FrontMatter("author: bob".to_string()),
-            MarkdownElement::Heading { text: Text::single("hello".into()), level: 1 },
+            MarkdownElement::Heading { text: Text::from("hello"), level: 1 },
             MarkdownElement::Comment("end_slide".to_string()),
-            MarkdownElement::Heading { text: Text::single("bye".into()), level: 1 },
+            MarkdownElement::Heading { text: Text::from("bye"), level: 1 },
         ];
         let presentation = build_presentation(elements);
         for (index, slide) in presentation.slides.into_iter().enumerate() {
@@ -581,9 +586,9 @@ mod test {
     fn slides_start_with_one_newline() {
         let elements = vec![
             MarkdownElement::FrontMatter("author: bob".to_string()),
-            MarkdownElement::Heading { text: Text::single("hello".into()), level: 1 },
+            MarkdownElement::Heading { text: Text::from("hello"), level: 1 },
             MarkdownElement::Comment("end_slide".to_string()),
-            MarkdownElement::Heading { text: Text::single("bye".into()), level: 1 },
+            MarkdownElement::Heading { text: Text::from("bye"), level: 1 },
         ];
         let presentation = build_presentation(elements);
         assert_eq!(presentation.slides.len(), 3);
@@ -604,7 +609,7 @@ mod test {
         let text = "苹果".to_string();
         let elements = vec![
             MarkdownElement::BlockQuote(vec![text.clone()]),
-            MarkdownElement::Code(Code { contents: text.clone(), language: CodeLanguage::Unknown }),
+            MarkdownElement::Code(Code { contents: text.clone(), language: ProgrammingLanguage::Unknown }),
         ];
         let presentation = build_presentation(elements);
         let lengths: Vec<_> = presentation.slides[0]

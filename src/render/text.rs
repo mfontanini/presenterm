@@ -13,20 +13,18 @@ use std::io;
 
 const MINIMUM_LINE_LENGTH: u16 = 10;
 
-pub(crate) struct TextDrawer<'a, W> {
-    handle: &'a mut W,
+/// Draws text on the screen.
+///
+/// This deals with splitting words and doing word wrapping based on the given positioning.
+pub struct TextDrawer<'a> {
     line: &'a WeightedLine,
     positioning: Positioning,
     default_colors: &'a Colors,
 }
 
-impl<'a, W> TextDrawer<'a, W>
-where
-    W: io::Write,
-{
-    pub(crate) fn new(
+impl<'a> TextDrawer<'a> {
+    pub fn new(
         alignment: &'a Alignment,
-        handle: &'a mut W,
         line: &'a WeightedLine,
         dimensions: &WindowSize,
         default_colors: &'a Colors,
@@ -37,28 +35,31 @@ where
         if text_length > positioning.max_line_length && positioning.max_line_length <= MINIMUM_LINE_LENGTH {
             Err(RenderError::TerminalTooSmall)
         } else {
-            Ok(Self { handle, line, positioning, default_colors })
+            Ok(Self { line, positioning, default_colors })
         }
     }
 
-    pub(crate) fn draw(self) -> RenderResult {
+    /// Draw text on the given handle.
+    ///
+    /// This performs word splitting and word wrapping.
+    pub fn draw<W: io::Write>(self, handle: &mut W) -> RenderResult {
         let Positioning { max_line_length, start_column } = self.positioning;
-        self.handle.queue(cursor::MoveToColumn(start_column))?;
+        handle.queue(cursor::MoveToColumn(start_column))?;
 
         for (line_index, line) in self.line.split(max_line_length as usize).enumerate() {
-            self.handle.queue(cursor::MoveToColumn(start_column))?;
+            handle.queue(cursor::MoveToColumn(start_column))?;
             if line_index > 0 {
-                self.handle.queue(cursor::MoveDown(1))?;
+                handle.queue(cursor::MoveDown(1))?;
             }
             for chunk in line {
                 let (text, style) = chunk.into_parts();
                 let text = style.apply(text);
-                self.handle.queue(style::PrintStyledContent(text))?;
+                handle.queue(style::PrintStyledContent(text))?;
 
                 // Crossterm resets colors if any attributes are set so let's just re-apply colors
                 // if the format has anything on it at all.
                 if style != TextStyle::default() {
-                    self.handle.queue(style::SetColors(style::Colors {
+                    handle.queue(style::SetColors(style::Colors {
                         background: self.default_colors.background,
                         foreground: self.default_colors.foreground,
                     }))?;

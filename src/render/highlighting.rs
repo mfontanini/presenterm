@@ -1,4 +1,4 @@
-use crate::markdown::elements::CodeLanguage;
+use crate::markdown::elements::ProgrammingLanguage;
 use syntect::{
     easy::HighlightLines,
     highlighting::{Style, Theme, ThemeSet},
@@ -6,20 +6,25 @@ use syntect::{
     util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
 
+/// A code highlighter.
 pub struct CodeHighlighter {
     syntax_set: SyntaxSet,
     theme: Theme,
 }
 
 impl CodeHighlighter {
-    pub fn new(theme: &str) -> Result<Self, InvalidTheme> {
+    /// Construct a new highlighted using the given [syntect] theme name.
+    pub fn new(theme: &str) -> Result<Self, ThemeNotFound> {
         let syntax_set = SyntaxSet::load_defaults_newlines();
         let theme_set = ThemeSet::load_defaults();
-        let theme = theme_set.themes.get(theme).ok_or(InvalidTheme)?.clone();
+        let theme = theme_set.themes.get(theme).ok_or(ThemeNotFound)?.clone();
         Ok(Self { syntax_set, theme })
     }
 
-    pub fn highlight<'a>(&self, code: &'a str, language: &CodeLanguage) -> Vec<CodeLine<'a>> {
+    /// Highlight a piece of code.
+    ///
+    /// This splits the given piece of code into lines, highlights them individually, and returns them.
+    pub fn highlight<'a>(&self, code: &'a str, language: &ProgrammingLanguage) -> Vec<CodeLine<'a>> {
         let extension = Self::language_extension(language);
         let syntax = self.syntax_set.find_syntax_by_extension(extension).unwrap();
         let mut highlight_lines = HighlightLines::new(syntax, &self.theme);
@@ -33,8 +38,8 @@ impl CodeHighlighter {
         lines
     }
 
-    fn language_extension(language: &CodeLanguage) -> &'static str {
-        use CodeLanguage::*;
+    fn language_extension(language: &ProgrammingLanguage) -> &'static str {
+        use ProgrammingLanguage::*;
         match language {
             Asp => "asa",
             Bash => "bash",
@@ -74,11 +79,18 @@ impl CodeHighlighter {
     }
 }
 
+/// A line of highlighted code.
 pub struct CodeLine<'a> {
+    /// The original line of code.
     pub original: &'a str,
+
+    /// The formatted line of code.
+    ///
+    /// This uses terminal escape codes internally and is ready to be printed.
     pub formatted: String,
 }
 
+/// A theme could not be found.
 #[derive(Debug, thiserror::Error)]
-#[error("invalid theme")]
-pub struct InvalidTheme;
+#[error("theme not found")]
+pub struct ThemeNotFound;

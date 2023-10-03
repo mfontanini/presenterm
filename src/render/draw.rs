@@ -17,16 +17,19 @@ use crossterm::{
 };
 use std::io;
 
+/// The result of a render operation.
 pub type RenderResult = Result<(), RenderError>;
 
-pub struct Drawer<W: io::Write> {
+/// Allows drawing elements in the terminal.
+pub struct TerminalDrawer<W: io::Write> {
     handle: W,
 }
 
-impl<W> Drawer<W>
+impl<W> TerminalDrawer<W>
 where
     W: io::Write,
 {
+    /// Construct a drawer over a [std::io::Write].
     pub fn new(mut handle: W) -> io::Result<Self> {
         enable_raw_mode()?;
         handle.queue(cursor::Hide)?;
@@ -34,6 +37,7 @@ where
         Ok(Self { handle })
     }
 
+    /// Render a slide.
     pub fn render_slide(&mut self, presentation: &Presentation) -> RenderResult {
         let window_dimensions = WindowSize::current()?;
         let slide_dimensions = window_dimensions.shrink_rows(3);
@@ -47,13 +51,14 @@ where
         Ok(())
     }
 
+    /// Render an error.
     pub fn render_error(&mut self, message: &str) -> RenderResult {
         let dimensions = WindowSize::current()?;
         let heading = vec![
-            WeightedText::from(StyledText::styled("Error loading presentation", TextStyle::default().bold())),
-            WeightedText::from(StyledText::plain(": ")),
+            WeightedText::from(StyledText::new("Error loading presentation", TextStyle::default().bold())),
+            WeightedText::from(StyledText::from(": ")),
         ];
-        let error = vec![WeightedText::from(StyledText::plain(message))];
+        let error = vec![WeightedText::from(StyledText::from(message))];
         let alignment = Alignment::Center { minimum_size: 0, minimum_margin: 5 };
         let operations = vec![
             RenderOperation::ClearScreen,
@@ -73,7 +78,7 @@ where
     }
 }
 
-impl<W> Drop for Drawer<W>
+impl<W> Drop for TerminalDrawer<W>
 where
     W: io::Write,
 {
@@ -84,6 +89,7 @@ where
     }
 }
 
+/// A rendering error.
 #[derive(thiserror::Error, Debug)]
 pub enum RenderError {
     #[error("io: {0}")]

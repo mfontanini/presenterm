@@ -1,6 +1,10 @@
 use crossterm::terminal::window_size;
 use std::io;
 
+/// The size of the terminal window.
+///
+/// This is the same as [crossterm::terminal::window_size] except with some added functionality,
+/// like implementing `Clone`.
 #[derive(Debug, Clone)]
 pub struct WindowSize {
     pub rows: u16,
@@ -10,11 +14,15 @@ pub struct WindowSize {
 }
 
 impl WindowSize {
+    /// Get the current window size.
     pub fn current() -> io::Result<Self> {
         let size = window_size()?;
         Ok(size.into())
     }
 
+    /// Shrink a window by the given number of rows.
+    ///
+    /// This preserves the relationship between rows and pixels.
     pub fn shrink_rows(&self, amount: u16) -> WindowSize {
         let pixels_per_row = self.pixels_per_row();
         let height_to_shrink = (pixels_per_row * amount as f64) as u16;
@@ -26,10 +34,12 @@ impl WindowSize {
         }
     }
 
+    /// The number of pixels per column.
     pub fn pixels_per_column(&self) -> f64 {
         self.width as f64 / self.columns as f64
     }
 
+    /// The number of pixels per row.
     pub fn pixels_per_row(&self) -> f64 {
         self.height as f64 / self.rows as f64
     }

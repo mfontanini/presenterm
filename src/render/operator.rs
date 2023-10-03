@@ -1,7 +1,7 @@
 use super::{
     draw::{RenderError, RenderResult},
     layout::Layout,
-    media::{Image, MediaDrawer},
+    media::{Image, MediaRender},
     text::TextDrawer,
 };
 use crate::{
@@ -91,8 +91,8 @@ where
     }
 
     fn render_text(&mut self, text: &WeightedLine, alignment: &Alignment) -> RenderResult {
-        let text_drawer = TextDrawer::new(alignment, &mut self.handle, text, &self.slide_dimensions, &self.colors)?;
-        text_drawer.draw()
+        let text_drawer = TextDrawer::new(alignment, text, &self.slide_dimensions, &self.colors)?;
+        text_drawer.draw(&mut self.handle)
     }
 
     fn render_separator(&mut self) -> RenderResult {
@@ -107,7 +107,7 @@ where
     }
 
     fn render_image(&mut self, image: &Image) -> RenderResult {
-        MediaDrawer.draw_image(image, &self.slide_dimensions).map_err(|e| RenderError::Other(Box::new(e)))?;
+        MediaRender.draw_image(image, &self.slide_dimensions).map_err(|e| RenderError::Other(Box::new(e)))?;
         Ok(())
     }
 

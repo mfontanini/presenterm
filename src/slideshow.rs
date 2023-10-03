@@ -7,7 +7,7 @@ use crate::{
     markdown::parse::{MarkdownParser, ParseError},
     presentation::Presentation,
     render::{
-        draw::{Drawer, RenderError, RenderResult},
+        draw::{RenderError, RenderResult, TerminalDrawer},
         highlighting::CodeHighlighter,
     },
     resource::Resources,
@@ -19,6 +19,9 @@ use std::{
     path::Path,
 };
 
+/// A slide show.
+///
+/// This type puts everything else together.
 pub struct SlideShow<'a> {
     default_theme: &'a PresentationTheme,
     commands: CommandSource,
@@ -29,6 +32,7 @@ pub struct SlideShow<'a> {
 }
 
 impl<'a> SlideShow<'a> {
+    /// Construct a new slideshow.
     pub fn new(
         default_theme: &'a PresentationTheme,
         commands: CommandSource,
@@ -39,10 +43,11 @@ impl<'a> SlideShow<'a> {
         Self { default_theme, commands, parser, resources, highlighter, state: SlideShowState::Empty }
     }
 
+    /// Run a presentation.
     pub fn present(mut self, path: &Path) -> Result<(), SlideShowError> {
         self.state = SlideShowState::Presenting(self.load_presentation(path)?);
 
-        let mut drawer = Drawer::new(io::stdout())?;
+        let mut drawer = TerminalDrawer::new(io::stdout())?;
         loop {
             self.render(&mut drawer)?;
 
@@ -77,7 +82,7 @@ impl<'a> SlideShow<'a> {
         }
     }
 
-    fn render(&mut self, drawer: &mut Drawer<Stdout>) -> RenderResult {
+    fn render(&mut self, drawer: &mut TerminalDrawer<Stdout>) -> RenderResult {
         let result = match &self.state {
             SlideShowState::Presenting(presentation) => drawer.render_slide(presentation),
             SlideShowState::Failure { error, .. } => drawer.render_error(error),
@@ -85,11 +90,7 @@ impl<'a> SlideShow<'a> {
         };
         // If the screen is too small, simply ignore this. Eventually the user will resize the
         // screen.
-        if matches!(result, Err(RenderError::TerminalTooSmall)) {
-            Ok(())
-        } else {
-            result
-        }
+        if matches!(result, Err(RenderError::TerminalTooSmall)) { Ok(()) } else { result }
     }
 
     fn apply_user_command(&mut self, command: UserCommand) -> CommandSideEffect {
@@ -109,11 +110,7 @@ impl<'a> SlideShow<'a> {
             UserCommand::JumpSlide(number) => presentation.jump_slide(number.saturating_sub(1) as usize),
             UserCommand::Exit => return CommandSideEffect::Exit,
         };
-        if needs_redraw {
-            CommandSideEffect::Redraw
-        } else {
-            CommandSideEffect::None
-        }
+        if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
     }
 
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
@@ -155,6 +152,7 @@ impl SlideShowState {
     }
 }
 
+/// An error when loading a presentation.
 #[derive(thiserror::Error, Debug)]
 pub enum LoadPresentationError {
     #[error(transparent)]
@@ -167,6 +165,7 @@ pub enum LoadPresentationError {
     Processing(#[from] BuildError),
 }
 
+/// An error during the slide show.
 #[derive(thiserror::Error, Debug)]
 pub enum SlideShowError {
     #[error(transparent)]

@@ -6,24 +6,29 @@ use crate::{
 use serde::Deserialize;
 use std::rc::Rc;
 
+/// A presentation.
 pub struct Presentation {
     pub slides: Vec<Slide>,
     current_slide_index: usize,
 }
 
 impl Presentation {
+    /// Construct a new presentation.
     pub fn new(slides: Vec<Slide>) -> Self {
         Self { slides, current_slide_index: 0 }
     }
 
+    /// Get the current slide.
     pub fn current_slide(&self) -> &Slide {
         &self.slides[self.current_slide_index]
     }
 
+    /// Get the current slide index.
     pub fn current_slide_index(&self) -> usize {
         self.current_slide_index
     }
 
+    /// Jump to the next slide.
     pub fn jump_next_slide(&mut self) -> bool {
         if self.current_slide_index < self.slides.len() - 1 {
             self.current_slide_index += 1;
@@ -33,6 +38,7 @@ impl Presentation {
         }
     }
 
+    /// Jump to the previous slide.
     pub fn jump_previous_slide(&mut self) -> bool {
         if self.current_slide_index > 0 {
             self.current_slide_index -= 1;
@@ -42,6 +48,7 @@ impl Presentation {
         }
     }
 
+    /// Jump to the first slide.
     pub fn jump_first_slide(&mut self) -> bool {
         if self.current_slide_index != 0 {
             self.current_slide_index = 0;
@@ -51,6 +58,7 @@ impl Presentation {
         }
     }
 
+    /// Jump to the last slide.
     pub fn jump_last_slide(&mut self) -> bool {
         let last_slide_index = self.slides.len().saturating_sub(1);
         if self.current_slide_index != last_slide_index {
@@ -61,6 +69,7 @@ impl Presentation {
         }
     }
 
+    /// Jump to a specific slide.
     pub fn jump_slide(&mut self, slide_index: usize) -> bool {
         if slide_index < self.slides.len() {
             self.current_slide_index = slide_index;
@@ -71,52 +80,102 @@ impl Presentation {
     }
 }
 
+/// A slide.
+///
+/// Slides are composed of render operations that can be carried out to materialize this slide into
+/// the terminal's screen.
 #[derive(Clone, Debug)]
 pub struct Slide {
     pub render_operations: Vec<RenderOperation>,
 }
 
+/// The metadata for a presentation.
 #[derive(Clone, Debug, Deserialize)]
 pub struct PresentationMetadata {
+    /// The presentation title.
     pub title: Option<String>,
 
+    /// The presentation sub-title.
     #[serde(default)]
     pub sub_title: Option<String>,
 
+    /// The presentation author.
     #[serde(default)]
     pub author: Option<String>,
 
+    /// The presentation's theme metadata.
     #[serde(default)]
     pub theme: PresentationThemeMetadata,
 }
 
+/// A presentation's theme metadata.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct PresentationThemeMetadata {
+    /// The theme name.
     #[serde(default)]
     pub theme_name: Option<String>,
 
+    /// the theme path.
     #[serde(default)]
     pub theme_path: Option<String>,
 
+    /// Any specific overrides for the presentation's theme.
     #[serde(default, rename = "override")]
     pub overrides: Option<PresentationTheme>,
 }
 
+/// A render operation.
+///
+/// Render operations are primitives that allow the input markdown file to be decoupled with what
+/// we draw on the screen.
 #[derive(Clone, Debug)]
 pub enum RenderOperation {
+    /// Clear the entire screen.
     ClearScreen,
+
+    /// Set the colors to be used for any subsequent operations.
     SetColors(Colors),
+
+    /// Jump the draw cursor into the vertical center, that is, at `screen_height / 2`.
     JumpToVerticalCenter,
-    JumpToSlideBottom,
+
+    /// Jump the draw cursor into the last row in the screen.
     JumpToWindowBottom,
+
+    /// Jumps to the last row in the slide.
+    ///
+    /// The slide's draw area is slightly smaller than the window, hence the distinction with
+    /// [RenderOperation::JumpToWindowBottom].
+    JumpToSlideBottom,
+
+    /// Render a line of text.
     RenderTextLine { texts: WeightedLine, alignment: Alignment },
+
+    /// Render a horizontal separator line.
     RenderSeparator,
+
+    /// Render a line break.
     RenderLineBreak,
+
+    /// Render an image.
     RenderImage(Image),
+
+    /// Render a preformatted line.
+    ///
+    /// The line will usually already have terminal escape codes that include colors and formatting
+    /// embedded in it.
     RenderPreformattedLine { text: String, unformatted_length: usize, block_length: usize, alignment: Alignment },
+
+    /// Render a dynamically generated sequence of render operations.
+    ///
+    /// This allows drawing something on the screen that requires knowing dynamic properties of the
+    /// screen, like window size, without coupling the transformation of markdown into
+    /// [RenderOperation] with the screen itself.
     RenderDynamic(Rc<dyn AsRenderOperations>),
 }
 
+/// A type that can generate render operations.
 pub trait AsRenderOperations: std::fmt::Debug {
+    /// Generate render operations.
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation>;
 }

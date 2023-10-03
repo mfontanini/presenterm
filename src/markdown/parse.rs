@@ -1,7 +1,7 @@
 use crate::{
     markdown::elements::{
-        Code, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table, TableRow,
-        Text,
+        Code, ListItem, ListItemType, MarkdownElement, ParagraphElement, ProgrammingLanguage, StyledText, Table,
+        TableRow, Text,
     },
     style::TextStyle,
 };
@@ -18,9 +18,10 @@ use std::{
     mem,
 };
 
-type ParseResult<T> = Result<T, ParseError>;
+/// The result of parsing a markdown file.
+pub type ParseResult<T> = Result<T, ParseError>;
 
-pub struct ParserOptions(ComrakOptions);
+struct ParserOptions(ComrakOptions);
 
 impl Default for ParserOptions {
     fn default() -> Self {
@@ -32,16 +33,21 @@ impl Default for ParserOptions {
     }
 }
 
+/// A markdown parser.
+///
+/// This takes the contents of a markdown file and parses it into a list of [MarkdownElement].
 pub struct MarkdownParser<'a> {
     arena: &'a Arena<AstNode<'a>>,
     options: ComrakOptions,
 }
 
 impl<'a> MarkdownParser<'a> {
+    /// Construct a new markdown parser.
     pub fn new(arena: &'a Arena<AstNode<'a>>) -> Self {
         Self { arena, options: ParserOptions::default().0 }
     }
 
+    /// Parse the contents of a markdown file.
     pub fn parse(&self, contents: &str) -> ParseResult<Vec<MarkdownElement>> {
         let node = parse_document(self.arena, contents, &self.options);
         let mut elements = Vec::new();
@@ -118,7 +124,7 @@ impl<'a> MarkdownParser<'a> {
         if !block.fenced {
             return Err(ParseErrorKind::UnfencedCodeBlock.with_sourcepos(sourcepos));
         }
-        use CodeLanguage::*;
+        use ProgrammingLanguage::*;
         let language = match block.info.as_str() {
             "asp" => Asp,
             "bash" => Bash,
@@ -317,17 +323,17 @@ impl InlinesParser {
         let data = node.data.borrow();
         match &data.value {
             NodeValue::Text(text) => {
-                self.pending_text.push(StyledText::styled(text.clone(), style.clone()));
+                self.pending_text.push(StyledText::new(text.clone(), style.clone()));
             }
             NodeValue::Code(code) => {
-                self.pending_text.push(StyledText::styled(code.literal.clone(), TextStyle::default().code()));
+                self.pending_text.push(StyledText::new(code.literal.clone(), TextStyle::default().code()));
             }
             NodeValue::Strong => self.process_children(node, style.clone().bold())?,
             NodeValue::Emph => self.process_children(node, style.clone().italics())?,
             NodeValue::Strikethrough => self.process_children(node, style.clone().strikethrough())?,
-            NodeValue::SoftBreak => self.pending_text.push(StyledText::plain(" ")),
+            NodeValue::SoftBreak => self.pending_text.push(StyledText::from(" ")),
             NodeValue::Link(link) => {
-                self.pending_text.push(StyledText::styled(link.url.clone(), TextStyle::default().link()))
+                self.pending_text.push(StyledText::new(link.url.clone(), TextStyle::default().link()))
             }
             NodeValue::LineBreak => {
                 self.store_pending_text();
@@ -369,9 +375,13 @@ impl Inline {
     }
 }
 
+/// A parsing error.
 #[derive(thiserror::Error, Debug)]
 pub struct ParseError {
+    /// The kind of error.
     pub kind: ParseErrorKind,
+
+    /// The position in the source file this error originated from.
     pub sourcepos: Sourcepos,
 }
 
@@ -387,11 +397,19 @@ impl ParseError {
     }
 }
 
+/// The kind of error.
 #[derive(Debug)]
 pub enum ParseErrorKind {
+    /// We don't support parsing this element.
     UnsupportedElement(&'static str),
+
+    /// We don't support parsing an element in a specific container.
     UnsupportedStructure { container: &'static str, element: &'static str },
+
+    /// We don't support unfenced code blocks.
     UnfencedCodeBlock,
+
+    /// An internal parsing error.
     Internal(String),
 }
 
@@ -491,17 +509,17 @@ boop
         let parsed = parse_single("some **bold text**, _italics_, *italics*, **nested _italics_**, ~strikethrough~");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks = vec![
-            StyledText::plain("some "),
-            StyledText::styled("bold text", TextStyle::default().bold()),
-            StyledText::plain(", "),
-            StyledText::styled("italics", TextStyle::default().italics()),
-            StyledText::plain(", "),
-            StyledText::styled("italics", TextStyle::default().italics()),
-            StyledText::plain(", "),
-            StyledText::styled("nested ", TextStyle::default().bold()),
-            StyledText::styled("italics", TextStyle::default().italics().bold()),
-            StyledText::plain(", "),
-            StyledText::styled("strikethrough", TextStyle::default().strikethrough()),
+            StyledText::from("some "),
+            StyledText::new("bold text", TextStyle::default().bold()),
+            StyledText::from(", "),
+            StyledText::new("italics", TextStyle::default().italics()),
+            StyledText::from(", "),
+            StyledText::new("italics", TextStyle::default().italics()),
+            StyledText::from(", "),
+            StyledText::new("nested ", TextStyle::default().bold()),
+            StyledText::new("italics", TextStyle::default().italics().bold()),
+            StyledText::from(", "),
+            StyledText::new("strikethrough", TextStyle::default().strikethrough()),
         ];
 
         let expected_elements = &[ParagraphElement::Text(Text { chunks: expected_chunks })];
@@ -513,7 +531,7 @@ boop
         let parsed = parse_single("my [website](https://example.com)");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks =
-            vec![StyledText::plain("my "), StyledText::styled("https://example.com", TextStyle::default().link())];
+            vec![StyledText::from("my "), StyledText::new("https://example.com", TextStyle::default().link())];
 
         let expected_elements = &[ParagraphElement::Text(Text { chunks: expected_chunks })];
         assert_eq!(elements, expected_elements);
@@ -545,7 +563,7 @@ Title
 ",
         );
         let MarkdownElement::SetexHeading { text } = parsed else { panic!("not a slide title: {parsed:?}") };
-        let expected_chunks = [StyledText::plain("Title")];
+        let expected_chunks = [StyledText::from("Title")];
         assert_eq!(text.chunks, expected_chunks);
     }
 
@@ -554,7 +572,7 @@ Title
         let parsed = parse_single("# Title **with bold**");
         let MarkdownElement::Heading { text, level } = parsed else { panic!("not a heading: {parsed:?}") };
         let expected_chunks =
-            vec![StyledText::plain("Title "), StyledText::styled("with bold", TextStyle::default().bold())];
+            vec![StyledText::from("Title "), StyledText::new("with bold", TextStyle::default().bold())];
 
         assert_eq!(level, 1);
         assert_eq!(text.chunks, expected_chunks);
@@ -597,7 +615,7 @@ another",
         assert_eq!(elements.len(), 3);
 
         let expected_chunks =
-            &[StyledText::plain("some text"), StyledText::plain(" "), StyledText::plain("with line breaks")];
+            &[StyledText::from("some text"), StyledText::from(" "), StyledText::from("with line breaks")];
         let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };
         assert_eq!(text.chunks, expected_chunks);
         assert!(matches!(&elements[1], ParagraphElement::LineBreak));
@@ -614,7 +632,7 @@ let q = 42;
 ",
         );
         let MarkdownElement::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
-        assert_eq!(code.language, CodeLanguage::Rust);
+        assert_eq!(code.language, ProgrammingLanguage::Rust);
         assert_eq!(code.contents, "let q = 42;\n");
     }
 
@@ -622,8 +640,7 @@ let q = 42;
     fn inline_code() {
         let parsed = parse_single("some `inline code`");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        let expected_chunks =
-            &[StyledText::plain("some "), StyledText::styled("inline code", TextStyle::default().code())];
+        let expected_chunks = &[StyledText::from("some "), StyledText::new("inline code", TextStyle::default().code())];
         assert_eq!(elements.len(), 1);
 
         let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };

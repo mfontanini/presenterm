@@ -4,6 +4,9 @@ use image::{DynamicImage, ImageError};
 use std::{fmt::Debug, fs, io, rc::Rc};
 use viuer::ViuError;
 
+/// An image.
+///
+/// This stores the image in an [std::rc::Rc] so it's cheap to clone.
 #[derive(Clone)]
 pub struct Image(Rc<DynamicImage>);
 
@@ -14,6 +17,7 @@ impl Debug for Image {
 }
 
 impl Image {
+    /// Construct a new image from a byte sequence.
     pub fn new(contents: &[u8]) -> Result<Self, InvalidImage> {
         let contents = image::load_from_memory(contents)?;
         let contents = Rc::new(contents);
@@ -21,10 +25,19 @@ impl Image {
     }
 }
 
-pub struct MediaDrawer;
+/// A media render.
+pub struct MediaRender;
 
-impl MediaDrawer {
-    pub fn draw_image(&self, image: &Image, dimensions: &WindowSize) -> Result<(), DrawImageError> {
+impl MediaRender {
+    /// Draw an image.
+    ///
+    /// This will use the current terminal size and try to render the image where the cursor is
+    /// currently positioned, respecting the image size. That is, if the image is 300 by 100 pixels
+    /// and that fits in the screen at the current cursor positioned, it will be drawn as-is.
+    ///
+    /// In case the image does not fit, it will be resized to fit the screen, preserving the aspect
+    /// ratio.
+    pub fn draw_image(&self, image: &Image, dimensions: &WindowSize) -> Result<(), RenderImageError> {
         let position = cursor::position()?;
         let image = &image.0;
 
@@ -79,13 +92,15 @@ impl MediaDrawer {
     }
 }
 
+/// An invalid image.
 #[derive(thiserror::Error, Debug)]
 #[error("invalid image: {0}")]
 pub struct InvalidImage(#[from] ImageError);
 
+/// An image render error.
 #[derive(thiserror::Error, Debug)]
 #[error("invalid image: {0}")]
-pub enum DrawImageError {
+pub enum RenderImageError {
     #[error("io: {0}")]
     Io(#[from] io::Error),
 
