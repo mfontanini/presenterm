@@ -1,7 +1,7 @@
 use unicode_width::UnicodeWidthStr;
 
 use crate::style::TextStyle;
-use std::iter;
+use std::{iter, path::PathBuf};
 
 /// A markdown element.
 ///
@@ -22,7 +22,7 @@ pub enum MarkdownElement {
     Paragraph(Vec<ParagraphElement>),
 
     /// An image.
-    Image(String),
+    Image(PathBuf),
 
     /// A list.
     ///

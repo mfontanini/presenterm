@@ -184,7 +184,7 @@ impl<'a> MarkdownParser<'a> {
                     if !paragraph_elements.is_empty() {
                         elements.push(MarkdownElement::Paragraph(mem::take(&mut paragraph_elements)));
                     }
-                    elements.push(MarkdownElement::Image(path));
+                    elements.push(MarkdownElement::Image(path.into()));
                 }
             }
         }
@@ -476,6 +476,8 @@ impl Identifier for NodeValue {
 
 #[cfg(test)]
 mod test {
+    use std::path::Path;
+
     use super::*;
 
     fn parse_single(input: &str) -> MarkdownElement {
@@ -541,7 +543,7 @@ boop
     fn image() {
         let parsed = parse_single("![](potato.png)");
         let MarkdownElement::Image(path) = parsed else { panic!("not an image: {parsed:?}") };
-        assert_eq!(path, "potato.png");
+        assert_eq!(path, Path::new("potato.png"));
     }
 
     #[test]

@@ -17,7 +17,7 @@ use crate::{
     style::TextStyle,
     theme::{Alignment, AuthorPositioning, Colors, ElementType, FooterStyle, LoadThemeError, PresentationTheme},
 };
-use std::{borrow::Cow, cell::RefCell, iter, mem, rc::Rc, str::FromStr};
+use std::{borrow::Cow, cell::RefCell, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 
 /// Builds a presentation.
@@ -120,16 +120,16 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn set_theme(&mut self, metadata: &PresentationThemeMetadata) -> Result<(), BuildError> {
-        if metadata.theme_name.is_some() && metadata.theme_path.is_some() {
+        if metadata.name.is_some() && metadata.path.is_some() {
             return Err(BuildError::InvalidMetadata("cannot have both theme path and theme name".into()));
         }
-        if let Some(theme_name) = &metadata.theme_name {
+        if let Some(theme_name) = &metadata.name {
             let theme = PresentationTheme::from_name(theme_name)
                 .ok_or_else(|| BuildError::InvalidMetadata(format!("theme '{theme_name}' does not exist")))?;
             self.theme = Cow::Owned(theme);
         }
-        if let Some(theme_path) = &metadata.theme_path {
-            let theme = PresentationTheme::from_path(theme_path)?;
+        if let Some(theme_path) = &metadata.path {
+            let theme = self.resources.theme(theme_path)?;
             self.theme = Cow::Owned(theme);
         }
         if let Some(overrides) = &metadata.overrides {
@@ -257,7 +257,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_image(&mut self, path: String) -> Result<(), BuildError> {
+    fn push_image(&mut self, path: PathBuf) -> Result<(), BuildError> {
         let image = self.resources.image(&path)?;
         self.slide_operations.push(RenderOperation::RenderImage(image));
         Ok(())

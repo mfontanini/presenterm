@@ -123,11 +123,11 @@ pub struct PresentationMetadata {
 pub struct PresentationThemeMetadata {
     /// The theme name.
     #[serde(default)]
-    pub theme_name: Option<String>,
+    pub name: Option<String>,
 
     /// the theme path.
     #[serde(default)]
-    pub theme_path: Option<String>,
+    pub path: Option<String>,
 
     /// Any specific overrides for the presentation's theme.
     #[serde(default, rename = "override")]

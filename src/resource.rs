@@ -1,4 +1,7 @@
-use crate::render::media::{Image, InvalidImage};
+use crate::{
+    render::media::{Image, InvalidImage},
+    theme::{LoadThemeError, PresentationTheme},
+};
 use std::{
     collections::HashMap,
     fs, io,
@@ -6,9 +9,13 @@ use std::{
 };
 
 /// Manages resources pulled from the filesystem such as images.
+///
+/// All resources are cached so once a specific resource is loaded, looking it up with the same
+/// path will involve an in-memory lookup.
 pub struct Resources {
     base_path: PathBuf,
     images: HashMap<PathBuf, Image>,
+    themes: HashMap<PathBuf, PresentationTheme>,
 }
 
 impl Resources {
@@ -16,12 +23,10 @@ impl Resources {
     ///
     /// Any relative paths will be assumed to be relative to the given base.
     pub fn new<P: Into<PathBuf>>(base_path: P) -> Self {
-        Self { base_path: base_path.into(), images: Default::default() }
+        Self { base_path: base_path.into(), images: Default::default(), themes: Default::default() }
     }
 
     /// Get the image at the given path.
-    ///
-    /// Images are cached so subsequent lookups for the same path will be quick.
     pub fn image<P: AsRef<Path>>(&mut self, path: P) -> Result<Image, LoadImageError> {
         let path = self.base_path.join(path);
         if let Some(image) = self.images.get(&path) {
@@ -33,12 +38,24 @@ impl Resources {
         self.images.insert(path, image.clone());
         Ok(image)
     }
+
+    /// Get the theme at the given path.
+    pub fn theme<P: AsRef<Path>>(&mut self, path: P) -> Result<PresentationTheme, LoadThemeError> {
+        let path = self.base_path.join(path);
+        if let Some(theme) = self.themes.get(&path) {
+            return Ok(theme.clone());
+        }
+
+        let theme = PresentationTheme::from_path(&path)?;
+        self.themes.insert(path, theme.clone());
+        Ok(theme)
+    }
 }
 
 /// An error loading an image.
 #[derive(thiserror::Error, Debug)]
 pub enum LoadImageError {
-    #[error("io error opening {0}: {1}")]
+    #[error("io error reading {0}: {1}")]
     Io(PathBuf, io::Error),
 
     #[error("processing image: {0}")]
