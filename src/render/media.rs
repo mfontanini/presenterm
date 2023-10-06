@@ -7,7 +7,7 @@ use viuer::ViuError;
 /// An image.
 ///
 /// This stores the image in an [std::rc::Rc] so it's cheap to clone.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Image(Rc<DynamicImage>);
 
 impl Debug for Image {

@@ -214,7 +214,7 @@ pub struct BasicStyle {
 /// Text alignment.
 ///
 /// This allows anchoring presentation elements to the left, center, or right of the screen.
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(tag = "alignment", rename_all = "snake_case")]
 pub enum Alignment {
     /// Left alignment.

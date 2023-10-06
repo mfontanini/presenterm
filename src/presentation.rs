@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 /// A presentation.
 pub struct Presentation {
-    pub slides: Vec<Slide>,
+    slides: Vec<Slide>,
     current_slide_index: usize,
 }
 
@@ -16,6 +16,16 @@ impl Presentation {
     /// Construct a new presentation.
     pub fn new(slides: Vec<Slide>) -> Self {
         Self { slides, current_slide_index: 0 }
+    }
+
+    /// Iterate the slides in this presentation.
+    pub fn iter_slides(&self) -> impl Iterator<Item = &Slide> {
+        self.slides.iter()
+    }
+
+    /// Consume this presentation and return its slides.
+    pub fn into_slides(self) -> Vec<Slide> {
+        self.slides
     }
 
     /// Get the current slide.
@@ -124,6 +134,15 @@ pub struct PresentationThemeMetadata {
     pub overrides: Option<PresentationTheme>,
 }
 
+/// A line of preformatted text to be rendered.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PreformattedLine {
+    pub text: String,
+    pub unformatted_length: usize,
+    pub block_length: usize,
+    pub alignment: Alignment,
+}
+
 /// A render operation.
 ///
 /// Render operations are primitives that allow the input markdown file to be decoupled with what
@@ -164,7 +183,7 @@ pub enum RenderOperation {
     ///
     /// The line will usually already have terminal escape codes that include colors and formatting
     /// embedded in it.
-    RenderPreformattedLine { text: String, unformatted_length: usize, block_length: usize, alignment: Alignment },
+    RenderPreformattedLine(PreformattedLine),
 
     /// Render a dynamically generated sequence of render operations.
     ///

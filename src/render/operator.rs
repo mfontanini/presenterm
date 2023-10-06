@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     markdown::text::WeightedLine,
-    presentation::{AsRenderOperations, RenderOperation},
+    presentation::{AsRenderOperations, PreformattedLine, RenderOperation},
     render::{layout::Positioning, properties::WindowSize},
     theme::{Alignment, Colors},
 };
@@ -48,9 +48,7 @@ where
             RenderOperation::RenderSeparator => self.render_separator(),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image) => self.render_image(image),
-            RenderOperation::RenderPreformattedLine { text, unformatted_length, block_length, alignment } => {
-                self.render_preformatted_line(text, *unformatted_length, *block_length, alignment)
-            }
+            RenderOperation::RenderPreformattedLine(operation) => self.render_preformatted_line(operation),
             RenderOperation::RenderDynamic(generator) => self.render_dynamic(generator.as_ref()),
         }
     }
@@ -111,18 +109,13 @@ where
         Ok(())
     }
 
-    fn render_preformatted_line(
-        &mut self,
-        text: &str,
-        unformatted_length: usize,
-        block_length: usize,
-        alignment: &Alignment,
-    ) -> RenderResult {
+    fn render_preformatted_line(&mut self, operation: &PreformattedLine) -> RenderResult {
+        let PreformattedLine { text, unformatted_length, block_length, alignment } = operation;
         let Positioning { max_line_length, start_column } =
-            Layout(alignment).compute(&self.slide_dimensions, block_length as u16);
+            Layout(alignment).compute(&self.slide_dimensions, *block_length as u16);
         self.handle.queue(cursor::MoveToColumn(start_column))?;
 
-        let until_right_edge = usize::from(max_line_length).saturating_sub(unformatted_length);
+        let until_right_edge = usize::from(max_line_length).saturating_sub(*unformatted_length);
 
         // Pad this code block with spaces so we get a nice little rectangle.
         self.handle.queue(style::Print(&text))?;

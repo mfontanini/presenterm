@@ -6,7 +6,8 @@ use crate::{
         text::{WeightedLine, WeightedText},
     },
     presentation::{
-        AsRenderOperations, Presentation, PresentationMetadata, PresentationThemeMetadata, RenderOperation, Slide,
+        AsRenderOperations, PreformattedLine, Presentation, PresentationMetadata, PresentationThemeMetadata,
+        RenderOperation, Slide,
     },
     render::{
         highlighting::{CodeHighlighter, CodeLine},
@@ -306,12 +307,12 @@ impl<'a> PresentationBuilder<'a> {
             line.insert_str(0, &prefix);
 
             let line_length = line.width();
-            self.slide_operations.push(RenderOperation::RenderPreformattedLine {
+            self.slide_operations.push(RenderOperation::RenderPreformattedLine(PreformattedLine {
                 text: line,
                 unformatted_length: line_length,
                 block_length,
                 alignment: self.theme.alignment(&ElementType::BlockQuote).clone(),
-            });
+            }));
             self.push_line_break();
         }
         self.slide_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
@@ -368,12 +369,12 @@ impl<'a> PresentationBuilder<'a> {
             let CodeLine { formatted, original } = code_line;
             let trimmed = formatted.trim_end();
             let original_length = original.width() - (formatted.width() - trimmed.width());
-            self.slide_operations.push(RenderOperation::RenderPreformattedLine {
+            self.slide_operations.push(RenderOperation::RenderPreformattedLine(PreformattedLine {
                 text: trimmed.into(),
                 unformatted_length: original_length,
                 block_length,
                 alignment: self.theme.alignment(&ElementType::Code).clone(),
-            });
+            }));
             self.push_line_break();
         }
     }
@@ -545,7 +546,7 @@ impl FromStr for Comment {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::markdown::elements::ProgrammingLanguage;
+    use crate::{markdown::elements::ProgrammingLanguage, presentation::PreformattedLine};
 
     fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
         let highlighter = CodeHighlighter::new("base16-ocean.dark").unwrap();
@@ -572,7 +573,7 @@ mod test {
             MarkdownElement::Heading { text: Text::from("bye"), level: 1 },
         ];
         let presentation = build_presentation(elements);
-        for (index, slide) in presentation.slides.into_iter().enumerate() {
+        for (index, slide) in presentation.iter_slides().into_iter().enumerate() {
             let clear_screen_count =
                 slide.render_operations.iter().filter(|op| matches!(op, RenderOperation::ClearScreen)).count();
             let set_colors_count =
@@ -591,10 +592,10 @@ mod test {
             MarkdownElement::Heading { text: Text::from("bye"), level: 1 },
         ];
         let presentation = build_presentation(elements);
-        assert_eq!(presentation.slides.len(), 3);
+        assert_eq!(presentation.iter_slides().count(), 3);
 
         // Don't process the intro slide as it's special
-        let slides = presentation.slides.into_iter().skip(1);
+        let slides = presentation.into_slides().into_iter().skip(1);
         for slide in slides {
             let mut ops = slide.render_operations.into_iter().filter(is_visible);
             // We should start with a newline
@@ -612,13 +613,14 @@ mod test {
             MarkdownElement::Code(Code { contents: text.clone(), language: ProgrammingLanguage::Unknown }),
         ];
         let presentation = build_presentation(elements);
-        let lengths: Vec<_> = presentation.slides[0]
+        let slides = presentation.into_slides();
+        let lengths: Vec<_> = slides[0]
             .render_operations
             .iter()
             .filter_map(|op| match op {
-                RenderOperation::RenderPreformattedLine { block_length, unformatted_length, .. } => {
-                    Some((block_length, unformatted_length))
-                }
+                RenderOperation::RenderPreformattedLine(PreformattedLine {
+                    block_length, unformatted_length, ..
+                }) => Some((block_length, unformatted_length)),
                 _ => None,
             })
             .collect();

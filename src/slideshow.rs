@@ -1,5 +1,6 @@
 use crate::{
     builder::{BuildError, PresentationBuilder},
+    diff::PresentationDiffer,
     input::{
         source::{Command, CommandSource},
         user::UserCommand,
@@ -57,7 +58,10 @@ impl<'a> SlideShow<'a> {
                     Command::ReloadPresentation => {
                         match self.load_presentation(path) {
                             Ok(mut presentation) => {
-                                presentation.jump_slide(self.state.presentation().current_slide_index());
+                                let current = self.state.presentation();
+                                let target_slide = PresentationDiffer::first_modified_slide(current, &presentation)
+                                    .unwrap_or(current.current_slide_index());
+                                presentation.jump_slide(target_slide);
                                 self.state = SlideShowState::Presenting(presentation)
                             }
                             Err(e) => {
@@ -90,7 +94,11 @@ impl<'a> SlideShow<'a> {
         };
         // If the screen is too small, simply ignore this. Eventually the user will resize the
         // screen.
-        if matches!(result, Err(RenderError::TerminalTooSmall)) { Ok(()) } else { result }
+        if matches!(result, Err(RenderError::TerminalTooSmall)) {
+            Ok(())
+        } else {
+            result
+        }
     }
 
     fn apply_user_command(&mut self, command: UserCommand) -> CommandSideEffect {
@@ -110,7 +118,11 @@ impl<'a> SlideShow<'a> {
             UserCommand::JumpSlide(number) => presentation.jump_slide(number.saturating_sub(1) as usize),
             UserCommand::Exit => return CommandSideEffect::Exit,
         };
-        if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
+        if needs_redraw {
+            CommandSideEffect::Redraw
+        } else {
+            CommandSideEffect::None
+        }
     }
 
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {

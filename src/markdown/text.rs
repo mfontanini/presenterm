@@ -5,7 +5,7 @@ use unicode_width::UnicodeWidthChar;
 /// A weighted line of text.
 ///
 /// The weight of a character is its given by its width in unicode.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct WeightedLine(Vec<WeightedText>);
 
 impl WeightedLine {
@@ -33,14 +33,14 @@ impl From<String> for WeightedLine {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct CharAccumulator {
     width: usize,
     bytes: usize,
 }
 
 /// A piece of weighted text.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WeightedText {
     text: StyledText,
     accumulators: Vec<CharAccumulator>,
