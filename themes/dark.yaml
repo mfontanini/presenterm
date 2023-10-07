@@ -15,6 +15,7 @@ slide_title:
 code:
   alignment: center
   minimum_size: 50
+  theme_name: base16-eighties.dark
   padding:
     horizontal: 2
     vertical: 1
@@ -29,7 +30,7 @@ intro_slide:
   title:
     alignment: center
     colors:
-      foreground: "rgb_(87,108,188)"
+      foreground: "rgb_(180,204,255)"
   subtitle:
     alignment: center
     colors:
