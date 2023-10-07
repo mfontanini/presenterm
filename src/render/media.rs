@@ -1,7 +1,7 @@
 use crate::render::properties::WindowSize;
 use crossterm::cursor;
 use image::{DynamicImage, ImageError};
-use std::{fmt::Debug, fs, io, rc::Rc};
+use std::{fmt::Debug, io, rc::Rc};
 use viuer::ViuError;
 
 /// An image.
@@ -69,26 +69,8 @@ impl MediaRender {
             y: position.1 as i16,
             ..Default::default()
         };
-        self.clear_viuer_temp_files();
         viuer::print(image, &config)?;
         Ok(())
-    }
-
-    // viuer leaves a bunch of tempfiles when using kitty, this clears them up. Note that because
-    // kitty is optional and this is technically not needed for this app to work, we swallow all
-    // errors here.
-    //
-    // See https://github.com/atanunq/viuer/issues/47
-    fn clear_viuer_temp_files(&self) {
-        let Ok(entries) = fs::read_dir("/tmp") else { return };
-        for entry in entries {
-            let Ok(entry) = entry else { continue };
-            let path = entry.path();
-            let Some(file_name) = path.file_name().and_then(|f| f.to_str()) else { continue };
-            if file_name.starts_with(".tmp.viuer.") {
-                let _ = fs::remove_file(&path);
-            }
-        }
     }
 }
 

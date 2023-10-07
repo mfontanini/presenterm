@@ -15,7 +15,7 @@ serde_yaml = "0.9"
 syntect = "5.1"
 thiserror = "1"
 unicode-width = "0.1"
-viuer = "0.6"
+viuer = "0.7.1"
 
 [dev-dependencies]
 rstest = { version = "0.18", default-features = false }
