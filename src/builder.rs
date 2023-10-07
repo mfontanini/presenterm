@@ -97,7 +97,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::List(elements) => self.push_list(elements),
             MarkdownElement::Code(code) => self.push_code(code),
             MarkdownElement::Table(table) => self.push_table(table),
-            MarkdownElement::ThematicBreak => self.terminate_slide(),
+            MarkdownElement::ThematicBreak => self.push_separator(),
             MarkdownElement::Comment(comment) => self.process_comment(comment),
             MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines),
             MarkdownElement::Image(path) => self.push_image(path)?,
@@ -255,6 +255,11 @@ impl<'a> PresentationBuilder<'a> {
             };
         }
         Ok(())
+    }
+
+    fn push_separator(&mut self) {
+        self.slide_operations.push(RenderOperation::RenderSeparator);
+        self.slide_operations.push(RenderOperation::RenderLineBreak);
     }
 
     fn push_image(&mut self, path: PathBuf) -> Result<(), BuildError> {
