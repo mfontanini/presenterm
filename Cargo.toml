@@ -20,3 +20,6 @@ viuer = "0.6"
 [dev-dependencies]
 rstest = { version = "0.18", default-features = false }
 
+[features]
+default = []
+sixel = ["viuer/sixel"]
