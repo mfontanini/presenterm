@@ -10,13 +10,17 @@ use presenterm::{
 };
 use std::path::{Path, PathBuf};
 
+/// Run slideshows from your terminal.
 #[derive(Parser)]
 struct Cli {
+    /// The path to the markdown file that contains the presentation.
     path: PathBuf,
 
+    /// Whether to use presentation mode.
     #[clap(short, long, default_value_t = false)]
     present: bool,
 
+    /// The theme to use.
     #[clap(short, long, default_value = "dark")]
     theme: String,
 }
