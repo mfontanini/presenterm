@@ -28,7 +28,9 @@ struct Cli {
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let Some(default_theme) = PresentationTheme::from_name(&cli.theme) else {
         let mut cmd = Cli::command();
-        cmd.error(ErrorKind::InvalidValue, "invalid theme name").exit();
+        let valid_themes = PresentationTheme::theme_names().collect::<Vec<_>>().join(", ");
+        let error_message = format!("invalid theme name, valid themes are: {valid_themes}");
+        cmd.error(ErrorKind::InvalidValue, error_message).exit();
     };
 
     let mode = match cli.present {

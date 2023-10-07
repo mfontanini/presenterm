@@ -61,6 +61,10 @@ impl PresentationTheme {
         Some(serde_yaml::from_slice(contents).expect("corrupted theme"))
     }
 
+    pub fn theme_names() -> impl Iterator<Item = &'static str> {
+        THEMES.keys().copied()
+    }
+
     /// Construct a presentation from a path.
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, LoadThemeError> {
         let contents = fs::read_to_string(path)?;
