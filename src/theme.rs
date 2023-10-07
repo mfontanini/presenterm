@@ -320,6 +320,10 @@ pub struct CodeStyle {
     /// The padding.
     #[serde(default)]
     pub padding: Padding,
+
+    /// The syntect theme name to use.
+    #[serde(default)]
+    pub theme_name: Option<String>,
 }
 
 /// Vertical/horizontal padding.
@@ -377,7 +381,7 @@ pub enum AuthorPositioning {
     PageBottom,
 }
 
-/// An error loading a theme.
+/// An error loading a presentation theme.
 #[derive(thiserror::Error, Debug)]
 pub enum LoadThemeError {
     #[error(transparent)]

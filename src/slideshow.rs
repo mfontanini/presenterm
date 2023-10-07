@@ -28,7 +28,7 @@ pub struct SlideShow<'a> {
     commands: CommandSource,
     parser: MarkdownParser<'a>,
     resources: Resources,
-    highlighter: CodeHighlighter,
+    default_highlighter: CodeHighlighter,
     state: SlideShowState,
 }
 
@@ -36,12 +36,12 @@ impl<'a> SlideShow<'a> {
     /// Construct a new slideshow.
     pub fn new(
         default_theme: &'a PresentationTheme,
+        default_highlighter: CodeHighlighter,
         commands: CommandSource,
         parser: MarkdownParser<'a>,
         resources: Resources,
-        highlighter: CodeHighlighter,
     ) -> Self {
-        Self { default_theme, commands, parser, resources, highlighter, state: SlideShowState::Empty }
+        Self { default_theme, commands, parser, resources, default_highlighter, state: SlideShowState::Empty }
     }
 
     /// Run a presentation.
@@ -129,7 +129,8 @@ impl<'a> SlideShow<'a> {
         let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
         let elements = self.parser.parse(&content)?;
         let presentation =
-            PresentationBuilder::new(&self.highlighter, self.default_theme, &mut self.resources).build(elements)?;
+            PresentationBuilder::new(self.default_highlighter.clone(), self.default_theme, &mut self.resources)
+                .build(elements)?;
         Ok(presentation)
     }
 }

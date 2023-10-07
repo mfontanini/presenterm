@@ -1,4 +1,5 @@
 use crate::markdown::elements::ProgrammingLanguage;
+use once_cell::sync::Lazy;
 use syntect::{
     easy::HighlightLines,
     highlighting::{Style, Theme, ThemeSet},
@@ -6,19 +7,20 @@ use syntect::{
     util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
 
+static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(SyntaxSet::load_defaults_newlines);
+static THEMES: Lazy<ThemeSet> = Lazy::new(ThemeSet::load_defaults);
+
 /// A code highlighter.
+#[derive(Clone)]
 pub struct CodeHighlighter {
-    syntax_set: SyntaxSet,
-    theme: Theme,
+    theme: &'static Theme,
 }
 
 impl CodeHighlighter {
     /// Construct a new highlighted using the given [syntect] theme name.
     pub fn new(theme: &str) -> Result<Self, ThemeNotFound> {
-        let syntax_set = SyntaxSet::load_defaults_newlines();
-        let theme_set = ThemeSet::load_defaults();
-        let theme = theme_set.themes.get(theme).ok_or(ThemeNotFound)?.clone();
-        Ok(Self { syntax_set, theme })
+        let theme = THEMES.themes.get(theme).ok_or(ThemeNotFound)?;
+        Ok(Self { theme })
     }
 
     /// Highlight a piece of code.
@@ -26,11 +28,11 @@ impl CodeHighlighter {
     /// This splits the given piece of code into lines, highlights them individually, and returns them.
     pub fn highlight<'a>(&self, code: &'a str, language: &ProgrammingLanguage) -> Vec<CodeLine<'a>> {
         let extension = Self::language_extension(language);
-        let syntax = self.syntax_set.find_syntax_by_extension(extension).unwrap();
-        let mut highlight_lines = HighlightLines::new(syntax, &self.theme);
+        let syntax = SYNTAX_SET.find_syntax_by_extension(extension).unwrap();
+        let mut highlight_lines = HighlightLines::new(syntax, self.theme);
         let mut lines = Vec::new();
         for line in LinesWithEndings::from(code) {
-            let ranges: Vec<(Style, &str)> = highlight_lines.highlight_line(line, &self.syntax_set).unwrap();
+            let ranges: Vec<(Style, &str)> = highlight_lines.highlight_line(line, &SYNTAX_SET).unwrap();
             let escaped = as_24_bit_terminal_escaped(&ranges, true);
             let code_line = CodeLine { original: line, formatted: escaped };
             lines.push(code_line);

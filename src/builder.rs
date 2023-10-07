@@ -27,7 +27,7 @@ use unicode_width::UnicodeWidthStr;
 pub struct PresentationBuilder<'a> {
     slide_operations: Vec<RenderOperation>,
     slides: Vec<Slide>,
-    highlighter: &'a CodeHighlighter,
+    highlighter: CodeHighlighter,
     theme: Cow<'a, PresentationTheme>,
     resources: &'a mut Resources,
     ignore_element_line_break: bool,
@@ -38,14 +38,14 @@ pub struct PresentationBuilder<'a> {
 impl<'a> PresentationBuilder<'a> {
     /// Construct a new builder.
     pub fn new(
-        highlighter: &'a CodeHighlighter,
+        default_highlighter: CodeHighlighter,
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
     ) -> Self {
         Self {
             slide_operations: Vec::new(),
             slides: Vec::new(),
-            highlighter,
+            highlighter: default_highlighter,
             theme: Cow::Borrowed(default_theme),
             resources,
             ignore_element_line_break: false,
@@ -59,6 +59,8 @@ impl<'a> PresentationBuilder<'a> {
         if let Some(MarkdownElement::FrontMatter(contents)) = elements.first() {
             self.process_front_matter(contents)?;
         }
+        self.set_code_theme()?;
+
         if self.slide_operations.is_empty() {
             self.push_slide_prelude();
         }
@@ -137,6 +139,14 @@ impl<'a> PresentationBuilder<'a> {
             let theme = merge_struct::merge(self.theme.as_ref(), overrides)
                 .map_err(|_| BuildError::InvalidMetadata("invalid theme".to_string()))?;
             self.theme = Cow::Owned(theme);
+        }
+        Ok(())
+    }
+
+    fn set_code_theme(&mut self) -> Result<(), BuildError> {
+        if let Some(theme) = &self.theme.code.theme_name {
+            let highlighter = CodeHighlighter::new(theme).map_err(|_| BuildError::InvalidCodeTheme)?;
+            self.highlighter = highlighter;
         }
         Ok(())
     }
@@ -532,6 +542,9 @@ pub enum BuildError {
 
     #[error("invalid theme: {0}")]
     InvalidTheme(#[from] LoadThemeError),
+
+    #[error("invalid code highlighter theme")]
+    InvalidCodeTheme,
 }
 
 enum Comment {
@@ -560,7 +573,7 @@ mod test {
         let highlighter = CodeHighlighter::new("base16-ocean.dark").unwrap();
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp");
-        let builder = PresentationBuilder::new(&highlighter, &theme, &mut resources);
+        let builder = PresentationBuilder::new(highlighter, &theme, &mut resources);
         builder.build(elements).expect("build failed")
     }
 

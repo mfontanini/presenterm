@@ -22,12 +22,12 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 
     let arena = Arena::new();
     let parser = MarkdownParser::new(&arena);
-    let highlighter = CodeHighlighter::new("base16-ocean.dark")?;
+    let default_highlighter = CodeHighlighter::new("base16-ocean.dark")?;
     let resources_path = cli.path.parent().unwrap_or(Path::new("/"));
     let resources = Resources::new(resources_path);
     let commands = CommandSource::new(&cli.path);
 
-    let slideshow = SlideShow::new(&default_theme, commands, parser, resources, highlighter);
+    let slideshow = SlideShow::new(&default_theme, default_highlighter, commands, parser, resources);
     slideshow.present(&cli.path)?;
     Ok(())
 }
