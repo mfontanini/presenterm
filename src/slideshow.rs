@@ -17,6 +17,7 @@ use crate::{
 use std::{
     fs,
     io::{self, Stdout},
+    mem,
     path::Path,
 };
 
@@ -25,10 +26,11 @@ use std::{
 /// This type puts everything else together.
 pub struct SlideShow<'a> {
     default_theme: &'a PresentationTheme,
+    default_highlighter: CodeHighlighter,
     commands: CommandSource,
     parser: MarkdownParser<'a>,
     resources: Resources,
-    default_highlighter: CodeHighlighter,
+    mode: SlideShowMode,
     state: SlideShowState,
 }
 
@@ -40,8 +42,9 @@ impl<'a> SlideShow<'a> {
         commands: CommandSource,
         parser: MarkdownParser<'a>,
         resources: Resources,
+        mode: SlideShowMode,
     ) -> Self {
-        Self { default_theme, commands, parser, resources, default_highlighter, state: SlideShowState::Empty }
+        Self { default_theme, default_highlighter, commands, parser, resources, mode, state: SlideShowState::Empty }
     }
 
     /// Run a presentation.
@@ -56,21 +59,7 @@ impl<'a> SlideShow<'a> {
                 let command = match self.commands.next_command()? {
                     Command::User(command) => command,
                     Command::ReloadPresentation => {
-                        match self.load_presentation(path) {
-                            Ok(mut presentation) => {
-                                let current = self.state.presentation();
-                                let target_slide = PresentationDiffer::first_modified_slide(current, &presentation)
-                                    .unwrap_or(current.current_slide_index());
-                                presentation.jump_slide(target_slide);
-                                self.state = SlideShowState::Presenting(presentation)
-                            }
-                            Err(e) => {
-                                self.state = SlideShowState::Failure {
-                                    error: e.to_string(),
-                                    presentation: self.state.into_presentation(),
-                                }
-                            }
-                        };
+                        self.try_reload(path);
                         break;
                     }
                     Command::Abort { error } => return Err(SlideShowError::Fatal(error)),
@@ -125,6 +114,25 @@ impl<'a> SlideShow<'a> {
         }
     }
 
+    fn try_reload(&mut self, path: &Path) {
+        if matches!(self.mode, SlideShowMode::Presentation) {
+            return;
+        }
+        match self.load_presentation(path) {
+            Ok(mut presentation) => {
+                let current = self.state.presentation();
+                let target_slide = PresentationDiffer::first_modified_slide(current, &presentation)
+                    .unwrap_or(current.current_slide_index());
+                presentation.jump_slide(target_slide);
+                self.state = SlideShowState::Presenting(presentation)
+            }
+            Err(e) => {
+                let presentation = mem::take(&mut self.state).into_presentation();
+                self.state = SlideShowState::Failure { error: e.to_string(), presentation }
+            }
+        };
+    }
+
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
         let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
         let elements = self.parser.parse(&content)?;
@@ -141,10 +149,15 @@ enum CommandSideEffect {
     None,
 }
 
+#[derive(Default)]
 enum SlideShowState {
+    #[default]
     Empty,
     Presenting(Presentation),
-    Failure { error: String, presentation: Presentation },
+    Failure {
+        error: String,
+        presentation: Presentation,
+    },
 }
 
 impl SlideShowState {
@@ -163,6 +176,15 @@ impl SlideShowState {
             Self::Empty => panic!("state is empty"),
         }
     }
+}
+
+/// This slideshow's mode.
+pub enum SlideShowMode {
+    /// We are developing the slideshow so we want live reloads when the input changes.
+    Development,
+
+    /// This is a live presentation so we don't want hot reloading.
+    Presentation,
 }
 
 /// An error when loading a presentation.

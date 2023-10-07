@@ -1,14 +1,21 @@
 use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use presenterm::{
-    input::source::CommandSource, markdown::parse::MarkdownParser, render::highlighting::CodeHighlighter,
-    resource::Resources, slideshow::SlideShow, theme::PresentationTheme,
+    input::source::CommandSource,
+    markdown::parse::MarkdownParser,
+    render::highlighting::CodeHighlighter,
+    resource::Resources,
+    slideshow::{SlideShow, SlideShowMode},
+    theme::PresentationTheme,
 };
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 struct Cli {
     path: PathBuf,
+
+    #[clap(short, long, default_value_t = false)]
+    present: bool,
 
     #[clap(short, long, default_value = "dark")]
     theme: String,
@@ -20,6 +27,10 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         cmd.error(ErrorKind::InvalidValue, "invalid theme name").exit();
     };
 
+    let mode = match cli.present {
+        true => SlideShowMode::Presentation,
+        false => SlideShowMode::Development,
+    };
     let arena = Arena::new();
     let parser = MarkdownParser::new(&arena);
     let default_highlighter = CodeHighlighter::new("base16-ocean.dark")?;
@@ -27,7 +38,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let resources = Resources::new(resources_path);
     let commands = CommandSource::new(&cli.path);
 
-    let slideshow = SlideShow::new(&default_theme, default_highlighter, commands, parser, resources);
+    let slideshow = SlideShow::new(&default_theme, default_highlighter, commands, parser, resources, mode);
     slideshow.present(&cli.path)?;
     Ok(())
 }
