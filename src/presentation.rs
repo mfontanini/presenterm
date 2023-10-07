@@ -168,7 +168,7 @@ pub enum RenderOperation {
     JumpToSlideBottom,
 
     /// Render a line of text.
-    RenderTextLine { texts: WeightedLine, alignment: Alignment },
+    RenderTextLine { line: WeightedLine, alignment: Alignment },
 
     /// Render a horizontal separator line.
     RenderSeparator,

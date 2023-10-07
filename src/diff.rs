@@ -50,7 +50,7 @@ impl ContentDiff for RenderOperation {
 
         match (self, other) {
             (SetColors(original), SetColors(updated)) if original != updated => false,
-            (RenderTextLine { texts: original, .. }, RenderTextLine { texts: updated, .. }) if original != updated => {
+            (RenderTextLine { line: original, .. }, RenderTextLine { line: updated, .. }) if original != updated => {
                 true
             }
             (RenderTextLine { alignment: original, .. }, RenderTextLine { alignment: updated, .. })
@@ -114,7 +114,7 @@ mod test {
     #[case(RenderOperation::RenderSeparator)]
     #[case(RenderOperation::RenderLineBreak)]
     #[case(RenderOperation::SetColors(Colors{background: None, foreground: None}))]
-    #[case(RenderOperation::RenderTextLine{texts: String::from("asd").into(), alignment: Default::default()})]
+    #[case(RenderOperation::RenderTextLine{line: String::from("asd").into(), alignment: Default::default()})]
     #[case(RenderOperation::RenderPreformattedLine(
         PreformattedLine{
             text: "asd".into(),
@@ -131,19 +131,19 @@ mod test {
 
     #[test]
     fn different_text() {
-        let lhs = RenderOperation::RenderTextLine { texts: String::from("foo").into(), alignment: Default::default() };
-        let rhs = RenderOperation::RenderTextLine { texts: String::from("bar").into(), alignment: Default::default() };
+        let lhs = RenderOperation::RenderTextLine { line: String::from("foo").into(), alignment: Default::default() };
+        let rhs = RenderOperation::RenderTextLine { line: String::from("bar").into(), alignment: Default::default() };
         assert!(lhs.is_content_different(&rhs));
     }
 
     #[test]
     fn different_text_alignment() {
         let lhs = RenderOperation::RenderTextLine {
-            texts: String::from("foo").into(),
+            line: String::from("foo").into(),
             alignment: Alignment::Left { margin: 42 },
         };
         let rhs = RenderOperation::RenderTextLine {
-            texts: String::from("foo").into(),
+            line: String::from("foo").into(),
             alignment: Alignment::Left { margin: 1337 },
         };
         assert!(!lhs.is_content_different(&rhs));

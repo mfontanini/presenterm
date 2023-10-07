@@ -64,10 +64,10 @@ where
             RenderOperation::ClearScreen,
             RenderOperation::SetColors(Colors { foreground: Some(Color::Red), background: Some(Color::Black) }),
             RenderOperation::JumpToVerticalCenter,
-            RenderOperation::RenderTextLine { texts: WeightedLine::from(heading), alignment: alignment.clone() },
+            RenderOperation::RenderTextLine { line: WeightedLine::from(heading), alignment: alignment.clone() },
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
-            RenderOperation::RenderTextLine { texts: WeightedLine::from(error), alignment: alignment.clone() },
+            RenderOperation::RenderTextLine { line: WeightedLine::from(error), alignment: alignment.clone() },
         ];
         let mut operator = RenderOperator::new(&mut self.handle, dimensions.clone(), dimensions, Default::default());
         for operation in operations {

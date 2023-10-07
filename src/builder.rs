@@ -329,7 +329,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         if !texts.is_empty() {
             self.slide_operations.push(RenderOperation::RenderTextLine {
-                texts: WeightedLine::from(texts),
+                line: WeightedLine::from(texts),
                 alignment: alignment.clone(),
             });
         }
@@ -408,12 +408,15 @@ impl<'a> PresentationBuilder<'a> {
         let mut separator = Text { chunks: Vec::new() };
         for (index, width) in widths.iter().enumerate() {
             let mut contents = String::new();
-            let mut extra_lines = 1;
+            let mut margin = 1;
             if index > 0 {
                 contents.push('┼');
-                extra_lines += 1;
+                // Append an extra dash to have 1 column margin on both sides
+                if index < widths.len() - 1 {
+                    margin += 1;
+                }
             }
-            contents.extend(iter::repeat("─").take(*width + extra_lines));
+            contents.extend(iter::repeat("─").take(*width + margin));
             separator.chunks.push(StyledText::from(contents));
         }
 
@@ -480,7 +483,7 @@ impl AsRenderOperations for FooterGenerator {
                     operations.extend([
                         RenderOperation::JumpToWindowBottom,
                         RenderOperation::RenderTextLine {
-                            texts: vec![Self::render_template(left, &current_slide, &context, colors.clone())].into(),
+                            line: vec![Self::render_template(left, &current_slide, &context, colors.clone())].into(),
                             alignment: Alignment::Left { margin: 1 },
                         },
                     ]);
@@ -489,7 +492,7 @@ impl AsRenderOperations for FooterGenerator {
                     operations.extend([
                         RenderOperation::JumpToWindowBottom,
                         RenderOperation::RenderTextLine {
-                            texts: vec![Self::render_template(right, &current_slide, &context, colors.clone())].into(),
+                            line: vec![Self::render_template(right, &current_slide, &context, colors.clone())].into(),
                             alignment: Alignment::Right { margin: 1 },
                         },
                     ]);
@@ -505,7 +508,7 @@ impl AsRenderOperations for FooterGenerator {
                 let bar = vec![WeightedText::from(StyledText::new(bar, TextStyle::default().colors(colors.clone())))];
                 vec![
                     RenderOperation::JumpToWindowBottom,
-                    RenderOperation::RenderTextLine { texts: bar.into(), alignment: Alignment::Left { margin: 0 } },
+                    RenderOperation::RenderTextLine { line: bar.into(), alignment: Alignment::Left { margin: 0 } },
                 ]
             }
             FooterStyle::Empty => vec![],
@@ -562,6 +565,20 @@ mod test {
             ClearScreen | SetColors(_) | JumpToVerticalCenter | JumpToSlideBottom | JumpToWindowBottom => false,
             _ => true,
         }
+    }
+
+    fn extract_text_lines(operations: &[RenderOperation]) -> Vec<String> {
+        let mut output = Vec::new();
+        for operation in operations {
+            match operation {
+                RenderOperation::RenderTextLine { line, .. } => {
+                    let texts: Vec<_> = line.iter_texts().map(|text| text.text.text.clone()).collect();
+                    output.push(texts.join(""));
+                }
+                _ => (),
+            };
+        }
+        output
     }
 
     #[test]
@@ -628,5 +645,19 @@ mod test {
         let width = &text.width();
         assert_eq!(lengths[0], (width, width));
         assert_eq!(lengths[1], (width, width));
+    }
+
+    #[test]
+    fn table() {
+        let elements = vec![MarkdownElement::Table(Table {
+            header: TableRow(vec![Text::from("key"), Text::from("value"), Text::from("other")]),
+            rows: vec![TableRow(vec![Text::from("potato"), Text::from("bar"), Text::from("yes")])],
+        })];
+        let slides = build_presentation(elements).into_slides();
+        let operations: Vec<_> =
+            slides.into_iter().next().unwrap().render_operations.into_iter().filter(|op| is_visible(op)).collect();
+        let lines = extract_text_lines(&operations);
+        let expected_lines = &["key    │ value │ other", "───────┼───────┼──────", "potato │ bar   │ yes  "];
+        assert_eq!(lines, expected_lines);
     }
 }

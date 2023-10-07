@@ -44,7 +44,7 @@ where
             RenderOperation::JumpToVerticalCenter => self.jump_to_vertical_center(),
             RenderOperation::JumpToSlideBottom => self.jump_to_slide_bottom(),
             RenderOperation::JumpToWindowBottom => self.jump_to_window_bottom(),
-            RenderOperation::RenderTextLine { texts, alignment } => self.render_text(texts, alignment),
+            RenderOperation::RenderTextLine { line: texts, alignment } => self.render_text(texts, alignment),
             RenderOperation::RenderSeparator => self.render_separator(),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image) => self.render_image(image),

@@ -18,6 +18,11 @@ impl WeightedLine {
     pub fn width(&self) -> usize {
         self.0.iter().map(|text| text.width()).sum()
     }
+
+    /// Get an iterator to the underlying text chunks.
+    pub fn iter_texts(&self) -> impl Iterator<Item = &WeightedText> {
+        self.0.iter()
+    }
 }
 
 impl From<Vec<WeightedText>> for WeightedLine {
@@ -42,7 +47,7 @@ struct CharAccumulator {
 /// A piece of weighted text.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WeightedText {
-    text: StyledText,
+    pub text: StyledText,
     accumulators: Vec<CharAccumulator>,
 }
 
