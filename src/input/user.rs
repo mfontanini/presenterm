@@ -8,7 +8,11 @@ pub struct UserInput {
 
 impl UserInput {
     pub fn poll_next_command(&mut self, timeout: Duration) -> io::Result<Option<UserCommand>> {
-        if poll(timeout)? { self.next_command() } else { Ok(None) }
+        if poll(timeout)? {
+            self.next_command()
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn next_command(&mut self) -> io::Result<Option<UserCommand>> {
@@ -25,8 +29,12 @@ impl UserInput {
 
     fn handle_key_event(&mut self, event: &KeyEvent) -> Option<UserCommand> {
         match event.code {
-            KeyCode::Char('h') | KeyCode::Left | KeyCode::PageUp | KeyCode::Up => Some(UserCommand::JumpPreviousSlide),
-            KeyCode::Char('l') | KeyCode::Right | KeyCode::PageDown | KeyCode::Down => Some(UserCommand::JumpNextSlide),
+            KeyCode::Char('h') | KeyCode::Char('k') | KeyCode::Left | KeyCode::PageUp | KeyCode::Up => {
+                Some(UserCommand::JumpPreviousSlide)
+            }
+            KeyCode::Char('l') | KeyCode::Char('j') | KeyCode::Right | KeyCode::PageDown | KeyCode::Down => {
+                Some(UserCommand::JumpNextSlide)
+            }
             KeyCode::Char('c') if event.modifiers == KeyModifiers::CONTROL => Some(UserCommand::Exit),
             KeyCode::Char('G') => self.handle_uppercase_g(),
             KeyCode::Char('g') => self.handle_lowercase_g(),
