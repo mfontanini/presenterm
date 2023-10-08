@@ -8,11 +8,7 @@ pub struct UserInput {
 
 impl UserInput {
     pub fn poll_next_command(&mut self, timeout: Duration) -> io::Result<Option<UserCommand>> {
-        if poll(timeout)? {
-            self.next_command()
-        } else {
-            Ok(None)
-        }
+        if poll(timeout)? { self.next_command() } else { Ok(None) }
     }
 
     pub fn next_command(&mut self) -> io::Result<Option<UserCommand>> {

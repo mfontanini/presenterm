@@ -83,11 +83,7 @@ impl<'a> SlideShow<'a> {
         };
         // If the screen is too small, simply ignore this. Eventually the user will resize the
         // screen.
-        if matches!(result, Err(RenderError::TerminalTooSmall)) {
-            Ok(())
-        } else {
-            result
-        }
+        if matches!(result, Err(RenderError::TerminalTooSmall)) { Ok(()) } else { result }
     }
 
     fn apply_user_command(&mut self, command: UserCommand) -> CommandSideEffect {
@@ -107,11 +103,7 @@ impl<'a> SlideShow<'a> {
             UserCommand::JumpSlide(number) => presentation.jump_slide(number.saturating_sub(1) as usize),
             UserCommand::Exit => return CommandSideEffect::Exit,
         };
-        if needs_redraw {
-            CommandSideEffect::Redraw
-        } else {
-            CommandSideEffect::None
-        }
+        if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
     }
 
     fn try_reload(&mut self, path: &Path) {
