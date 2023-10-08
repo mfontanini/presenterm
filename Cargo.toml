@@ -1,5 +1,9 @@
 [package]
 name = "presenterm"
+author = "Matias Fontanini"
+description = "A terminal slideshow presentation tool"
+repository = "https://github.com/mfontanini/presenterm"
+license = "BSD-2-Clause"
 version = "0.1.0"
 edition = "2021"
 
