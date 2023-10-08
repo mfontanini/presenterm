@@ -1,3 +1,7 @@
+//! Presenterm: a terminal slideshow presentation tool.
+//!
+//! This is not meant to be used as a crate!
+
 pub mod builder;
 pub mod diff;
 pub mod input;
