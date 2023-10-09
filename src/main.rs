@@ -3,9 +3,9 @@ use comrak::Arena;
 use presenterm::{
     input::source::CommandSource,
     markdown::parse::MarkdownParser,
+    presenter::{PresentMode, Presenter},
     render::highlighting::CodeHighlighter,
     resource::Resources,
-    slideshow::{SlideShow, SlideShowMode},
     theme::PresentationTheme,
 };
 use std::path::{Path, PathBuf};
@@ -34,8 +34,8 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mode = match cli.present {
-        true => SlideShowMode::Presentation,
-        false => SlideShowMode::Development,
+        true => PresentMode::Presentation,
+        false => PresentMode::Development,
     };
     let arena = Arena::new();
     let parser = MarkdownParser::new(&arena);
@@ -44,8 +44,8 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let resources = Resources::new(resources_path);
     let commands = CommandSource::new(&cli.path);
 
-    let slideshow = SlideShow::new(&default_theme, default_highlighter, commands, parser, resources, mode);
-    slideshow.present(&cli.path)?;
+    let presenter = Presenter::new(&default_theme, default_highlighter, commands, parser, resources, mode);
+    presenter.present(&cli.path)?;
     Ok(())
 }
 

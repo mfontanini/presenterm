@@ -21,35 +21,35 @@ use std::{
     path::Path,
 };
 
-/// A slide show.
+/// A slideshow presenter.
 ///
 /// This type puts everything else together.
-pub struct SlideShow<'a> {
+pub struct Presenter<'a> {
     default_theme: &'a PresentationTheme,
     default_highlighter: CodeHighlighter,
     commands: CommandSource,
     parser: MarkdownParser<'a>,
     resources: Resources,
-    mode: SlideShowMode,
-    state: SlideShowState,
+    mode: PresentMode,
+    state: PresenterState,
 }
 
-impl<'a> SlideShow<'a> {
-    /// Construct a new slideshow.
+impl<'a> Presenter<'a> {
+    /// Construct a new presenter.
     pub fn new(
         default_theme: &'a PresentationTheme,
         default_highlighter: CodeHighlighter,
         commands: CommandSource,
         parser: MarkdownParser<'a>,
         resources: Resources,
-        mode: SlideShowMode,
+        mode: PresentMode,
     ) -> Self {
-        Self { default_theme, default_highlighter, commands, parser, resources, mode, state: SlideShowState::Empty }
+        Self { default_theme, default_highlighter, commands, parser, resources, mode, state: PresenterState::Empty }
     }
 
     /// Run a presentation.
-    pub fn present(mut self, path: &Path) -> Result<(), SlideShowError> {
-        self.state = SlideShowState::Presenting(self.load_presentation(path)?);
+    pub fn present(mut self, path: &Path) -> Result<(), PresentationError> {
+        self.state = PresenterState::Presenting(self.load_presentation(path)?);
 
         let mut drawer = TerminalDrawer::new(io::stdout())?;
         loop {
@@ -62,7 +62,7 @@ impl<'a> SlideShow<'a> {
                         self.try_reload(path);
                         break;
                     }
-                    Command::Abort { error } => return Err(SlideShowError::Fatal(error)),
+                    Command::Abort { error } => return Err(PresentationError::Fatal(error)),
                 };
                 match self.apply_user_command(command) {
                     CommandSideEffect::Exit => return Ok(()),
@@ -77,9 +77,9 @@ impl<'a> SlideShow<'a> {
 
     fn render(&mut self, drawer: &mut TerminalDrawer<Stdout>) -> RenderResult {
         let result = match &self.state {
-            SlideShowState::Presenting(presentation) => drawer.render_slide(presentation),
-            SlideShowState::Failure { error, .. } => drawer.render_error(error),
-            SlideShowState::Empty => panic!("cannot render without state"),
+            PresenterState::Presenting(presentation) => drawer.render_slide(presentation),
+            PresenterState::Failure { error, .. } => drawer.render_error(error),
+            PresenterState::Empty => panic!("cannot render without state"),
         };
         // If the screen is too small, simply ignore this. Eventually the user will resize the
         // screen.
@@ -91,7 +91,7 @@ impl<'a> SlideShow<'a> {
         if matches!(command, UserCommand::Exit) {
             return CommandSideEffect::Exit;
         }
-        let SlideShowState::Presenting(presentation) = &mut self.state else {
+        let PresenterState::Presenting(presentation) = &mut self.state else {
             return CommandSideEffect::None;
         };
         let needs_redraw = match command {
@@ -107,7 +107,7 @@ impl<'a> SlideShow<'a> {
     }
 
     fn try_reload(&mut self, path: &Path) {
-        if matches!(self.mode, SlideShowMode::Presentation) {
+        if matches!(self.mode, PresentMode::Presentation) {
             return;
         }
         match self.load_presentation(path) {
@@ -116,11 +116,11 @@ impl<'a> SlideShow<'a> {
                 let target_slide = PresentationDiffer::first_modified_slide(current, &presentation)
                     .unwrap_or(current.current_slide_index());
                 presentation.jump_slide(target_slide);
-                self.state = SlideShowState::Presenting(presentation)
+                self.state = PresenterState::Presenting(presentation)
             }
             Err(e) => {
                 let presentation = mem::take(&mut self.state).into_presentation();
-                self.state = SlideShowState::Failure { error: e.to_string(), presentation }
+                self.state = PresenterState::Failure { error: e.to_string(), presentation }
             }
         };
     }
@@ -142,7 +142,7 @@ enum CommandSideEffect {
 }
 
 #[derive(Default)]
-enum SlideShowState {
+enum PresenterState {
     #[default]
     Empty,
     Presenting(Presentation),
@@ -152,7 +152,7 @@ enum SlideShowState {
     },
 }
 
-impl SlideShowState {
+impl PresenterState {
     fn presentation(&self) -> &Presentation {
         match self {
             Self::Presenting(presentation) => presentation,
@@ -170,9 +170,9 @@ impl SlideShowState {
     }
 }
 
-/// This slideshow's mode.
-pub enum SlideShowMode {
-    /// We are developing the slideshow so we want live reloads when the input changes.
+/// This presentation mode.
+pub enum PresentMode {
+    /// We are developing the presentation so we want live reloads when the input changes.
     Development,
 
     /// This is a live presentation so we don't want hot reloading.
@@ -192,9 +192,9 @@ pub enum LoadPresentationError {
     Processing(#[from] BuildError),
 }
 
-/// An error during the slide show.
+/// An error during the presentation.
 #[derive(thiserror::Error, Debug)]
-pub enum SlideShowError {
+pub enum PresentationError {
     #[error(transparent)]
     Render(#[from] RenderError),
 
