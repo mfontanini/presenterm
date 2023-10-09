@@ -145,3 +145,6 @@ Besides this:
 * Jumping to a specific slide: `<slide-number>G`.
 * Exit the presentation: `<ctrl>c`.
 
+# Docs
+
+Some docs on how to configure _presenterm_ can be found [here](docs/README.md).
