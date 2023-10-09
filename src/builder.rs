@@ -338,7 +338,7 @@ impl<'a> PresentationBuilder<'a> {
         let mut texts: Vec<WeightedText> = Vec::new();
         for mut chunk in text.chunks {
             if chunk.style.is_code() {
-                chunk.style.colors = self.theme.code.colors.clone();
+                chunk.style.colors = self.theme.inline_code.colors.clone();
             }
             texts.push(chunk.into());
         }

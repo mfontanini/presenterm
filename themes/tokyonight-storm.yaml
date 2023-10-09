@@ -19,6 +19,8 @@ code:
   padding:
     horizontal: 2
     vertical: 1
+
+inline_code:
   colors:
     foreground: "rgb_(158,206,106)"
     background: "rgb_(54,74,130)"

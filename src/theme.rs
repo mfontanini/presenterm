@@ -17,7 +17,11 @@ pub struct PresentationTheme {
 
     /// The style for a block of code.
     #[serde(default)]
-    pub code: CodeStyle,
+    pub code: CodeBlockStyle,
+
+    /// The style for inline code.
+    #[serde(default)]
+    pub inline_code: InlineCodeStyle,
 
     /// The style for a table.
     #[serde(default)]
@@ -312,14 +316,10 @@ impl Default for FooterStyle {
 
 /// The style for a piece of code.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct CodeStyle {
+pub struct CodeBlockStyle {
     /// The alignment.
     #[serde(flatten)]
     pub alignment: Option<Alignment>,
-
-    /// The colors to be used.
-    #[serde(default)]
-    pub colors: Colors,
 
     /// The padding.
     #[serde(default)]
@@ -328,6 +328,14 @@ pub struct CodeStyle {
     /// The syntect theme name to use.
     #[serde(default)]
     pub theme_name: Option<String>,
+}
+
+/// The style for inline code.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct InlineCodeStyle {
+    /// The colors to be used.
+    #[serde(default)]
+    pub colors: Colors,
 }
 
 /// Vertical/horizontal padding.
