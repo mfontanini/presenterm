@@ -147,4 +147,4 @@ Besides this:
 
 # Docs
 
-Some docs on how to configure _presenterm_ can be found [here](docs/README.md).
+Some docs on how to configure _presenterm_ and how it works internally can be found [here](docs/README.md).
