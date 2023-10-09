@@ -28,9 +28,12 @@ impl UserInput {
             KeyCode::Char('h') | KeyCode::Char('k') | KeyCode::Left | KeyCode::PageUp | KeyCode::Up => {
                 Some(UserCommand::JumpPreviousSlide)
             }
-            KeyCode::Char('l') | KeyCode::Char('j') | KeyCode::Right | KeyCode::PageDown | KeyCode::Down => {
-                Some(UserCommand::JumpNextSlide)
-            }
+            KeyCode::Char('l')
+            | KeyCode::Char('j')
+            | KeyCode::Right
+            | KeyCode::PageDown
+            | KeyCode::Down
+            | KeyCode::Char(' ') => Some(UserCommand::JumpNextSlide),
             KeyCode::Char('c') if event.modifiers == KeyModifiers::CONTROL => Some(UserCommand::Exit),
             KeyCode::Char('G') => self.handle_uppercase_g(),
             KeyCode::Char('g') => self.handle_lowercase_g(),
