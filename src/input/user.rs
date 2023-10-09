@@ -1,20 +1,19 @@
 use crossterm::event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers};
 use std::{io, mem, time::Duration};
 
+/// A user input handler.
 #[derive(Default)]
 pub struct UserInput {
     state: InputState,
 }
 
 impl UserInput {
+    /// Polls for the next input command coming from the keyboard.
     pub fn poll_next_command(&mut self, timeout: Duration) -> io::Result<Option<UserCommand>> {
-        if poll(timeout)? {
-            self.next_command()
-        } else {
-            Ok(None)
-        }
+        if poll(timeout)? { self.next_command() } else { Ok(None) }
     }
 
+    /// Blocks waiting for the next command.
     pub fn next_command(&mut self) -> io::Result<Option<UserCommand>> {
         let current_state = mem::take(&mut self.state);
         let (command, next_state) = match read()? {
@@ -83,14 +82,30 @@ impl UserInput {
     }
 }
 
+/// A command from the user.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum UserCommand {
+    /// Redraw the presentation.
+    ///
+    /// This can happen on terminal resize.
     Redraw,
+
+    /// Jump to the next slide.
     JumpNextSlide,
+
+    /// Jump to the previous slide.
     JumpPreviousSlide,
+
+    /// Jump to the first slide.
     JumpFirstSlide,
+
+    /// Jump to the last slide.
     JumpLastSlide,
+
+    /// Jump to one particular slide.
     JumpSlide(u32),
+
+    /// Exit the presentation.
     Exit,
 }
 
