@@ -222,21 +222,21 @@ pub struct BasicStyle {
 /// Text alignment.
 ///
 /// This allows anchoring presentation elements to the left, center, or right of the screen.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "alignment", rename_all = "snake_case")]
 pub enum Alignment {
     /// Left alignment.
     Left {
-        /// The margin, in columns, before any text.
+        /// The margin before any text.
         #[serde(default)]
-        margin: u16,
+        margin: Margin,
     },
 
     /// Right alignment.
     Right {
-        /// The margin, in columns, after any text.
+        /// The margin after any text.
         #[serde(default)]
-        margin: u16,
+        margin: Margin,
     },
 
     /// Center alignment.
@@ -253,7 +253,7 @@ pub enum Alignment {
 
 impl Default for Alignment {
     fn default() -> Self {
-        Self::Left { margin: 0 }
+        Self::Left { margin: Margin::Fixed(0) }
     }
 }
 
@@ -323,7 +323,7 @@ pub struct CodeBlockStyle {
 
     /// The padding.
     #[serde(default)]
-    pub padding: Padding,
+    pub padding: PaddingRect,
 
     /// The syntect theme name to use.
     #[serde(default)]
@@ -340,7 +340,7 @@ pub struct InlineCodeStyle {
 
 /// Vertical/horizontal padding.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct Padding {
+pub struct PaddingRect {
     /// The number of columns to use as horizontal padding.
     #[serde(default)]
     pub horizontal: Option<u8>,
@@ -348,6 +348,35 @@ pub struct Padding {
     /// The number of rows to use as vertical padding.
     #[serde(default)]
     pub vertical: Option<u8>,
+}
+
+/// A margin.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum Margin {
+    /// A fixed number of characters.
+    Fixed(u16),
+
+    /// A percent of the screen size.
+    Percent(u16),
+}
+
+impl Margin {
+    pub fn as_characters(&self, screen_size: u16) -> u16 {
+        match *self {
+            Self::Fixed(value) => value,
+            Self::Percent(percent) => {
+                let ratio = percent as f64 / 100.0;
+                (screen_size as f64 * ratio).ceil() as u16
+            }
+        }
+    }
+}
+
+impl Default for Margin {
+    fn default() -> Self {
+        Self::Fixed(0)
+    }
 }
 
 /// An element type.

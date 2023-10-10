@@ -91,7 +91,7 @@ mod test {
     use crate::{
         presentation::{AsRenderOperations, PreformattedLine},
         render::properties::WindowSize,
-        theme::{Alignment, Colors},
+        theme::{Alignment, Colors, Margin},
     };
     use crossterm::style::Color;
     use rstest::rstest;
@@ -140,11 +140,11 @@ mod test {
     fn different_text_alignment() {
         let lhs = RenderOperation::RenderTextLine {
             line: String::from("foo").into(),
-            alignment: Alignment::Left { margin: 42 },
+            alignment: Alignment::Left { margin: Margin::Fixed(42) },
         };
         let rhs = RenderOperation::RenderTextLine {
             line: String::from("foo").into(),
-            alignment: Alignment::Left { margin: 1337 },
+            alignment: Alignment::Left { margin: Margin::Fixed(1337) },
         };
         assert!(!lhs.is_content_different(&rhs));
     }

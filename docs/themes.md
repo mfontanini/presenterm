@@ -92,21 +92,42 @@ Right alignment is used internally for one of the footer styles (more on that be
 
 ### Left/right alignment
 
-Left alignment takes a margin property which specifies the number of columns to keep between the text and the left/right 
-terminal screen borders. 
+Left and right alignments take a margin property which specifies the number of columns to keep between the text and the 
+left/right terminal screen borders. 
+
+The margin can be specified in two ways:
+
+#### Fixed
+
+A specific number of characters regardless of the terminal size.
 
 ```yaml
 alignment: left
-margin: 5
+margin:
+  fixed: 5
 ```
+
+#### Percent
+
+A percentage over the total number of columns in the terminal.
+
+```yaml
+alignment: left
+margin:
+  percent: 8
+```
+
+Percent alignment tends to look a bit nicer as it won't change the presentation's look as much when the terminal size 
+changes.
 
 ### Center alignment
 
 Center alignment has 2 properties:
 * `minimum_size` which specifies the minimum size you want that element to have. This is normally useful for code blocks 
   as they have a predefined background which you likely want to extend slightly beyond the end of the code on the right.
-* `minimum_margin` which specifies the minimum margin you want. This doesn't play very well with `minimum_size` but in 
-  isolation it specifies the minimum number of columns you want to the left and right of your text.
+* `minimum_margin` which specifies the minimum margin you want, using the same structure as `margin` for left/right 
+  alignment. This doesn't play very well with `minimum_size` but in isolation it specifies the minimum number of columns 
+  you want to the left and right of your text.
 
 ## Colors
 
@@ -147,7 +168,8 @@ For example:
 intro_slide:
   title:
     alignment: left
-    margin: 3
+    margin:
+      percent: 8
   author:
     colors:
       foreground: black

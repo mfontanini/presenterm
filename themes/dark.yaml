@@ -1,6 +1,7 @@
 default:
   alignment: left
-  margin: 5
+  margin:
+    percent: 8
   colors:
     foreground: "rgb_(230,230,230)"
     background: "rgb_(4,3,18)"

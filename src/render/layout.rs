@@ -6,8 +6,9 @@ impl<'a> Layout<'a> {
     pub(crate) fn compute(&self, dimensions: &WindowSize, text_length: u16) -> Positioning {
         let max_line_length;
         let mut start_column;
-        match *self.0 {
+        match self.0 {
             Alignment::Left { margin } => {
+                let margin = margin.as_characters(dimensions.columns);
                 // Ignore the margin if it's larger than the screen: we can't satisfy it so we
                 // might as well not do anything about it.
                 let margin = Self::fit_to_columns(dimensions, margin.saturating_mul(2), margin);
@@ -15,17 +16,19 @@ impl<'a> Layout<'a> {
                 max_line_length = dimensions.columns - margin.saturating_mul(2);
             }
             Alignment::Right { margin } => {
+                let margin = margin.as_characters(dimensions.columns);
                 let margin = Self::fit_to_columns(dimensions, margin.saturating_mul(2), margin);
                 start_column = dimensions.columns.saturating_sub(margin).saturating_sub(text_length).max(margin);
                 max_line_length = (dimensions.columns - margin) - start_column;
             }
             Alignment::Center { minimum_margin, minimum_size } => {
-                let minimum_margin = Self::fit_to_columns(dimensions, minimum_margin.saturating_mul(2), minimum_margin);
+                let minimum_margin =
+                    Self::fit_to_columns(dimensions, minimum_margin.saturating_mul(2), *minimum_margin);
                 // Respect minimum margin if both together overflow.
                 let minimum_size = Self::fit_to_columns(
                     dimensions,
                     minimum_size.saturating_add(minimum_margin.saturating_mul(2)),
-                    minimum_size,
+                    *minimum_size,
                 );
                 max_line_length =
                     text_length.min(dimensions.columns - minimum_margin.saturating_mul(2)).max(minimum_size);
@@ -41,7 +44,11 @@ impl<'a> Layout<'a> {
     }
 
     fn fit_to_columns(dimensions: &WindowSize, required_fit: u16, actual_fit: u16) -> u16 {
-        if required_fit > dimensions.columns { 0 } else { actual_fit }
+        if required_fit > dimensions.columns {
+            0
+        } else {
+            actual_fit
+        }
     }
 }
 
@@ -54,56 +61,57 @@ pub(crate) struct Positioning {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::theme::Margin;
     use rstest::rstest;
 
     #[rstest]
     #[case::left_no_margin(
-        Alignment::Left{ margin: 0 },
+        Alignment::Left{ margin: Margin::Fixed(0) },
         10,
         Positioning{ max_line_length: 100, start_column: 0 }
     )]
     #[case::left_some_margin(
-        Alignment::Left{ margin: 5 },
+        Alignment::Left{ margin: Margin::Fixed(5) },
         10,
         Positioning{ max_line_length: 90, start_column: 5 }
     )]
     #[case::left_line_overflows(
-        Alignment::Left{ margin: 5 },
+        Alignment::Left{ margin: Margin::Fixed(5) },
         150,
         Positioning{ max_line_length: 90, start_column: 5 }
     )]
     #[case::left_large_margin(
-        Alignment::Left{ margin: 60 },
+        Alignment::Left{ margin: Margin::Fixed(60) },
         10,
         Positioning{ max_line_length: 100, start_column: 0 }
     )]
     #[case::left_margin_too_large(
-        Alignment::Left{ margin: 105 },
+        Alignment::Left{ margin: Margin::Fixed(105) },
         10,
         Positioning{ max_line_length: 100, start_column: 0 }
     )]
     #[case::right_no_margin(
-        Alignment::Right{ margin: 0 },
+        Alignment::Right{ margin: Margin::Fixed(0) },
         10,
         Positioning{ max_line_length: 10, start_column: 90 }
     )]
     #[case::right_some_margin(
-        Alignment::Right{ margin: 5 },
+        Alignment::Right{ margin: Margin::Fixed(5) },
         10,
         Positioning{ max_line_length: 10, start_column: 85 }
     )]
     #[case::right_line_overflows(
-        Alignment::Right{ margin: 5 },
+        Alignment::Right{ margin: Margin::Fixed(5) },
         150,
         Positioning{ max_line_length: 90, start_column: 5 }
     )]
     #[case::right_large_margin(
-        Alignment::Right{ margin: 60 },
+        Alignment::Right{ margin: Margin::Fixed(60) },
         10,
         Positioning{ max_line_length: 10, start_column: 90 }
     )]
     #[case::right_margin_too_large(
-        Alignment::Right{ margin: 105 },
+        Alignment::Right{ margin: Margin::Fixed(105) },
         10,
         Positioning{ max_line_length: 10, start_column: 90 }
     )]

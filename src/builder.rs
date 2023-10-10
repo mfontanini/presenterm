@@ -15,7 +15,9 @@ use crate::{
     },
     resource::{LoadImageError, Resources},
     style::TextStyle,
-    theme::{Alignment, AuthorPositioning, Colors, ElementType, FooterStyle, LoadThemeError, PresentationTheme},
+    theme::{
+        Alignment, AuthorPositioning, Colors, ElementType, FooterStyle, LoadThemeError, Margin, PresentationTheme,
+    },
 };
 use std::{borrow::Cow, cell::RefCell, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
@@ -499,7 +501,7 @@ impl AsRenderOperations for FooterGenerator {
                         RenderOperation::JumpToWindowBottom,
                         RenderOperation::RenderTextLine {
                             line: vec![Self::render_template(left, &current_slide, &context, colors.clone())].into(),
-                            alignment: Alignment::Left { margin: 1 },
+                            alignment: Alignment::Left { margin: Margin::Fixed(1) },
                         },
                     ]);
                 }
@@ -508,7 +510,7 @@ impl AsRenderOperations for FooterGenerator {
                         RenderOperation::JumpToWindowBottom,
                         RenderOperation::RenderTextLine {
                             line: vec![Self::render_template(right, &current_slide, &context, colors.clone())].into(),
-                            alignment: Alignment::Right { margin: 1 },
+                            alignment: Alignment::Right { margin: Margin::Fixed(1) },
                         },
                     ]);
                 }
@@ -523,7 +525,10 @@ impl AsRenderOperations for FooterGenerator {
                 let bar = vec![WeightedText::from(StyledText::new(bar, TextStyle::default().colors(colors.clone())))];
                 vec![
                     RenderOperation::JumpToWindowBottom,
-                    RenderOperation::RenderTextLine { line: bar.into(), alignment: Alignment::Left { margin: 0 } },
+                    RenderOperation::RenderTextLine {
+                        line: bar.into(),
+                        alignment: Alignment::Left { margin: Margin::Fixed(0) },
+                    },
                 ]
             }
             FooterStyle::Empty => vec![],
