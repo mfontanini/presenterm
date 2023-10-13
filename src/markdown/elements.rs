@@ -1,7 +1,7 @@
-use unicode_width::UnicodeWidthStr;
-
 use crate::style::TextStyle;
 use std::{iter, path::PathBuf};
+use strum::EnumIter;
+use unicode_width::UnicodeWidthStr;
 
 /// A markdown element.
 ///
@@ -155,7 +155,7 @@ pub struct Code {
 }
 
 /// A programming language.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter)]
 pub enum ProgrammingLanguage {
     Asp,
     Bash,

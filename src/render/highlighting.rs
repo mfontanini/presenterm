@@ -70,7 +70,7 @@ impl CodeHighlighter {
             R => "r",
             Rust => "rs",
             Scala => "scala",
-            Shell => "shell",
+            Shell => "sh",
             Sql => "sql",
             TypeScript => "js",
             Xml => "xml",
@@ -96,3 +96,18 @@ pub struct CodeLine<'a> {
 #[derive(Debug, thiserror::Error)]
 #[error("theme not found")]
 pub struct ThemeNotFound;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use strum::IntoEnumIterator;
+
+    #[test]
+    fn language_extensions_exist() {
+        for language in ProgrammingLanguage::iter() {
+            let extension = CodeHighlighter::language_extension(&language);
+            let syntax = SYNTAX_SET.find_syntax_by_extension(extension);
+            assert!(syntax.is_some(), "extension {extension} for {language:?} not found");
+        }
+    }
+}
