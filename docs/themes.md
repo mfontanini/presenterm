@@ -186,7 +186,7 @@ No footer at all!
 
 ```yaml
 footer:
-  style: none
+  style: empty
 ```
 
 ### Progress bar
