@@ -22,6 +22,16 @@ In order to install, download [rust](https://www.rust-lang.org/) and run:
 cargo install presenterm
 ```
 
+## Latest unreleased version
+
+To run the latest unreleased version clone the repo, then run:
+
+```shell
+cargo build --release
+```
+
+The output binary will be in `./target/release/presenterm`.
+
 # Features
 
 * Define your presentation in a single markdown file.
