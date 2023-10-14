@@ -97,7 +97,6 @@ impl<'a> MarkdownParser<'a> {
         }
         let block = &block[start_tag.len()..];
         let block = &block[0..block.len() - end_tag.len()];
-        let block = block.trim();
         Ok(MarkdownElement::Comment(block.into()))
     }
 
@@ -674,7 +673,7 @@ let q = 42;
 ",
         );
         let MarkdownElement::Comment(text) = parsed else { panic!("not a comment: {parsed:?}") };
-        assert_eq!(text, "foo");
+        assert_eq!(text, " foo ");
     }
 
     #[test]

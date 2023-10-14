@@ -216,6 +216,10 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_comment(&mut self, comment: String) -> Result<(), BuildError> {
+        // Ignore any multi line comment; those are assumed to be user comments
+        if comment.contains('\n') {
+            return Ok(());
+        }
         let comment = comment.parse::<CommentCommand>()?;
         match comment {
             CommentCommand::Pause => self.process_pause(),
@@ -838,6 +842,7 @@ mod test {
 
     #[rstest]
     #[case::pause("pause", CommentCommand::Pause)]
+    #[case::pause(" pause ", CommentCommand::Pause)]
     #[case::end_slide("end_slide", CommentCommand::EndSlide)]
     #[case::column_layout("column_layout: [1, 2]", CommentCommand::InitColumnLayout(vec![1, 2]))]
     #[case::column("column: 1", CommentCommand::Column(1))]
