@@ -216,13 +216,11 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_comment(&mut self, comment: String) -> Result<(), BuildError> {
-        let Ok(comment) = comment.parse::<CommentCommand>() else {
-            return Ok(());
-        };
+        let comment = comment.parse::<CommentCommand>()?;
         match comment {
             CommentCommand::Pause => self.process_pause(),
             CommentCommand::EndSlide => self.terminate_slide(),
-            CommentCommand::Layout(columns) => {
+            CommentCommand::InitColumnLayout(columns) => {
                 Self::validate_column_layout(&columns)?;
                 self.layout = LayoutState::InLayout { columns_count: columns.len() };
                 self.slide_operations.push(RenderOperation::InitColumnLayout { columns });
@@ -642,45 +640,37 @@ pub enum BuildError {
 
     #[error("need to enter layout column explicitly using `column` command")]
     NotInsideColumn,
+
+    #[error(transparent)]
+    CommandParse(#[from] CommandParseError),
 }
 
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "snake_case")]
 enum CommentCommand {
     Pause,
     EndSlide,
-    Layout(Vec<u8>),
-    ResetLayout,
+    #[serde(rename = "column_layout")]
+    InitColumnLayout(Vec<u8>),
     Column(usize),
+    ResetLayout,
 }
 
 impl FromStr for CommentCommand {
-    type Err = ();
+    type Err = CommandParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "pause" => return Ok(Self::Pause),
-            "end_slide" => return Ok(Self::EndSlide),
-            "reset_layout" => return Ok(Self::ResetLayout),
-            _ => (),
-        };
-        if let Ok(command) = serde_yaml::from_str::<LayoutCommand>(s) {
-            return Ok(Self::Layout(command.column_layout));
-        }
-        if let Ok(command) = serde_yaml::from_str::<ColumnCommand>(s) {
-            return Ok(Self::Column(command.column));
-        }
-        Err(())
+        #[derive(Deserialize)]
+        struct CommandWrapper(#[serde(with = "serde_yaml::with::singleton_map")] CommentCommand);
+
+        let wrapper = serde_yaml::from_str::<CommandWrapper>(s)?;
+        Ok(wrapper.0)
     }
 }
 
-#[derive(Deserialize)]
-struct LayoutCommand {
-    column_layout: Vec<u8>,
-}
-
-#[derive(Deserialize)]
-struct ColumnCommand {
-    column: usize,
-}
+#[derive(thiserror::Error, Debug)]
+#[error("invalid command: {0}")]
+pub struct CommandParseError(#[from] serde_yaml::Error);
 
 #[cfg(test)]
 mod test {
@@ -844,5 +834,16 @@ mod test {
         let elements = vec![MarkdownElement::Comment("column_layout: [1]".into()), MarkdownElement::ThematicBreak];
         let result = try_build_presentation(elements);
         assert!(result.is_err());
+    }
+
+    #[rstest]
+    #[case::pause("pause", CommentCommand::Pause)]
+    #[case::end_slide("end_slide", CommentCommand::EndSlide)]
+    #[case::column_layout("column_layout: [1, 2]", CommentCommand::InitColumnLayout(vec![1, 2]))]
+    #[case::column("column: 1", CommentCommand::Column(1))]
+    #[case::reset_layout("reset_layout", CommentCommand::ResetLayout)]
+    fn command_formatting(#[case] input: &str, #[case] expected: CommentCommand) {
+        let parsed: CommentCommand = input.parse().expect("deserialization failed");
+        assert_eq!(parsed, expected);
     }
 }
