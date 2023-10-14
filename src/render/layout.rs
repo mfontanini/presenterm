@@ -1,12 +1,24 @@
 use crate::{render::properties::WindowSize, theme::Alignment};
 
-pub(crate) struct Layout<'a>(pub(crate) &'a Alignment);
+pub(crate) struct Layout {
+    alignment: Alignment,
+    start_column_offset: u16,
+}
 
-impl<'a> Layout<'a> {
+impl Layout {
+    pub(crate) fn new(alignment: Alignment) -> Self {
+        Self { alignment, start_column_offset: 0 }
+    }
+
+    pub(crate) fn with_start_column(mut self, column: u16) -> Self {
+        self.start_column_offset = column;
+        self
+    }
+
     pub(crate) fn compute(&self, dimensions: &WindowSize, text_length: u16) -> Positioning {
         let max_line_length;
         let mut start_column;
-        match self.0 {
+        match &self.alignment {
             Alignment::Left { margin } => {
                 let margin = margin.as_characters(dimensions.columns);
                 // Ignore the margin if it's larger than the screen: we can't satisfy it so we
@@ -22,8 +34,8 @@ impl<'a> Layout<'a> {
                 max_line_length = (dimensions.columns - margin) - start_column;
             }
             Alignment::Center { minimum_margin, minimum_size } => {
-                let minimum_margin =
-                    Self::fit_to_columns(dimensions, minimum_margin.saturating_mul(2), *minimum_margin);
+                let minimum_margin = minimum_margin.as_characters(dimensions.columns);
+                let minimum_margin = Self::fit_to_columns(dimensions, minimum_margin.saturating_mul(2), minimum_margin);
                 // Respect minimum margin if both together overflow.
                 let minimum_size = Self::fit_to_columns(
                     dimensions,
@@ -40,15 +52,12 @@ impl<'a> Layout<'a> {
                 }
             }
         };
+        start_column += self.start_column_offset;
         Positioning { max_line_length, start_column }
     }
 
     fn fit_to_columns(dimensions: &WindowSize, required_fit: u16, actual_fit: u16) -> u16 {
-        if required_fit > dimensions.columns {
-            0
-        } else {
-            actual_fit
-        }
+        if required_fit > dimensions.columns { 0 } else { actual_fit }
     }
 }
 
@@ -116,43 +125,43 @@ mod test {
         Positioning{ max_line_length: 10, start_column: 90 }
     )]
     #[case::center_no_minimums(
-        Alignment::Center{ minimum_margin: 0, minimum_size: 0 },
+        Alignment::Center{ minimum_margin: Margin::Fixed(0), minimum_size: 0 },
         10,
         Positioning{ max_line_length: 10, start_column: 45 }
     )]
     #[case::center_minimum_margin(
-        Alignment::Center{ minimum_margin: 10, minimum_size: 0 },
+        Alignment::Center{ minimum_margin: Margin::Fixed(10), minimum_size: 0 },
         100,
         Positioning{ max_line_length: 80, start_column: 10 }
     )]
     #[case::center_minimum_size(
-        Alignment::Center{ minimum_margin: 0, minimum_size: 50 },
+        Alignment::Center{ minimum_margin: Margin::Fixed(0), minimum_size: 50 },
         10,
         Positioning{ max_line_length: 50, start_column: 25 }
     )]
     #[case::center_large_minimum_margin(
-        Alignment::Center{ minimum_margin: 60, minimum_size: 0 },
+        Alignment::Center{ minimum_margin: Margin::Fixed(60), minimum_size: 0 },
         10,
         Positioning{ max_line_length: 10, start_column: 45 }
     )]
     #[case::center_minimum_margin_too_large(
-        Alignment::Center{ minimum_margin: 105, minimum_size: 0 },
+        Alignment::Center{ minimum_margin: Margin::Fixed(105), minimum_size: 0 },
         10,
         Positioning{ max_line_length: 10, start_column: 45 }
     )]
     #[case::center_minimum_size_too_large(
-        Alignment::Center{ minimum_margin: 0, minimum_size: 105 },
+        Alignment::Center{ minimum_margin: Margin::Fixed(0), minimum_size: 105 },
         10,
         Positioning{ max_line_length: 10, start_column: 45 }
     )]
     #[case::center_margin_and_size_overflows(
-        Alignment::Center{ minimum_margin: 30, minimum_size: 60 },
+        Alignment::Center{ minimum_margin: Margin::Fixed(30), minimum_size: 60 },
         10,
         Positioning{ max_line_length: 10, start_column: 45 }
     )]
     fn layout(#[case] alignment: Alignment, #[case] length: u16, #[case] expected: Positioning) {
         let dimensions = WindowSize { rows: 0, columns: 100, width: 0, height: 0 };
-        let positioning = Layout(&alignment).compute(&dimensions, length);
+        let positioning = Layout::new(alignment).compute(&dimensions, length);
         assert_eq!(positioning, expected);
     }
 }

@@ -191,6 +191,20 @@ pub enum RenderOperation {
     /// screen, like window size, without coupling the transformation of markdown into
     /// [RenderOperation] with the screen itself.
     RenderDynamic(Rc<dyn AsRenderOperations>),
+
+    /// Initialize a column layout.
+    ///
+    /// The value for each column is the width of the column in column-unit units, where the entire
+    /// screen contains `columns.sum()` column-units.
+    InitColumnLayout { columns: Vec<u8> },
+
+    /// Enter a column in a column layout.
+    ///
+    /// The index is 0-index based and will be tied to a previous `InitColumnLayout` operation.
+    EnterColumn { column: usize },
+
+    /// Exit the current layout and go back to the default one.
+    ExitLayout,
 }
 
 /// A type that can generate render operations.

@@ -241,9 +241,9 @@ pub enum Alignment {
 
     /// Center alignment.
     Center {
-        /// The minimum margin expected, in columns.
+        /// The minimum margin expected.
         #[serde(default)]
-        minimum_margin: u16,
+        minimum_margin: Margin,
 
         /// The minimum size of this element, in columns.
         #[serde(default)]

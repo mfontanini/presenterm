@@ -1,8 +1,9 @@
 use crate::render::properties::WindowSize;
-use crossterm::cursor;
 use image::{DynamicImage, ImageError};
 use std::{fmt::Debug, io, rc::Rc};
 use viuer::ViuError;
+
+use super::properties::CursorPosition;
 
 /// An image.
 ///
@@ -37,8 +38,12 @@ impl MediaRender {
     ///
     /// In case the image does not fit, it will be resized to fit the screen, preserving the aspect
     /// ratio.
-    pub fn draw_image(&self, image: &Image, dimensions: &WindowSize) -> Result<(), RenderImageError> {
-        let position = cursor::position()?;
+    pub fn draw_image(
+        &self,
+        image: &Image,
+        position: CursorPosition,
+        dimensions: &WindowSize,
+    ) -> Result<(), RenderImageError> {
         let image = &image.0;
 
         // Compute the image's width in columns by translating pixels -> columns.
@@ -51,7 +56,7 @@ impl MediaRender {
         let height_in_rows = (image.height() as f64 / row_in_pixels) as u32;
 
         // If the image doesn't fit vertically, shrink it.
-        let available_height = dimensions.rows.saturating_sub(position.1) as u32;
+        let available_height = dimensions.rows.saturating_sub(position.row) as u32;
         if height_in_rows > available_height {
             // Because we only use the width to draw, here we scale the width based on how much we
             // need to shrink the height.
@@ -63,10 +68,11 @@ impl MediaRender {
 
         // Draw it in the middle
         let start_column = dimensions.columns / 2 - (width_in_columns / 2) as u16;
+        let start_column = start_column + position.column;
         let config = viuer::Config {
             width: Some(width_in_columns),
             x: start_column,
-            y: position.1 as i16,
+            y: position.row as i16,
             ..Default::default()
         };
         viuer::print(image, &config)?;

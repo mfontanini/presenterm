@@ -1,4 +1,4 @@
-use crossterm::terminal::window_size;
+use crossterm::{cursor::position, terminal::window_size};
 use std::io;
 
 /// The size of the terminal window.
@@ -34,6 +34,20 @@ impl WindowSize {
         }
     }
 
+    /// Shrink a window by the given number of columns.
+    ///
+    /// This preserves the relationship between columns and pixels.
+    pub fn shrink_columns(&self, amount: u16) -> WindowSize {
+        let pixels_per_column = self.pixels_per_column();
+        let width_to_shrink = (pixels_per_column * amount as f64) as u16;
+        WindowSize {
+            rows: self.rows,
+            columns: self.columns.saturating_sub(amount),
+            height: self.height,
+            width: self.width.saturating_sub(width_to_shrink),
+        }
+    }
+
     /// The number of pixels per column.
     pub fn pixels_per_column(&self) -> f64 {
         self.width as f64 / self.columns as f64
@@ -51,6 +65,21 @@ impl From<crossterm::terminal::WindowSize> for WindowSize {
     }
 }
 
+/// The cursor's position.
+#[derive(Debug, Clone, Default)]
+pub struct CursorPosition {
+    pub column: u16,
+    pub row: u16,
+}
+
+impl CursorPosition {
+    /// Get the current cursor position.
+    pub fn current() -> io::Result<Self> {
+        let (column, row) = position()?;
+        Ok(Self { column, row })
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -61,8 +90,12 @@ mod test {
         assert_eq!(dimensions.pixels_per_column(), 20.0);
         assert_eq!(dimensions.pixels_per_row(), 10.0);
 
-        let dimensions = dimensions.shrink_rows(3);
-        assert_eq!(dimensions.rows, 7);
-        assert_eq!(dimensions.height, 70);
+        let new_dimensions = dimensions.shrink_rows(3);
+        assert_eq!(new_dimensions.rows, 7);
+        assert_eq!(new_dimensions.height, 70);
+
+        let new_dimensions = new_dimensions.shrink_columns(3);
+        assert_eq!(new_dimensions.columns, 7);
+        assert_eq!(new_dimensions.width, 140);
     }
 }

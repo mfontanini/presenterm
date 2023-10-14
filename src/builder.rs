@@ -19,6 +19,7 @@ use crate::{
         Alignment, AuthorPositioning, Colors, ElementType, FooterStyle, LoadThemeError, Margin, PresentationTheme,
     },
 };
+use serde::Deserialize;
 use std::{borrow::Cow, cell::RefCell, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 
@@ -33,8 +34,10 @@ pub struct PresentationBuilder<'a> {
     theme: Cow<'a, PresentationTheme>,
     resources: &'a mut Resources,
     ignore_element_line_break: bool,
+    needs_enter_column: bool,
     last_element_is_list: bool,
     footer_context: Rc<RefCell<FooterContext>>,
+    layout: LayoutState,
 }
 
 impl<'a> PresentationBuilder<'a> {
@@ -52,7 +55,9 @@ impl<'a> PresentationBuilder<'a> {
             resources,
             ignore_element_line_break: false,
             last_element_is_list: false,
+            needs_enter_column: false,
             footer_context: Default::default(),
+            layout: Default::default(),
         }
     }
 
@@ -69,6 +74,7 @@ impl<'a> PresentationBuilder<'a> {
         for element in elements {
             self.ignore_element_line_break = false;
             self.process_element(element)?;
+            self.validate_last_operation()?;
             if !self.ignore_element_line_break {
                 self.push_line_break();
             }
@@ -80,6 +86,25 @@ impl<'a> PresentationBuilder<'a> {
 
         let presentation = Presentation::new(self.slides);
         Ok(presentation)
+    }
+
+    fn validate_last_operation(&mut self) -> Result<(), BuildError> {
+        if !self.needs_enter_column {
+            return Ok(());
+        }
+        let Some(last) = self.slide_operations.last() else {
+            return Ok(());
+        };
+        if matches!(last, RenderOperation::InitColumnLayout { .. }) {
+            return Ok(());
+        }
+        self.needs_enter_column = false;
+        let last_valid = matches!(last, RenderOperation::EnterColumn { .. } | RenderOperation::ExitLayout);
+        if last_valid {
+            Ok(())
+        } else {
+            Err(BuildError::NotInsideColumn)
+        }
     }
 
     fn push_slide_prelude(&mut self) {
@@ -102,7 +127,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::Code(code) => self.push_code(code),
             MarkdownElement::Table(table) => self.push_table(table),
             MarkdownElement::ThematicBreak => self.push_separator(),
-            MarkdownElement::Comment(comment) => self.process_comment(comment),
+            MarkdownElement::Comment(comment) => self.process_comment(comment)?,
             MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines),
             MarkdownElement::Image(path) => self.push_image(path)?,
         };
@@ -190,13 +215,48 @@ impl<'a> PresentationBuilder<'a> {
         self.terminate_slide();
     }
 
-    fn process_comment(&mut self, comment: String) {
-        let Ok(comment) = comment.parse::<Comment>() else {
-            return;
+    fn process_comment(&mut self, comment: String) -> Result<(), BuildError> {
+        let Ok(comment) = comment.parse::<CommentCommand>() else {
+            return Ok(());
         };
         match comment {
-            Comment::Pause => self.process_pause(),
-            Comment::EndSlide => self.terminate_slide(),
+            CommentCommand::Pause => self.process_pause(),
+            CommentCommand::EndSlide => self.terminate_slide(),
+            CommentCommand::Layout(columns) => {
+                Self::validate_column_layout(&columns)?;
+                self.layout = LayoutState::InLayout { columns_count: columns.len() };
+                self.slide_operations.push(RenderOperation::InitColumnLayout { columns });
+                self.needs_enter_column = true;
+            }
+            CommentCommand::ResetLayout => {
+                self.layout = LayoutState::Default;
+                self.slide_operations.push(RenderOperation::ExitLayout);
+            }
+            CommentCommand::Column(column) => {
+                let (current_column, columns_count) = match self.layout {
+                    LayoutState::InColumn { column, columns_count } => (Some(column), columns_count),
+                    LayoutState::InLayout { columns_count } => (None, columns_count),
+                    LayoutState::Default => return Err(BuildError::NoLayout),
+                };
+                if current_column == Some(column) {
+                    return Err(BuildError::AlreadyInColumn);
+                } else if column >= columns_count {
+                    return Err(BuildError::ColumnIndexTooLarge);
+                }
+                self.layout = LayoutState::InColumn { column, columns_count };
+                self.slide_operations.push(RenderOperation::EnterColumn { column });
+            }
+        };
+        Ok(())
+    }
+
+    fn validate_column_layout(columns: &[u8]) -> Result<(), BuildError> {
+        if columns.is_empty() {
+            Err(BuildError::InvalidLayout("need at least one column"))
+        } else if columns.iter().any(|column| column == &0) {
+            Err(BuildError::InvalidLayout("can't have zero sized columns"))
+        } else {
+            Ok(())
         }
     }
 
@@ -403,6 +463,8 @@ impl<'a> PresentationBuilder<'a> {
         self.slides.push(Slide { render_operations: elements });
         self.push_slide_prelude();
         self.ignore_element_line_break = true;
+        self.needs_enter_column = false;
+        self.layout = Default::default();
     }
 
     fn push_footer(&mut self) {
@@ -411,6 +473,8 @@ impl<'a> PresentationBuilder<'a> {
             current_slide: self.slides.len(),
             context: self.footer_context.clone(),
         };
+        // Exit any layout we're in so this gets rendered on a default screen size.
+        self.slide_operations.push(RenderOperation::ExitLayout);
         self.slide_operations.push(RenderOperation::RenderDynamic(Rc::new(generator)));
     }
 
@@ -464,6 +528,19 @@ impl<'a> PresentationBuilder<'a> {
         }
         flattened_row
     }
+}
+
+#[derive(Default)]
+enum LayoutState {
+    #[default]
+    Default,
+    InLayout {
+        columns_count: usize,
+    },
+    InColumn {
+        column: usize,
+        columns_count: usize,
+    },
 }
 
 #[derive(Debug, Default)]
@@ -550,36 +627,78 @@ pub enum BuildError {
 
     #[error("invalid code highlighter theme")]
     InvalidCodeTheme,
+
+    #[error("invalid layout: {0}")]
+    InvalidLayout(&'static str),
+
+    #[error("can't enter layout: no layout defined")]
+    NoLayout,
+
+    #[error("can't enter layout column: already in it")]
+    AlreadyInColumn,
+
+    #[error("can't enter layout column: column index too large")]
+    ColumnIndexTooLarge,
+
+    #[error("need to enter layout column explicitly using `column` command")]
+    NotInsideColumn,
 }
 
-enum Comment {
+enum CommentCommand {
     Pause,
     EndSlide,
+    Layout(Vec<u8>),
+    ResetLayout,
+    Column(usize),
 }
 
-impl FromStr for Comment {
+impl FromStr for CommentCommand {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "pause" => Ok(Self::Pause),
-            "end_slide" => Ok(Self::EndSlide),
-            _ => Err(()),
+            "pause" => return Ok(Self::Pause),
+            "end_slide" => return Ok(Self::EndSlide),
+            "reset_layout" => return Ok(Self::ResetLayout),
+            _ => (),
+        };
+        if let Ok(command) = serde_yaml::from_str::<LayoutCommand>(s) {
+            return Ok(Self::Layout(command.column_layout));
         }
+        if let Ok(command) = serde_yaml::from_str::<ColumnCommand>(s) {
+            return Ok(Self::Column(command.column));
+        }
+        Err(())
     }
+}
+
+#[derive(Deserialize)]
+struct LayoutCommand {
+    column_layout: Vec<u8>,
+}
+
+#[derive(Deserialize)]
+struct ColumnCommand {
+    column: usize,
 }
 
 #[cfg(test)]
 mod test {
+    use rstest::rstest;
+
     use super::*;
     use crate::{markdown::elements::ProgrammingLanguage, presentation::PreformattedLine};
 
     fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
+        try_build_presentation(elements).expect("build failed")
+    }
+
+    fn try_build_presentation(elements: Vec<MarkdownElement>) -> Result<Presentation, BuildError> {
         let highlighter = CodeHighlighter::new("base16-ocean.dark").unwrap();
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp");
         let builder = PresentationBuilder::new(highlighter, &theme, &mut resources);
-        builder.build(elements).expect("build failed")
+        builder.build(elements)
     }
 
     fn is_visible(operation: &RenderOperation) -> bool {
@@ -682,5 +801,48 @@ mod test {
         let lines = extract_text_lines(&operations);
         let expected_lines = &["key    │ value │ other", "───────┼───────┼──────", "potato │ bar   │ yes  "];
         assert_eq!(lines, expected_lines);
+    }
+
+    #[test]
+    fn layout_without_init() {
+        let elements = vec![MarkdownElement::Comment("column: 0".into())];
+        let result = try_build_presentation(elements);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn already_in_column() {
+        let elements = vec![
+            MarkdownElement::Comment("column_layout: [1]".into()),
+            MarkdownElement::Comment("column: 0".into()),
+            MarkdownElement::Comment("column: 0".into()),
+        ];
+        let result = try_build_presentation(elements);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn column_index_overflow() {
+        let elements =
+            vec![MarkdownElement::Comment("column_layout: [1]".into()), MarkdownElement::Comment("column: 1".into())];
+        let result = try_build_presentation(elements);
+        assert!(result.is_err());
+    }
+
+    #[rstest]
+    #[case::empty("column_layout: []")]
+    #[case::zero("column_layout: [0]")]
+    #[case::one_is_zero("column_layout: [1, 0]")]
+    fn invalid_layouts(#[case] definition: &str) {
+        let elements = vec![MarkdownElement::Comment(definition.into())];
+        let result = try_build_presentation(elements);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn operation_without_enter_column() {
+        let elements = vec![MarkdownElement::Comment("column_layout: [1]".into()), MarkdownElement::ThematicBreak];
+        let result = try_build_presentation(elements);
+        assert!(result.is_err());
     }
 }

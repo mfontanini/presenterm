@@ -1,4 +1,4 @@
-use super::operator::RenderOperator;
+use super::{operator::RenderOperator, terminal::Terminal};
 use crate::{
     markdown::{
         elements::StyledText,
@@ -7,14 +7,9 @@ use crate::{
     presentation::{Presentation, RenderOperation},
     render::properties::WindowSize,
     style::TextStyle,
-    theme::{Alignment, Colors},
+    theme::{Alignment, Colors, Margin},
 };
-use crossterm::{
-    cursor,
-    style::Color,
-    terminal::{self, disable_raw_mode, enable_raw_mode},
-    QueueableCommand,
-};
+use crossterm::style::Color;
 use std::io;
 
 /// The result of a render operation.
@@ -22,7 +17,7 @@ pub type RenderResult = Result<(), RenderError>;
 
 /// Allows drawing elements in the terminal.
 pub struct TerminalDrawer<W: io::Write> {
-    handle: W,
+    terminal: Terminal<W>,
 }
 
 impl<W> TerminalDrawer<W>
@@ -30,11 +25,9 @@ where
     W: io::Write,
 {
     /// Construct a drawer over a [std::io::Write].
-    pub fn new(mut handle: W) -> io::Result<Self> {
-        enable_raw_mode()?;
-        handle.queue(cursor::Hide)?;
-        handle.queue(terminal::EnterAlternateScreen)?;
-        Ok(Self { handle })
+    pub fn new(handle: W) -> io::Result<Self> {
+        let terminal = Terminal::new(handle)?;
+        Ok(Self { terminal })
     }
 
     /// Render a slide.
@@ -42,12 +35,9 @@ where
         let window_dimensions = WindowSize::current()?;
         let slide_dimensions = window_dimensions.shrink_rows(3);
         let slide = presentation.current_slide();
-        let mut operator =
-            RenderOperator::new(&mut self.handle, slide_dimensions, window_dimensions, Default::default());
-        for element in &slide.render_operations {
-            operator.render(element)?;
-        }
-        self.handle.flush()?;
+        let operator = RenderOperator::new(&mut self.terminal, slide_dimensions, window_dimensions);
+        operator.render(&slide.render_operations)?;
+        self.terminal.flush()?;
         Ok(())
     }
 
@@ -59,8 +49,8 @@ where
             WeightedText::from(StyledText::from(": ")),
         ];
         let error = vec![WeightedText::from(StyledText::from(message))];
-        let alignment = Alignment::Center { minimum_size: 0, minimum_margin: 5 };
-        let operations = vec![
+        let alignment = Alignment::Center { minimum_size: 0, minimum_margin: Margin::Percent(8) };
+        let operations = [
             RenderOperation::ClearScreen,
             RenderOperation::SetColors(Colors { foreground: Some(Color::Red), background: Some(Color::Black) }),
             RenderOperation::JumpToVerticalCenter,
@@ -69,23 +59,10 @@ where
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderTextLine { line: WeightedLine::from(error), alignment: alignment.clone() },
         ];
-        let mut operator = RenderOperator::new(&mut self.handle, dimensions.clone(), dimensions, Default::default());
-        for operation in operations {
-            operator.render(&operation)?;
-        }
-        self.handle.flush()?;
+        let operator = RenderOperator::new(&mut self.terminal, dimensions.clone(), dimensions);
+        operator.render(&operations)?;
+        self.terminal.flush()?;
         Ok(())
-    }
-}
-
-impl<W> Drop for TerminalDrawer<W>
-where
-    W: io::Write,
-{
-    fn drop(&mut self) {
-        let _ = self.handle.queue(terminal::LeaveAlternateScreen);
-        let _ = self.handle.queue(cursor::Show);
-        let _ = disable_raw_mode();
     }
 }
 
@@ -100,6 +77,9 @@ pub enum RenderError {
 
     #[error("screen is too small")]
     TerminalTooSmall,
+
+    #[error("tried to move to non existent layout location")]
+    InvalidLayoutEnter,
 
     #[error(transparent)]
     Other(Box<dyn std::error::Error>),
