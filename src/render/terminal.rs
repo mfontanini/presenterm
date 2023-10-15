@@ -1,5 +1,5 @@
 use super::properties::CursorPosition;
-use crate::theme::Colors;
+use crate::style::Colors;
 use crossterm::{
     cursor,
     style::{self, StyledContent},
@@ -72,8 +72,7 @@ impl<W: io::Write> Terminal<W> {
     }
 
     pub(crate) fn set_colors(&mut self, colors: Colors) -> io::Result<()> {
-        let colors = style::Colors { background: colors.background, foreground: colors.foreground };
-        self.writer.queue(style::SetColors(colors))?;
+        self.writer.queue(style::SetColors(colors.into()))?;
         Ok(())
     }
 

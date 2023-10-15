@@ -3,15 +3,15 @@ default:
   margin:
     percent: 8
   colors:
-    foreground: "rgb_(230,230,230)"
-    background: "rgb_(4,3,18)"
+    foreground: "e6e6e6"
+    background: "040312"
 
 slide_title:
   alignment: center
   padding_bottom: 1
   padding_top: 1
   colors:
-    foreground: "rgb_(238,147,34)"
+    foreground: "ee9322"
 
 code:
   alignment: center
@@ -23,8 +23,8 @@ code:
 
 inline_code:
   colors:
-    foreground: "rgb_(4,222,32)"
-    background: "rgb_(69,80,69)"
+    foreground: "04de20"
+    background: "455045"
 
 table:
   alignment: center
@@ -33,51 +33,51 @@ intro_slide:
   title:
     alignment: center
     colors:
-      foreground: "rgb_(180,204,255)"
+      foreground: "b4ccff"
   subtitle:
     alignment: center
     colors:
-      foreground: "rgb_(165,215,232)"
+      foreground: "a5d7e8"
   author:
     alignment: center
     colors:
-      foreground: "rgb_(182,234,218)"
+      foreground: "b6eada"
     positioning: page_bottom
 
 headings:
   h1:
     prefix: "██"
     colors:
-      foreground: "rgb_(48,133,195)"
+      foreground: "3085c3"
   h2:
     prefix: "▓▓▓"
     colors:
-      foreground: "rgb_(168,223,142)"
+      foreground: "a8df8e"
   h3:
     prefix: "▒▒▒▒"
     colors:
-      foreground: "rgb_(247,140,162)"
+      foreground: "f78ca2"
   h4:
     prefix: "░░░░░"
     colors:
-      foreground: "rgb_(210,210,210)"
+      foreground: "d2d2d2"
   h5:
     prefix: "░░░░░░"
     colors:
-      foreground: "rgb_(210,210,210)"
+      foreground: "d2d2d2"
   h6:
     prefix: "░░░░░░░"
     colors:
-      foreground: "rgb_(210,210,210)"
+      foreground: "d2d2d2"
 
 block_quote:
   prefix: "▍ "
   colors:
-    foreground: "rgb_(240,240,240)"
-    background: "rgb_(41,46,66)"
+    foreground: "f0f0f0"
+    background: "292e42"
 
 footer: 
   style: progress_bar
   colors:
-    foreground: "rgb_(122,162,247)"
+    foreground: "7aa2f7"
 

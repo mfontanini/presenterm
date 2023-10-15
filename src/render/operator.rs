@@ -10,7 +10,8 @@ use crate::{
     markdown::text::WeightedLine,
     presentation::{AsRenderOperations, PreformattedLine, RenderOperation},
     render::{layout::Positioning, properties::WindowSize},
-    theme::{Alignment, Colors},
+    style::Colors,
+    theme::Alignment,
 };
 use std::{io, mem};
 

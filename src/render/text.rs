@@ -1,3 +1,4 @@
+use super::terminal::Terminal;
 use crate::{
     markdown::text::WeightedLine,
     render::{
@@ -5,12 +6,9 @@ use crate::{
         layout::{Layout, Positioning},
         properties::WindowSize,
     },
-    style::TextStyle,
-    theme::Colors,
+    style::{Colors, TextStyle},
 };
 use std::io;
-
-use super::terminal::Terminal;
 
 const MINIMUM_LINE_LENGTH: u16 = 10;
 

@@ -91,9 +91,9 @@ mod test {
     use crate::{
         presentation::{AsRenderOperations, PreformattedLine},
         render::properties::WindowSize,
-        theme::{Alignment, Colors, Margin},
+        style::{Color, Colors},
+        theme::{Alignment, Margin},
     };
-    use crossterm::style::Color;
     use rstest::rstest;
     use std::rc::Rc;
 
@@ -151,8 +151,8 @@ mod test {
 
     #[test]
     fn different_colors() {
-        let lhs = RenderOperation::SetColors(Colors { background: None, foreground: Some(Color::Red) });
-        let rhs = RenderOperation::SetColors(Colors { background: None, foreground: Some(Color::Black) });
+        let lhs = RenderOperation::SetColors(Colors { background: None, foreground: Some(Color::new(1, 2, 3)) });
+        let rhs = RenderOperation::SetColors(Colors { background: None, foreground: Some(Color::new(3, 2, 1)) });
         assert!(!lhs.is_content_different(&rhs));
     }
 
@@ -209,13 +209,13 @@ mod test {
         let lhs = Presentation::new(vec![Slide {
             render_operations: vec![RenderOperation::SetColors(Colors {
                 background: None,
-                foreground: Some(Color::Red),
+                foreground: Some(Color::new(255, 0, 0)),
             })],
         }]);
         let rhs = Presentation::new(vec![Slide {
             render_operations: vec![RenderOperation::SetColors(Colors {
                 background: None,
-                foreground: Some(Color::Black),
+                foreground: Some(Color::new(0, 0, 0)),
             })],
         }]);
 

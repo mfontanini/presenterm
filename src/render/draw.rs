@@ -6,10 +6,9 @@ use crate::{
     },
     presentation::{Presentation, RenderOperation},
     render::properties::WindowSize,
-    style::TextStyle,
-    theme::{Alignment, Colors, Margin},
+    style::{Color, Colors, TextStyle},
+    theme::{Alignment, Margin},
 };
-use crossterm::style::Color;
 use std::io;
 
 /// The result of a render operation.
@@ -52,7 +51,10 @@ where
         let alignment = Alignment::Center { minimum_size: 0, minimum_margin: Margin::Percent(8) };
         let operations = [
             RenderOperation::ClearScreen,
-            RenderOperation::SetColors(Colors { foreground: Some(Color::Red), background: Some(Color::Black) }),
+            RenderOperation::SetColors(Colors {
+                foreground: Some(Color::new(255, 0, 0)),
+                background: Some(Color::new(0, 0, 0)),
+            }),
             RenderOperation::JumpToVerticalCenter,
             RenderOperation::RenderTextLine { line: WeightedLine::from(heading), alignment: alignment.clone() },
             RenderOperation::RenderLineBreak,

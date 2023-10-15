@@ -1,5 +1,11 @@
-use crate::theme::Colors;
 use crossterm::style::Stylize;
+use hex::{FromHex, FromHexError};
+use serde::{Deserialize, Serialize};
+use serde_with::{DeserializeFromStr, SerializeDisplay};
+use std::{
+    fmt::{self, Display},
+    str::FromStr,
+};
 
 /// The style of a piece of text.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -94,10 +100,10 @@ impl TextStyle {
             styled = styled.italic().underlined();
         }
         if let Some(color) = self.colors.background {
-            styled = styled.on(color);
+            styled = styled.on(color.into());
         }
         if let Some(color) = self.colors.foreground {
-            styled = styled.with(color);
+            styled = styled.with(color.into());
         }
         styled
     }
@@ -110,4 +116,71 @@ enum TextFormatFlags {
     Code = 4,
     Strikethrough = 8,
     Link = 16,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, SerializeDisplay, DeserializeFromStr)]
+pub struct Color(crossterm::style::Color);
+
+impl Color {
+    pub fn new(r: u8, g: u8, b: u8) -> Self {
+        Self(crossterm::style::Color::Rgb { r, g, b })
+    }
+}
+
+impl FromStr for Color {
+    type Err = ParseColorError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let values = <[u8; 3]>::from_hex(input)?;
+        Ok(Self(crossterm::style::Color::Rgb { r: values[0], g: values[1], b: values[2] }))
+    }
+}
+
+impl Display for Color {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let rgb = match self.0 {
+            crossterm::style::Color::Rgb { r, g, b } => [r, g, b],
+            _ => panic!("not rgb"),
+        };
+        write!(f, "{}", hex::encode(rgb))
+    }
+}
+
+impl From<Color> for crossterm::style::Color {
+    fn from(value: Color) -> Self {
+        value.0
+    }
+}
+
+/// Text colors.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+pub struct Colors {
+    /// The background color.
+    pub background: Option<Color>,
+
+    /// The foreground color.
+    pub foreground: Option<Color>,
+}
+
+impl From<Colors> for crossterm::style::Colors {
+    fn from(value: Colors) -> Self {
+        let foreground = value.foreground.map(Color::into);
+        let background = value.background.map(Color::into);
+        Self { foreground, background }
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("invalid color: {0}")]
+pub struct ParseColorError(#[from] FromHexError);
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn color_serde() {
+        let color: Color = "beef42".parse().unwrap();
+        assert_eq!(color.to_string(), "beef42");
+    }
 }

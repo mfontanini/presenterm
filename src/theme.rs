@@ -1,4 +1,4 @@
-use crossterm::style::Color;
+use crate::style::Colors;
 use serde::{Deserialize, Serialize};
 use std::{fs, io, path::Path};
 
@@ -398,16 +398,6 @@ pub enum ElementType {
     PresentationAuthor,
     Table,
     BlockQuote,
-}
-
-/// Text colors.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
-pub struct Colors {
-    /// The background color.
-    pub background: Option<Color>,
-
-    /// The foreground color.
-    pub foreground: Option<Color>,
 }
 
 /// Where to position the author's name in the intro slide.

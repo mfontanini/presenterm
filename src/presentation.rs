@@ -1,7 +1,8 @@
 use crate::{
     markdown::text::WeightedLine,
     render::{media::Image, properties::WindowSize},
-    theme::{Alignment, Colors, PresentationTheme},
+    style::Colors,
+    theme::{Alignment, PresentationTheme},
 };
 use serde::Deserialize;
 use std::rc::Rc;
