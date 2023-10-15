@@ -553,12 +553,22 @@ struct FooterGenerator {
 }
 
 impl FooterGenerator {
-    fn render_template(template: &str, current_slide: &str, context: &FooterContext, colors: Colors) -> WeightedText {
+    fn render_template(
+        template: &str,
+        current_slide: &str,
+        context: &FooterContext,
+        colors: Colors,
+        alignment: Alignment,
+    ) -> Vec<RenderOperation> {
         let contents = template
             .replace("{current_slide}", current_slide)
             .replace("{total_slides}", &context.total_slides.to_string())
             .replace("{author}", &context.author);
-        WeightedText::from(StyledText::new(contents, TextStyle::default().colors(colors)))
+        let text = WeightedText::from(StyledText::new(contents, TextStyle::default().colors(colors)));
+        vec![
+            RenderOperation::JumpToWindowBottom,
+            RenderOperation::RenderTextLine { line: vec![text].into(), alignment },
+        ]
     }
 }
 
@@ -566,26 +576,25 @@ impl AsRenderOperations for FooterGenerator {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let context = self.context.borrow();
         match &self.style {
-            FooterStyle::Template { left, right, colors } => {
+            FooterStyle::Template { left, center, right, colors } => {
                 let current_slide = (self.current_slide + 1).to_string();
                 let mut operations = Vec::new();
-                if let Some(left) = left {
-                    operations.extend([
-                        RenderOperation::JumpToWindowBottom,
-                        RenderOperation::RenderTextLine {
-                            line: vec![Self::render_template(left, &current_slide, &context, colors.clone())].into(),
-                            alignment: Alignment::Left { margin: Margin::Fixed(1) },
-                        },
-                    ]);
-                }
-                if let Some(right) = right {
-                    operations.extend([
-                        RenderOperation::JumpToWindowBottom,
-                        RenderOperation::RenderTextLine {
-                            line: vec![Self::render_template(right, &current_slide, &context, colors.clone())].into(),
-                            alignment: Alignment::Right { margin: Margin::Fixed(1) },
-                        },
-                    ]);
+                let margin = Margin::Fixed(1);
+                let alignments = [
+                    Alignment::Left { margin: margin.clone() },
+                    Alignment::Center { minimum_size: 0, minimum_margin: margin.clone() },
+                    Alignment::Right { margin: margin.clone() },
+                ];
+                for (text, alignment) in [left, center, right].iter().zip(alignments) {
+                    if let Some(text) = text {
+                        operations.extend(Self::render_template(
+                            text,
+                            &current_slide,
+                            &context,
+                            colors.clone(),
+                            alignment,
+                        ));
+                    }
                 }
                 operations
             }

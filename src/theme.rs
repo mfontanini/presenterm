@@ -282,6 +282,9 @@ pub enum FooterStyle {
         /// The template for the text to be put on the left.
         left: Option<String>,
 
+        /// The template for the text to be put on the center.
+        center: Option<String>,
+
         /// The template for the text to be put on the right.
         right: Option<String>,
 
@@ -308,6 +311,7 @@ impl Default for FooterStyle {
     fn default() -> Self {
         Self::Template {
             left: Some("{current_slide} / {total_slides}".to_string()),
+            center: None,
             right: None,
             colors: Colors::default(),
         }

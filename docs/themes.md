@@ -204,14 +204,15 @@ footer:
 
 ### Template
 
-A template footer that lets you put something on the left and something on the right of the screen. The template strings 
-have access to `{author}` as specified in the front matter, `{current_slide}` and `{total_slides}` which will point to 
-the current and total number of slides:
+A template footer that lets you put something on the left, center and/or right of the screen. The template strings have 
+access to `{author}` as specified in the front matter, `{current_slide}` and `{total_slides}` which will point to the 
+current and total number of slides:
 
 ```yaml
 footer:
   style: template
   left: "My name is {author}"
+  center: @myhandle
   right: "{current_slide} / {total_slides}"
 ```
 
