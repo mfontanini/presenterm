@@ -39,6 +39,7 @@ The output binary will be in `./target/release/presenterm`.
 * Customize your presentation's look by defining themes, including colors, margins, layout (left/center aligned 
   content), footer for every slide, etc.
 * Code highlighting for a wide list of programming languages.
+* Configurable column layouts that let you structure parts of your slide into columns.
 * Support for an introduction slide that displays the presentation title and your name.
 * Support for slide titles.
 * Create pauses in between each slide so that it progressively renders for a more interactive presentation.
@@ -117,6 +118,8 @@ Note that if you're in the default hot reload mode, overriding your theme will r
 applied to your presentation. This lets you easily test out color schemes quickly without having to close and reopen the 
 application.
 
+See the [documentation](/docs/themes.md) on themes to learn more.
+
 ## Introduction slide
 
 By including a `title`, `sub_title` and/or `author` attribute in your front matter, you can create an introduction slide 
@@ -143,9 +146,18 @@ My slide title
 > Note: nothing prevents you from using setext headers somewhere in the middle of a slide, which will make them render 
 > as slide titles. Not sure why you'd want that but hey, you're free to do so!
 
+## Column layouts
+
+Column layouts allow you to organize content into columns. You can define 2 or more columns, choose how wide you want 
+them to be, and then put any content into them. For example:
+
+![](/assets/layouts.png)
+
+See the [documentation](/docs/layouts.md) on layouts to learn more.
+
 ## Navigation
 
-Navigation should be intuitive: jumping to the next/previous slide can be done by using the arrow, hjkl, and page 
+Navigation should be intuitive: jumping to the next/previous slide can be done by using the arrow, _hjkl_, and page 
 up/down keys.
 
 Besides this:
