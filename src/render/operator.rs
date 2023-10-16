@@ -212,7 +212,19 @@ where
         let start_column = current_rect.start_column + (unit_width * column_units_before as f64) as u16;
         let new_column_count = (total_column_units - columns[column_index]) * unit_width as u16;
         let new_size = current_rect.dimensions.shrink_columns(new_column_count);
-        self.window_rects.push(WindowRect { dimensions: new_size, start_column });
+        let mut dimensions = WindowRect { dimensions: new_size, start_column };
+        if columns.len() != 1 {
+            // Shrink every column's right edge except for last
+            if column_index < columns.len() - 1 {
+                dimensions = dimensions.shrink_right(4);
+            }
+            // Shrink every column's left edge except for first
+            if column_index > 0 {
+                dimensions = dimensions.shrink_left(4);
+            }
+        }
+
+        self.window_rects.push(dimensions);
         self.layout = LayoutState::EnteredColumn { columns, start_column, start_row };
         self.terminal.move_to_row(start_row)?;
         Ok(())
@@ -265,6 +277,17 @@ impl WindowRect {
         let dimensions = self.dimensions.shrink_columns(margin.saturating_mul(2));
         let start_column = self.start_column + margin;
         Self { dimensions, start_column }
+    }
+
+    fn shrink_left(&self, size: u16) -> Self {
+        let dimensions = self.dimensions.clone();
+        let start_column = self.start_column.saturating_add(size);
+        Self { dimensions, start_column }
+    }
+
+    fn shrink_right(&self, size: u16) -> Self {
+        let dimensions = self.dimensions.shrink_columns(size);
+        Self { dimensions, start_column: self.start_column }
     }
 
     fn shrink_rows(&self, rows: u16) -> Self {
