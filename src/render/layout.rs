@@ -36,12 +36,12 @@ impl Layout {
             }
             Alignment::Center { minimum_margin, minimum_size } => {
                 let minimum_margin = minimum_margin.as_characters(dimensions.columns);
-                let minimum_margin = Self::fit_to_columns(dimensions, minimum_margin.saturating_mul(2), minimum_margin);
-                // Respect minimum margin if both together overflow.
-                let minimum_size = Self::fit_to_columns(
+                // Respect minimum size as much as we can if both together overflow.
+                let minimum_size = dimensions.columns.min(*minimum_size);
+                let minimum_margin = Self::fit_to_columns(
                     dimensions,
-                    minimum_size.saturating_add(minimum_margin.saturating_mul(2)),
-                    *minimum_size,
+                    minimum_margin.saturating_mul(2).saturating_add(minimum_size),
+                    minimum_margin,
                 );
                 max_line_length =
                     text_length.min(dimensions.columns - minimum_margin.saturating_mul(2)).max(minimum_size);
@@ -157,12 +157,12 @@ mod test {
     #[case::center_minimum_size_too_large(
         Alignment::Center{ minimum_margin: Margin::Fixed(0), minimum_size: 105 },
         10,
-        Positioning{ max_line_length: 10, start_column: 45 }
+        Positioning{ max_line_length: 100, start_column: 0 }
     )]
     #[case::center_margin_and_size_overflows(
         Alignment::Center{ minimum_margin: Margin::Fixed(30), minimum_size: 60 },
         10,
-        Positioning{ max_line_length: 10, start_column: 45 }
+        Positioning{ max_line_length: 60, start_column: 20 }
     )]
     fn layout(#[case] alignment: Alignment, #[case] length: u16, #[case] expected: Positioning) {
         let dimensions = WindowSize { rows: 0, columns: 100, width: 0, height: 0 };
