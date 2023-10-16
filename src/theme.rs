@@ -36,10 +36,8 @@ pub struct PresentationTheme {
     pub block_quote: BlockQuoteStyle,
 
     /// The default style.
-    ///
-    /// This is used as a fallback for any elements that don't have an explicit style.
     #[serde(rename = "default", default)]
-    pub default_style: BasicStyle,
+    pub default_style: DefaultStyle,
 
     //// The style of all headings.
     #[serde(default)]
@@ -99,7 +97,7 @@ impl PresentationTheme {
             Table => &self.table,
             BlockQuote => &self.block_quote.alignment,
         };
-        alignment.clone().or_else(|| self.default_style.alignment.clone()).unwrap_or(Alignment::default())
+        alignment.clone().unwrap_or_default()
     }
 }
 
@@ -205,6 +203,18 @@ pub struct IntroSlideStyle {
     /// The style of the author line.
     #[serde(default)]
     pub author: AuthorStyle,
+}
+
+/// A simple style.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct DefaultStyle {
+    /// The margin on the left/right of the screen.
+    #[serde(default, with = "serde_yaml::with::singleton_map")]
+    pub margin: Margin,
+
+    /// The colors to be used.
+    #[serde(default)]
+    pub colors: Colors,
 }
 
 /// A simple style.

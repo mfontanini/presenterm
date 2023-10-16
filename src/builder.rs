@@ -6,8 +6,8 @@ use crate::{
         text::{WeightedLine, WeightedText},
     },
     presentation::{
-        AsRenderOperations, PreformattedLine, Presentation, PresentationMetadata, PresentationThemeMetadata,
-        RenderOperation, Slide,
+        AsRenderOperations, MarginProperties, PreformattedLine, Presentation, PresentationMetadata,
+        PresentationThemeMetadata, RenderOperation, Slide,
     },
     render::{
         highlighting::{CodeHighlighter, CodeLine},
@@ -20,6 +20,9 @@ use crate::{
 use serde::Deserialize;
 use std::{borrow::Cow, cell::RefCell, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
+
+// TODO: move to a theme config.
+static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
 
 /// Builds a presentation.
 ///
@@ -98,13 +101,21 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.needs_enter_column = false;
         let last_valid = matches!(last, RenderOperation::EnterColumn { .. } | RenderOperation::ExitLayout);
-        if last_valid { Ok(()) } else { Err(BuildError::NotInsideColumn) }
+        if last_valid {
+            Ok(())
+        } else {
+            Err(BuildError::NotInsideColumn)
+        }
     }
 
     fn push_slide_prelude(&mut self) {
         let colors = self.theme.default_style.colors.clone();
         self.slide_operations.push(RenderOperation::SetColors(colors));
         self.slide_operations.push(RenderOperation::ClearScreen);
+        self.slide_operations.push(RenderOperation::ApplyMargin(MarginProperties {
+            horizontal_margin: self.theme.default_style.margin.clone(),
+            bottom_slide_margin: DEFAULT_BOTTOM_SLIDE_MARGIN,
+        }));
         self.push_line_break();
     }
 
@@ -201,7 +212,7 @@ impl<'a> PresentationBuilder<'a> {
                     self.push_line_break();
                 }
                 AuthorPositioning::PageBottom => {
-                    self.slide_operations.push(RenderOperation::JumpToSlideBottom);
+                    self.slide_operations.push(RenderOperation::JumpToBottom);
                 }
             };
             self.push_text(Text::from(text), ElementType::PresentationAuthor);
@@ -446,7 +457,7 @@ impl<'a> PresentationBuilder<'a> {
                 text: trimmed.into(),
                 unformatted_length: original_length,
                 block_length,
-                alignment: self.theme.alignment(&ElementType::Code).clone(),
+                alignment: self.theme.alignment(&ElementType::Code),
             }));
             self.push_line_break();
         }
@@ -471,6 +482,12 @@ impl<'a> PresentationBuilder<'a> {
         };
         // Exit any layout we're in so this gets rendered on a default screen size.
         self.slide_operations.push(RenderOperation::ExitLayout);
+
+        // Pop the slide margin so we're at the terminal rect.
+        self.slide_operations.push(RenderOperation::PopMargin);
+
+        // Jump to the very bottom of the terminal rect and draw the footer.
+        self.slide_operations.push(RenderOperation::JumpToBottom);
         self.slide_operations.push(RenderOperation::RenderDynamic(Rc::new(generator)));
     }
 
@@ -559,16 +576,13 @@ impl FooterGenerator {
         context: &FooterContext,
         colors: Colors,
         alignment: Alignment,
-    ) -> Vec<RenderOperation> {
+    ) -> RenderOperation {
         let contents = template
             .replace("{current_slide}", current_slide)
             .replace("{total_slides}", &context.total_slides.to_string())
             .replace("{author}", &context.author);
         let text = WeightedText::from(StyledText::new(contents, TextStyle::default().colors(colors)));
-        vec![
-            RenderOperation::JumpToWindowBottom,
-            RenderOperation::RenderTextLine { line: vec![text].into(), alignment },
-        ]
+        RenderOperation::RenderTextLine { line: vec![text].into(), alignment }
     }
 }
 
@@ -587,7 +601,7 @@ impl AsRenderOperations for FooterGenerator {
                 ];
                 for (text, alignment) in [left, center, right].iter().zip(alignments) {
                     if let Some(text) = text {
-                        operations.extend(Self::render_template(
+                        operations.push(Self::render_template(
                             text,
                             &current_slide,
                             &context,
@@ -605,13 +619,10 @@ impl AsRenderOperations for FooterGenerator {
                 let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
                 let bar = character.repeat(columns_ratio as usize);
                 let bar = vec![WeightedText::from(StyledText::new(bar, TextStyle::default().colors(colors.clone())))];
-                vec![
-                    RenderOperation::JumpToWindowBottom,
-                    RenderOperation::RenderTextLine {
-                        line: bar.into(),
-                        alignment: Alignment::Left { margin: Margin::Fixed(0) },
-                    },
-                ]
+                vec![RenderOperation::RenderTextLine {
+                    line: bar.into(),
+                    alignment: Alignment::Left { margin: Margin::Fixed(0) },
+                }]
             }
             FooterStyle::Empty => vec![],
         }
@@ -701,8 +712,21 @@ mod test {
     fn is_visible(operation: &RenderOperation) -> bool {
         use RenderOperation::*;
         match operation {
-            ClearScreen | SetColors(_) | JumpToVerticalCenter | JumpToSlideBottom | JumpToWindowBottom => false,
-            _ => true,
+            ClearScreen
+            | SetColors(_)
+            | JumpToVerticalCenter
+            | JumpToBottom
+            | InitColumnLayout { .. }
+            | EnterColumn { .. }
+            | ExitLayout { .. }
+            | ApplyMargin(_)
+            | PopMargin => false,
+            RenderTextLine { .. }
+            | RenderSeparator
+            | RenderLineBreak
+            | RenderImage(_)
+            | RenderPreformattedLine(_)
+            | RenderDynamic(_) => true,
         }
     }
 

@@ -1,5 +1,4 @@
 default:
-  alignment: left
   margin:
     percent: 8
   colors:

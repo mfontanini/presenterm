@@ -32,9 +32,8 @@ where
     /// Render a slide.
     pub fn render_slide(&mut self, presentation: &Presentation) -> RenderResult {
         let window_dimensions = WindowSize::current()?;
-        let slide_dimensions = window_dimensions.shrink_rows(3);
         let slide = presentation.current_slide();
-        let operator = RenderOperator::new(&mut self.terminal, slide_dimensions, window_dimensions);
+        let operator = RenderOperator::new(&mut self.terminal, window_dimensions);
         operator.render(&slide.render_operations)?;
         self.terminal.flush()?;
         Ok(())
@@ -61,7 +60,7 @@ where
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderTextLine { line: WeightedLine::from(error), alignment: alignment.clone() },
         ];
-        let operator = RenderOperator::new(&mut self.terminal, dimensions.clone(), dimensions);
+        let operator = RenderOperator::new(&mut self.terminal, dimensions);
         operator.render(&operations)?;
         self.terminal.flush()?;
         Ok(())
@@ -82,6 +81,9 @@ pub enum RenderError {
 
     #[error("tried to move to non existent layout location")]
     InvalidLayoutEnter,
+
+    #[error("tried to pop default screen")]
+    PopDefaultScreen,
 
     #[error(transparent)]
     Other(Box<dyn std::error::Error>),

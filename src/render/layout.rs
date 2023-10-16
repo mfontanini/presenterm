@@ -1,5 +1,6 @@
 use crate::{render::properties::WindowSize, theme::Alignment};
 
+#[derive(Debug)]
 pub(crate) struct Layout {
     alignment: Alignment,
     start_column_offset: u16,
@@ -57,7 +58,11 @@ impl Layout {
     }
 
     fn fit_to_columns(dimensions: &WindowSize, required_fit: u16, actual_fit: u16) -> u16 {
-        if required_fit > dimensions.columns { 0 } else { actual_fit }
+        if required_fit > dimensions.columns {
+            0
+        } else {
+            actual_fit
+        }
     }
 }
 

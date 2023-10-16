@@ -2,7 +2,7 @@ use crate::{
     markdown::text::WeightedLine,
     render::{media::Image, properties::WindowSize},
     style::Colors,
-    theme::{Alignment, PresentationTheme},
+    theme::{Alignment, Margin, PresentationTheme},
 };
 use serde::Deserialize;
 use std::rc::Rc;
@@ -159,14 +159,8 @@ pub enum RenderOperation {
     /// Jump the draw cursor into the vertical center, that is, at `screen_height / 2`.
     JumpToVerticalCenter,
 
-    /// Jump the draw cursor into the last row in the screen.
-    JumpToWindowBottom,
-
     /// Jumps to the last row in the slide.
-    ///
-    /// The slide's draw area is slightly smaller than the window, hence the distinction with
-    /// [RenderOperation::JumpToWindowBottom].
-    JumpToSlideBottom,
+    JumpToBottom,
 
     /// Render a line of text.
     RenderTextLine { line: WeightedLine, alignment: Alignment },
@@ -206,6 +200,22 @@ pub enum RenderOperation {
 
     /// Exit the current layout and go back to the default one.
     ExitLayout,
+
+    /// Apply a margin to every following operation.
+    ApplyMargin(MarginProperties),
+
+    /// Pop an `ApplyMargin` operation.
+    PopMargin,
+}
+
+/// Slide properties, set on initialization.
+#[derive(Clone, Debug, Default)]
+pub struct MarginProperties {
+    /// The horizontal margin.
+    pub horizontal_margin: Margin,
+
+    /// The margin at the bottom of the slide.
+    pub bottom_slide_margin: u16,
 }
 
 /// A type that can generate render operations.
