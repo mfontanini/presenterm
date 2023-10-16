@@ -101,7 +101,11 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.needs_enter_column = false;
         let last_valid = matches!(last, RenderOperation::EnterColumn { .. } | RenderOperation::ExitLayout);
-        if last_valid { Ok(()) } else { Err(BuildError::NotInsideColumn) }
+        if last_valid {
+            Ok(())
+        } else {
+            Err(BuildError::NotInsideColumn)
+        }
     }
 
     fn push_slide_prelude(&mut self) {
@@ -350,7 +354,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_list_item(&mut self, item: ListItem) {
-        let padding_length = (item.depth as usize + 1) * 2;
+        let padding_length = (item.depth as usize + 1) * 3;
         let mut prefix: String = " ".repeat(padding_length);
         match item.item_type {
             ListItemType::Unordered => {
@@ -371,10 +375,11 @@ impl<'a> PresentationBuilder<'a> {
             }
         };
 
-        prefix.push(' ');
-        let mut text = item.contents;
-        text.chunks.insert(0, StyledText::from(prefix));
-        self.push_text(text, ElementType::List);
+        let prefix_length = prefix.len() as u16;
+        self.push_text(prefix.into(), ElementType::List);
+
+        let text = item.contents;
+        self.push_aligned_text(text, Alignment::Left { margin: Margin::Fixed(prefix_length) });
         self.push_line_break();
     }
 
@@ -400,6 +405,10 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_text(&mut self, text: Text, element_type: ElementType) {
         let alignment = self.theme.alignment(&element_type);
+        self.push_aligned_text(text, alignment);
+    }
+
+    fn push_aligned_text(&mut self, text: Text, alignment: Alignment) {
         let mut texts: Vec<WeightedText> = Vec::new();
         for mut chunk in text.chunks {
             if chunk.style.is_code() {
