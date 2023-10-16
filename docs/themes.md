@@ -81,14 +81,13 @@ The root attributes on the theme yaml files specify either:
 
 _presenterm_ uses the notion of alignment, just like you would have in a GUI editor, to align text to the left, center, 
 or right. You probably want most elements to be aligned left, _some_ to be aligned on the center, and probably none to 
-the right (but hey, you're free to do so!). Examples can be:
+the right (but hey, you're free to do so!).
 
-* All paragraphs should probably be aligned left.
-* Bullet points should be aligned left.
-* Code blocks could be either left or center. I personally prefer them to be centered so that's what the built-in themes 
-  do. Same thing for block quotes.
-
-Right alignment is used internally for one of the footer styles (more on that below).
+The following elements support alignment:
+* Code blocks.
+* Slide titles.
+* The title, subtitle, and author elements in the intro slide.
+* Tables.
 
 ### Left/right alignment
 
@@ -131,17 +130,30 @@ Center alignment has 2 properties:
 
 ## Colors
 
-Every element can have its own background/foreground color:
+Every element can have its own background/foreground color using hex notation:
 
 ```yaml
 default:
   colors:
-    foreground: black
-    background: white
+    foreground: "ff0000"
+    background: "00ff00"
 ```
 
-You can also specify RGB colors by using the notation `"rgb_(x,y,z)` where `x`, `y`, and `z` is the value for each of 
-the RGB components.
+## Default style
+
+The default style specifies:
+
+* The margin to be applied to all slides.
+* The colors to be used for all text.
+
+```yaml
+default:
+  margin:
+    percent: 8
+  colors:
+    foreground: "e6e6e6"
+    background: "040312"
+```
 
 ## Intro slide
 

@@ -11,10 +11,6 @@ pub struct PresentationTheme {
     #[serde(default)]
     pub slide_title: SlideTitleStyle,
 
-    /// The style for a paragraph.
-    #[serde(default)]
-    pub paragraph: Option<Alignment>,
-
     /// The style for a block of code.
     #[serde(default)]
     pub code: CodeBlockStyle,
@@ -26,10 +22,6 @@ pub struct PresentationTheme {
     /// The style for a table.
     #[serde(default)]
     pub table: Option<Alignment>,
-
-    /// The style for a list.
-    #[serde(default)]
-    pub list: Option<Alignment>,
 
     /// The style for a block quote.
     #[serde(default)]
@@ -88,8 +80,7 @@ impl PresentationTheme {
             Heading4 => &self.headings.h4.alignment,
             Heading5 => &self.headings.h5.alignment,
             Heading6 => &self.headings.h6.alignment,
-            Paragraph => &self.paragraph,
-            List => &self.list,
+            Paragraph | List => &None,
             Code => &self.code.alignment,
             PresentationTitle => &self.intro_slide.title.alignment,
             PresentationSubTitle => &self.intro_slide.subtitle.alignment,
