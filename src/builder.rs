@@ -81,7 +81,7 @@ impl<'a> PresentationBuilder<'a> {
             }
         }
         if !self.slide_operations.is_empty() {
-            self.terminate_slide();
+            self.terminate_slide(TerminateMode::ResetState);
         }
         self.footer_context.borrow_mut().total_slides = self.slides.len();
 
@@ -217,7 +217,7 @@ impl<'a> PresentationBuilder<'a> {
             };
             self.push_text(Text::from(text), ElementType::PresentationAuthor);
         }
-        self.terminate_slide();
+        self.terminate_slide(TerminateMode::ResetState);
     }
 
     fn process_comment(&mut self, comment: String) -> Result<(), BuildError> {
@@ -228,7 +228,7 @@ impl<'a> PresentationBuilder<'a> {
         let comment = comment.parse::<CommentCommand>()?;
         match comment {
             CommentCommand::Pause => self.process_pause(),
-            CommentCommand::EndSlide => self.terminate_slide(),
+            CommentCommand::EndSlide => self.terminate_slide(TerminateMode::ResetState),
             CommentCommand::InitColumnLayout(columns) => {
                 Self::validate_column_layout(&columns)?;
                 self.layout = LayoutState::InLayout { columns_count: columns.len() };
@@ -254,6 +254,8 @@ impl<'a> PresentationBuilder<'a> {
                 self.slide_operations.push(RenderOperation::EnterColumn { column });
             }
         };
+        // Don't push line breaks for any comments.
+        self.ignore_element_line_break = true;
         Ok(())
     }
 
@@ -275,7 +277,7 @@ impl<'a> PresentationBuilder<'a> {
         }
 
         let next_operations = self.slide_operations.clone();
-        self.terminate_slide();
+        self.terminate_slide(TerminateMode::KeepState);
         self.slide_operations = next_operations;
     }
 
@@ -468,15 +470,17 @@ impl<'a> PresentationBuilder<'a> {
         }
     }
 
-    fn terminate_slide(&mut self) {
+    fn terminate_slide(&mut self, mode: TerminateMode) {
         self.push_footer();
 
         let elements = mem::take(&mut self.slide_operations);
         self.slides.push(Slide { render_operations: elements });
         self.push_slide_prelude();
-        self.ignore_element_line_break = true;
-        self.needs_enter_column = false;
-        self.layout = Default::default();
+        if matches!(mode, TerminateMode::ResetState) {
+            self.ignore_element_line_break = true;
+            self.needs_enter_column = false;
+            self.layout = Default::default();
+        }
     }
 
     fn push_footer(&mut self) {
@@ -548,7 +552,12 @@ impl<'a> PresentationBuilder<'a> {
     }
 }
 
-#[derive(Default)]
+enum TerminateMode {
+    KeepState,
+    ResetState,
+}
+
+#[derive(Debug, Default)]
 enum LayoutState {
     #[default]
     Default,
@@ -712,6 +721,22 @@ mod test {
         let mut resources = Resources::new("/tmp");
         let builder = PresentationBuilder::new(highlighter, &theme, &mut resources);
         builder.build(elements)
+    }
+
+    fn build_pause() -> MarkdownElement {
+        MarkdownElement::Comment("pause".into())
+    }
+
+    fn build_end_slide() -> MarkdownElement {
+        MarkdownElement::Comment("end_slide".into())
+    }
+
+    fn build_column_layout(width: u8) -> MarkdownElement {
+        MarkdownElement::Comment(format!("column_layout: [{width}]"))
+    }
+
+    fn build_column(column: u8) -> MarkdownElement {
+        MarkdownElement::Comment(format!("column: {column}"))
     }
 
     fn is_visible(operation: &RenderOperation) -> bool {
@@ -882,5 +907,26 @@ mod test {
     fn command_formatting(#[case] input: &str, #[case] expected: CommentCommand) {
         let parsed: CommentCommand = input.parse().expect("deserialization failed");
         assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn end_slide_inside_layout() {
+        let elements = vec![build_column_layout(1), build_end_slide()];
+        let presentation = build_presentation(elements);
+        assert_eq!(presentation.iter_slides().count(), 2);
+    }
+
+    #[test]
+    fn end_slide_inside_column() {
+        let elements = vec![build_column_layout(1), build_column(0), build_end_slide()];
+        let presentation = build_presentation(elements);
+        assert_eq!(presentation.iter_slides().count(), 2);
+    }
+
+    #[test]
+    fn pause_inside_layout() {
+        let elements = vec![build_column_layout(1), build_pause(), build_column(0)];
+        let presentation = build_presentation(elements);
+        assert_eq!(presentation.iter_slides().count(), 2);
     }
 }
