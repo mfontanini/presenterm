@@ -145,3 +145,68 @@ the kitty graphics protocol (such as the kitty terminal itself!), or the sixel f
 
 _Picture by Alexis Bailey / CC BY-NC 4.0_
 
+<!-- end_slide -->
+
+Column layouts
+---
+
+<!-- column_layout: [2, 1] -->
+
+<!-- column: 0 -->
+
+Column layouts let you organize content into columns.
+
+Here you can place code:
+
+```rust
+fn potato() -> u32 {
+    42
+}
+```
+
+Plus pretty much anything else:
+* Bullet points.
+* Images.
+* _more_!
+
+<!-- column: 1 -->
+
+![](doge.png)
+
+_Picture by Alexis Bailey / CC BY-NC 4.0_
+
+<!-- reset_layout -->
+
+Because we just reset the layout, this text is now below both of the columns. Code and any other element will now look 
+like it usually does:
+
+```python
+print("Hello world!")
+```
+
+<!-- end_slide -->
+
+Other elements
+---
+
+Other elements supported are:
+
+# Tables
+
+| Name | Taste |
+| ------ | ------ |
+| Potato | Great |
+| Carrot | Yuck |
+
+# Block quotes
+
+> Lorem ipsum dolor sit amet. Eos laudantium animi ut ipsam beataeet
+> et exercitationem deleniti et quia maiores a cumque enim et
+> aspernatur nesciunt sed adipisci quis.
+
+# Thematic breaks
+
+A horizontal line by using `---`.
+
+---
+

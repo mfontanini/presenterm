@@ -53,7 +53,7 @@ presentation file every time you save it. _presenterm_ will also automatically d
 and jump to it so you don't have to be jumping back and forth between the source markdown and the presentation to see 
 how the changes look like.
 
-[![asciicast](https://asciinema.org/a/krCrToJtoPM0grhvAr5dLWe4U.svg)](https://asciinema.org/a/krCrToJtoPM0grhvAr5dLWe4U)
+[![asciicast](https://asciinema.org/a/UTestkjb8M8K2mQgf9rDmzDGA.svg)](https://asciinema.org/a/UTestkjb8M8K2mQgf9rDmzDGA)
 
 ## Slides
 
@@ -110,7 +110,7 @@ theme:
   override:
     default:
       colors:
-        foreground: white
+        foreground: "beeeff"
 ---
 ```
 

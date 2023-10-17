@@ -48,7 +48,7 @@ theme:
   override:
     default:
       colors:
-        foreground: white
+        foreground: "beeeff"
 ---
 ```
 
