@@ -10,7 +10,7 @@ _presenterm_ lets you define slideshows that run in your terminal.
 This tool is heavily inspired by [slides](https://github.com/maaslalani/slides/) and 
 [lookatme](https://github.com/d0c-s4vage/lookatme).
 
-The following is a presentation of the [demo presentation](examples/demo.md):
+This is how the [demo presentation](examples/demo.md) looks like:
 
 ![](assets/demo.gif)
 
