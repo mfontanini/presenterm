@@ -114,7 +114,7 @@ impl<'a> PresentationBuilder<'a> {
             RenderOperation::SetColors(colors),
             RenderOperation::ClearScreen,
             RenderOperation::ApplyMargin(MarginProperties {
-                horizontal_margin: self.theme.default_style.margin.clone(),
+                horizontal_margin: self.theme.default_style.margin.clone().unwrap_or_default(),
                 bottom_slide_margin: DEFAULT_BOTTOM_SLIDE_MARGIN,
             }),
         ]);
@@ -171,7 +171,7 @@ impl<'a> PresentationBuilder<'a> {
         if let Some(overrides) = &metadata.overrides {
             // This shouldn't fail as the models are already correct.
             let theme = merge_struct::merge(self.theme.as_ref(), overrides)
-                .map_err(|_| BuildError::InvalidMetadata("invalid theme".to_string()))?;
+                .map_err(|e| BuildError::InvalidMetadata(format!("invalid theme: {e}")))?;
             self.theme = Cow::Owned(theme);
         }
         Ok(())

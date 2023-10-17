@@ -201,7 +201,7 @@ pub struct IntroSlideStyle {
 pub struct DefaultStyle {
     /// The margin on the left/right of the screen.
     #[serde(default, with = "serde_yaml::with::singleton_map")]
-    pub margin: Margin,
+    pub margin: Option<Margin>,
 
     /// The colors to be used.
     #[serde(default)]
@@ -434,7 +434,12 @@ mod test {
     #[test]
     fn validate_themes() {
         for theme_name in THEMES.keys() {
-            assert!(PresentationTheme::from_name(theme_name).is_some(), "theme {theme_name} is corrupted");
+            let Some(theme) = PresentationTheme::from_name(theme_name) else {
+                panic!("theme '{theme_name}' is corrupted");
+            };
+
+            let merged = merge_struct::merge(&PresentationTheme::default(), &theme);
+            assert!(merged.is_ok(), "theme '{theme_name}' can't be merged: {}", merged.unwrap_err());
         }
     }
 }
