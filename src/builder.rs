@@ -110,12 +110,14 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_slide_prelude(&mut self) {
         let colors = self.theme.default_style.colors.clone();
-        self.slide_operations.push(RenderOperation::SetColors(colors));
-        self.slide_operations.push(RenderOperation::ClearScreen);
-        self.slide_operations.push(RenderOperation::ApplyMargin(MarginProperties {
-            horizontal_margin: self.theme.default_style.margin.clone(),
-            bottom_slide_margin: DEFAULT_BOTTOM_SLIDE_MARGIN,
-        }));
+        self.slide_operations.extend([
+            RenderOperation::SetColors(colors),
+            RenderOperation::ClearScreen,
+            RenderOperation::ApplyMargin(MarginProperties {
+                horizontal_margin: self.theme.default_style.margin.clone(),
+                bottom_slide_margin: DEFAULT_BOTTOM_SLIDE_MARGIN,
+            }),
+        ]);
         self.push_line_break();
     }
 
@@ -237,7 +239,7 @@ impl<'a> PresentationBuilder<'a> {
             }
             CommentCommand::ResetLayout => {
                 self.layout = LayoutState::Default;
-                self.slide_operations.push(RenderOperation::ExitLayout);
+                self.slide_operations.extend([RenderOperation::ExitLayout, RenderOperation::RenderLineBreak]);
             }
             CommentCommand::Column(column) => {
                 let (current_column, columns_count) = match self.layout {
@@ -339,8 +341,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_separator(&mut self) {
-        self.slide_operations.push(RenderOperation::RenderSeparator);
-        self.slide_operations.push(RenderOperation::RenderLineBreak);
+        self.slide_operations.extend([RenderOperation::RenderSeparator, RenderOperation::RenderLineBreak]);
     }
 
     fn push_image(&mut self, path: PathBuf) -> Result<(), BuildError> {
@@ -489,15 +490,15 @@ impl<'a> PresentationBuilder<'a> {
             current_slide: self.slides.len(),
             context: self.footer_context.clone(),
         };
-        // Exit any layout we're in so this gets rendered on a default screen size.
-        self.slide_operations.push(RenderOperation::ExitLayout);
-
-        // Pop the slide margin so we're at the terminal rect.
-        self.slide_operations.push(RenderOperation::PopMargin);
-
-        // Jump to the very bottom of the terminal rect and draw the footer.
-        self.slide_operations.push(RenderOperation::JumpToBottom);
-        self.slide_operations.push(RenderOperation::RenderDynamic(Rc::new(generator)));
+        self.slide_operations.extend([
+            // Exit any layout we're in so this gets rendered on a default screen size.
+            RenderOperation::ExitLayout,
+            // Pop the slide margin so we're at the terminal rect.
+            RenderOperation::PopMargin,
+            // Jump to the very bottom of the terminal rect and draw the footer.
+            RenderOperation::JumpToBottom,
+            RenderOperation::RenderDynamic(Rc::new(generator)),
+        ]);
     }
 
     fn push_table(&mut self, table: Table) {
