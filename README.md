@@ -39,7 +39,7 @@ The output binary will be in `./target/release/presenterm`.
 * Customize your presentation's look by defining themes, including colors, margins, layout (left/center aligned 
   content), footer for every slide, etc.
 * Code highlighting for a wide list of programming languages.
-* Configurable column layouts that let you structure parts of your slide into columns.
+* Configurable [column layouts](/docs/layouts.md) that let you structure parts of your slide into columns.
 * Support for an introduction slide that displays the presentation title and your name.
 * Support for slide titles.
 * Create pauses in between each slide so that it progressively renders for a more interactive presentation.
