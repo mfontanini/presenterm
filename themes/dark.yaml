@@ -27,9 +27,6 @@ inline_code:
     foreground: "04de20"
     background: "455045"
 
-table:
-  alignment: center
-
 intro_slide:
   title:
     alignment: center
