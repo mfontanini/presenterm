@@ -80,8 +80,14 @@ Similar to slide delimiters, pauses can be created by using the following HTML c
 ## Images
 
 Images are supported if you're using iterm2, a terminal the supports the kitty graphics protocol (such as 
-[kitty](https://sw.kovidgoyal.net/kitty/), of course), or one that supports sixel. This last one requires building 
-_presenterm_ with the `sixel` feature flag, which is disabled by default.
+[kitty](https://sw.kovidgoyal.net/kitty/), of course), or one that supports sixel. sixel support requires building 
+_presenterm_ with the `sixel` feature flag, which is disabled by default. You can do this by passing in the `--features sixel` parameters when running `cargo build`:
+
+```shell
+cargo build --release --features sixel
+```
+
+> **Note**: this feature flag is only needed if your terminal emulator only supports sixel. many terminals support the kitty or iterm2 protocols so this isn't necessary.
 
 Images are rendered **in their default size**. This means if your terminal window is 100 pixels wide and your image is 
 50 pixels wide, it will take up 50% of the width. If an image does not fit in the screen, it will be scaled down to fit 
