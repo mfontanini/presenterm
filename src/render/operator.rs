@@ -128,9 +128,7 @@ where
 
     fn render_separator(&mut self) -> RenderResult {
         let separator: String = "—".repeat(self.current_dimensions().columns as usize);
-        if let LayoutState::EnteredColumn { start_column, .. } = &self.layout {
-            self.terminal.move_to_column(*start_column)?;
-        }
+        self.terminal.move_to_column(self.current_rect().start_column)?;
         self.terminal.print_line(&separator)?;
         Ok(())
     }
@@ -141,10 +139,7 @@ where
     }
 
     fn render_image(&mut self, image: &Image) -> RenderResult {
-        let mut position = CursorPosition { row: self.terminal.cursor_row, column: 0 };
-        if let LayoutState::EnteredColumn { start_column, .. } = &self.layout {
-            position.column = *start_column;
-        }
+        let position = CursorPosition { row: self.terminal.cursor_row, column: self.current_rect().start_column };
         MediaRender
             .draw_image(image, position, self.current_dimensions())
             .map_err(|e| RenderError::Other(Box::new(e)))?;
@@ -225,7 +220,7 @@ where
         }
 
         self.window_rects.push(dimensions);
-        self.layout = LayoutState::EnteredColumn { columns, start_column, start_row };
+        self.layout = LayoutState::EnteredColumn { columns, start_row };
         self.terminal.move_to_row(start_row)?;
         Ok(())
     }
@@ -243,11 +238,7 @@ where
     }
 
     fn build_layout(&self, alignment: Alignment) -> Layout {
-        let mut layout = Layout::new(alignment).with_start_column(self.current_rect().start_column);
-        if let LayoutState::EnteredColumn { start_column: starting_column, .. } = &self.layout {
-            layout = layout.with_start_column(*starting_column);
-        }
-        layout
+        Layout::new(alignment).with_start_column(self.current_rect().start_column)
     }
 }
 
@@ -261,7 +252,6 @@ enum LayoutState {
     },
     EnteredColumn {
         columns: Vec<u16>,
-        start_column: u16,
         start_row: u16,
     },
 }
