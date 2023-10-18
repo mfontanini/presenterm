@@ -6,12 +6,15 @@ use presenterm::{
     presenter::{PresentMode, Presenter},
     render::highlighting::CodeHighlighter,
     resource::Resources,
+    splash::show_splashes,
     theme::PresentationTheme,
 };
 use std::path::{Path, PathBuf};
 
 /// Run slideshows from your terminal.
 #[derive(Parser)]
+#[command()]
+#[command(author, version, about = show_splashes(), long_about = show_splashes(), arg_required_else_help = true)]
 struct Cli {
     /// The path to the markdown file that contains the presentation.
     path: PathBuf,

@@ -23,6 +23,7 @@ strum = { version = "0.25", features = ["derive"] }
 thiserror = "1"
 unicode-width = "0.1"
 viuer = "0.7.1"
+colored = "2.0.4"
 
 [dev-dependencies]
 rstest = { version = "0.18", default-features = false }
