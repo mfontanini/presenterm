@@ -1,3 +1,9 @@
+# v0.2.1 - 2023-10-18
+
+## New features
+
+* Binary artifacts are now automatically generated when a new release is done (#5) - thanks @pwnwriter.
+
 # v0.2.0 - 2023-10-17
 
 ## New features
