@@ -1,0 +1,93 @@
+name: Continuous Deployment
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish-github:
+    name: Publish on GitHub
+    runs-on: ${{ matrix.config.OS }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { OS: ubuntu-latest, TARGET: "x86_64-unknown-linux-gnu" }
+          - { OS: ubuntu-latest, TARGET: "x86_64-unknown-linux-musl" }
+          - { OS: ubuntu-latest, TARGET: "i686-unknown-linux-gnu" }
+          - { OS: ubuntu-latest, TARGET: "i686-unknown-linux-musl" }
+          - { OS: ubuntu-latest, TARGET: "armv5te-unknown-linux-gnueabi" }
+          - { OS: ubuntu-latest, TARGET: "armv7-unknown-linux-gnueabihf" }
+          - { OS: ubuntu-latest, TARGET: "aarch64-unknown-linux-gnu" }
+          - { OS: ubuntu-latest, TARGET: "aarch64-unknown-linux-musl" }
+          - { OS: macos-latest, TARGET: "x86_64-apple-darwin" }
+          - { OS: macos-latest, TARGET: "aarch64-apple-darwin" }
+          - { OS: windows-latest, TARGET: "x86_64-pc-windows-msvc" }
+          - { OS: windows-latest, TARGET: "i686-pc-windows-msvc" }
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Set the release version
+        shell: bash
+        run: echo "RELEASE_VERSION=${GITHUB_REF:11}" >> $GITHUB_ENV
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.config.TARGET }}
+          override: true
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --locked --target ${{ matrix.config.TARGET }}
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          mkdir release/
+          cp {LICENSE,README.md} release/
+          cp target/${{ matrix.config.TARGET }}/release/presenterm release/
+          mv release/ presenterm-${{ env.RELEASE_VERSION }}/
+
+      - name: Create release artifacts
+        shell: bash
+        run: |
+          if [ "${{ matrix.config.OS }}" = "windows-latest" ]; then
+            7z a -tzip "presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.zip" \
+              presenterm-${{ env.RELEASE_VERSION }}
+          else
+            tar -czvf presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.tar.gz \
+              presenterm-${{ env.RELEASE_VERSION }}/
+            shasum -a 512 presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.tar.gz \
+              > presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.tar.gz.sha512
+          fi
+
+      - name: Upload the release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.*
+          file_glob: true
+          overwrite: true
+          tag: ${{ github.ref }}
+
+  publish-crates-io:
+    name: Publish on crates.io
+    needs: publish-github
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Publish
+        uses: actions-rs/cargo@v1
+        with:
+          command: publish
+          args: --locked --token ${{ secrets.CARGO_TOKEN }}
