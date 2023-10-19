@@ -16,7 +16,16 @@ This is how the [demo presentation](examples/demo.md) looks like:
 
 # Installation
 
-In order to install, download [rust](https://www.rust-lang.org/) and run:
+There's different ways to install _presenterm_.
+
+## Pre-built binaries
+
+The recommended way to install _presenterm_ is to download the latest pre-built version for 
+your system from the [releases](https://github.com/mfontanini/presenterm/releases) page.
+
+## Install via cargo
+
+Alternatively, download [rust](https://www.rust-lang.org/) and run:
 
 ```shell
 cargo install presenterm
