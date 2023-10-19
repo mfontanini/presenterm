@@ -49,6 +49,14 @@ paru/yay -S presenterm-bin # for binary
 paru/yay -S presenterm-git # for Building from source
 ```
 
+## Nix Flake
+
+If you're a Nix user a Nix Flake is available:
+
+```shell
+nix run github:mfontanini/presenterm
+```
+
 # Features
 
 * Define your presentation in a single markdown file.

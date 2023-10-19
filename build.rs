@@ -28,7 +28,7 @@ fn main() -> io::Result<()> {
         output_file.write_all(format!("(\"{theme_name}\", {contents:?}.as_slice()),\n").as_bytes())?;
 
         // Rebuild if this theme changes.
-        println!("cargo:rerun-if-changed={path:?}");
+        println!("cargo:rerun-if-changed={}", path.display());
     }
     output_file.write_all(b"]));\n")?;
     Ok(())
