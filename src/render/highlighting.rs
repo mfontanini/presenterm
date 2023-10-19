@@ -70,7 +70,7 @@ impl CodeHighlighter {
             R => "r",
             Rust => "rs",
             Scala => "scala",
-            Shell => "sh",
+            Shell(_) => "sh",
             Sql => "sql",
             TypeScript => "js",
             Xml => "xml",

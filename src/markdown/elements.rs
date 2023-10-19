@@ -152,6 +152,9 @@ pub struct Code {
 
     /// The programming language this code is written in.
     pub language: ProgrammingLanguage,
+
+    /// The flags used for this code.
+    pub flags: CodeFlags,
 }
 
 /// A programming language.
@@ -184,12 +187,25 @@ pub enum ProgrammingLanguage {
     R,
     Rust,
     Scala,
-    Shell,
+    Shell(String),
     Sql,
     TypeScript,
     Unknown,
     Xml,
     Yaml,
+}
+
+impl ProgrammingLanguage {
+    pub fn supports_execution(&self) -> bool {
+        matches!(self, Self::Shell(_))
+    }
+}
+
+/// Flags for code blocks.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CodeFlags {
+    /// Whether a code block is marked as executable.
+    pub execute: bool,
 }
 
 /// A table.

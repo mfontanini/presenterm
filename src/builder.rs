@@ -428,7 +428,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_code(&mut self, code: Code) {
-        let Code { contents, language } = code;
+        let Code { contents, language, .. } = code;
         let mut code = String::new();
         let horizontal_padding = self.theme.code.padding.horizontal.unwrap_or(0);
         let vertical_padding = self.theme.code.padding.vertical.unwrap_or(0);
@@ -817,7 +817,11 @@ mod test {
         let text = "苹果".to_string();
         let elements = vec![
             MarkdownElement::BlockQuote(vec![text.clone()]),
-            MarkdownElement::Code(Code { contents: text.clone(), language: ProgrammingLanguage::Unknown }),
+            MarkdownElement::Code(Code {
+                contents: text.clone(),
+                language: ProgrammingLanguage::Unknown,
+                flags: Default::default(),
+            }),
         ];
         let presentation = build_presentation(elements);
         let slides = presentation.into_slides();
