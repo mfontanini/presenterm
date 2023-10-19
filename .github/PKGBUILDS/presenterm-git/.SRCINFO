@@ -1,0 +1,15 @@
+pkgbase = presenterm-git
+	pkgdesc = A terminal slideshow tool
+	pkgver = 0.2.1.r1.g0f901be
+	pkgrel = 1
+	url = https://github.com/mfontanini/presenterm
+	arch = x86_64
+	license = BSD 2-Clause
+	makedepends = cargo
+	makedepends = git
+	provides = presenterm
+	conflicts = presenterm
+	source = git+https://github.com/mfontanini/presenterm
+	sha512sums = SKIP
+
+pkgname = presenterm-git
