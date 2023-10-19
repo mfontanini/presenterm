@@ -32,6 +32,14 @@ cargo build --release
 
 The output binary will be in `./target/release/presenterm`.
 
+## Arch user repository
+presenterm is in the aur as well, So if you have any AUR helpers like paru/yay. You can install it as follows
+
+```bash
+paru/yay -S presenterm-bin # for binary
+paru/yay -S presenterm-git # for Building from source
+```
+
 # Features
 
 * Define your presentation in a single markdown file.
