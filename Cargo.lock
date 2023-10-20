@@ -1044,6 +1044,7 @@ dependencies = [
  "serde_yaml",
  "strum",
  "syntect",
+ "tempfile",
  "thiserror",
  "unicode-width",
  "viuer",

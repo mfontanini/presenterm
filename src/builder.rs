@@ -706,7 +706,7 @@ mod test {
     use rstest::rstest;
 
     use super::*;
-    use crate::{markdown::elements::ProgrammingLanguage, presentation::PreformattedLine};
+    use crate::{markdown::elements::CodeLanguage, presentation::PreformattedLine};
 
     fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
         try_build_presentation(elements).expect("build failed")
@@ -819,7 +819,7 @@ mod test {
             MarkdownElement::BlockQuote(vec![text.clone()]),
             MarkdownElement::Code(Code {
                 contents: text.clone(),
-                language: ProgrammingLanguage::Unknown,
+                language: CodeLanguage::Unknown,
                 flags: Default::default(),
             }),
         ];

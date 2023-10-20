@@ -1,7 +1,7 @@
 use crate::{
     markdown::elements::{
-        Code, CodeFlags, ListItem, ListItemType, MarkdownElement, ParagraphElement, ProgrammingLanguage, StyledText,
-        Table, TableRow, Text,
+        Code, CodeFlags, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table,
+        TableRow, Text,
     },
     style::TextStyle,
 };
@@ -123,7 +123,7 @@ impl<'a> MarkdownParser<'a> {
         if !block.fenced {
             return Err(ParseErrorKind::UnfencedCodeBlock.with_sourcepos(sourcepos));
         }
-        use ProgrammingLanguage::*;
+        use CodeLanguage::*;
         let info = block.info.as_str();
         let mut tokens = info.split(' ');
         let language = match tokens.next().unwrap_or("") {
@@ -636,7 +636,7 @@ let q = 42;
 ",
         );
         let MarkdownElement::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
-        assert_eq!(code.language, ProgrammingLanguage::Rust);
+        assert_eq!(code.language, CodeLanguage::Rust);
         assert_eq!(code.contents, "let q = 42;\n");
         assert!(!code.flags.execute);
     }
@@ -651,7 +651,7 @@ echo hi mom
 ",
         );
         let MarkdownElement::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
-        assert_eq!(code.language, ProgrammingLanguage::Shell("bash".into()));
+        assert_eq!(code.language, CodeLanguage::Shell("bash".into()));
         assert!(code.flags.execute);
     }
 

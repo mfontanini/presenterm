@@ -151,15 +151,15 @@ pub struct Code {
     pub contents: String,
 
     /// The programming language this code is written in.
-    pub language: ProgrammingLanguage,
+    pub language: CodeLanguage,
 
     /// The flags used for this code.
     pub flags: CodeFlags,
 }
 
-/// A programming language.
+/// The language of a piece of code.
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter)]
-pub enum ProgrammingLanguage {
+pub enum CodeLanguage {
     Asp,
     Bash,
     BatchFile,
@@ -195,7 +195,7 @@ pub enum ProgrammingLanguage {
     Yaml,
 }
 
-impl ProgrammingLanguage {
+impl CodeLanguage {
     pub fn supports_execution(&self) -> bool {
         matches!(self, Self::Shell(_))
     }

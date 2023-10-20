@@ -20,6 +20,7 @@ serde_yaml = "0.9"
 serde_with = "3.3"
 syntect = "5.1"
 strum = { version = "0.25", features = ["derive"] }
+tempfile = "3.8"
 thiserror = "1"
 unicode-width = "0.1"
 viuer = "0.7.1"
