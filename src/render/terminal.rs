@@ -94,6 +94,7 @@ where
     fn drop(&mut self) {
         let _ = self.writer.queue(terminal::LeaveAlternateScreen);
         let _ = self.writer.queue(cursor::Show);
+        let _ = self.writer.flush();
         let _ = terminal::disable_raw_mode();
     }
 }

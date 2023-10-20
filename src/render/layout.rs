@@ -161,7 +161,7 @@ mod test {
         Positioning{ max_line_length: 60, start_column: 20 }
     )]
     fn layout(#[case] alignment: Alignment, #[case] length: u16, #[case] expected: Positioning) {
-        let dimensions = WindowSize { rows: 0, columns: 100, width: 0, height: 0 };
+        let dimensions = WindowSize { rows: 0, columns: 100, width: 0, height: 0, has_pixels: true };
         let positioning = Layout::new(alignment).compute(&dimensions, length);
         assert_eq!(positioning, expected);
     }

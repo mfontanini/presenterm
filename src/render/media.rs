@@ -44,6 +44,9 @@ impl MediaRender {
         position: CursorPosition,
         dimensions: &WindowSize,
     ) -> Result<(), RenderImageError> {
+        if !dimensions.has_pixels {
+            return Err(RenderImageError::NoWindowSize);
+        }
         let image = &image.0;
 
         // Compute the image's width in columns by translating pixels -> columns.
@@ -97,4 +100,7 @@ pub enum RenderImageError {
 
     #[error("invalid image: {0}")]
     InvalidImage(#[from] InvalidImage),
+
+    #[error("no window size support in terminal")]
+    NoWindowSize,
 }
