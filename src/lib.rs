@@ -10,6 +10,6 @@ pub mod presentation;
 pub mod presenter;
 pub mod render;
 pub mod resource;
+pub mod splash;
 pub mod style;
 pub mod theme;
-pub mod splash;

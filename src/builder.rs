@@ -101,11 +101,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.needs_enter_column = false;
         let last_valid = matches!(last, RenderOperation::EnterColumn { .. } | RenderOperation::ExitLayout);
-        if last_valid {
-            Ok(())
-        } else {
-            Err(BuildError::NotInsideColumn)
-        }
+        if last_valid { Ok(()) } else { Err(BuildError::NotInsideColumn) }
     }
 
     fn push_slide_prelude(&mut self) {

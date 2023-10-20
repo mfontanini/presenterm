@@ -1,5 +1,5 @@
-use crossterm::{cursor::position, terminal::window_size};
-use std::io;
+use crossterm::{cursor::position, terminal};
+use std::io::{self, ErrorKind};
 
 /// The size of the terminal window.
 ///
@@ -11,13 +11,21 @@ pub struct WindowSize {
     pub columns: u16,
     pub height: u16,
     pub width: u16,
+    pub has_pixels: bool,
 }
 
 impl WindowSize {
     /// Get the current window size.
     pub fn current() -> io::Result<Self> {
-        let size = window_size()?;
-        Ok(size.into())
+        match terminal::window_size() {
+            Ok(size) => Ok(size.into()),
+            Err(e) if e.kind() == ErrorKind::Unsupported => {
+                // Fall back to a `WindowSize` that doesn't have pixel support.
+                let size = terminal::size()?;
+                Ok(size.into())
+            }
+            Err(e) => Err(e),
+        }
     }
 
     /// Shrink a window by the given number of rows.
@@ -31,6 +39,7 @@ impl WindowSize {
             columns: self.columns,
             height: self.height.saturating_sub(height_to_shrink),
             width: self.width,
+            has_pixels: self.has_pixels,
         }
     }
 
@@ -45,6 +54,7 @@ impl WindowSize {
             columns: self.columns.saturating_sub(amount),
             height: self.height,
             width: self.width.saturating_sub(width_to_shrink),
+            has_pixels: self.has_pixels,
         }
     }
 
@@ -61,7 +71,13 @@ impl WindowSize {
 
 impl From<crossterm::terminal::WindowSize> for WindowSize {
     fn from(size: crossterm::terminal::WindowSize) -> Self {
-        Self { rows: size.rows, columns: size.columns, width: size.width, height: size.height }
+        Self { rows: size.rows, columns: size.columns, width: size.width, height: size.height, has_pixels: true }
+    }
+}
+
+impl From<(u16, u16)> for WindowSize {
+    fn from((columns, rows): (u16, u16)) -> Self {
+        Self { columns, rows, width: 0, height: 0, has_pixels: false }
     }
 }
 
@@ -86,7 +102,7 @@ mod test {
 
     #[test]
     fn shrink() {
-        let dimensions = WindowSize { rows: 10, columns: 10, width: 200, height: 100 };
+        let dimensions = WindowSize { rows: 10, columns: 10, width: 200, height: 100, has_pixels: true };
         assert_eq!(dimensions.pixels_per_column(), 20.0);
         assert_eq!(dimensions.pixels_per_row(), 10.0);
 
@@ -97,5 +113,7 @@ mod test {
         let new_dimensions = new_dimensions.shrink_columns(3);
         assert_eq!(new_dimensions.columns, 7);
         assert_eq!(new_dimensions.width, 140);
+
+        assert!(new_dimensions.has_pixels);
     }
 }
