@@ -42,8 +42,14 @@ impl Presentation {
 
     /// Jump to the next slide.
     pub(crate) fn jump_next_slide(&mut self) -> bool {
+        let current_slide = self.current_slide_mut();
+        if current_slide.increase_visible_chunks() {
+            return true;
+        }
         if self.current_slide_index < self.slides.len() - 1 {
             self.current_slide_index += 1;
+            // Going forward we show only the first chunk.
+            self.current_slide_mut().show_first_chunk();
             true
         } else {
             false
@@ -52,8 +58,14 @@ impl Presentation {
 
     /// Jump to the previous slide.
     pub(crate) fn jump_previous_slide(&mut self) -> bool {
+        let current_slide = self.current_slide_mut();
+        if current_slide.decrease_visible_chunks() {
+            return true;
+        }
         if self.current_slide_index > 0 {
             self.current_slide_index -= 1;
+            // Going backwards we show all chunks.
+            self.current_slide_mut().show_all_chunks();
             true
         } else {
             false
@@ -62,40 +74,37 @@ impl Presentation {
 
     /// Jump to the first slide.
     pub(crate) fn jump_first_slide(&mut self) -> bool {
-        if self.current_slide_index != 0 {
-            self.current_slide_index = 0;
-            true
-        } else {
-            false
-        }
+        self.jump_slide(0)
     }
 
     /// Jump to the last slide.
     pub(crate) fn jump_last_slide(&mut self) -> bool {
         let last_slide_index = self.slides.len().saturating_sub(1);
-        if self.current_slide_index != last_slide_index {
-            self.current_slide_index = last_slide_index;
-            true
-        } else {
-            false
-        }
+        self.jump_slide(last_slide_index)
     }
 
     /// Jump to a specific slide.
     pub(crate) fn jump_slide(&mut self, slide_index: usize) -> bool {
         if slide_index < self.slides.len() {
             self.current_slide_index = slide_index;
+            // Always show only the first slide when jumping to a particular one.
+            self.current_slide_mut().show_first_chunk();
             true
         } else {
             false
         }
     }
 
+    /// Jump to a specific chunk within the current slide.
+    pub(crate) fn jump_chunk(&mut self, chunk_index: usize) {
+        self.current_slide_mut().jump_chunk(chunk_index);
+    }
+
     /// Render all widgets in this slide.
     pub(crate) fn render_slide_widgets(&mut self) -> bool {
         let slide = self.current_slide_mut();
         let mut any_rendered = false;
-        for operation in &mut slide.operations {
+        for operation in slide.iter_operations_mut() {
             if let RenderOperation::RenderOnDemand(operation) = operation {
                 any_rendered = any_rendered || operation.start_render();
             }
@@ -107,7 +116,7 @@ impl Presentation {
     pub(crate) fn widgets_rendered(&mut self) -> bool {
         let slide = self.current_slide_mut();
         let mut all_rendered = true;
-        for operation in &mut slide.operations {
+        for operation in slide.iter_operations_mut() {
             if let RenderOperation::RenderOnDemand(operation) = operation {
                 all_rendered = all_rendered && matches!(operation.poll_state(), RenderOnDemandState::Rendered);
             }
@@ -126,21 +135,84 @@ impl Presentation {
 /// the terminal's screen.
 #[derive(Clone, Debug)]
 pub(crate) struct Slide {
-    operations: Vec<RenderOperation>,
+    chunks: Vec<SlideChunk>,
+    footer: Vec<RenderOperation>,
+    visible_chunks: usize,
 }
 
 impl Slide {
-    pub(crate) fn new(operations: Vec<RenderOperation>) -> Self {
-        Self { operations }
+    pub(crate) fn new(chunks: Vec<SlideChunk>, footer: Vec<RenderOperation>) -> Self {
+        Self { chunks, footer, visible_chunks: 1 }
     }
 
     pub(crate) fn iter_operations(&self) -> impl Iterator<Item = &RenderOperation> + Clone {
-        self.operations.iter()
+        self.chunks.iter().take(self.visible_chunks).flat_map(|chunk| chunk.0.iter()).chain(self.footer.iter())
+    }
+
+    pub(crate) fn iter_operations_mut(&mut self) -> impl Iterator<Item = &mut RenderOperation> {
+        self.chunks
+            .iter_mut()
+            .take(self.visible_chunks)
+            .flat_map(|chunk| chunk.0.iter_mut())
+            .chain(self.footer.iter_mut())
+    }
+
+    pub(crate) fn iter_chunks(&self) -> impl Iterator<Item = &SlideChunk> {
+        self.chunks.iter()
     }
 
     #[cfg(test)]
     pub(crate) fn into_operations(self) -> Vec<RenderOperation> {
-        self.operations
+        self.chunks.into_iter().flat_map(|chunk| chunk.0.into_iter()).chain(self.footer.into_iter()).collect()
+    }
+
+    fn jump_chunk(&mut self, chunk_index: usize) {
+        self.visible_chunks = (chunk_index + 1).min(self.chunks.len());
+    }
+
+    fn show_first_chunk(&mut self) {
+        self.visible_chunks = 1;
+    }
+
+    fn show_all_chunks(&mut self) {
+        self.visible_chunks = self.chunks.len();
+    }
+
+    fn decrease_visible_chunks(&mut self) -> bool {
+        if self.visible_chunks == 1 {
+            false
+        } else {
+            self.visible_chunks -= 1;
+            true
+        }
+    }
+
+    fn increase_visible_chunks(&mut self) -> bool {
+        if self.visible_chunks == self.chunks.len() {
+            false
+        } else {
+            self.visible_chunks += 1;
+            true
+        }
+    }
+}
+
+impl From<Vec<RenderOperation>> for Slide {
+    fn from(operations: Vec<RenderOperation>) -> Self {
+        Self::new(vec![SlideChunk::new(operations)], vec![])
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct SlideChunk(Vec<RenderOperation>);
+
+impl SlideChunk {
+    pub(crate) fn new(operations: Vec<RenderOperation>) -> Self {
+        Self(operations)
+    }
+
+    pub(crate) fn iter_operations(&self) -> impl Iterator<Item = &RenderOperation> + Clone {
+        self.0.iter()
     }
 }
 
@@ -284,4 +356,55 @@ pub(crate) enum RenderOnDemandState {
     NotStarted,
     Rendering,
     Rendered,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use rstest::rstest;
+
+    enum Jump {
+        First,
+        Last,
+        Next,
+        Previous,
+        Specific(usize),
+    }
+
+    #[rstest]
+    #[case::previous_from_first(0, &[Jump::Previous], 0, 0)]
+    #[case::next_from_first(0, &[Jump::Next], 0, 1)]
+    #[case::next_next_from_first(0, &[Jump::Next, Jump::Next], 1, 0)]
+    #[case::last_from_first(0, &[Jump::Last], 2, 0)]
+    #[case::previous_from_second(1, &[Jump::Previous], 0, 1)]
+    #[case::next_from_second(1, &[Jump::Next], 1, 1)]
+    #[case::specific_first_from_second(1, &[Jump::Specific(0)], 0, 0)]
+    #[case::specific_last_from_second(1, &[Jump::Specific(2)], 2, 0)]
+    #[case::first_from_last(2, &[Jump::First], 0, 0)]
+    fn jumping(
+        #[case] from: usize,
+        #[case] jumps: &[Jump],
+        #[case] expected_slide: usize,
+        #[case] expected_chunk: usize,
+    ) {
+        let mut presentation = Presentation::new(vec![
+            Slide::new(vec![SlideChunk::from(SlideChunk::default()), SlideChunk::default()], vec![]),
+            Slide::new(vec![SlideChunk::from(SlideChunk::default()), SlideChunk::default()], vec![]),
+            Slide::new(vec![SlideChunk::from(SlideChunk::default()), SlideChunk::default()], vec![]),
+        ]);
+        presentation.jump_slide(from);
+
+        use Jump::*;
+        for jump in jumps {
+            match jump {
+                First => presentation.jump_first_slide(),
+                Last => presentation.jump_last_slide(),
+                Next => presentation.jump_next_slide(),
+                Previous => presentation.jump_previous_slide(),
+                Specific(index) => presentation.jump_slide(*index),
+            };
+        }
+        assert_eq!(presentation.current_slide_index(), expected_slide);
+        assert_eq!(presentation.current_slide().visible_chunks - 1, expected_chunk);
+    }
 }

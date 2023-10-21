@@ -154,9 +154,10 @@ impl<'a> Presenter<'a> {
         match self.load_presentation(path) {
             Ok(mut presentation) => {
                 let current = self.state.presentation();
-                let target_slide = PresentationDiffer::first_modified_slide(current, &presentation)
-                    .unwrap_or(current.current_slide_index());
-                presentation.jump_slide(target_slide);
+                if let Some(modification) = PresentationDiffer::find_first_modification(current, &presentation) {
+                    presentation.jump_slide(modification.slide_index);
+                    presentation.jump_chunk(modification.chunk_index);
+                }
                 self.state = PresenterState::Presenting(presentation)
             }
             Err(e) => {

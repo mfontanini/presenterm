@@ -8,7 +8,7 @@ use crate::{
     },
     presentation::{
         AsRenderOperations, MarginProperties, PreformattedLine, Presentation, PresentationMetadata,
-        PresentationThemeMetadata, RenderOnDemand, RenderOnDemandState, RenderOperation, Slide,
+        PresentationThemeMetadata, RenderOnDemand, RenderOnDemandState, RenderOperation, Slide, SlideChunk,
     },
     render::{
         highlighting::{CodeHighlighter, CodeLine},
@@ -31,6 +31,7 @@ static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
 /// This type transforms [MarkdownElement]s and turns them into a presentation, which is made up of
 /// render operations.
 pub(crate) struct PresentationBuilder<'a> {
+    slide_chunks: Vec<SlideChunk>,
     slide_operations: Vec<RenderOperation>,
     slides: Vec<Slide>,
     highlighter: CodeHighlighter,
@@ -51,6 +52,7 @@ impl<'a> PresentationBuilder<'a> {
         resources: &'a mut Resources,
     ) -> Self {
         Self {
+            slide_chunks: Vec::new(),
             slide_operations: Vec::new(),
             slides: Vec::new(),
             highlighter: default_highlighter,
@@ -82,8 +84,8 @@ impl<'a> PresentationBuilder<'a> {
                 self.push_line_break();
             }
         }
-        if !self.slide_operations.is_empty() {
-            self.terminate_slide(TerminateMode::ResetState);
+        if !self.slide_operations.is_empty() || !self.slide_chunks.is_empty() {
+            self.terminate_slide();
         }
         self.footer_context.borrow_mut().total_slides = self.slides.len();
 
@@ -217,7 +219,7 @@ impl<'a> PresentationBuilder<'a> {
             };
             self.push_text(Text::from(text), ElementType::PresentationAuthor);
         }
-        self.terminate_slide(TerminateMode::ResetState);
+        self.terminate_slide();
     }
 
     fn process_comment(&mut self, comment: String) -> Result<(), BuildError> {
@@ -228,7 +230,7 @@ impl<'a> PresentationBuilder<'a> {
         let comment = comment.parse::<CommentCommand>()?;
         match comment {
             CommentCommand::Pause => self.process_pause(),
-            CommentCommand::EndSlide => self.terminate_slide(TerminateMode::ResetState),
+            CommentCommand::EndSlide => self.terminate_slide(),
             CommentCommand::InitColumnLayout(columns) => {
                 Self::validate_column_layout(&columns)?;
                 self.layout = LayoutState::InLayout { columns_count: columns.len() };
@@ -276,9 +278,9 @@ impl<'a> PresentationBuilder<'a> {
             self.slide_operations.pop();
         }
 
-        let next_operations = self.slide_operations.clone();
-        self.terminate_slide(TerminateMode::KeepState);
-        self.slide_operations = next_operations;
+        let chunk_operations = mem::take(&mut self.slide_operations);
+        self.slide_chunks.push(SlideChunk::new(chunk_operations));
+        // self.terminate_slide(TerminateMode::KeepState);
     }
 
     fn push_slide_title(&mut self, mut text: Text) {
@@ -482,26 +484,27 @@ impl<'a> PresentationBuilder<'a> {
         self.slide_operations.push(operation);
     }
 
-    fn terminate_slide(&mut self, mode: TerminateMode) {
-        self.push_footer();
+    fn terminate_slide(&mut self) {
+        let footer = self.generate_footer();
 
         let operations = mem::take(&mut self.slide_operations);
-        self.slides.push(Slide::new(operations));
+        self.slide_chunks.push(SlideChunk::new(operations));
+
+        let chunks = mem::take(&mut self.slide_chunks);
+        self.slides.push(Slide::new(chunks, footer));
         self.push_slide_prelude();
-        if matches!(mode, TerminateMode::ResetState) {
-            self.ignore_element_line_break = true;
-            self.needs_enter_column = false;
-            self.layout = Default::default();
-        }
+        self.ignore_element_line_break = true;
+        self.needs_enter_column = false;
+        self.layout = Default::default();
     }
 
-    fn push_footer(&mut self) {
+    fn generate_footer(&mut self) -> Vec<RenderOperation> {
         let generator = FooterGenerator {
             style: self.theme.footer.clone(),
             current_slide: self.slides.len(),
             context: self.footer_context.clone(),
         };
-        self.slide_operations.extend([
+        vec![
             // Exit any layout we're in so this gets rendered on a default screen size.
             RenderOperation::ExitLayout,
             // Pop the slide margin so we're at the terminal rect.
@@ -509,7 +512,7 @@ impl<'a> PresentationBuilder<'a> {
             // Jump to the very bottom of the terminal rect and draw the footer.
             RenderOperation::JumpToBottom,
             RenderOperation::RenderDynamic(Rc::new(generator)),
-        ]);
+        ]
     }
 
     fn push_table(&mut self, table: Table) {
@@ -562,11 +565,6 @@ impl<'a> PresentationBuilder<'a> {
         }
         flattened_row
     }
-}
-
-enum TerminateMode {
-    KeepState,
-    ResetState,
 }
 
 #[derive(Debug, Default)]
@@ -1078,6 +1076,6 @@ mod test {
     fn pause_inside_layout() {
         let elements = vec![build_column_layout(1), build_pause(), build_column(0)];
         let presentation = build_presentation(elements);
-        assert_eq!(presentation.iter_slides().count(), 2);
+        assert_eq!(presentation.iter_slides().count(), 1);
     }
 }
