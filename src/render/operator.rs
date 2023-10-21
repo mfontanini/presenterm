@@ -37,7 +37,7 @@ where
         Self { terminal, window_rects, colors: Default::default(), max_modified_row, layout: Default::default() }
     }
 
-    pub(crate) fn render(mut self, operations: &[RenderOperation]) -> RenderResult {
+    pub(crate) fn render<'b>(mut self, operations: impl Iterator<Item = &'b RenderOperation>) -> RenderResult {
         for operation in operations {
             self.render_one(operation)?;
         }

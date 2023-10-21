@@ -485,8 +485,8 @@ impl<'a> PresentationBuilder<'a> {
     fn terminate_slide(&mut self, mode: TerminateMode) {
         self.push_footer();
 
-        let elements = mem::take(&mut self.slide_operations);
-        self.slides.push(Slide { render_operations: elements });
+        let operations = mem::take(&mut self.slide_operations);
+        self.slides.push(Slide::new(operations));
         self.push_slide_prelude();
         if matches!(mode, TerminateMode::ResetState) {
             self.ignore_element_line_break = true;
@@ -933,9 +933,9 @@ mod test {
         let presentation = build_presentation(elements);
         for (index, slide) in presentation.iter_slides().into_iter().enumerate() {
             let clear_screen_count =
-                slide.render_operations.iter().filter(|op| matches!(op, RenderOperation::ClearScreen)).count();
+                slide.iter_operations().filter(|op| matches!(op, RenderOperation::ClearScreen)).count();
             let set_colors_count =
-                slide.render_operations.iter().filter(|op| matches!(op, RenderOperation::SetColors(_))).count();
+                slide.iter_operations().filter(|op| matches!(op, RenderOperation::SetColors(_))).count();
             assert_eq!(clear_screen_count, 1, "{clear_screen_count} clear screens in slide {index}");
             assert_eq!(set_colors_count, 1, "{set_colors_count} clear screens in slide {index}");
         }
@@ -955,7 +955,7 @@ mod test {
         // Don't process the intro slide as it's special
         let slides = presentation.into_slides().into_iter().skip(1);
         for slide in slides {
-            let mut ops = slide.render_operations.into_iter().filter(is_visible);
+            let mut ops = slide.into_operations().into_iter().filter(is_visible);
             // We should start with a newline
             assert!(matches!(ops.next(), Some(RenderOperation::RenderLineBreak)));
             // And the second one should _not_ be a newline
@@ -977,8 +977,7 @@ mod test {
         let presentation = build_presentation(elements);
         let slides = presentation.into_slides();
         let lengths: Vec<_> = slides[0]
-            .render_operations
-            .iter()
+            .iter_operations()
             .filter_map(|op| match op {
                 RenderOperation::RenderPreformattedLine(PreformattedLine {
                     block_length, unformatted_length, ..
@@ -1000,7 +999,7 @@ mod test {
         })];
         let slides = build_presentation(elements).into_slides();
         let operations: Vec<_> =
-            slides.into_iter().next().unwrap().render_operations.into_iter().filter(|op| is_visible(op)).collect();
+            slides.into_iter().next().unwrap().into_operations().into_iter().filter(|op| is_visible(op)).collect();
         let lines = extract_text_lines(&operations);
         let expected_lines = &["key    │ value │ other", "───────┼───────┼──────", "potato │ bar   │ yes  "];
         assert_eq!(lines, expected_lines);

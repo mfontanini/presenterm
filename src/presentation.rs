@@ -95,7 +95,7 @@ impl Presentation {
     pub(crate) fn render_slide_widgets(&mut self) -> bool {
         let slide = self.current_slide_mut();
         let mut any_rendered = false;
-        for operation in &mut slide.render_operations {
+        for operation in &mut slide.operations {
             if let RenderOperation::RenderOnDemand(operation) = operation {
                 any_rendered = any_rendered || operation.start_render();
             }
@@ -107,7 +107,7 @@ impl Presentation {
     pub(crate) fn widgets_rendered(&mut self) -> bool {
         let slide = self.current_slide_mut();
         let mut all_rendered = true;
-        for operation in &mut slide.render_operations {
+        for operation in &mut slide.operations {
             if let RenderOperation::RenderOnDemand(operation) = operation {
                 all_rendered = all_rendered && matches!(operation.poll_state(), RenderOnDemandState::Rendered);
             }
@@ -126,7 +126,22 @@ impl Presentation {
 /// the terminal's screen.
 #[derive(Clone, Debug)]
 pub(crate) struct Slide {
-    pub(crate) render_operations: Vec<RenderOperation>,
+    operations: Vec<RenderOperation>,
+}
+
+impl Slide {
+    pub(crate) fn new(operations: Vec<RenderOperation>) -> Self {
+        Self { operations }
+    }
+
+    pub(crate) fn iter_operations(&self) -> impl Iterator<Item = &RenderOperation> + Clone {
+        self.operations.iter()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn into_operations(self) -> Vec<RenderOperation> {
+        self.operations
+    }
 }
 
 /// The metadata for a presentation.

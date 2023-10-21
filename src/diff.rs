@@ -35,7 +35,7 @@ trait ContentDiff {
 
 impl ContentDiff for Slide {
     fn is_content_different(&self, other: &Self) -> bool {
-        self.render_operations.iter().is_content_different(&other.render_operations.iter())
+        self.iter_operations().is_content_different(&other.iter_operations())
     }
 }
 
@@ -157,9 +157,9 @@ mod test {
     #[test]
     fn no_slide_changes() {
         let presentation = Presentation::new(vec![
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
+            Slide::new(vec![RenderOperation::JumpToBottom]),
+            Slide::new(vec![RenderOperation::JumpToBottom]),
+            Slide::new(vec![RenderOperation::JumpToBottom]),
         ]);
         assert_eq!(PresentationDiffer::first_modified_slide(&presentation, &presentation), None);
     }
@@ -167,20 +167,20 @@ mod test {
     #[test]
     fn slides_truncated() {
         let lhs = Presentation::new(vec![
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
+            Slide::new(vec![RenderOperation::JumpToBottom]),
+            Slide::new(vec![RenderOperation::JumpToBottom]),
         ]);
-        let rhs = Presentation::new(vec![Slide { render_operations: vec![RenderOperation::JumpToBottom] }]);
+        let rhs = Presentation::new(vec![Slide::new(vec![RenderOperation::JumpToBottom])]);
 
         assert_eq!(PresentationDiffer::first_modified_slide(&lhs, &rhs), Some(0));
     }
 
     #[test]
     fn slides_added() {
-        let lhs = Presentation::new(vec![Slide { render_operations: vec![RenderOperation::JumpToBottom] }]);
+        let lhs = Presentation::new(vec![Slide::new(vec![RenderOperation::JumpToBottom])]);
         let rhs = Presentation::new(vec![
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
+            Slide::new(vec![RenderOperation::JumpToBottom]),
+            Slide::new(vec![RenderOperation::JumpToBottom]),
         ]);
 
         assert_eq!(PresentationDiffer::first_modified_slide(&lhs, &rhs), Some(1));
@@ -189,14 +189,14 @@ mod test {
     #[test]
     fn second_slide_content_changed() {
         let lhs = Presentation::new(vec![
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
+            Slide::new(vec![RenderOperation::JumpToBottom]),
+            Slide::new(vec![RenderOperation::JumpToBottom]),
+            Slide::new(vec![RenderOperation::JumpToBottom]),
         ]);
         let rhs = Presentation::new(vec![
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToVerticalCenter] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
+            Slide::new(vec![RenderOperation::JumpToBottom]),
+            Slide::new(vec![RenderOperation::JumpToVerticalCenter]),
+            Slide::new(vec![RenderOperation::JumpToBottom]),
         ]);
 
         assert_eq!(PresentationDiffer::first_modified_slide(&lhs, &rhs), Some(1));
@@ -204,18 +204,14 @@ mod test {
 
     #[test]
     fn presentation_changed_style() {
-        let lhs = Presentation::new(vec![Slide {
-            render_operations: vec![RenderOperation::SetColors(Colors {
-                background: None,
-                foreground: Some(Color::new(255, 0, 0)),
-            })],
-        }]);
-        let rhs = Presentation::new(vec![Slide {
-            render_operations: vec![RenderOperation::SetColors(Colors {
-                background: None,
-                foreground: Some(Color::new(0, 0, 0)),
-            })],
-        }]);
+        let lhs = Presentation::new(vec![Slide::new(vec![RenderOperation::SetColors(Colors {
+            background: None,
+            foreground: Some(Color::new(255, 0, 0)),
+        })])]);
+        let rhs = Presentation::new(vec![Slide::new(vec![RenderOperation::SetColors(Colors {
+            background: None,
+            foreground: Some(Color::new(0, 0, 0)),
+        })])]);
 
         assert_eq!(PresentationDiffer::first_modified_slide(&lhs, &rhs), None);
     }
