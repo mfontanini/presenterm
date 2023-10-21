@@ -89,6 +89,34 @@ impl Presentation {
             false
         }
     }
+
+    /// Render all widgets in this slide.
+    pub fn render_slide_widgets(&mut self) -> bool {
+        let slide = self.current_slide_mut();
+        let mut any_rendered = false;
+        for operation in &mut slide.render_operations {
+            if let RenderOperation::RenderOnDemand(operation) = operation {
+                any_rendered = any_rendered || operation.start_render();
+            }
+        }
+        any_rendered
+    }
+
+    /// Poll every widget in the current slide and check whether they're rendered.
+    pub fn widgets_rendered(&mut self) -> bool {
+        let slide = self.current_slide_mut();
+        let mut all_rendered = true;
+        for operation in &mut slide.render_operations {
+            if let RenderOperation::RenderOnDemand(operation) = operation {
+                all_rendered = all_rendered && matches!(operation.poll_state(), RenderOnDemandState::Rendered);
+            }
+        }
+        all_rendered
+    }
+
+    fn current_slide_mut(&mut self) -> &mut Slide {
+        &mut self.slides[self.current_slide_index]
+    }
 }
 
 /// A slide.
@@ -187,6 +215,9 @@ pub enum RenderOperation {
     /// [RenderOperation] with the screen itself.
     RenderDynamic(Rc<dyn AsRenderOperations>),
 
+    /// An operation that is rendered on demand.
+    RenderOnDemand(Rc<dyn RenderOnDemand>),
+
     /// Initialize a column layout.
     ///
     /// The value for each column is the width of the column in column-unit units, where the entire
@@ -222,4 +253,22 @@ pub struct MarginProperties {
 pub trait AsRenderOperations: std::fmt::Debug {
     /// Generate render operations.
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation>;
+}
+
+/// A type that can be rendered on demand.
+pub trait RenderOnDemand: AsRenderOperations {
+    /// Start the on demand render for this operation.
+    fn start_render(&self) -> bool;
+
+    /// Poll and update the internal on demand state and return the latest.
+    fn poll_state(&self) -> RenderOnDemandState;
+}
+
+/// The state of a [RenderOnDemand].
+#[derive(Clone, Debug, Default)]
+pub enum RenderOnDemandState {
+    #[default]
+    NotStarted,
+    Rendering,
+    Rendered,
 }

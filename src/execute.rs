@@ -64,6 +64,7 @@ pub enum CodeExecuteError {
 }
 
 /// A handle for the execution of a piece of code.
+#[derive(Debug)]
 pub struct ExecutionHandle {
     state: Arc<Mutex<ExecutionState>>,
     #[allow(dead_code)]
@@ -100,10 +101,7 @@ impl ProcessReader {
         let stdout = BufReader::new(stdout);
         let _ = Self::process_output(self.state.clone(), stdout);
         let success = match self.handle.try_wait() {
-            Ok(Some(code)) => {
-                println!("Exit code {code:?}");
-                code.success()
-            }
+            Ok(Some(code)) => code.success(),
             _ => false,
         };
         let status = match success {
@@ -124,18 +122,13 @@ impl ProcessReader {
 }
 
 /// The state of the execution of a process.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct ExecutionState {
-    output: Vec<String>,
-    status: ProcessStatus,
+    pub output: Vec<String>,
+    pub status: ProcessStatus,
 }
 
 impl ExecutionState {
-    /// Check whether the underlying process is finished.
-    pub fn is_finished(&self) -> bool {
-        matches!(self.status, ProcessStatus::Success | ProcessStatus::Failure)
-    }
-
     /// Extract the lines printed so far.
     pub fn into_lines(self) -> Vec<String> {
         self.output
@@ -149,6 +142,13 @@ pub enum ProcessStatus {
     Running,
     Success,
     Failure,
+}
+
+impl ProcessStatus {
+    /// Check whether the underlying process is finished.
+    pub fn is_finished(&self) -> bool {
+        matches!(self, ProcessStatus::Success | ProcessStatus::Failure)
+    }
 }
 
 #[cfg(test)]
@@ -166,7 +166,7 @@ echo 'bye'"
         let handle = CodeExecuter::execute(&code).expect("execution failed");
         let state = loop {
             let state = handle.state();
-            if state.is_finished() {
+            if state.status.is_finished() {
                 break state;
             }
         };

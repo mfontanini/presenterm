@@ -22,6 +22,10 @@ code:
     horizontal: 2
     vertical: 1
 
+execution_output:
+  colors:
+    background: "2d2d2d"
+
 inline_code:
   colors:
     foreground: "04de20"

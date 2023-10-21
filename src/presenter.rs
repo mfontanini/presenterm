@@ -15,6 +15,7 @@ use crate::{
     theme::PresentationTheme,
 };
 use std::{
+    collections::HashSet,
     fs,
     io::{self, Stdout},
     mem,
@@ -32,6 +33,7 @@ pub struct Presenter<'a> {
     resources: Resources,
     mode: PresentMode,
     state: PresenterState,
+    slides_with_pending_widgets: HashSet<usize>,
 }
 
 impl<'a> Presenter<'a> {
@@ -44,7 +46,16 @@ impl<'a> Presenter<'a> {
         resources: Resources,
         mode: PresentMode,
     ) -> Self {
-        Self { default_theme, default_highlighter, commands, parser, resources, mode, state: PresenterState::Empty }
+        Self {
+            default_theme,
+            default_highlighter,
+            commands,
+            parser,
+            resources,
+            mode,
+            state: PresenterState::Empty,
+            slides_with_pending_widgets: HashSet::new(),
+        }
     }
 
     /// Run a presentation.
@@ -54,9 +65,14 @@ impl<'a> Presenter<'a> {
         let mut drawer = TerminalDrawer::new(io::stdout())?;
         loop {
             self.render(&mut drawer)?;
+            self.update_widgets(&mut drawer)?;
 
             loop {
-                let command = match self.commands.next_command()? {
+                self.update_widgets(&mut drawer)?;
+                let Some(command) = self.commands.try_next_command()? else {
+                    continue;
+                };
+                let command = match command {
                     Command::User(command) => command,
                     Command::ReloadPresentation => {
                         self.try_reload(path);
@@ -69,10 +85,26 @@ impl<'a> Presenter<'a> {
                     CommandSideEffect::Redraw => {
                         break;
                     }
+                    CommandSideEffect::PollWidgets => {
+                        self.slides_with_pending_widgets.insert(self.state.presentation().current_slide_index());
+                    }
                     CommandSideEffect::None => (),
                 };
             }
         }
+    }
+
+    fn update_widgets(&mut self, drawer: &mut TerminalDrawer<Stdout>) -> RenderResult {
+        let current_index = self.state.presentation().current_slide_index();
+        if self.slides_with_pending_widgets.contains(&current_index) {
+            self.render(drawer)?;
+            if self.state.presentation_mut().widgets_rendered() {
+                // Render one last time just in case it _just_ rendered
+                self.render(drawer)?;
+                self.slides_with_pending_widgets.remove(&current_index);
+            }
+        }
+        Ok(())
     }
 
     fn render(&mut self, drawer: &mut TerminalDrawer<Stdout>) -> RenderResult {
@@ -101,6 +133,14 @@ impl<'a> Presenter<'a> {
             UserCommand::JumpFirstSlide => presentation.jump_first_slide(),
             UserCommand::JumpLastSlide => presentation.jump_last_slide(),
             UserCommand::JumpSlide(number) => presentation.jump_slide(number.saturating_sub(1) as usize),
+            UserCommand::RenderWidgets => {
+                if presentation.render_slide_widgets() {
+                    self.slides_with_pending_widgets.insert(self.state.presentation().current_slide_index());
+                    return CommandSideEffect::PollWidgets;
+                } else {
+                    return CommandSideEffect::None;
+                }
+            }
             UserCommand::Exit => return CommandSideEffect::Exit,
         };
         if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
@@ -110,6 +150,7 @@ impl<'a> Presenter<'a> {
         if matches!(self.mode, PresentMode::Presentation) {
             return;
         }
+        self.slides_with_pending_widgets.clear();
         match self.load_presentation(path) {
             Ok(mut presentation) => {
                 let current = self.state.presentation();
@@ -138,6 +179,7 @@ impl<'a> Presenter<'a> {
 enum CommandSideEffect {
     Exit,
     Redraw,
+    PollWidgets,
     None,
 }
 
@@ -154,6 +196,14 @@ enum PresenterState {
 
 impl PresenterState {
     fn presentation(&self) -> &Presentation {
+        match self {
+            Self::Presenting(presentation) => presentation,
+            Self::Failure { presentation, .. } => presentation,
+            Self::Empty => panic!("state is empty"),
+        }
+    }
+
+    fn presentation_mut(&mut self) -> &mut Presentation {
         match self {
             Self::Presenting(presentation) => presentation,
             Self::Failure { presentation, .. } => presentation,

@@ -15,6 +15,10 @@ pub struct PresentationTheme {
     #[serde(default)]
     pub code: CodeBlockStyle,
 
+    /// The style for the execution output of a piece of code.
+    #[serde(default)]
+    pub execution_output: ExecutionOutputBlockStyle,
+
     /// The style for inline code.
     #[serde(default)]
     pub inline_code: InlineCodeStyle,
@@ -333,6 +337,14 @@ pub struct CodeBlockStyle {
     /// The syntect theme name to use.
     #[serde(default)]
     pub theme_name: Option<String>,
+}
+
+/// The style for the output of a code execution block.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct ExecutionOutputBlockStyle {
+    /// The colors to be used.
+    #[serde(default)]
+    pub colors: Colors,
 }
 
 /// The style for inline code.
