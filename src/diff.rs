@@ -1,19 +1,28 @@
-use crate::presentation::{Presentation, RenderOperation, Slide};
-use std::{cmp::Ordering, mem};
+use crate::presentation::{Presentation, RenderOperation, SlideChunk};
+use std::{cmp::Ordering, fmt::Debug, mem};
 
 /// Allow diffing presentations.
 pub(crate) struct PresentationDiffer;
 
 impl PresentationDiffer {
-    /// Find the first modified slide between original and updated.
-    ///
-    /// This tries to take into account both content and style changes such that changing
-    pub(crate) fn first_modified_slide(original: &Presentation, updated: &Presentation) -> Option<usize> {
+    /// Find the first modification between two presentations.
+    pub(crate) fn find_first_modification(original: &Presentation, updated: &Presentation) -> Option<Modification> {
         let original_slides = original.iter_slides();
         let updated_slides = updated.iter_slides();
-        for (index, (original, updated)) in original_slides.zip(updated_slides).enumerate() {
-            if original.is_content_different(updated) {
-                return Some(index);
+        for (slide_index, (original, updated)) in original_slides.zip(updated_slides).enumerate() {
+            for (chunk_index, (original, updated)) in original.iter_chunks().zip(updated.iter_chunks()).enumerate() {
+                if original.is_content_different(updated) {
+                    return Some(Modification { slide_index, chunk_index });
+                }
+            }
+            let total_original = original.iter_chunks().count();
+            let total_updated = updated.iter_chunks().count();
+            match total_original.cmp(&total_updated) {
+                Ordering::Equal => (),
+                Ordering::Less => return Some(Modification { slide_index, chunk_index: total_original }),
+                Ordering::Greater => {
+                    return Some(Modification { slide_index, chunk_index: total_updated.saturating_sub(1) });
+                }
             }
         }
         let total_original = original.iter_slides().count();
@@ -22,20 +31,28 @@ impl PresentationDiffer {
             // If they have the same number of slides there's no difference.
             Ordering::Equal => None,
             // If the original had fewer, let's scroll to the first new one.
-            Ordering::Less => Some(total_original),
+            Ordering::Less => Some(Modification { slide_index: total_original, chunk_index: 0 }),
             // If the original had more, let's scroll to the last one.
-            Ordering::Greater => Some(total_updated.saturating_sub(1)),
+            Ordering::Greater => {
+                Some(Modification { slide_index: total_updated.saturating_sub(1), chunk_index: usize::MAX })
+            }
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Modification {
+    pub(crate) slide_index: usize,
+    pub(crate) chunk_index: usize,
 }
 
 trait ContentDiff {
     fn is_content_different(&self, other: &Self) -> bool;
 }
 
-impl ContentDiff for Slide {
+impl ContentDiff for SlideChunk {
     fn is_content_different(&self, other: &Self) -> bool {
-        self.render_operations.iter().is_content_different(&other.render_operations.iter())
+        self.iter_operations().is_content_different(&other.iter_operations())
     }
 }
 
@@ -70,18 +87,19 @@ impl ContentDiff for RenderOperation {
 impl<'a, T, U> ContentDiff for T
 where
     T: IntoIterator<Item = &'a U> + Clone,
-    U: ContentDiff + 'a,
+    // TODO no debu
+    U: ContentDiff + 'a + Debug,
 {
     fn is_content_different(&self, other: &Self) -> bool {
-        let mut lhs = self.clone().into_iter();
-        let mut rhs = other.clone().into_iter();
-        for (lhs, rhs) in lhs.by_ref().zip(rhs.by_ref()) {
+        let lhs = self.clone().into_iter();
+        let rhs = other.clone().into_iter();
+        for (lhs, rhs) in lhs.zip(rhs) {
             if lhs.is_content_different(rhs) {
                 return true;
             }
         }
         // If either have more than the other, they've changed
-        lhs.next().is_some() != rhs.next().is_some()
+        self.clone().into_iter().count() != other.clone().into_iter().count()
     }
 }
 
@@ -89,7 +107,7 @@ where
 mod test {
     use super::*;
     use crate::{
-        presentation::{AsRenderOperations, PreformattedLine},
+        presentation::{AsRenderOperations, PreformattedLine, Slide},
         render::properties::WindowSize,
         style::{Color, Colors},
         theme::{Alignment, Margin},
@@ -157,66 +175,98 @@ mod test {
     #[test]
     fn no_slide_changes() {
         let presentation = Presentation::new(vec![
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
+            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::JumpToBottom]),
         ]);
-        assert_eq!(PresentationDiffer::first_modified_slide(&presentation, &presentation), None);
+        assert_eq!(PresentationDiffer::find_first_modification(&presentation, &presentation), None);
     }
 
     #[test]
     fn slides_truncated() {
         let lhs = Presentation::new(vec![
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
+            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::JumpToBottom]),
         ]);
-        let rhs = Presentation::new(vec![Slide { render_operations: vec![RenderOperation::JumpToBottom] }]);
+        let rhs = Presentation::new(vec![Slide::from(vec![RenderOperation::JumpToBottom])]);
 
-        assert_eq!(PresentationDiffer::first_modified_slide(&lhs, &rhs), Some(0));
+        assert_eq!(
+            PresentationDiffer::find_first_modification(&lhs, &rhs),
+            Some(Modification { slide_index: 0, chunk_index: usize::MAX })
+        );
     }
 
     #[test]
     fn slides_added() {
-        let lhs = Presentation::new(vec![Slide { render_operations: vec![RenderOperation::JumpToBottom] }]);
+        let lhs = Presentation::new(vec![Slide::from(vec![RenderOperation::JumpToBottom])]);
         let rhs = Presentation::new(vec![
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
+            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::JumpToBottom]),
         ]);
 
-        assert_eq!(PresentationDiffer::first_modified_slide(&lhs, &rhs), Some(1));
+        assert_eq!(
+            PresentationDiffer::find_first_modification(&lhs, &rhs),
+            Some(Modification { slide_index: 1, chunk_index: 0 })
+        );
     }
 
     #[test]
     fn second_slide_content_changed() {
         let lhs = Presentation::new(vec![
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
+            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::JumpToBottom]),
         ]);
         let rhs = Presentation::new(vec![
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
-            Slide { render_operations: vec![RenderOperation::JumpToVerticalCenter] },
-            Slide { render_operations: vec![RenderOperation::JumpToBottom] },
+            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::JumpToVerticalCenter]),
+            Slide::from(vec![RenderOperation::JumpToBottom]),
         ]);
 
-        assert_eq!(PresentationDiffer::first_modified_slide(&lhs, &rhs), Some(1));
+        assert_eq!(
+            PresentationDiffer::find_first_modification(&lhs, &rhs),
+            Some(Modification { slide_index: 1, chunk_index: 0 })
+        );
     }
 
     #[test]
     fn presentation_changed_style() {
-        let lhs = Presentation::new(vec![Slide {
-            render_operations: vec![RenderOperation::SetColors(Colors {
-                background: None,
-                foreground: Some(Color::new(255, 0, 0)),
-            })],
-        }]);
-        let rhs = Presentation::new(vec![Slide {
-            render_operations: vec![RenderOperation::SetColors(Colors {
-                background: None,
-                foreground: Some(Color::new(0, 0, 0)),
-            })],
-        }]);
+        let lhs = Presentation::new(vec![Slide::from(vec![RenderOperation::SetColors(Colors {
+            background: None,
+            foreground: Some(Color::new(255, 0, 0)),
+        })])]);
+        let rhs = Presentation::new(vec![Slide::from(vec![RenderOperation::SetColors(Colors {
+            background: None,
+            foreground: Some(Color::new(0, 0, 0)),
+        })])]);
 
-        assert_eq!(PresentationDiffer::first_modified_slide(&lhs, &rhs), None);
+        assert_eq!(PresentationDiffer::find_first_modification(&lhs, &rhs), None);
+    }
+
+    #[test]
+    fn chunk_change() {
+        let lhs = Presentation::new(vec![
+            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::new(vec![SlideChunk::default(), SlideChunk::new(vec![RenderOperation::JumpToBottom])], vec![]),
+        ]);
+        let rhs = Presentation::new(vec![
+            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::new(
+                vec![
+                    SlideChunk::default(),
+                    SlideChunk::new(vec![RenderOperation::JumpToBottom, RenderOperation::JumpToBottom]),
+                ],
+                vec![],
+            ),
+        ]);
+
+        assert_eq!(
+            PresentationDiffer::find_first_modification(&lhs, &rhs),
+            Some(Modification { slide_index: 1, chunk_index: 1 })
+        );
+        assert_eq!(
+            PresentationDiffer::find_first_modification(&rhs, &lhs),
+            Some(Modification { slide_index: 1, chunk_index: 1 })
+        );
     }
 }

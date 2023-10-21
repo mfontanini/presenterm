@@ -34,7 +34,7 @@ where
         let window_dimensions = WindowSize::current()?;
         let slide = presentation.current_slide();
         let operator = RenderOperator::new(&mut self.terminal, window_dimensions);
-        operator.render(&slide.render_operations)?;
+        operator.render(slide.iter_operations())?;
         self.terminal.flush()?;
         Ok(())
     }
@@ -61,7 +61,7 @@ where
             RenderOperation::RenderTextLine { line: WeightedLine::from(error), alignment: alignment.clone() },
         ];
         let operator = RenderOperator::new(&mut self.terminal, dimensions);
-        operator.render(&operations)?;
+        operator.render(operations.iter())?;
         self.terminal.flush()?;
         Ok(())
     }
