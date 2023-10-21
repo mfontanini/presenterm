@@ -1,4 +1,4 @@
-use crate::markdown::elements::ProgrammingLanguage;
+use crate::markdown::elements::CodeLanguage;
 use once_cell::sync::Lazy;
 use syntect::{
     easy::HighlightLines,
@@ -26,7 +26,7 @@ impl CodeHighlighter {
     /// Highlight a piece of code.
     ///
     /// This splits the given piece of code into lines, highlights them individually, and returns them.
-    pub fn highlight<'a>(&self, code: &'a str, language: &ProgrammingLanguage) -> Vec<CodeLine<'a>> {
+    pub fn highlight<'a>(&self, code: &'a str, language: &CodeLanguage) -> Vec<CodeLine<'a>> {
         let extension = Self::language_extension(language);
         let syntax = SYNTAX_SET.find_syntax_by_extension(extension).unwrap();
         let mut highlight_lines = HighlightLines::new(syntax, self.theme);
@@ -40,8 +40,8 @@ impl CodeHighlighter {
         lines
     }
 
-    fn language_extension(language: &ProgrammingLanguage) -> &'static str {
-        use ProgrammingLanguage::*;
+    fn language_extension(language: &CodeLanguage) -> &'static str {
+        use CodeLanguage::*;
         match language {
             Asp => "asa",
             Bash => "bash",
@@ -70,7 +70,7 @@ impl CodeHighlighter {
             R => "r",
             Rust => "rs",
             Scala => "scala",
-            Shell => "sh",
+            Shell(_) => "sh",
             Sql => "sql",
             TypeScript => "js",
             Xml => "xml",
@@ -104,7 +104,7 @@ mod test {
 
     #[test]
     fn language_extensions_exist() {
-        for language in ProgrammingLanguage::iter() {
+        for language in CodeLanguage::iter() {
             let extension = CodeHighlighter::language_extension(&language);
             let syntax = SYNTAX_SET.find_syntax_by_extension(extension);
             assert!(syntax.is_some(), "extension {extension} for {language:?} not found");

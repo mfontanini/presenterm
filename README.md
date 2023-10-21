@@ -67,6 +67,7 @@ nix run github:mfontanini/presenterm
 * Configurable [column layouts](/docs/layouts.md) that let you structure parts of your slide into columns.
 * Support for an introduction slide that displays the presentation title and your name.
 * Support for slide titles.
+* Support for shell code execution.
 * Create pauses in between each slide so that it progressively renders for a more interactive presentation.
 * Text formatting support for **bold**, _italics_, ~strikethrough~, and `inline code`.
 * Automatically reload your presentation every time it changes for a fast development loop.
@@ -187,6 +188,15 @@ them to be, and then put any content into them. For example:
 ![](/assets/layouts.png)
 
 See the [documentation](/docs/layouts.md) on layouts to learn more.
+
+## Shell code execution
+
+> **Note**: this is available in the `master` branch and in the upcoming 0.3.0 version.
+
+Any shell code can be marked for execution, making  _presenterm_ execute it and render its output when you press ctrl+e. 
+In order to do this, annotate the code block with `+exec` (e.g. `bash +exec`). **Obviously use this at your own risk!**
+
+[![asciicast](https://asciinema.org/a/1v3IqCEtU9tqDjVj78Pp7SSe2.svg)](https://asciinema.org/a/1v3IqCEtU9tqDjVj78Pp7SSe2)
 
 ## Navigation
 

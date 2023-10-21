@@ -39,6 +39,9 @@ impl UserInput {
             KeyCode::Char('c') if event.modifiers == KeyModifiers::CONTROL => {
                 (Some(UserCommand::Exit), InputState::Empty)
             }
+            KeyCode::Char('e') if event.modifiers == KeyModifiers::CONTROL => {
+                (Some(UserCommand::RenderWidgets), InputState::Empty)
+            }
             KeyCode::Char('G') => Self::apply_uppercase_g(state),
             KeyCode::Char('g') => Self::apply_lowercase_g(state),
             KeyCode::Char(number) if number.is_ascii_digit() => {
@@ -104,6 +107,9 @@ pub enum UserCommand {
 
     /// Jump to one particular slide.
     JumpSlide(u32),
+
+    /// Render any widgets in the currently visible slide.
+    RenderWidgets,
 
     /// Exit the presentation.
     Exit,

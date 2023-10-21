@@ -1,4 +1,5 @@
 use crate::{
+    execute::{CodeExecuter, ExecutionHandle, ExecutionState, ProcessStatus},
     markdown::{
         elements::{
             Code, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table, TableRow, Text,
@@ -7,7 +8,7 @@ use crate::{
     },
     presentation::{
         AsRenderOperations, MarginProperties, PreformattedLine, Presentation, PresentationMetadata,
-        PresentationThemeMetadata, RenderOperation, Slide,
+        PresentationThemeMetadata, RenderOnDemand, RenderOnDemandState, RenderOperation, Slide,
     },
     render::{
         highlighting::{CodeHighlighter, CodeLine},
@@ -17,6 +18,7 @@ use crate::{
     style::{Colors, TextStyle},
     theme::{Alignment, AuthorPositioning, ElementType, FooterStyle, LoadThemeError, Margin, PresentationTheme},
 };
+use itertools::Itertools;
 use serde::Deserialize;
 use std::{borrow::Cow, cell::RefCell, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
@@ -428,12 +430,12 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_code(&mut self, code: Code) {
-        let Code { contents, language } = code;
+        let Code { contents, language, flags } = code;
         let mut code = String::new();
         let horizontal_padding = self.theme.code.padding.horizontal.unwrap_or(0);
         let vertical_padding = self.theme.code.padding.vertical.unwrap_or(0);
         if horizontal_padding == 0 && vertical_padding == 0 {
-            code = contents;
+            code = contents.clone();
         } else {
             if vertical_padding > 0 {
                 code.push('\n');
@@ -465,6 +467,19 @@ impl<'a> PresentationBuilder<'a> {
             }));
             self.push_line_break();
         }
+        if flags.execute {
+            self.push_code_execution(Code { contents, language, flags });
+        }
+    }
+
+    fn push_code_execution(&mut self, code: Code) {
+        let operation = RunCodeOperation::new(
+            code,
+            self.theme.default_style.colors.clone(),
+            self.theme.execution_output.colors.clone(),
+        );
+        let operation = RenderOperation::RenderOnDemand(Rc::new(operation));
+        self.slide_operations.push(operation);
     }
 
     fn terminate_slide(&mut self, mode: TerminateMode) {
@@ -701,12 +716,118 @@ impl FromStr for CommentCommand {
 #[error("invalid command: {0}")]
 pub struct CommandParseError(#[from] serde_yaml::Error);
 
+#[derive(Debug)]
+struct RunCodeOperationInner {
+    handle: Option<ExecutionHandle>,
+    output_lines: Vec<String>,
+    state: RenderOnDemandState,
+}
+
+#[derive(Debug)]
+pub struct RunCodeOperation {
+    code: Code,
+    default_colors: Colors,
+    block_colors: Colors,
+    inner: Rc<RefCell<RunCodeOperationInner>>,
+}
+
+impl RunCodeOperation {
+    fn new(code: Code, default_colors: Colors, block_colors: Colors) -> Self {
+        let inner =
+            RunCodeOperationInner { handle: None, output_lines: Vec::new(), state: RenderOnDemandState::default() };
+        Self { code, default_colors, block_colors, inner: Rc::new(RefCell::new(inner)) }
+    }
+
+    fn render_line(&self, line: String) -> RenderOperation {
+        let line_len = line.len();
+        RenderOperation::RenderPreformattedLine(PreformattedLine {
+            text: line,
+            unformatted_length: line_len,
+            block_length: line_len,
+            alignment: Default::default(),
+        })
+    }
+}
+
+impl AsRenderOperations for RunCodeOperation {
+    fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
+        let inner = self.inner.borrow();
+        if matches!(inner.state, RenderOnDemandState::NotStarted) {
+            return Vec::new();
+        }
+        let state = match inner.state {
+            RenderOnDemandState::Rendered => "done",
+            _ => "running",
+        };
+        let heading = format!(" [{state}] ");
+        // TODO remove `RenderSeparator` and turn it into a dynamic operation with optional heading
+        let dashes_len = (dimensions.columns as usize).saturating_sub(heading.len()) / 2;
+        let dashes = "—".repeat(dashes_len);
+        let separator = format!("{dashes}{heading}{dashes}");
+        let mut operations = vec![
+            RenderOperation::RenderLineBreak,
+            self.render_line(separator),
+            RenderOperation::RenderLineBreak,
+            RenderOperation::RenderLineBreak,
+            RenderOperation::SetColors(self.block_colors.clone()),
+        ];
+
+        for line in &inner.output_lines {
+            let chunks = line.chars().chunks(dimensions.columns as usize);
+            for chunk in &chunks {
+                operations.push(self.render_line(chunk.collect()));
+                operations.push(RenderOperation::RenderLineBreak);
+            }
+        }
+        operations.push(RenderOperation::SetColors(self.default_colors.clone()));
+        operations
+    }
+}
+
+impl RenderOnDemand for RunCodeOperation {
+    fn poll_state(&self) -> RenderOnDemandState {
+        let mut inner = self.inner.borrow_mut();
+        if let Some(handle) = inner.handle.as_mut() {
+            let state = handle.state();
+            let ExecutionState { output, status } = state;
+            if status.is_finished() {
+                inner.handle.take();
+                inner.state = RenderOnDemandState::Rendered;
+            }
+            inner.output_lines = output;
+            if matches!(status, ProcessStatus::Failure) {
+                inner.output_lines.push("[finished with error]".to_string());
+            }
+        }
+        inner.state.clone()
+    }
+
+    fn start_render(&self) -> bool {
+        let mut inner = self.inner.borrow_mut();
+        if !matches!(inner.state, RenderOnDemandState::NotStarted) {
+            return false;
+        }
+        match CodeExecuter::execute(&self.code) {
+            Ok(handle) => {
+                inner.handle = Some(handle);
+                inner.state = RenderOnDemandState::Rendering;
+                true
+            }
+            Err(e) => {
+                inner.output_lines = vec![e.to_string()];
+                inner.state = RenderOnDemandState::Rendered;
+                true
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use rstest::rstest;
 
     use super::*;
-    use crate::{markdown::elements::ProgrammingLanguage, presentation::PreformattedLine};
+    use crate::{markdown::elements::CodeLanguage, presentation::PreformattedLine};
 
     fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
         try_build_presentation(elements).expect("build failed")
@@ -753,7 +874,8 @@ mod test {
             | RenderLineBreak
             | RenderImage(_)
             | RenderPreformattedLine(_)
-            | RenderDynamic(_) => true,
+            | RenderDynamic(_)
+            | RenderOnDemand(_) => true,
         }
     }
 
@@ -817,7 +939,11 @@ mod test {
         let text = "苹果".to_string();
         let elements = vec![
             MarkdownElement::BlockQuote(vec![text.clone()]),
-            MarkdownElement::Code(Code { contents: text.clone(), language: ProgrammingLanguage::Unknown }),
+            MarkdownElement::Code(Code {
+                contents: text.clone(),
+                language: CodeLanguage::Unknown,
+                flags: Default::default(),
+            }),
         ];
         let presentation = build_presentation(elements);
         let slides = presentation.into_slides();

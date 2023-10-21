@@ -1,6 +1,6 @@
 use crate::{
     markdown::elements::{
-        Code, ListItem, ListItemType, MarkdownElement, ParagraphElement, ProgrammingLanguage, StyledText, Table,
+        Code, CodeFlags, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table,
         TableRow, Text,
     },
     style::TextStyle,
@@ -123,10 +123,11 @@ impl<'a> MarkdownParser<'a> {
         if !block.fenced {
             return Err(ParseErrorKind::UnfencedCodeBlock.with_sourcepos(sourcepos));
         }
-        use ProgrammingLanguage::*;
-        let language = match block.info.as_str() {
+        use CodeLanguage::*;
+        let info = block.info.as_str();
+        let mut tokens = info.split(' ');
+        let language = match tokens.next().unwrap_or("") {
             "asp" => Asp,
-            "bash" => Bash,
             "c" => C,
             "csharp" => CSharp,
             "clojure" => Clojure,
@@ -151,14 +152,16 @@ impl<'a> MarkdownParser<'a> {
             "r" => R,
             "rust" => Rust,
             "scala" => Scala,
-            "shell" | "sh" | "zsh" | "fish" => Shell,
+            "shell" => Shell("sh".into()),
+            interpreter @ ("bash" | "sh" | "zsh" | "fish") => Shell(interpreter.into()),
             "sql" => Sql,
             "typescript" | "ts" => TypeScript,
             "xml" => Xml,
             "yaml" => Yaml,
             _ => Unknown,
         };
-        let code = Code { contents: block.literal.clone(), language };
+        let flags = CodeFlags { execute: tokens.any(|token| token == "+exec") };
+        let code = Code { contents: block.literal.clone(), language, flags };
         Ok(MarkdownElement::Code(code))
     }
 
@@ -633,8 +636,23 @@ let q = 42;
 ",
         );
         let MarkdownElement::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
-        assert_eq!(code.language, ProgrammingLanguage::Rust);
+        assert_eq!(code.language, CodeLanguage::Rust);
         assert_eq!(code.contents, "let q = 42;\n");
+        assert!(!code.flags.execute);
+    }
+
+    #[test]
+    fn executable_code_block() {
+        let parsed = parse_single(
+            r"
+```bash +exec
+echo hi mom
+````
+",
+        );
+        let MarkdownElement::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
+        assert_eq!(code.language, CodeLanguage::Shell("bash".into()));
+        assert!(code.flags.execute);
     }
 
     #[test]

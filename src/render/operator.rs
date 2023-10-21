@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
     markdown::text::WeightedLine,
-    presentation::{AsRenderOperations, MarginProperties, PreformattedLine, RenderOperation},
+    presentation::{AsRenderOperations, MarginProperties, PreformattedLine, RenderOnDemand, RenderOperation},
     render::{layout::Positioning, properties::WindowSize},
     style::Colors,
     theme::Alignment,
@@ -58,6 +58,7 @@ where
             RenderOperation::RenderImage(image) => self.render_image(image),
             RenderOperation::RenderPreformattedLine(operation) => self.render_preformatted_line(operation),
             RenderOperation::RenderDynamic(generator) => self.render_dynamic(generator.as_ref()),
+            RenderOperation::RenderOnDemand(generator) => self.render_on_demand(generator.as_ref()),
             RenderOperation::InitColumnLayout { columns } => self.init_column_layout(columns),
             RenderOperation::EnterColumn { column } => self.enter_column(*column),
             RenderOperation::ExitLayout => self.exit_layout(),
@@ -168,6 +169,14 @@ where
     }
 
     fn render_dynamic(&mut self, generator: &dyn AsRenderOperations) -> RenderResult {
+        let operations = generator.as_render_operations(self.current_dimensions());
+        for operation in operations {
+            self.render_one(&operation)?;
+        }
+        Ok(())
+    }
+
+    fn render_on_demand(&mut self, generator: &dyn RenderOnDemand) -> RenderResult {
         let operations = generator.as_render_operations(self.current_dimensions());
         for operation in operations {
             self.render_one(&operation)?;
