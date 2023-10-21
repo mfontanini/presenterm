@@ -19,7 +19,7 @@ use std::{
 };
 
 /// The result of parsing a markdown file.
-pub type ParseResult<T> = Result<T, ParseError>;
+pub(crate) type ParseResult<T> = Result<T, ParseError>;
 
 struct ParserOptions(ComrakOptions);
 
@@ -48,7 +48,7 @@ impl<'a> MarkdownParser<'a> {
     }
 
     /// Parse the contents of a markdown file.
-    pub fn parse(&self, contents: &str) -> ParseResult<Vec<MarkdownElement>> {
+    pub(crate) fn parse(&self, contents: &str) -> ParseResult<Vec<MarkdownElement>> {
         let node = parse_document(self.arena, contents, &self.options);
         let mut elements = Vec::new();
         for node in node.children() {
@@ -381,10 +381,10 @@ impl Inline {
 #[derive(thiserror::Error, Debug)]
 pub struct ParseError {
     /// The kind of error.
-    pub kind: ParseErrorKind,
+    pub(crate) kind: ParseErrorKind,
 
     /// The position in the source file this error originated from.
-    pub sourcepos: Sourcepos,
+    pub(crate) sourcepos: Sourcepos,
 }
 
 impl Display for ParseError {
@@ -401,7 +401,7 @@ impl ParseError {
 
 /// The kind of error.
 #[derive(Debug)]
-pub enum ParseErrorKind {
+pub(crate) enum ParseErrorKind {
     /// We don't support parsing this element.
     UnsupportedElement(&'static str),
 

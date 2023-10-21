@@ -12,10 +12,10 @@ use crate::{
 use std::io;
 
 /// The result of a render operation.
-pub type RenderResult = Result<(), RenderError>;
+pub(crate) type RenderResult = Result<(), RenderError>;
 
 /// Allows drawing elements in the terminal.
-pub struct TerminalDrawer<W: io::Write> {
+pub(crate) struct TerminalDrawer<W: io::Write> {
     terminal: Terminal<W>,
 }
 
@@ -24,13 +24,13 @@ where
     W: io::Write,
 {
     /// Construct a drawer over a [std::io::Write].
-    pub fn new(handle: W) -> io::Result<Self> {
+    pub(crate) fn new(handle: W) -> io::Result<Self> {
         let terminal = Terminal::new(handle)?;
         Ok(Self { terminal })
     }
 
     /// Render a slide.
-    pub fn render_slide(&mut self, presentation: &Presentation) -> RenderResult {
+    pub(crate) fn render_slide(&mut self, presentation: &Presentation) -> RenderResult {
         let window_dimensions = WindowSize::current()?;
         let slide = presentation.current_slide();
         let operator = RenderOperator::new(&mut self.terminal, window_dimensions);
@@ -40,7 +40,7 @@ where
     }
 
     /// Render an error.
-    pub fn render_error(&mut self, message: &str) -> RenderResult {
+    pub(crate) fn render_error(&mut self, message: &str) -> RenderResult {
         let dimensions = WindowSize::current()?;
         let heading = vec![
             WeightedText::from(StyledText::new("Error loading presentation", TextStyle::default().bold())),

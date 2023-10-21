@@ -1,3 +1,3 @@
-pub mod elements;
-pub mod parse;
-pub mod text;
+pub(crate) mod elements;
+pub(crate) mod parse;
+pub(crate) mod text;

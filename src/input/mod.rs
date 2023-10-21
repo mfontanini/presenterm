@@ -1,3 +1,3 @@
-pub mod fs;
-pub mod source;
-pub mod user;
+pub(crate) mod fs;
+pub(crate) mod source;
+pub(crate) mod user;

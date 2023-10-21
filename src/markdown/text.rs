@@ -6,21 +6,22 @@ use unicode_width::UnicodeWidthChar;
 ///
 /// The weight of a character is its given by its width in unicode.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct WeightedLine(Vec<WeightedText>);
+pub(crate) struct WeightedLine(Vec<WeightedText>);
 
 impl WeightedLine {
     /// Split this line into chunks of at most `max_length` width.
-    pub fn split(&self, max_length: usize) -> SplitTextIter {
+    pub(crate) fn split(&self, max_length: usize) -> SplitTextIter {
         SplitTextIter::new(&self.0, max_length)
     }
 
     /// The total width of this line.
-    pub fn width(&self) -> usize {
+    pub(crate) fn width(&self) -> usize {
         self.0.iter().map(|text| text.width()).sum()
     }
 
     /// Get an iterator to the underlying text chunks.
-    pub fn iter_texts(&self) -> impl Iterator<Item = &WeightedText> {
+    #[cfg(test)]
+    pub(crate) fn iter_texts(&self) -> impl Iterator<Item = &WeightedText> {
         self.0.iter()
     }
 }
@@ -46,8 +47,8 @@ struct CharAccumulator {
 
 /// A piece of weighted text.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct WeightedText {
-    pub text: StyledText,
+pub(crate) struct WeightedText {
+    pub(crate) text: StyledText,
     accumulators: Vec<CharAccumulator>,
 }
 
@@ -77,7 +78,7 @@ impl From<StyledText> for WeightedText {
 }
 
 /// An iterator over the chunks in a [WeightedLine].
-pub struct SplitTextIter<'a> {
+pub(crate) struct SplitTextIter<'a> {
     texts: &'a [WeightedText],
     max_length: usize,
     current: Option<WeightedTextRef<'a>>,
@@ -125,7 +126,7 @@ impl<'a> Iterator for SplitTextIter<'a> {
 
 /// A reference of a peice of a [WeightedText].
 #[derive(Clone, Debug)]
-pub struct WeightedTextRef<'a> {
+pub(crate) struct WeightedTextRef<'a> {
     text: &'a str,
     accumulators: &'a [CharAccumulator],
     style: TextStyle,
@@ -133,7 +134,7 @@ pub struct WeightedTextRef<'a> {
 
 impl<'a> WeightedTextRef<'a> {
     /// Decompose this into its parts.
-    pub fn into_parts(self) -> (&'a str, TextStyle) {
+    pub(crate) fn into_parts(self) -> (&'a str, TextStyle) {
         (self.text, self.style)
     }
 

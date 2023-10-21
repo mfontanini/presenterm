@@ -3,18 +3,18 @@ use std::{io, mem, time::Duration};
 
 /// A user input handler.
 #[derive(Default)]
-pub struct UserInput {
+pub(crate) struct UserInput {
     state: InputState,
 }
 
 impl UserInput {
     /// Polls for the next input command coming from the keyboard.
-    pub fn poll_next_command(&mut self, timeout: Duration) -> io::Result<Option<UserCommand>> {
+    pub(crate) fn poll_next_command(&mut self, timeout: Duration) -> io::Result<Option<UserCommand>> {
         if poll(timeout)? { self.next_command() } else { Ok(None) }
     }
 
     /// Blocks waiting for the next command.
-    pub fn next_command(&mut self) -> io::Result<Option<UserCommand>> {
+    pub(crate) fn next_command(&mut self) -> io::Result<Option<UserCommand>> {
         let current_state = mem::take(&mut self.state);
         let (command, next_state) = match read()? {
             Event::Key(event) => Self::apply_key_event(event, current_state),
@@ -87,7 +87,7 @@ impl UserInput {
 
 /// A command from the user.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum UserCommand {
+pub(crate) enum UserCommand {
     /// Redraw the presentation.
     ///
     /// This can happen on terminal resize.

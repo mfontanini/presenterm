@@ -30,7 +30,7 @@ static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
 ///
 /// This type transforms [MarkdownElement]s and turns them into a presentation, which is made up of
 /// render operations.
-pub struct PresentationBuilder<'a> {
+pub(crate) struct PresentationBuilder<'a> {
     slide_operations: Vec<RenderOperation>,
     slides: Vec<Slide>,
     highlighter: CodeHighlighter,
@@ -45,7 +45,7 @@ pub struct PresentationBuilder<'a> {
 
 impl<'a> PresentationBuilder<'a> {
     /// Construct a new builder.
-    pub fn new(
+    pub(crate) fn new(
         default_highlighter: CodeHighlighter,
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
@@ -65,7 +65,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     /// Build a presentation.
-    pub fn build(mut self, elements: Vec<MarkdownElement>) -> Result<Presentation, BuildError> {
+    pub(crate) fn build(mut self, elements: Vec<MarkdownElement>) -> Result<Presentation, BuildError> {
         if let Some(MarkdownElement::FrontMatter(contents)) = elements.first() {
             self.process_front_matter(contents)?;
         }
@@ -724,7 +724,7 @@ struct RunCodeOperationInner {
 }
 
 #[derive(Debug)]
-pub struct RunCodeOperation {
+pub(crate) struct RunCodeOperation {
     code: Code,
     default_colors: Colors,
     block_colors: Colors,

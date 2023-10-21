@@ -2,13 +2,13 @@ use crate::presentation::{Presentation, RenderOperation, Slide};
 use std::{cmp::Ordering, mem};
 
 /// Allow diffing presentations.
-pub struct PresentationDiffer;
+pub(crate) struct PresentationDiffer;
 
 impl PresentationDiffer {
     /// Find the first modified slide between original and updated.
     ///
     /// This tries to take into account both content and style changes such that changing
-    pub fn first_modified_slide(original: &Presentation, updated: &Presentation) -> Option<usize> {
+    pub(crate) fn first_modified_slide(original: &Presentation, updated: &Presentation) -> Option<usize> {
         let original_slides = original.iter_slides();
         let updated_slides = updated.iter_slides();
         for (index, (original, updated)) in original_slides.zip(updated_slides).enumerate() {

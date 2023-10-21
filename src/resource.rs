@@ -27,7 +27,7 @@ impl Resources {
     }
 
     /// Get the image at the given path.
-    pub fn image<P: AsRef<Path>>(&mut self, path: P) -> Result<Image, LoadImageError> {
+    pub(crate) fn image<P: AsRef<Path>>(&mut self, path: P) -> Result<Image, LoadImageError> {
         let path = self.base_path.join(path);
         if let Some(image) = self.images.get(&path) {
             return Ok(image.clone());
@@ -40,7 +40,7 @@ impl Resources {
     }
 
     /// Get the theme at the given path.
-    pub fn theme<P: AsRef<Path>>(&mut self, path: P) -> Result<PresentationTheme, LoadThemeError> {
+    pub(crate) fn theme<P: AsRef<Path>>(&mut self, path: P) -> Result<PresentationTheme, LoadThemeError> {
         let path = self.base_path.join(path);
         if let Some(theme) = self.themes.get(&path) {
             return Ok(theme.clone());

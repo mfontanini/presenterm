@@ -9,43 +9,43 @@ include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 pub struct PresentationTheme {
     /// The style for a slide's title.
     #[serde(default)]
-    pub slide_title: SlideTitleStyle,
+    pub(crate) slide_title: SlideTitleStyle,
 
     /// The style for a block of code.
     #[serde(default)]
-    pub code: CodeBlockStyle,
+    pub(crate) code: CodeBlockStyle,
 
     /// The style for the execution output of a piece of code.
     #[serde(default)]
-    pub execution_output: ExecutionOutputBlockStyle,
+    pub(crate) execution_output: ExecutionOutputBlockStyle,
 
     /// The style for inline code.
     #[serde(default)]
-    pub inline_code: InlineCodeStyle,
+    pub(crate) inline_code: InlineCodeStyle,
 
     /// The style for a table.
     #[serde(default)]
-    pub table: Option<Alignment>,
+    pub(crate) table: Option<Alignment>,
 
     /// The style for a block quote.
     #[serde(default)]
-    pub block_quote: BlockQuoteStyle,
+    pub(crate) block_quote: BlockQuoteStyle,
 
     /// The default style.
     #[serde(rename = "default", default)]
-    pub default_style: DefaultStyle,
+    pub(crate) default_style: DefaultStyle,
 
     //// The style of all headings.
     #[serde(default)]
-    pub headings: HeadingStyles,
+    pub(crate) headings: HeadingStyles,
 
     /// The style of the introduction slide.
     #[serde(default)]
-    pub intro_slide: IntroSlideStyle,
+    pub(crate) intro_slide: IntroSlideStyle,
 
     /// The style of the presentation footer.
     #[serde(default)]
-    pub footer: FooterStyle,
+    pub(crate) footer: FooterStyle,
 }
 
 impl PresentationTheme {
@@ -64,7 +64,7 @@ impl PresentationTheme {
     }
 
     /// Construct a presentation from a path.
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, LoadThemeError> {
+    pub(crate) fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, LoadThemeError> {
         let contents = fs::read_to_string(path)?;
         let theme = serde_yaml::from_str(&contents)?;
         Ok(theme)
@@ -73,7 +73,7 @@ impl PresentationTheme {
     /// Get the alignment for an element.
     ///
     /// This will fall back to the default alignment.
-    pub fn alignment(&self, element: &ElementType) -> Alignment {
+    pub(crate) fn alignment(&self, element: &ElementType) -> Alignment {
         use ElementType::*;
 
         let alignment = match element {
@@ -98,130 +98,130 @@ impl PresentationTheme {
 
 /// The style of a slide title.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct SlideTitleStyle {
+pub(crate) struct SlideTitleStyle {
     /// The alignment.
     #[serde(flatten, default)]
-    pub alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// Whether to use a separator line.
     #[serde(default)]
-    pub separator: bool,
+    pub(crate) separator: bool,
 
     /// The padding that should be added before the text.
     #[serde(default)]
-    pub padding_top: Option<u8>,
+    pub(crate) padding_top: Option<u8>,
 
     /// The padding that should be added after the text.
     #[serde(default)]
-    pub padding_bottom: Option<u8>,
+    pub(crate) padding_bottom: Option<u8>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub colors: Colors,
+    pub(crate) colors: Colors,
 }
 
 /// The style for all headings.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct HeadingStyles {
+pub(crate) struct HeadingStyles {
     /// H1 style.
     #[serde(default)]
-    pub h1: HeadingStyle,
+    pub(crate) h1: HeadingStyle,
 
     /// H2 style.
     #[serde(default)]
-    pub h2: HeadingStyle,
+    pub(crate) h2: HeadingStyle,
 
     /// H3 style.
     #[serde(default)]
-    pub h3: HeadingStyle,
+    pub(crate) h3: HeadingStyle,
 
     /// H4 style.
     #[serde(default)]
-    pub h4: HeadingStyle,
+    pub(crate) h4: HeadingStyle,
 
     /// H5 style.
     #[serde(default)]
-    pub h5: HeadingStyle,
+    pub(crate) h5: HeadingStyle,
 
     /// H6 style.
     #[serde(default)]
-    pub h6: HeadingStyle,
+    pub(crate) h6: HeadingStyle,
 }
 
 /// The style for a heading.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct HeadingStyle {
+pub(crate) struct HeadingStyle {
     /// The alignment.
     #[serde(flatten, default)]
-    pub alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// The prefix to be added to this heading.
     ///
     /// This allows adding text like "->" to every heading.
     #[serde(default)]
-    pub prefix: Option<String>,
+    pub(crate) prefix: Option<String>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub colors: Colors,
+    pub(crate) colors: Colors,
 }
 
 /// The style of a block quote.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct BlockQuoteStyle {
+pub(crate) struct BlockQuoteStyle {
     /// The alignment.
     #[serde(flatten, default)]
-    pub alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// The prefix to be added to this block quote.
     ///
     /// This allows adding something like a vertical bar before the text.
     #[serde(default)]
-    pub prefix: Option<String>,
+    pub(crate) prefix: Option<String>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub colors: Colors,
+    pub(crate) colors: Colors,
 }
 
 /// The style for the presentation introduction slide.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct IntroSlideStyle {
+pub(crate) struct IntroSlideStyle {
     /// The style of the title line.
     #[serde(default)]
-    pub title: BasicStyle,
+    pub(crate) title: BasicStyle,
 
     /// The style of the subtitle line.
     #[serde(default)]
-    pub subtitle: BasicStyle,
+    pub(crate) subtitle: BasicStyle,
 
     /// The style of the author line.
     #[serde(default)]
-    pub author: AuthorStyle,
+    pub(crate) author: AuthorStyle,
 }
 
 /// A simple style.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct DefaultStyle {
+pub(crate) struct DefaultStyle {
     /// The margin on the left/right of the screen.
     #[serde(default, with = "serde_yaml::with::singleton_map")]
-    pub margin: Option<Margin>,
+    pub(crate) margin: Option<Margin>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub colors: Colors,
+    pub(crate) colors: Colors,
 }
 
 /// A simple style.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct BasicStyle {
+pub(crate) struct BasicStyle {
     /// The alignment.
     #[serde(flatten, default)]
-    pub alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub colors: Colors,
+    pub(crate) colors: Colors,
 }
 
 /// Text alignment.
@@ -229,7 +229,7 @@ pub struct BasicStyle {
 /// This allows anchoring presentation elements to the left, center, or right of the screen.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "alignment", rename_all = "snake_case")]
-pub enum Alignment {
+pub(crate) enum Alignment {
     /// Left alignment.
     Left {
         /// The margin before any text.
@@ -264,24 +264,24 @@ impl Default for Alignment {
 
 /// The style for the author line in the presentation intro slide.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct AuthorStyle {
+pub(crate) struct AuthorStyle {
     /// The alignment.
     #[serde(flatten, default)]
-    pub alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub colors: Colors,
+    pub(crate) colors: Colors,
 
     /// The positioning of the author's name.
     #[serde(default)]
-    pub positioning: AuthorPositioning,
+    pub(crate) positioning: AuthorPositioning,
 }
 
 /// The style of the footer that's shown in every slide.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "style", rename_all = "snake_case")]
-pub enum FooterStyle {
+pub(crate) enum FooterStyle {
     /// Use a template to generate the footer.
     Template {
         /// The template for the text to be put on the left.
@@ -325,52 +325,52 @@ impl Default for FooterStyle {
 
 /// The style for a piece of code.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct CodeBlockStyle {
+pub(crate) struct CodeBlockStyle {
     /// The alignment.
     #[serde(flatten)]
-    pub alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// The padding.
     #[serde(default)]
-    pub padding: PaddingRect,
+    pub(crate) padding: PaddingRect,
 
     /// The syntect theme name to use.
     #[serde(default)]
-    pub theme_name: Option<String>,
+    pub(crate) theme_name: Option<String>,
 }
 
 /// The style for the output of a code execution block.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct ExecutionOutputBlockStyle {
+pub(crate) struct ExecutionOutputBlockStyle {
     /// The colors to be used.
     #[serde(default)]
-    pub colors: Colors,
+    pub(crate) colors: Colors,
 }
 
 /// The style for inline code.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct InlineCodeStyle {
+pub(crate) struct InlineCodeStyle {
     /// The colors to be used.
     #[serde(default)]
-    pub colors: Colors,
+    pub(crate) colors: Colors,
 }
 
 /// Vertical/horizontal padding.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct PaddingRect {
+pub(crate) struct PaddingRect {
     /// The number of columns to use as horizontal padding.
     #[serde(default)]
-    pub horizontal: Option<u8>,
+    pub(crate) horizontal: Option<u8>,
 
     /// The number of rows to use as vertical padding.
     #[serde(default)]
-    pub vertical: Option<u8>,
+    pub(crate) vertical: Option<u8>,
 }
 
 /// A margin.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum Margin {
+pub(crate) enum Margin {
     /// A fixed number of characters.
     Fixed(u16),
 
@@ -379,7 +379,7 @@ pub enum Margin {
 }
 
 impl Margin {
-    pub fn as_characters(&self, screen_size: u16) -> u16 {
+    pub(crate) fn as_characters(&self, screen_size: u16) -> u16 {
         match *self {
             Self::Fixed(value) => value,
             Self::Percent(percent) => {
@@ -399,7 +399,7 @@ impl Default for Margin {
 /// An element type.
 #[derive(Clone, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ElementType {
+pub(crate) enum ElementType {
     SlideTitle,
     Heading1,
     Heading2,
@@ -420,7 +420,7 @@ pub enum ElementType {
 /// Where to position the author's name in the intro slide.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AuthorPositioning {
+pub(crate) enum AuthorPositioning {
     /// Right below the title.
     BelowTitle,
 

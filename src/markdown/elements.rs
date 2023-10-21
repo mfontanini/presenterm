@@ -8,7 +8,7 @@ use unicode_width::UnicodeWidthStr;
 /// This represents each of the supported markdown elements. The structure here differs a bit from
 /// the spec, mostly in how inlines are handled, to simplify its processing.
 #[derive(Clone, Debug)]
-pub enum MarkdownElement {
+pub(crate) enum MarkdownElement {
     /// The front matter that optionally shows up at the beginning of the file.
     FrontMatter(String),
 
@@ -51,7 +51,7 @@ pub enum MarkdownElement {
 /// style) and line breaks. Any other inlines that could show up on a paragraph, such as images,
 /// are a [MarkdownElement] on their own.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ParagraphElement {
+pub(crate) enum ParagraphElement {
     /// A block of text.
     Text(Text),
 
@@ -63,19 +63,19 @@ pub enum ParagraphElement {
 ///
 /// Text is represented as a series of chunks, each with their own formatting.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Text {
+pub(crate) struct Text {
     /// The chunks that make up this text.
-    pub chunks: Vec<StyledText>,
+    pub(crate) chunks: Vec<StyledText>,
 }
 
 impl Text {
     /// Get the total width for this text.
-    pub fn width(&self) -> usize {
+    pub(crate) fn width(&self) -> usize {
         self.chunks.iter().map(|text| text.text.width()).sum()
     }
 
     /// Applies the given style to this text.
-    pub fn apply_style(&mut self, style: &TextStyle) {
+    pub(crate) fn apply_style(&mut self, style: &TextStyle) {
         for text in &mut self.chunks {
             text.style.merge(style);
         }
@@ -92,14 +92,14 @@ impl<T: Into<StyledText>> From<T> for Text {
 ///
 /// This is the most granular text representation: a `String` and a style.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StyledText {
-    pub text: String,
-    pub style: TextStyle,
+pub(crate) struct StyledText {
+    pub(crate) text: String,
+    pub(crate) style: TextStyle,
 }
 
 impl StyledText {
     /// Construct a new styled text.
-    pub fn new<S: Into<String>>(text: S, style: TextStyle) -> Self {
+    pub(crate) fn new<S: Into<String>>(text: S, style: TextStyle) -> Self {
         Self { text: text.into(), style }
     }
 }
@@ -118,22 +118,22 @@ impl From<&str> for StyledText {
 
 /// A list item.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ListItem {
+pub(crate) struct ListItem {
     /// The depth of this item.
     ///
     /// This increases by one for every nested list level.
-    pub depth: u8,
+    pub(crate) depth: u8,
 
     /// The contents of this list item.
-    pub contents: Text,
+    pub(crate) contents: Text,
 
     /// The type of list item.
-    pub item_type: ListItemType,
+    pub(crate) item_type: ListItemType,
 }
 
 /// The type of a list item.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ListItemType {
+pub(crate) enum ListItemType {
     /// A list item for an unordered list.
     Unordered,
 
@@ -146,20 +146,20 @@ pub enum ListItemType {
 
 /// A piece of code.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Code {
+pub(crate) struct Code {
     /// The code itself.
-    pub contents: String,
+    pub(crate) contents: String,
 
     /// The programming language this code is written in.
-    pub language: CodeLanguage,
+    pub(crate) language: CodeLanguage,
 
     /// The flags used for this code.
-    pub flags: CodeFlags,
+    pub(crate) flags: CodeFlags,
 }
 
 /// The language of a piece of code.
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter)]
-pub enum CodeLanguage {
+pub(crate) enum CodeLanguage {
     Asp,
     Bash,
     BatchFile,
@@ -196,38 +196,38 @@ pub enum CodeLanguage {
 }
 
 impl CodeLanguage {
-    pub fn supports_execution(&self) -> bool {
+    pub(crate) fn supports_execution(&self) -> bool {
         matches!(self, Self::Shell(_))
     }
 }
 
 /// Flags for code blocks.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct CodeFlags {
+pub(crate) struct CodeFlags {
     /// Whether a code block is marked as executable.
-    pub execute: bool,
+    pub(crate) execute: bool,
 }
 
 /// A table.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Table {
+pub(crate) struct Table {
     /// The table's header.
-    pub header: TableRow,
+    pub(crate) header: TableRow,
 
     /// All of the rows in this table, excluding the header.
-    pub rows: Vec<TableRow>,
+    pub(crate) rows: Vec<TableRow>,
 }
 
 impl Table {
     /// gets the number of columns in this table.
-    pub fn columns(&self) -> usize {
+    pub(crate) fn columns(&self) -> usize {
         self.header.0.len()
     }
 
     /// Iterates all the text entries in a column.
     ///
     /// This includes the header.
-    pub fn iter_column(&self, column: usize) -> impl Iterator<Item = &Text> {
+    pub(crate) fn iter_column(&self, column: usize) -> impl Iterator<Item = &Text> {
         let header_element = &self.header.0[column];
         let row_elements = self.rows.iter().map(move |row| &row.0[column]);
         iter::once(header_element).chain(row_elements)
@@ -236,4 +236,4 @@ impl Table {
 
 /// A table row.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TableRow(pub Vec<Text>);
+pub(crate) struct TableRow(pub(crate) Vec<Text>);

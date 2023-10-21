@@ -14,7 +14,7 @@ where
     W: io::Write,
 {
     writer: W,
-    pub cursor_row: u16,
+    pub(crate) cursor_row: u16,
 }
 
 impl<W: io::Write> Terminal<W> {

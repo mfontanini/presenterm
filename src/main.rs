@@ -1,13 +1,8 @@
 use clap::{error::ErrorKind, CommandFactory, Parser};
+use colored::Colorize;
 use comrak::Arena;
 use presenterm::{
-    input::source::CommandSource,
-    markdown::parse::MarkdownParser,
-    presenter::{PresentMode, Presenter},
-    render::highlighting::CodeHighlighter,
-    resource::Resources,
-    splash::show_splashes,
-    theme::PresentationTheme,
+    CodeHighlighter, CommandSource, MarkdownParser, PresentMode, PresentationTheme, Presenter, Resources,
 };
 use std::path::{Path, PathBuf};
 
@@ -26,6 +21,24 @@ struct Cli {
     /// The theme to use.
     #[clap(short, long, default_value = "dark")]
     theme: String,
+}
+
+fn show_splashes() -> String {
+    let crate_version = env!("CARGO_PKG_VERSION");
+
+    let logo = format!(
+        r#"
+  ┌─┐┬─┐┌─┐┌─┐┌─┐┌┐┌┌┬┐┌─┐┬─┐┌┬┐
+  ├─┘├┬┘├┤ └─┐├┤ │││ │ ├┤ ├┬┘│││
+  ┴  ┴└─└─┘└─┘└─┘┘└┘ ┴ └─┘┴└─┴ ┴ v{}
+    A terminal slideshow tool 
+                    @mfontanini/presenterm
+"#,
+        crate_version,
+    )
+    .bold()
+    .purple();
+    format!("{logo}")
 }
 
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {

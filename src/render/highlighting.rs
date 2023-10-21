@@ -26,7 +26,7 @@ impl CodeHighlighter {
     /// Highlight a piece of code.
     ///
     /// This splits the given piece of code into lines, highlights them individually, and returns them.
-    pub fn highlight<'a>(&self, code: &'a str, language: &CodeLanguage) -> Vec<CodeLine<'a>> {
+    pub(crate) fn highlight<'a>(&self, code: &'a str, language: &CodeLanguage) -> Vec<CodeLine<'a>> {
         let extension = Self::language_extension(language);
         let syntax = SYNTAX_SET.find_syntax_by_extension(extension).unwrap();
         let mut highlight_lines = HighlightLines::new(syntax, self.theme);
@@ -82,14 +82,14 @@ impl CodeHighlighter {
 }
 
 /// A line of highlighted code.
-pub struct CodeLine<'a> {
+pub(crate) struct CodeLine<'a> {
     /// The original line of code.
-    pub original: &'a str,
+    pub(crate) original: &'a str,
 
     /// The formatted line of code.
     ///
     /// This uses terminal escape codes internally and is ready to be printed.
-    pub formatted: String,
+    pub(crate) formatted: String,
 }
 
 /// A theme could not be found.

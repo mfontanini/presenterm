@@ -9,7 +9,7 @@ use super::properties::CursorPosition;
 ///
 /// This stores the image in an [std::rc::Rc] so it's cheap to clone.
 #[derive(Clone, PartialEq)]
-pub struct Image(Rc<DynamicImage>);
+pub(crate) struct Image(Rc<DynamicImage>);
 
 impl Debug for Image {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -19,7 +19,7 @@ impl Debug for Image {
 
 impl Image {
     /// Construct a new image from a byte sequence.
-    pub fn new(contents: &[u8]) -> Result<Self, InvalidImage> {
+    pub(crate) fn new(contents: &[u8]) -> Result<Self, InvalidImage> {
         let contents = image::load_from_memory(contents)?;
         let contents = Rc::new(contents);
         Ok(Self(contents))
@@ -27,7 +27,7 @@ impl Image {
 }
 
 /// A media render.
-pub struct MediaRender;
+pub(crate) struct MediaRender;
 
 impl MediaRender {
     /// Draw an image.
@@ -38,7 +38,7 @@ impl MediaRender {
     ///
     /// In case the image does not fit, it will be resized to fit the screen, preserving the aspect
     /// ratio.
-    pub fn draw_image(
+    pub(crate) fn draw_image(
         &self,
         image: &Image,
         position: CursorPosition,

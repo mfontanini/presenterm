@@ -10,11 +10,11 @@ use std::{
 use tempfile::NamedTempFile;
 
 /// Allows executing code.
-pub struct CodeExecuter;
+pub(crate) struct CodeExecuter;
 
 impl CodeExecuter {
     /// Execute a piece of code.
-    pub fn execute(code: &Code) -> Result<ExecutionHandle, CodeExecuteError> {
+    pub(crate) fn execute(code: &Code) -> Result<ExecutionHandle, CodeExecuteError> {
         if !code.language.supports_execution() {
             return Err(CodeExecuteError::UnsupportedExecution);
         }
@@ -49,7 +49,7 @@ impl CodeExecuter {
 
 /// An error during the execution of some code.
 #[derive(thiserror::Error, Debug)]
-pub enum CodeExecuteError {
+pub(crate) enum CodeExecuteError {
     #[error("code language doesn't support execution")]
     UnsupportedExecution,
 
@@ -65,7 +65,7 @@ pub enum CodeExecuteError {
 
 /// A handle for the execution of a piece of code.
 #[derive(Debug)]
-pub struct ExecutionHandle {
+pub(crate) struct ExecutionHandle {
     state: Arc<Mutex<ExecutionState>>,
     #[allow(dead_code)]
     reader_handle: thread::JoinHandle<()>,
@@ -73,7 +73,7 @@ pub struct ExecutionHandle {
 
 impl ExecutionHandle {
     /// Get the current state of the process.
-    pub fn state(&self) -> ExecutionState {
+    pub(crate) fn state(&self) -> ExecutionState {
         self.state.lock().unwrap().clone()
     }
 }
@@ -123,21 +123,14 @@ impl ProcessReader {
 
 /// The state of the execution of a process.
 #[derive(Clone, Default, Debug)]
-pub struct ExecutionState {
-    pub output: Vec<String>,
-    pub status: ProcessStatus,
-}
-
-impl ExecutionState {
-    /// Extract the lines printed so far.
-    pub fn into_lines(self) -> Vec<String> {
-        self.output
-    }
+pub(crate) struct ExecutionState {
+    pub(crate) output: Vec<String>,
+    pub(crate) status: ProcessStatus,
 }
 
 /// The status of a process.
 #[derive(Clone, Debug, Default)]
-pub enum ProcessStatus {
+pub(crate) enum ProcessStatus {
     #[default]
     Running,
     Success,
@@ -146,7 +139,7 @@ pub enum ProcessStatus {
 
 impl ProcessStatus {
     /// Check whether the underlying process is finished.
-    pub fn is_finished(&self) -> bool {
+    pub(crate) fn is_finished(&self) -> bool {
         matches!(self, ProcessStatus::Success | ProcessStatus::Failure)
     }
 }
@@ -172,7 +165,7 @@ echo 'bye'"
         };
 
         let expected_lines = vec!["hello world", "bye"];
-        assert_eq!(state.into_lines(), expected_lines);
+        assert_eq!(state.output, expected_lines);
     }
 
     #[test]
