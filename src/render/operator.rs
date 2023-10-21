@@ -53,7 +53,6 @@ where
             RenderOperation::JumpToVerticalCenter => self.jump_to_vertical_center(),
             RenderOperation::JumpToBottom => self.jump_to_bottom(),
             RenderOperation::RenderTextLine { line: texts, alignment } => self.render_text(texts, alignment),
-            RenderOperation::RenderSeparator => self.render_separator(),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image) => self.render_image(image),
             RenderOperation::RenderPreformattedLine(operation) => self.render_preformatted_line(operation),
@@ -125,13 +124,6 @@ where
         let layout = self.build_layout(alignment.clone());
         let text_drawer = TextDrawer::new(&layout, text, self.current_dimensions(), &self.colors)?;
         text_drawer.draw(self.terminal)
-    }
-
-    fn render_separator(&mut self) -> RenderResult {
-        let separator: String = "—".repeat(self.current_dimensions().columns as usize);
-        self.terminal.move_to_column(self.current_rect().start_column)?;
-        self.terminal.print_line(&separator)?;
-        Ok(())
     }
 
     fn render_line_break(&mut self) -> RenderResult {

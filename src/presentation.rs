@@ -194,9 +194,6 @@ pub(crate) enum RenderOperation {
     /// Render a line of text.
     RenderTextLine { line: WeightedLine, alignment: Alignment },
 
-    /// Render a horizontal separator line.
-    RenderSeparator,
-
     /// Render a line break.
     RenderLineBreak,
 

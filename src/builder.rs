@@ -295,7 +295,7 @@ impl<'a> PresentationBuilder<'a> {
             self.push_line_break();
         }
         if style.separator {
-            self.slide_operations.push(RenderOperation::RenderSeparator);
+            self.slide_operations.push(RenderSeparator::default().into());
         }
         self.push_line_break();
         self.ignore_element_line_break = true;
@@ -339,7 +339,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_separator(&mut self) {
-        self.slide_operations.extend([RenderOperation::RenderSeparator, RenderOperation::RenderLineBreak]);
+        self.slide_operations.extend([RenderSeparator::default().into(), RenderOperation::RenderLineBreak]);
     }
 
     fn push_image(&mut self, path: PathBuf) -> Result<(), BuildError> {
@@ -760,13 +760,10 @@ impl AsRenderOperations for RunCodeOperation {
             _ => "running",
         };
         let heading = format!(" [{state}] ");
-        // TODO remove `RenderSeparator` and turn it into a dynamic operation with optional heading
-        let dashes_len = (dimensions.columns as usize).saturating_sub(heading.len()) / 2;
-        let dashes = "—".repeat(dashes_len);
-        let separator = format!("{dashes}{heading}{dashes}");
+        let separator = RenderSeparator::new(heading);
         let mut operations = vec![
             RenderOperation::RenderLineBreak,
-            self.render_line(separator),
+            RenderOperation::RenderDynamic(Rc::new(separator)),
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
             RenderOperation::SetColors(self.block_colors.clone()),
@@ -822,6 +819,39 @@ impl RenderOnDemand for RunCodeOperation {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+struct RenderSeparator {
+    heading: String,
+}
+
+impl RenderSeparator {
+    fn new<S: Into<String>>(heading: S) -> Self {
+        Self { heading: heading.into() }
+    }
+}
+
+impl From<RenderSeparator> for RenderOperation {
+    fn from(separator: RenderSeparator) -> Self {
+        Self::RenderDynamic(Rc::new(separator))
+    }
+}
+
+impl AsRenderOperations for RenderSeparator {
+    fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
+        let character = "—";
+        let separator = match self.heading.is_empty() {
+            true => character.repeat(dimensions.columns as usize),
+            false => {
+                let dashes_len = (dimensions.columns as usize).saturating_sub(self.heading.len()) / 2;
+                let dashes = character.repeat(dashes_len);
+                let heading = &self.heading;
+                format!("{dashes}{heading}{dashes}")
+            }
+        };
+        vec![RenderOperation::RenderTextLine { line: separator.into(), alignment: Default::default() }]
+    }
+}
+
 #[cfg(test)]
 mod test {
     use rstest::rstest;
@@ -870,7 +900,6 @@ mod test {
             | ApplyMargin(_)
             | PopMargin => false,
             RenderTextLine { .. }
-            | RenderSeparator
             | RenderLineBreak
             | RenderImage(_)
             | RenderPreformattedLine(_)

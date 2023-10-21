@@ -110,7 +110,6 @@ mod test {
     #[case(RenderOperation::ClearScreen)]
     #[case(RenderOperation::JumpToVerticalCenter)]
     #[case(RenderOperation::JumpToBottom)]
-    #[case(RenderOperation::RenderSeparator)]
     #[case(RenderOperation::RenderLineBreak)]
     #[case(RenderOperation::SetColors(Colors{background: None, foreground: None}))]
     #[case(RenderOperation::RenderTextLine{line: String::from("asd").into(), alignment: Default::default()})]
