@@ -55,10 +55,10 @@ where
                 background: Some(Color::new(0, 0, 0)),
             }),
             RenderOperation::JumpToVerticalCenter,
-            RenderOperation::RenderTextLine { line: WeightedLine::from(heading), alignment: alignment.clone() },
+            RenderOperation::RenderText { line: WeightedLine::from(heading), alignment: alignment.clone() },
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
-            RenderOperation::RenderTextLine { line: WeightedLine::from(error), alignment: alignment.clone() },
+            RenderOperation::RenderText { line: WeightedLine::from(error), alignment: alignment.clone() },
         ];
         let operator = RenderOperator::new(&mut self.terminal, dimensions);
         operator.render(operations.iter())?;

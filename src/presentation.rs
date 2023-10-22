@@ -278,8 +278,8 @@ pub(crate) enum RenderOperation {
     /// Jumps to the last row in the slide.
     JumpToBottom,
 
-    /// Render a line of text.
-    RenderTextLine { line: WeightedLine, alignment: Alignment },
+    /// Render text.
+    RenderText { line: WeightedLine, alignment: Alignment },
 
     /// Render a line break.
     RenderLineBreak,

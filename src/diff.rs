@@ -67,12 +67,8 @@ impl ContentDiff for RenderOperation {
 
         match (self, other) {
             (SetColors(original), SetColors(updated)) if original != updated => false,
-            (RenderTextLine { line: original, .. }, RenderTextLine { line: updated, .. }) if original != updated => {
-                true
-            }
-            (RenderTextLine { alignment: original, .. }, RenderTextLine { alignment: updated, .. })
-                if original != updated =>
-            {
+            (RenderText { line: original, .. }, RenderText { line: updated, .. }) if original != updated => true,
+            (RenderText { alignment: original, .. }, RenderText { alignment: updated, .. }) if original != updated => {
                 false
             }
             (RenderImage(original), RenderImage(updated)) if original != updated => true,
@@ -130,7 +126,7 @@ mod test {
     #[case(RenderOperation::JumpToBottom)]
     #[case(RenderOperation::RenderLineBreak)]
     #[case(RenderOperation::SetColors(Colors{background: None, foreground: None}))]
-    #[case(RenderOperation::RenderTextLine{line: String::from("asd").into(), alignment: Default::default()})]
+    #[case(RenderOperation::RenderText{line: String::from("asd").into(), alignment: Default::default()})]
     #[case(RenderOperation::RenderPreformattedLine(
         PreformattedLine{
             text: "asd".into(),
@@ -147,18 +143,18 @@ mod test {
 
     #[test]
     fn different_text() {
-        let lhs = RenderOperation::RenderTextLine { line: String::from("foo").into(), alignment: Default::default() };
-        let rhs = RenderOperation::RenderTextLine { line: String::from("bar").into(), alignment: Default::default() };
+        let lhs = RenderOperation::RenderText { line: String::from("foo").into(), alignment: Default::default() };
+        let rhs = RenderOperation::RenderText { line: String::from("bar").into(), alignment: Default::default() };
         assert!(lhs.is_content_different(&rhs));
     }
 
     #[test]
     fn different_text_alignment() {
-        let lhs = RenderOperation::RenderTextLine {
+        let lhs = RenderOperation::RenderText {
             line: String::from("foo").into(),
             alignment: Alignment::Left { margin: Margin::Fixed(42) },
         };
-        let rhs = RenderOperation::RenderTextLine {
+        let rhs = RenderOperation::RenderText {
             line: String::from("foo").into(),
             alignment: Alignment::Left { margin: Margin::Fixed(1337) },
         };

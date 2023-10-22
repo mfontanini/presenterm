@@ -52,7 +52,7 @@ where
             RenderOperation::SetColors(colors) => self.set_colors(colors),
             RenderOperation::JumpToVerticalCenter => self.jump_to_vertical_center(),
             RenderOperation::JumpToBottom => self.jump_to_bottom(),
-            RenderOperation::RenderTextLine { line: texts, alignment } => self.render_text(texts, alignment),
+            RenderOperation::RenderText { line: texts, alignment } => self.render_text(texts, alignment),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image) => self.render_image(image),
             RenderOperation::RenderPreformattedLine(operation) => self.render_preformatted_line(operation),

@@ -32,16 +32,13 @@ static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
 /// render operations.
 pub(crate) struct PresentationBuilder<'a> {
     slide_chunks: Vec<SlideChunk>,
-    slide_operations: Vec<RenderOperation>,
+    chunk_operations: Vec<RenderOperation>,
     slides: Vec<Slide>,
     highlighter: CodeHighlighter,
     theme: Cow<'a, PresentationTheme>,
     resources: &'a mut Resources,
-    ignore_element_line_break: bool,
-    needs_enter_column: bool,
-    last_element_is_list: bool,
+    slide_state: SlideState,
     footer_context: Rc<RefCell<FooterContext>>,
-    layout: LayoutState,
 }
 
 impl<'a> PresentationBuilder<'a> {
@@ -53,16 +50,13 @@ impl<'a> PresentationBuilder<'a> {
     ) -> Self {
         Self {
             slide_chunks: Vec::new(),
-            slide_operations: Vec::new(),
+            chunk_operations: Vec::new(),
             slides: Vec::new(),
             highlighter: default_highlighter,
             theme: Cow::Borrowed(default_theme),
             resources,
-            ignore_element_line_break: false,
-            last_element_is_list: false,
-            needs_enter_column: false,
+            slide_state: Default::default(),
             footer_context: Default::default(),
-            layout: Default::default(),
         }
     }
 
@@ -73,18 +67,18 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.set_code_theme()?;
 
-        if self.slide_operations.is_empty() {
+        if self.chunk_operations.is_empty() {
             self.push_slide_prelude();
         }
         for element in elements {
-            self.ignore_element_line_break = false;
+            self.slide_state.ignore_element_line_break = false;
             self.process_element(element)?;
             self.validate_last_operation()?;
-            if !self.ignore_element_line_break {
+            if !self.slide_state.ignore_element_line_break {
                 self.push_line_break();
             }
         }
-        if !self.slide_operations.is_empty() || !self.slide_chunks.is_empty() {
+        if !self.chunk_operations.is_empty() || !self.slide_chunks.is_empty() {
             self.terminate_slide();
         }
         self.footer_context.borrow_mut().total_slides = self.slides.len();
@@ -94,23 +88,23 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn validate_last_operation(&mut self) -> Result<(), BuildError> {
-        if !self.needs_enter_column {
+        if !self.slide_state.needs_enter_column {
             return Ok(());
         }
-        let Some(last) = self.slide_operations.last() else {
+        let Some(last) = self.chunk_operations.last() else {
             return Ok(());
         };
         if matches!(last, RenderOperation::InitColumnLayout { .. }) {
             return Ok(());
         }
-        self.needs_enter_column = false;
+        self.slide_state.needs_enter_column = false;
         let last_valid = matches!(last, RenderOperation::EnterColumn { .. } | RenderOperation::ExitLayout);
         if last_valid { Ok(()) } else { Err(BuildError::NotInsideColumn) }
     }
 
     fn push_slide_prelude(&mut self) {
         let colors = self.theme.default_style.colors.clone();
-        self.slide_operations.extend([
+        self.chunk_operations.extend([
             RenderOperation::SetColors(colors),
             RenderOperation::ClearScreen,
             RenderOperation::ApplyMargin(MarginProperties {
@@ -122,11 +116,11 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_element(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
-        let is_list = matches!(element, MarkdownElement::List(_));
+        let should_clear_last = !matches!(element, MarkdownElement::List(_) | MarkdownElement::Comment(_));
         match element {
             // This one is processed before everything else as it affects how the rest of the
             // elements is rendered.
-            MarkdownElement::FrontMatter(_) => self.ignore_element_line_break = true,
+            MarkdownElement::FrontMatter(_) => self.slide_state.ignore_element_line_break = true,
             MarkdownElement::SetexHeading { text } => self.push_slide_title(text),
             MarkdownElement::Heading { level, text } => self.push_heading(level, text),
             MarkdownElement::Paragraph(elements) => self.push_paragraph(elements)?,
@@ -138,7 +132,9 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines),
             MarkdownElement::Image(path) => self.push_image(path)?,
         };
-        self.last_element_is_list = is_list;
+        if should_clear_last {
+            self.slide_state.last_element = Default::default();
+        }
         Ok(())
     }
 
@@ -199,7 +195,7 @@ impl<'a> PresentationBuilder<'a> {
             .author
             .as_ref()
             .map(|text| StyledText::new(text.clone(), TextStyle::default().colors(styles.author.colors.clone())));
-        self.slide_operations.push(RenderOperation::JumpToVerticalCenter);
+        self.chunk_operations.push(RenderOperation::JumpToVerticalCenter);
         self.push_text(Text::from(title), ElementType::PresentationTitle);
         self.push_line_break();
         if let Some(text) = sub_title {
@@ -214,7 +210,7 @@ impl<'a> PresentationBuilder<'a> {
                     self.push_line_break();
                 }
                 AuthorPositioning::PageBottom => {
-                    self.slide_operations.push(RenderOperation::JumpToBottom);
+                    self.chunk_operations.push(RenderOperation::JumpToBottom);
                 }
             };
             self.push_text(Text::from(text), ElementType::PresentationAuthor);
@@ -233,16 +229,16 @@ impl<'a> PresentationBuilder<'a> {
             CommentCommand::EndSlide => self.terminate_slide(),
             CommentCommand::InitColumnLayout(columns) => {
                 Self::validate_column_layout(&columns)?;
-                self.layout = LayoutState::InLayout { columns_count: columns.len() };
-                self.slide_operations.push(RenderOperation::InitColumnLayout { columns });
-                self.needs_enter_column = true;
+                self.slide_state.layout = LayoutState::InLayout { columns_count: columns.len() };
+                self.chunk_operations.push(RenderOperation::InitColumnLayout { columns });
+                self.slide_state.needs_enter_column = true;
             }
             CommentCommand::ResetLayout => {
-                self.layout = LayoutState::Default;
-                self.slide_operations.extend([RenderOperation::ExitLayout, RenderOperation::RenderLineBreak]);
+                self.slide_state.layout = LayoutState::Default;
+                self.chunk_operations.extend([RenderOperation::ExitLayout, RenderOperation::RenderLineBreak]);
             }
             CommentCommand::Column(column) => {
-                let (current_column, columns_count) = match self.layout {
+                let (current_column, columns_count) = match self.slide_state.layout {
                     LayoutState::InColumn { column, columns_count } => (Some(column), columns_count),
                     LayoutState::InLayout { columns_count } => (None, columns_count),
                     LayoutState::Default => return Err(BuildError::NoLayout),
@@ -252,12 +248,12 @@ impl<'a> PresentationBuilder<'a> {
                 } else if column >= columns_count {
                     return Err(BuildError::ColumnIndexTooLarge);
                 }
-                self.layout = LayoutState::InColumn { column, columns_count };
-                self.slide_operations.push(RenderOperation::EnterColumn { column });
+                self.slide_state.layout = LayoutState::InColumn { column, columns_count };
+                self.chunk_operations.push(RenderOperation::EnterColumn { column });
             }
         };
         // Don't push line breaks for any comments.
-        self.ignore_element_line_break = true;
+        self.slide_state.ignore_element_line_break = true;
         Ok(())
     }
 
@@ -274,13 +270,14 @@ impl<'a> PresentationBuilder<'a> {
     fn process_pause(&mut self) {
         // Remove the last line, if any, if the previous element is a list. This allows each
         // element in a list showing up without newlines in between..
-        if self.last_element_is_list && matches!(self.slide_operations.last(), Some(RenderOperation::RenderLineBreak)) {
-            self.slide_operations.pop();
+        if matches!(self.slide_state.last_element, LastElement::List { .. })
+            && matches!(self.chunk_operations.last(), Some(RenderOperation::RenderLineBreak))
+        {
+            self.chunk_operations.pop();
         }
 
-        let chunk_operations = mem::take(&mut self.slide_operations);
+        let chunk_operations = mem::take(&mut self.chunk_operations);
         self.slide_chunks.push(SlideChunk::new(chunk_operations));
-        // self.terminate_slide(TerminateMode::KeepState);
     }
 
     fn push_slide_title(&mut self, mut text: Text) {
@@ -297,10 +294,10 @@ impl<'a> PresentationBuilder<'a> {
             self.push_line_break();
         }
         if style.separator {
-            self.slide_operations.push(RenderSeparator::default().into());
+            self.chunk_operations.push(RenderSeparator::default().into());
         }
         self.push_line_break();
-        self.ignore_element_line_break = true;
+        self.slide_state.ignore_element_line_break = true;
     }
 
     fn push_heading(&mut self, level: u8, mut text: Text) {
@@ -341,22 +338,29 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_separator(&mut self) {
-        self.slide_operations.extend([RenderSeparator::default().into(), RenderOperation::RenderLineBreak]);
+        self.chunk_operations.extend([RenderSeparator::default().into(), RenderOperation::RenderLineBreak]);
     }
 
     fn push_image(&mut self, path: PathBuf) -> Result<(), BuildError> {
         let image = self.resources.image(&path)?;
-        self.slide_operations.push(RenderOperation::RenderImage(image));
+        self.chunk_operations.push(RenderOperation::RenderImage(image));
         Ok(())
     }
 
-    fn push_list(&mut self, items: Vec<ListItem>) {
-        for item in items {
-            self.push_list_item(item);
+    fn push_list(&mut self, list: Vec<ListItem>) {
+        // If this chunk just starts (because there was a pause), pick up from the last index.
+        let start_index = match self.slide_state.last_element {
+            LastElement::List { last_index } if self.chunk_operations.is_empty() => last_index + 1,
+            _ => 0,
+        };
+
+        let iter = ListIterator::new(list, start_index);
+        for item in iter {
+            self.push_list_item(item.index, item.item);
         }
     }
 
-    fn push_list_item(&mut self, item: ListItem) {
+    fn push_list_item(&mut self, index: usize, item: ListItem) {
         let padding_length = (item.depth as usize + 1) * 3;
         let mut prefix: String = " ".repeat(padding_length);
         match item.item_type {
@@ -368,12 +372,12 @@ impl<'a> PresentationBuilder<'a> {
                 };
                 prefix.push(delimiter);
             }
-            ListItemType::OrderedParens(number) => {
-                prefix.push_str(&number.to_string());
+            ListItemType::OrderedParens => {
+                prefix.push_str(&(index + 1).to_string());
                 prefix.push_str(") ");
             }
-            ListItemType::OrderedPeriod(number) => {
-                prefix.push_str(&number.to_string());
+            ListItemType::OrderedPeriod => {
+                prefix.push_str(&(index + 1).to_string());
                 prefix.push_str(". ");
             }
         };
@@ -384,18 +388,21 @@ impl<'a> PresentationBuilder<'a> {
         let text = item.contents;
         self.push_aligned_text(text, Alignment::Left { margin: Margin::Fixed(prefix_length) });
         self.push_line_break();
+        if item.depth == 0 {
+            self.slide_state.last_element = LastElement::List { last_index: index };
+        }
     }
 
     fn push_block_quote(&mut self, lines: Vec<String>) {
         let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
         let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0);
 
-        self.slide_operations.push(RenderOperation::SetColors(self.theme.block_quote.colors.clone()));
+        self.chunk_operations.push(RenderOperation::SetColors(self.theme.block_quote.colors.clone()));
         for mut line in lines {
             line.insert_str(0, &prefix);
 
             let line_length = line.width();
-            self.slide_operations.push(RenderOperation::RenderPreformattedLine(PreformattedLine {
+            self.chunk_operations.push(RenderOperation::RenderPreformattedLine(PreformattedLine {
                 text: line,
                 unformatted_length: line_length,
                 block_length,
@@ -403,7 +410,7 @@ impl<'a> PresentationBuilder<'a> {
             }));
             self.push_line_break();
         }
-        self.slide_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
+        self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
     }
 
     fn push_text(&mut self, text: Text, element_type: ElementType) {
@@ -420,15 +427,13 @@ impl<'a> PresentationBuilder<'a> {
             texts.push(chunk.into());
         }
         if !texts.is_empty() {
-            self.slide_operations.push(RenderOperation::RenderTextLine {
-                line: WeightedLine::from(texts),
-                alignment: alignment.clone(),
-            });
+            self.chunk_operations
+                .push(RenderOperation::RenderText { line: WeightedLine::from(texts), alignment: alignment.clone() });
         }
     }
 
     fn push_line_break(&mut self) {
-        self.slide_operations.push(RenderOperation::RenderLineBreak);
+        self.chunk_operations.push(RenderOperation::RenderLineBreak);
     }
 
     fn push_code(&mut self, code: Code) {
@@ -461,7 +466,7 @@ impl<'a> PresentationBuilder<'a> {
             let CodeLine { formatted, original } = code_line;
             let trimmed = formatted.trim_end();
             let original_length = original.width() - (formatted.width() - trimmed.width());
-            self.slide_operations.push(RenderOperation::RenderPreformattedLine(PreformattedLine {
+            self.chunk_operations.push(RenderOperation::RenderPreformattedLine(PreformattedLine {
                 text: trimmed.into(),
                 unformatted_length: original_length,
                 block_length,
@@ -481,21 +486,19 @@ impl<'a> PresentationBuilder<'a> {
             self.theme.execution_output.colors.clone(),
         );
         let operation = RenderOperation::RenderOnDemand(Rc::new(operation));
-        self.slide_operations.push(operation);
+        self.chunk_operations.push(operation);
     }
 
     fn terminate_slide(&mut self) {
         let footer = self.generate_footer();
 
-        let operations = mem::take(&mut self.slide_operations);
+        let operations = mem::take(&mut self.chunk_operations);
         self.slide_chunks.push(SlideChunk::new(operations));
 
         let chunks = mem::take(&mut self.slide_chunks);
         self.slides.push(Slide::new(chunks, footer));
         self.push_slide_prelude();
-        self.ignore_element_line_break = true;
-        self.needs_enter_column = false;
-        self.layout = Default::default();
+        self.slide_state = Default::default();
     }
 
     fn generate_footer(&mut self) -> Vec<RenderOperation> {
@@ -568,6 +571,14 @@ impl<'a> PresentationBuilder<'a> {
 }
 
 #[derive(Debug, Default)]
+struct SlideState {
+    ignore_element_line_break: bool,
+    needs_enter_column: bool,
+    last_element: LastElement,
+    layout: LayoutState,
+}
+
+#[derive(Debug, Default)]
 enum LayoutState {
     #[default]
     Default,
@@ -577,6 +588,15 @@ enum LayoutState {
     InColumn {
         column: usize,
         columns_count: usize,
+    },
+}
+
+#[derive(Debug, Default)]
+enum LastElement {
+    #[default]
+    Any,
+    List {
+        last_index: usize,
     },
 }
 
@@ -606,7 +626,7 @@ impl FooterGenerator {
             .replace("{total_slides}", &context.total_slides.to_string())
             .replace("{author}", &context.author);
         let text = WeightedText::from(StyledText::new(contents, TextStyle::default().colors(colors)));
-        RenderOperation::RenderTextLine { line: vec![text].into(), alignment }
+        RenderOperation::RenderText { line: vec![text].into(), alignment }
     }
 }
 
@@ -643,7 +663,7 @@ impl AsRenderOperations for FooterGenerator {
                 let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
                 let bar = character.repeat(columns_ratio as usize);
                 let bar = vec![WeightedText::from(StyledText::new(bar, TextStyle::default().colors(colors.clone())))];
-                vec![RenderOperation::RenderTextLine {
+                vec![RenderOperation::RenderText {
                     line: bar.into(),
                     alignment: Alignment::Left { margin: Margin::Fixed(0) },
                 }]
@@ -846,8 +866,58 @@ impl AsRenderOperations for RenderSeparator {
                 format!("{dashes}{heading}{dashes}")
             }
         };
-        vec![RenderOperation::RenderTextLine { line: separator.into(), alignment: Default::default() }]
+        vec![RenderOperation::RenderText { line: separator.into(), alignment: Default::default() }]
     }
+}
+
+struct ListIterator<I> {
+    remaining: I,
+    next_index: usize,
+    current_depth: u8,
+    saved_indexes: Vec<usize>,
+}
+
+impl<I> ListIterator<I> {
+    fn new<T>(remaining: T, next_index: usize) -> Self
+    where
+        I: Iterator<Item = ListItem>,
+        T: IntoIterator<IntoIter = I, Item = ListItem>,
+    {
+        Self { remaining: remaining.into_iter(), next_index, current_depth: 0, saved_indexes: Vec::new() }
+    }
+}
+
+impl<I> Iterator for ListIterator<I>
+where
+    I: Iterator<Item = ListItem>,
+{
+    type Item = IndexedListItem;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let head = self.remaining.next()?;
+        if head.depth != self.current_depth {
+            if head.depth > self.current_depth {
+                // If we're going deeper, save the next index so we can continue later on and start
+                // from 0.
+                self.saved_indexes.push(self.next_index);
+                self.next_index = 0;
+            } else {
+                // if we're getting out, recover the index we had previously saved.
+                for _ in head.depth..self.current_depth {
+                    self.next_index = self.saved_indexes.pop().unwrap_or(0);
+                }
+            }
+            self.current_depth = head.depth;
+        }
+        let index = self.next_index;
+        self.next_index += 1;
+        Some(IndexedListItem { index, item: head })
+    }
+}
+
+struct IndexedListItem {
+    index: usize,
+    item: ListItem,
 }
 
 #[cfg(test)]
@@ -897,7 +967,7 @@ mod test {
             | ExitLayout { .. }
             | ApplyMargin(_)
             | PopMargin => false,
-            RenderTextLine { .. }
+            RenderText { .. }
             | RenderLineBreak
             | RenderImage(_)
             | RenderPreformattedLine(_)
@@ -908,16 +978,28 @@ mod test {
 
     fn extract_text_lines(operations: &[RenderOperation]) -> Vec<String> {
         let mut output = Vec::new();
+        let mut current_line = String::new();
         for operation in operations {
             match operation {
-                RenderOperation::RenderTextLine { line, .. } => {
+                RenderOperation::RenderText { line, .. } => {
                     let texts: Vec<_> = line.iter_texts().map(|text| text.text.text.clone()).collect();
-                    output.push(texts.join(""));
+                    current_line.push_str(&texts.join(""));
+                }
+                RenderOperation::RenderLineBreak if !current_line.is_empty() => {
+                    output.push(mem::take(&mut current_line));
                 }
                 _ => (),
             };
         }
+        if !current_line.is_empty() {
+            output.push(current_line);
+        }
         output
+    }
+
+    fn extract_slide_text_lines(slide: Slide) -> Vec<String> {
+        let operations: Vec<_> = slide.into_operations().into_iter().filter(|op| is_visible(op)).collect();
+        extract_text_lines(&operations)
     }
 
     #[test]
@@ -996,9 +1078,7 @@ mod test {
             rows: vec![TableRow(vec![Text::from("potato"), Text::from("bar"), Text::from("yes")])],
         })];
         let slides = build_presentation(elements).into_slides();
-        let operations: Vec<_> =
-            slides.into_iter().next().unwrap().into_operations().into_iter().filter(|op| is_visible(op)).collect();
-        let lines = extract_text_lines(&operations);
+        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
         let expected_lines = &["key    │ value │ other", "───────┼───────┼──────", "potato │ bar   │ yes  "];
         assert_eq!(lines, expected_lines);
     }
@@ -1077,5 +1157,59 @@ mod test {
         let elements = vec![build_column_layout(1), build_pause(), build_column(0)];
         let presentation = build_presentation(elements);
         assert_eq!(presentation.iter_slides().count(), 1);
+    }
+
+    #[test]
+    fn iterate_list() {
+        let iter = ListIterator::new(
+            vec![
+                ListItem { depth: 0, contents: "0".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 0, contents: "1".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 1, contents: "00".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 1, contents: "01".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 1, contents: "02".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 2, contents: "001".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 0, contents: "2".into(), item_type: ListItemType::Unordered },
+            ],
+            0,
+        );
+        let expected_indexes = [0, 1, 0, 1, 2, 0, 2];
+        let indexes: Vec<_> = iter.map(|item| item.index).collect();
+        assert_eq!(indexes, expected_indexes);
+    }
+
+    #[test]
+    fn iterate_list_starting_from_other() {
+        let list = ListIterator::new(
+            vec![
+                ListItem { depth: 0, contents: "0".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 0, contents: "1".into(), item_type: ListItemType::Unordered },
+            ],
+            3,
+        );
+        let expected_indexes = [3, 4];
+        let indexes: Vec<_> = list.into_iter().map(|item| item.index).collect();
+        assert_eq!(indexes, expected_indexes);
+    }
+
+    #[test]
+    fn ordered_list_with_pauses() {
+        let elements = vec![
+            MarkdownElement::List(vec![
+                ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::OrderedPeriod },
+                ListItem { depth: 1, contents: "one_one".into(), item_type: ListItemType::OrderedPeriod },
+                ListItem { depth: 1, contents: "one_two".into(), item_type: ListItemType::OrderedPeriod },
+            ]),
+            MarkdownElement::Comment("pause".into()),
+            MarkdownElement::List(vec![ListItem {
+                depth: 0,
+                contents: "two".into(),
+                item_type: ListItemType::OrderedPeriod,
+            }]),
+        ];
+        let slides = build_presentation(elements).into_slides();
+        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        let expected_lines = &["   1. one", "      1. one_one", "      2. one_two", "   2. two"];
+        assert_eq!(lines, expected_lines);
     }
 }
