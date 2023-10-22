@@ -138,10 +138,10 @@ pub(crate) enum ListItemType {
     Unordered,
 
     /// A list item for an ordered list that uses parenthesis after the list item number.
-    OrderedParens(u16),
+    OrderedParens,
 
     /// A list item for an ordered list that uses a period after the list item number.
-    OrderedPeriod(u16),
+    OrderedPeriod,
 }
 
 /// A piece of code.

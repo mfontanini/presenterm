@@ -213,12 +213,11 @@ impl<'a> MarkdownParser<'a> {
 
     fn parse_list(root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
         let mut elements = Vec::new();
-        for (index, node) in root.children().enumerate() {
-            let number = (index + 1) as u16;
+        for node in root.children() {
             let data = node.data.borrow();
             match &data.value {
                 NodeValue::Item(item) => {
-                    elements.extend(Self::parse_list_item(item, node, depth, number)?);
+                    elements.extend(Self::parse_list_item(item, node, depth)?);
                 }
                 other => {
                     return Err(ParseErrorKind::UnsupportedStructure {
@@ -232,11 +231,11 @@ impl<'a> MarkdownParser<'a> {
         Ok(elements)
     }
 
-    fn parse_list_item(item: &NodeList, root: &'a AstNode<'a>, depth: u8, number: u16) -> ParseResult<Vec<ListItem>> {
+    fn parse_list_item(item: &NodeList, root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
         let item_type = match (item.list_type, item.delimiter) {
             (ListType::Bullet, _) => ListItemType::Unordered,
-            (ListType::Ordered, ListDelimType::Paren) => ListItemType::OrderedParens(number),
-            (ListType::Ordered, ListDelimType::Period) => ListItemType::OrderedPeriod(number),
+            (ListType::Ordered, ListDelimType::Paren) => ListItemType::OrderedParens,
+            (ListType::Ordered, ListDelimType::Period) => ListItemType::OrderedPeriod,
         };
         let mut elements = Vec::new();
         for node in root.children() {
