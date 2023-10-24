@@ -26,6 +26,7 @@
           ".cargo"
           "src"
           "themes"
+          "syntaxes"
         ];
 
         buildSrc = flakeboxLib.filterSubPaths {
