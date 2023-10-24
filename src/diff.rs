@@ -73,6 +73,10 @@ impl ContentDiff for RenderOperation {
             }
             (RenderImage(original), RenderImage(updated)) if original != updated => true,
             (RenderPreformattedLine(original), RenderPreformattedLine(updated)) if original != updated => true,
+            (InitColumnLayout { columns: original }, InitColumnLayout { columns: updated }) if original != updated => {
+                true
+            }
+            (EnterColumn { column: original }, EnterColumn { column: updated }) if original != updated => true,
             // This is only used for footers which are global. Ignore for now.
             (RenderDynamic(_), RenderDynamic(_)) => false,
             _ => false,
@@ -136,6 +140,9 @@ mod test {
         }
     ))]
     #[case(RenderOperation::RenderDynamic(Rc::new(Dynamic)))]
+    #[case(RenderOperation::InitColumnLayout{ columns: vec![1, 2] })]
+    #[case(RenderOperation::EnterColumn{ column: 1 })]
+    #[case(RenderOperation::ExitLayout)]
     fn same_not_modified(#[case] operation: RenderOperation) {
         let diff = operation.is_content_different(&operation);
         assert!(!diff);
@@ -166,6 +173,20 @@ mod test {
         let lhs = RenderOperation::SetColors(Colors { background: None, foreground: Some(Color::new(1, 2, 3)) });
         let rhs = RenderOperation::SetColors(Colors { background: None, foreground: Some(Color::new(3, 2, 1)) });
         assert!(!lhs.is_content_different(&rhs));
+    }
+
+    #[test]
+    fn different_column_layout() {
+        let lhs = RenderOperation::InitColumnLayout { columns: vec![1, 2] };
+        let rhs = RenderOperation::InitColumnLayout { columns: vec![1, 3] };
+        assert!(lhs.is_content_different(&rhs));
+    }
+
+    #[test]
+    fn different_column() {
+        let lhs = RenderOperation::EnterColumn { column: 0 };
+        let rhs = RenderOperation::EnterColumn { column: 1 };
+        assert!(lhs.is_content_different(&rhs));
     }
 
     #[test]
