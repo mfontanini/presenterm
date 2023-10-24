@@ -219,8 +219,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_comment(&mut self, comment: String) -> Result<(), BuildError> {
-        // Ignore any multi line comment; those are assumed to be user comments
-        if comment.contains('\n') {
+        if Self::should_ignore_comment(&comment) {
             return Ok(());
         }
         let comment = comment.parse::<CommentCommand>()?;
@@ -255,6 +254,16 @@ impl<'a> PresentationBuilder<'a> {
         // Don't push line breaks for any comments.
         self.slide_state.ignore_element_line_break = true;
         Ok(())
+    }
+
+    fn should_ignore_comment(comment: &str) -> bool {
+        // Ignore any multi line comment; those are assumed to be user comments
+        if comment.contains('\n') {
+            return true;
+        }
+        // Ignore vim-like code folding tags
+        let comment = comment.trim();
+        comment == "{{{" || comment == "}}}"
     }
 
     fn validate_column_layout(columns: &[u8]) -> Result<(), BuildError> {
@@ -1211,5 +1220,13 @@ mod test {
         let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
         let expected_lines = &["   1. one", "      1. one_one", "      2. one_two", "   2. two"];
         assert_eq!(lines, expected_lines);
+    }
+
+    #[rstest]
+    #[case::multiline("hello\nworld")]
+    #[case::many_open_braces("{{{")]
+    #[case::many_close_braces("}}}")]
+    fn ignore_comments(#[case] comment: &str) {
+        assert!(PresentationBuilder::should_ignore_comment(comment));
     }
 }
