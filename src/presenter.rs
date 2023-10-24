@@ -157,6 +157,9 @@ impl<'a> Presenter<'a> {
                 if let Some(modification) = PresentationDiffer::find_first_modification(current, &presentation) {
                     presentation.jump_slide(modification.slide_index);
                     presentation.jump_chunk(modification.chunk_index);
+                } else {
+                    presentation.jump_slide(current.current_slide_index());
+                    presentation.jump_chunk(current.current_chunk());
                 }
                 self.state = PresenterState::Presenting(presentation)
             }

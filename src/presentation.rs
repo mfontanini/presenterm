@@ -100,6 +100,11 @@ impl Presentation {
         self.current_slide_mut().jump_chunk(chunk_index);
     }
 
+    /// Get the current slide's chunk.
+    pub(crate) fn current_chunk(&self) -> usize {
+        self.current_slide().current_chunk()
+    }
+
     /// Render all widgets in this slide.
     pub(crate) fn render_slide_widgets(&mut self) -> bool {
         let slide = self.current_slide_mut();
@@ -168,6 +173,10 @@ impl Slide {
 
     fn jump_chunk(&mut self, chunk_index: usize) {
         self.visible_chunks = (chunk_index + 1).min(self.chunks.len());
+    }
+
+    fn current_chunk(&self) -> usize {
+        self.visible_chunks.saturating_sub(1)
     }
 
     fn show_first_chunk(&mut self) {
