@@ -7,7 +7,10 @@ use syntect::{
     util::{as_24_bit_terminal_escaped, LinesWithEndings},
 };
 
-static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(SyntaxSet::load_defaults_newlines);
+static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(|| {
+    let contents = include_bytes!("../../syntaxes/syntaxes.bin");
+    bincode::deserialize(contents).expect("syntaxes are broken")
+});
 static THEMES: Lazy<ThemeSet> = Lazy::new(ThemeSet::load_defaults);
 
 /// A code highlighter.
@@ -43,15 +46,23 @@ impl CodeHighlighter {
     fn language_extension(language: &CodeLanguage) -> &'static str {
         use CodeLanguage::*;
         match language {
+            Ada => "adb",
             Asp => "asa",
+            Awk => "awk",
             Bash => "bash",
             BatchFile => "bat",
             C => "c",
+            CMake => "cmake",
             CSharp => "cs",
             Clojure => "clj",
             Cpp => "cpp",
+            Crontab => "crontab",
             Css => "css",
             DLang => "d",
+            Docker => "Dockerfile",
+            Dotenv => "env",
+            Elixir => "ex",
+            Elm => "elm",
             Erlang => "erl",
             Go => "go",
             Haskell => "hs",
@@ -59,6 +70,7 @@ impl CodeHighlighter {
             Java => "java",
             JavaScript => "js",
             Json => "json",
+            Kotlin => "kt",
             Latex => "tex",
             Lua => "lua",
             Makefile => "make",
@@ -66,17 +78,24 @@ impl CodeHighlighter {
             OCaml => "ml",
             Perl => "pl",
             Php => "php",
+            Protobuf => "proto",
+            Puppet => "pp",
             Python => "py",
             R => "r",
             Rust => "rs",
             Scala => "scala",
             Shell(_) => "sh",
             Sql => "sql",
-            TypeScript => "js",
-            Xml => "xml",
-            Yaml => "yaml",
+            Swift => "swift",
+            Svelte => "svelte",
+            Terraform => "tf",
+            TypeScript => "ts",
             // default to plain text so we get the same look&feel
             Unknown => "txt",
+            Vue => "vue",
+            Xml => "xml",
+            Yaml => "yaml",
+            Zig => "zig",
         }
     }
 }

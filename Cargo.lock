@@ -1039,6 +1039,7 @@ dependencies = [
 name = "presenterm"
 version = "0.2.1"
 dependencies = [
+ "bincode",
  "clap",
  "colored",
  "comrak",
