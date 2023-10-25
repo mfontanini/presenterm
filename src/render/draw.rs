@@ -1,4 +1,4 @@
-use super::{operator::RenderOperator, terminal::Terminal};
+use super::{engine::RenderEngine, terminal::Terminal};
 use crate::{
     markdown::{
         elements::StyledText,
@@ -33,8 +33,8 @@ where
     pub(crate) fn render_slide(&mut self, presentation: &Presentation) -> RenderResult {
         let window_dimensions = WindowSize::current()?;
         let slide = presentation.current_slide();
-        let operator = RenderOperator::new(&mut self.terminal, window_dimensions);
-        operator.render(slide.iter_operations())?;
+        let engine = RenderEngine::new(&mut self.terminal, window_dimensions);
+        engine.render(slide.iter_operations())?;
         self.terminal.flush()?;
         Ok(())
     }
@@ -60,8 +60,8 @@ where
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderText { line: WeightedLine::from(error), alignment: alignment.clone() },
         ];
-        let operator = RenderOperator::new(&mut self.terminal, dimensions);
-        operator.render(operations.iter())?;
+        let engine = RenderEngine::new(&mut self.terminal, dimensions);
+        engine.render(operations.iter())?;
         self.terminal.flush()?;
         Ok(())
     }

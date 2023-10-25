@@ -15,7 +15,7 @@ use crate::{
 };
 use std::{io, mem};
 
-pub(crate) struct RenderOperator<'a, W>
+pub(crate) struct RenderEngine<'a, W>
 where
     W: io::Write,
 {
@@ -26,7 +26,7 @@ where
     layout: LayoutState,
 }
 
-impl<'a, W> RenderOperator<'a, W>
+impl<'a, W> RenderEngine<'a, W>
 where
     W: io::Write,
 {
