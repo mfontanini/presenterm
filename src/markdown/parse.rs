@@ -1,3 +1,4 @@
+use super::elements::SourcePosition;
 use crate::{
     markdown::elements::{
         Code, CodeFlags, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table,
@@ -97,7 +98,10 @@ impl<'a> MarkdownParser<'a> {
         }
         let block = &block[start_tag.len()..];
         let block = &block[0..block.len() - end_tag.len()];
-        Ok(MarkdownElement::Comment(block.into()))
+        Ok(MarkdownElement::Comment {
+            comment: block.into(),
+            source_position: SourcePosition { line: sourcepos.start.line },
+        })
     }
 
     fn parse_block_quote(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
@@ -705,8 +709,8 @@ echo hi mom
 <!-- foo -->
 ",
         );
-        let MarkdownElement::Comment(text) = parsed else { panic!("not a comment: {parsed:?}") };
-        assert_eq!(text, " foo ");
+        let MarkdownElement::Comment { comment, .. } = parsed else { panic!("not a comment: {parsed:?}") };
+        assert_eq!(comment, " foo ");
     }
 
     #[test]
