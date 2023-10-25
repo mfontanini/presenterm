@@ -39,10 +39,15 @@ pub(crate) enum MarkdownElement {
     ThematicBreak,
 
     /// An HTML comment.
-    Comment(String),
+    Comment { comment: String, source_position: SourcePosition },
 
     /// A quote.
     BlockQuote(Vec<String>),
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct SourcePosition {
+    pub(crate) line: usize,
 }
 
 /// The components that make up a paragraph.

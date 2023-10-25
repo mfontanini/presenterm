@@ -2,7 +2,8 @@ use crate::{
     execute::{CodeExecuter, ExecutionHandle, ExecutionState, ProcessStatus},
     markdown::{
         elements::{
-            Code, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table, TableRow, Text,
+            Code, ListItem, ListItemType, MarkdownElement, ParagraphElement, SourcePosition, StyledText, Table,
+            TableRow, Text,
         },
         text::{WeightedLine, WeightedText},
     },
@@ -20,7 +21,7 @@ use crate::{
 };
 use itertools::Itertools;
 use serde::Deserialize;
-use std::{borrow::Cow, cell::RefCell, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
+use std::{borrow::Cow, cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 
 // TODO: move to a theme config.
@@ -116,7 +117,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_element(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
-        let should_clear_last = !matches!(element, MarkdownElement::List(_) | MarkdownElement::Comment(_));
+        let should_clear_last = !matches!(element, MarkdownElement::List(_) | MarkdownElement::Comment { .. });
         match element {
             // This one is processed before everything else as it affects how the rest of the
             // elements is rendered.
@@ -128,7 +129,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::Code(code) => self.push_code(code),
             MarkdownElement::Table(table) => self.push_table(table),
             MarkdownElement::ThematicBreak => self.push_separator(),
-            MarkdownElement::Comment(comment) => self.process_comment(comment)?,
+            MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
             MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines),
             MarkdownElement::Image(path) => self.push_image(path)?,
         };
@@ -218,11 +219,14 @@ impl<'a> PresentationBuilder<'a> {
         self.terminate_slide();
     }
 
-    fn process_comment(&mut self, comment: String) -> Result<(), BuildError> {
+    fn process_comment(&mut self, comment: String, source_position: SourcePosition) -> Result<(), BuildError> {
         if Self::should_ignore_comment(&comment) {
             return Ok(());
         }
-        let comment = comment.parse::<CommentCommand>()?;
+        let comment = match comment.parse::<CommentCommand>() {
+            Ok(comment) => comment,
+            Err(error) => return Err(BuildError::CommandParse { line: source_position.line, error }),
+        };
         match comment {
             CommentCommand::Pause => self.process_pause(),
             CommentCommand::EndSlide => self.terminate_slide(),
@@ -712,8 +716,8 @@ pub enum BuildError {
     #[error("need to enter layout column explicitly using `column` command")]
     NotInsideColumn,
 
-    #[error(transparent)]
-    CommandParse(#[from] CommandParseError),
+    #[error("error parsing command at line {line}: {error}")]
+    CommandParse { line: usize, error: CommandParseError },
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -740,8 +744,17 @@ impl FromStr for CommentCommand {
 }
 
 #[derive(thiserror::Error, Debug)]
-#[error("invalid command: {0}")]
 pub struct CommandParseError(#[from] serde_yaml::Error);
+
+impl Display for CommandParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let inner = self.0.to_string();
+        // Remove the trailing "at line X, ..." that comes from serde_yaml. This otherwise claims
+        // we're always in line 1 because the yaml is parsed in isolation out of the HTML comment.
+        let inner = inner.split(" at line").next().unwrap();
+        write!(f, "{inner}")
+    }
+}
 
 #[derive(Debug)]
 struct RunCodeOperationInner {
@@ -949,19 +962,19 @@ mod test {
     }
 
     fn build_pause() -> MarkdownElement {
-        MarkdownElement::Comment("pause".into())
+        MarkdownElement::Comment { comment: "pause".into(), source_position: Default::default() }
     }
 
     fn build_end_slide() -> MarkdownElement {
-        MarkdownElement::Comment("end_slide".into())
+        MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() }
     }
 
     fn build_column_layout(width: u8) -> MarkdownElement {
-        MarkdownElement::Comment(format!("column_layout: [{width}]"))
+        MarkdownElement::Comment { comment: format!("column_layout: [{width}]"), source_position: Default::default() }
     }
 
     fn build_column(column: u8) -> MarkdownElement {
-        MarkdownElement::Comment(format!("column: {column}"))
+        MarkdownElement::Comment { comment: format!("column: {column}"), source_position: Default::default() }
     }
 
     fn is_visible(operation: &RenderOperation) -> bool {
@@ -1016,7 +1029,7 @@ mod test {
         let elements = vec![
             MarkdownElement::FrontMatter("author: bob".to_string()),
             MarkdownElement::Heading { text: Text::from("hello"), level: 1 },
-            MarkdownElement::Comment("end_slide".to_string()),
+            build_end_slide(),
             MarkdownElement::Heading { text: Text::from("bye"), level: 1 },
         ];
         let presentation = build_presentation(elements);
@@ -1035,7 +1048,7 @@ mod test {
         let elements = vec![
             MarkdownElement::FrontMatter("author: bob".to_string()),
             MarkdownElement::Heading { text: Text::from("hello"), level: 1 },
-            MarkdownElement::Comment("end_slide".to_string()),
+            build_end_slide(),
             MarkdownElement::Heading { text: Text::from("bye"), level: 1 },
         ];
         let presentation = build_presentation(elements);
@@ -1094,7 +1107,7 @@ mod test {
 
     #[test]
     fn layout_without_init() {
-        let elements = vec![MarkdownElement::Comment("column: 0".into())];
+        let elements = vec![build_column(0)];
         let result = try_build_presentation(elements);
         assert!(result.is_err());
     }
@@ -1102,9 +1115,9 @@ mod test {
     #[test]
     fn already_in_column() {
         let elements = vec![
-            MarkdownElement::Comment("column_layout: [1]".into()),
-            MarkdownElement::Comment("column: 0".into()),
-            MarkdownElement::Comment("column: 0".into()),
+            MarkdownElement::Comment { comment: "column_layout: [1]".into(), source_position: Default::default() },
+            MarkdownElement::Comment { comment: "column: 0".into(), source_position: Default::default() },
+            MarkdownElement::Comment { comment: "column: 0".into(), source_position: Default::default() },
         ];
         let result = try_build_presentation(elements);
         assert!(result.is_err());
@@ -1112,8 +1125,10 @@ mod test {
 
     #[test]
     fn column_index_overflow() {
-        let elements =
-            vec![MarkdownElement::Comment("column_layout: [1]".into()), MarkdownElement::Comment("column: 1".into())];
+        let elements = vec![
+            MarkdownElement::Comment { comment: "column_layout: [1]".into(), source_position: Default::default() },
+            MarkdownElement::Comment { comment: "column: 1".into(), source_position: Default::default() },
+        ];
         let result = try_build_presentation(elements);
         assert!(result.is_err());
     }
@@ -1123,14 +1138,18 @@ mod test {
     #[case::zero("column_layout: [0]")]
     #[case::one_is_zero("column_layout: [1, 0]")]
     fn invalid_layouts(#[case] definition: &str) {
-        let elements = vec![MarkdownElement::Comment(definition.into())];
+        let elements =
+            vec![MarkdownElement::Comment { comment: definition.into(), source_position: Default::default() }];
         let result = try_build_presentation(elements);
         assert!(result.is_err());
     }
 
     #[test]
     fn operation_without_enter_column() {
-        let elements = vec![MarkdownElement::Comment("column_layout: [1]".into()), MarkdownElement::ThematicBreak];
+        let elements = vec![
+            MarkdownElement::Comment { comment: "column_layout: [1]".into(), source_position: Default::default() },
+            MarkdownElement::ThematicBreak,
+        ];
         let result = try_build_presentation(elements);
         assert!(result.is_err());
     }
@@ -1209,7 +1228,7 @@ mod test {
                 ListItem { depth: 1, contents: "one_one".into(), item_type: ListItemType::OrderedPeriod },
                 ListItem { depth: 1, contents: "one_two".into(), item_type: ListItemType::OrderedPeriod },
             ]),
-            MarkdownElement::Comment("pause".into()),
+            build_pause(),
             MarkdownElement::List(vec![ListItem {
                 depth: 0,
                 contents: "two".into(),
