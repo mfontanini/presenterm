@@ -86,7 +86,7 @@ pub(crate) struct SplitTextIter<'a> {
 
 impl<'a> SplitTextIter<'a> {
     fn new(texts: &'a [WeightedText], max_length: usize) -> Self {
-        Self { texts, max_length, current: texts.get(0).map(WeightedText::to_ref) }
+        Self { texts, max_length, current: texts.first().map(WeightedText::to_ref) }
     }
 }
 
@@ -118,7 +118,7 @@ impl<'a> Iterator for SplitTextIter<'a> {
 
             // Consume the first one and point to the next one, if any.
             self.texts = &self.texts[1..];
-            self.current = self.texts.get(0).map(WeightedText::to_ref);
+            self.current = self.texts.first().map(WeightedText::to_ref);
         }
         Some(elements)
     }
@@ -177,14 +177,14 @@ impl<'a> WeightedTextRef<'a> {
 
     fn width(&self) -> usize {
         let last_width = self.accumulators.last().map(|a| a.width).unwrap_or(0);
-        let first_width = self.accumulators.get(0).map(|a| a.width).unwrap_or(0);
+        let first_width = self.accumulators.first().map(|a| a.width).unwrap_or(0);
         last_width - first_width
     }
 
     fn bytes_until(&self, index: usize) -> usize {
         let last_bytes =
             self.accumulators.get(index).or_else(|| self.accumulators.last()).map(|a| a.bytes).unwrap_or(0);
-        let first_bytes = self.accumulators.get(0).map(|a| a.bytes).unwrap_or(0);
+        let first_bytes = self.accumulators.first().map(|a| a.bytes).unwrap_or(0);
         last_bytes - first_bytes
     }
 }
