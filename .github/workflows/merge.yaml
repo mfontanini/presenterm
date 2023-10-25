@@ -61,3 +61,15 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
+
+  nix-flake:
+    name: Validate nix flake
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install nix
+      uses: DeterminateSystems/nix-installer-action@v4
+    - name: Magic nix cache
+      uses: DeterminateSystems/magic-nix-cache-action@v2
+    - name: Build
+      run: nix build .#dev.presenterm
