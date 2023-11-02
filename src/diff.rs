@@ -127,7 +127,7 @@ mod test {
     #[rstest]
     #[case(RenderOperation::ClearScreen)]
     #[case(RenderOperation::JumpToVerticalCenter)]
-    #[case(RenderOperation::JumpToBottom)]
+    #[case(RenderOperation::JumpToBottomRow{ index: 0 })]
     #[case(RenderOperation::RenderLineBreak)]
     #[case(RenderOperation::SetColors(Colors{background: None, foreground: None}))]
     #[case(RenderOperation::RenderText{line: String::from("asd").into(), alignment: Default::default()})]
@@ -192,9 +192,9 @@ mod test {
     #[test]
     fn no_slide_changes() {
         let presentation = Presentation::new(vec![
-            Slide::from(vec![RenderOperation::JumpToBottom]),
-            Slide::from(vec![RenderOperation::JumpToBottom]),
-            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
         ]);
         assert_eq!(PresentationDiffer::find_first_modification(&presentation, &presentation), None);
     }
@@ -202,10 +202,10 @@ mod test {
     #[test]
     fn slides_truncated() {
         let lhs = Presentation::new(vec![
-            Slide::from(vec![RenderOperation::JumpToBottom]),
-            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
         ]);
-        let rhs = Presentation::new(vec![Slide::from(vec![RenderOperation::JumpToBottom])]);
+        let rhs = Presentation::new(vec![Slide::from(vec![RenderOperation::ClearScreen])]);
 
         assert_eq!(
             PresentationDiffer::find_first_modification(&lhs, &rhs),
@@ -215,10 +215,10 @@ mod test {
 
     #[test]
     fn slides_added() {
-        let lhs = Presentation::new(vec![Slide::from(vec![RenderOperation::JumpToBottom])]);
+        let lhs = Presentation::new(vec![Slide::from(vec![RenderOperation::ClearScreen])]);
         let rhs = Presentation::new(vec![
-            Slide::from(vec![RenderOperation::JumpToBottom]),
-            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
         ]);
 
         assert_eq!(
@@ -230,14 +230,14 @@ mod test {
     #[test]
     fn second_slide_content_changed() {
         let lhs = Presentation::new(vec![
-            Slide::from(vec![RenderOperation::JumpToBottom]),
-            Slide::from(vec![RenderOperation::JumpToBottom]),
-            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
         ]);
         let rhs = Presentation::new(vec![
-            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
             Slide::from(vec![RenderOperation::JumpToVerticalCenter]),
-            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
         ]);
 
         assert_eq!(
@@ -263,15 +263,15 @@ mod test {
     #[test]
     fn chunk_change() {
         let lhs = Presentation::new(vec![
-            Slide::from(vec![RenderOperation::JumpToBottom]),
-            Slide::new(vec![SlideChunk::default(), SlideChunk::new(vec![RenderOperation::JumpToBottom])], vec![]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
+            Slide::new(vec![SlideChunk::default(), SlideChunk::new(vec![RenderOperation::ClearScreen])], vec![]),
         ]);
         let rhs = Presentation::new(vec![
-            Slide::from(vec![RenderOperation::JumpToBottom]),
+            Slide::from(vec![RenderOperation::ClearScreen]),
             Slide::new(
                 vec![
                     SlideChunk::default(),
-                    SlideChunk::new(vec![RenderOperation::JumpToBottom, RenderOperation::JumpToBottom]),
+                    SlideChunk::new(vec![RenderOperation::ClearScreen, RenderOperation::ClearScreen]),
                 ],
                 vec![],
             ),

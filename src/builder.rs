@@ -211,7 +211,7 @@ impl<'a> PresentationBuilder<'a> {
                     self.push_line_break();
                 }
                 AuthorPositioning::PageBottom => {
-                    self.chunk_operations.push(RenderOperation::JumpToBottom);
+                    self.chunk_operations.push(RenderOperation::JumpToBottomRow { index: 0 });
                 }
             };
             self.push_text(Text::from(text), ElementType::PresentationAuthor);
@@ -528,8 +528,6 @@ impl<'a> PresentationBuilder<'a> {
             RenderOperation::ExitLayout,
             // Pop the slide margin so we're at the terminal rect.
             RenderOperation::PopMargin,
-            // Jump to the very bottom of the terminal rect and draw the footer.
-            RenderOperation::JumpToBottom,
             RenderOperation::RenderDynamic(Rc::new(generator)),
         ]
     }
@@ -653,7 +651,8 @@ impl AsRenderOperations for FooterGenerator {
         match &self.style {
             FooterStyle::Template { left, center, right, colors } => {
                 let current_slide = (self.current_slide + 1).to_string();
-                let mut operations = Vec::new();
+                // We print this one row below the bottom so there's one row of padding.
+                let mut operations = vec![RenderOperation::JumpToBottomRow { index: 1 }];
                 let margin = Margin::Fixed(1);
                 let alignments = [
                     Alignment::Left { margin: margin.clone() },
@@ -680,10 +679,13 @@ impl AsRenderOperations for FooterGenerator {
                 let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
                 let bar = character.repeat(columns_ratio as usize);
                 let bar = vec![WeightedText::from(StyledText::new(bar, TextStyle::default().colors(colors.clone())))];
-                vec![RenderOperation::RenderText {
-                    line: bar.into(),
-                    alignment: Alignment::Left { margin: Margin::Fixed(0) },
-                }]
+                vec![
+                    RenderOperation::JumpToBottomRow { index: 0 },
+                    RenderOperation::RenderText {
+                        line: bar.into(),
+                        alignment: Alignment::Left { margin: Margin::Fixed(0) },
+                    },
+                ]
             }
             FooterStyle::Empty => vec![],
         }
@@ -987,7 +989,7 @@ mod test {
             ClearScreen
             | SetColors(_)
             | JumpToVerticalCenter
-            | JumpToBottom
+            | JumpToBottomRow { .. }
             | InitColumnLayout { .. }
             | EnterColumn { .. }
             | ExitLayout { .. }
