@@ -223,6 +223,10 @@ impl SlideChunk {
     pub(crate) fn iter_operations(&self) -> impl Iterator<Item = &RenderOperation> + Clone {
         self.0.iter()
     }
+
+    pub(crate) fn pop_last(&mut self) -> Option<RenderOperation> {
+        self.0.pop()
+    }
 }
 
 /// The metadata for a presentation.
