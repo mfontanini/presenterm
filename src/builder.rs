@@ -281,13 +281,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_pause(&mut self) {
-        // Remove the last line, if any, if the previous element is a list. This allows each
-        // element in a list showing up without newlines in between..
-        if matches!(self.slide_state.last_element, LastElement::List { .. })
-            && matches!(self.chunk_operations.last(), Some(RenderOperation::RenderLineBreak))
-        {
-            self.chunk_operations.pop();
-        }
+        self.slide_state.last_chunk_ended_in_list = matches!(self.slide_state.last_element, LastElement::List { .. });
 
         let chunk_operations = mem::take(&mut self.chunk_operations);
         self.slide_chunks.push(SlideChunk::new(chunk_operations));
@@ -357,10 +351,19 @@ impl<'a> PresentationBuilder<'a> {
     fn push_image(&mut self, path: PathBuf) -> Result<(), BuildError> {
         let image = self.resources.image(&path)?;
         self.chunk_operations.push(RenderOperation::RenderImage(image));
+        self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
         Ok(())
     }
 
     fn push_list(&mut self, list: Vec<ListItem>) {
+        let last_chunk_operation = self.slide_chunks.last().and_then(|chunk| chunk.iter_operations().last());
+        // If the last chunk ended in a list, pop the newline so we get them all next to each
+        // other.
+        if matches!(last_chunk_operation, Some(RenderOperation::RenderLineBreak))
+            && self.slide_state.last_chunk_ended_in_list
+        {
+            self.slide_chunks.last_mut().unwrap().pop_last();
+        }
         // If this chunk just starts (because there was a pause), pick up from the last index.
         let start_index = match self.slide_state.last_element {
             LastElement::List { last_index } if self.chunk_operations.is_empty() => last_index + 1,
@@ -587,6 +590,7 @@ impl<'a> PresentationBuilder<'a> {
 struct SlideState {
     ignore_element_line_break: bool,
     needs_enter_column: bool,
+    last_chunk_ended_in_list: bool,
     last_element: LastElement,
     layout: LayoutState,
 }
