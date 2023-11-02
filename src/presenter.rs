@@ -1,10 +1,7 @@
 use crate::{
     builder::{BuildError, PresentationBuilder},
     diff::PresentationDiffer,
-    input::{
-        source::{Command, CommandSource},
-        user::UserCommand,
-    },
+    input::source::{Command, CommandSource},
     markdown::parse::{MarkdownParser, ParseError},
     presentation::Presentation,
     render::{
@@ -72,16 +69,12 @@ impl<'a> Presenter<'a> {
                 let Some(command) = self.commands.try_next_command()? else {
                     continue;
                 };
-                let command = match command {
-                    Command::User(command) => command,
-                    Command::ReloadPresentation => {
+                match self.apply_command(command) {
+                    CommandSideEffect::Exit => return Ok(()),
+                    CommandSideEffect::Reload => {
                         self.try_reload(path);
                         break;
                     }
-                    Command::Abort { error } => return Err(PresentationError::Fatal(error)),
-                };
-                match self.apply_user_command(command) {
-                    CommandSideEffect::Exit => return Ok(()),
                     CommandSideEffect::Redraw => {
                         break;
                     }
@@ -118,22 +111,22 @@ impl<'a> Presenter<'a> {
         if matches!(result, Err(RenderError::TerminalTooSmall)) { Ok(()) } else { result }
     }
 
-    fn apply_user_command(&mut self, command: UserCommand) -> CommandSideEffect {
+    fn apply_command(&mut self, command: Command) -> CommandSideEffect {
         // This one always happens no matter our state.
-        if matches!(command, UserCommand::Exit) {
+        if matches!(command, Command::Exit) {
             return CommandSideEffect::Exit;
         }
         let PresenterState::Presenting(presentation) = &mut self.state else {
             return CommandSideEffect::None;
         };
         let needs_redraw = match command {
-            UserCommand::Redraw => true,
-            UserCommand::JumpNextSlide => presentation.jump_next_slide(),
-            UserCommand::JumpPreviousSlide => presentation.jump_previous_slide(),
-            UserCommand::JumpFirstSlide => presentation.jump_first_slide(),
-            UserCommand::JumpLastSlide => presentation.jump_last_slide(),
-            UserCommand::JumpSlide(number) => presentation.jump_slide(number.saturating_sub(1) as usize),
-            UserCommand::RenderWidgets => {
+            Command::Redraw => true,
+            Command::JumpNextSlide => presentation.jump_next_slide(),
+            Command::JumpPreviousSlide => presentation.jump_previous_slide(),
+            Command::JumpFirstSlide => presentation.jump_first_slide(),
+            Command::JumpLastSlide => presentation.jump_last_slide(),
+            Command::JumpSlide(number) => presentation.jump_slide(number.saturating_sub(1) as usize),
+            Command::RenderWidgets => {
                 if presentation.render_slide_widgets() {
                     self.slides_with_pending_widgets.insert(self.state.presentation().current_slide_index());
                     return CommandSideEffect::PollWidgets;
@@ -141,7 +134,16 @@ impl<'a> Presenter<'a> {
                     return CommandSideEffect::None;
                 }
             }
-            UserCommand::Exit => return CommandSideEffect::Exit,
+            Command::Reload => {
+                return CommandSideEffect::Reload;
+            }
+            Command::HardReload => {
+                if matches!(self.mode, PresentMode::Development) {
+                    self.resources.clear();
+                }
+                return CommandSideEffect::Reload;
+            }
+            Command::Exit => return CommandSideEffect::Exit,
         };
         if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
     }
@@ -184,6 +186,7 @@ enum CommandSideEffect {
     Exit,
     Redraw,
     PollWidgets,
+    Reload,
     None,
 }
 

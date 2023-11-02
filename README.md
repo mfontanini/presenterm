@@ -209,6 +209,7 @@ Besides this:
 * Jumping to the last slide: `G`.
 * Jumping to a specific slide: `<slide-number>G`.
 * Exit the presentation: `<ctrl>c`.
+* Refresh images: `<ctrl>r`.
 
 # Docs
 
