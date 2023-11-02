@@ -1,7 +1,4 @@
-use super::{
-    fs::PresentationFileWatcher,
-    user::{UserCommand, UserInput},
-};
+use super::{fs::PresentationFileWatcher, user::UserInput};
 use std::{io, path::PathBuf, time::Duration};
 
 /// The source of commands.
@@ -24,28 +21,47 @@ impl CommandSource {
     ///
     /// This attempts to get a command and returns `Ok(None)` on timeout.
     pub(crate) fn try_next_command(&mut self) -> io::Result<Option<Command>> {
-        match self.user_input.poll_next_command(Duration::from_millis(250)) {
-            Ok(Some(command)) => {
-                return Ok(Some(Command::User(command)));
-            }
-            Ok(None) => (),
-            Err(e) => {
-                return Ok(Some(Command::Abort { error: e.to_string() }));
-            }
+        if let Some(command) = self.user_input.poll_next_command(Duration::from_millis(250))? {
+            return Ok(Some(command));
         };
-        if self.watcher.has_modifications()? { Ok(Some(Command::ReloadPresentation)) } else { Ok(None) }
+        if self.watcher.has_modifications()? { Ok(Some(Command::Reload)) } else { Ok(None) }
     }
 }
 
 /// A command.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Command {
-    /// A user input command.
-    User(UserCommand),
+    /// Redraw the presentation.
+    ///
+    /// This can happen on terminal resize.
+    Redraw,
+
+    /// Jump to the next slide.
+    JumpNextSlide,
+
+    /// Jump to the previous slide.
+    JumpPreviousSlide,
+
+    /// Jump to the first slide.
+    JumpFirstSlide,
+
+    /// Jump to the last slide.
+    JumpLastSlide,
+
+    /// Jump to one particular slide.
+    JumpSlide(u32),
+
+    /// Render any widgets in the currently visible slide.
+    RenderWidgets,
+
+    /// Exit the presentation.
+    Exit,
 
     /// The presentation has changed and needs to be reloaded.
-    ReloadPresentation,
+    Reload,
 
-    /// Something bad has happened and we need to abort.
-    Abort { error: String },
+    /// Hard reload the presentation.
+    ///
+    /// Like [Command::Reload] but also reloads any external resources like images and themes.
+    HardReload,
 }

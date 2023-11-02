@@ -50,6 +50,12 @@ impl Resources {
         self.themes.insert(path, theme.clone());
         Ok(theme)
     }
+
+    /// Clears all resources.
+    pub(crate) fn clear(&mut self) {
+        self.images.clear();
+        self.themes.clear();
+    }
 }
 
 /// An error loading an image.
