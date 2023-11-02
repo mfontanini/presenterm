@@ -288,8 +288,10 @@ pub(crate) enum RenderOperation {
     /// Jump the draw cursor into the vertical center, that is, at `screen_height / 2`.
     JumpToVerticalCenter,
 
-    /// Jumps to the last row in the slide.
-    JumpToBottom,
+    /// Jumps to the N-th to last row in the slide.
+    ///
+    /// The index is zero based where 0 represents the bottom row.
+    JumpToBottomRow { index: u16 },
 
     /// Render text.
     RenderText { line: WeightedLine, alignment: Alignment },

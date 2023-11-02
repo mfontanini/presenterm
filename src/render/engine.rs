@@ -51,7 +51,7 @@ where
             RenderOperation::PopMargin => self.pop_margin(),
             RenderOperation::SetColors(colors) => self.set_colors(colors),
             RenderOperation::JumpToVerticalCenter => self.jump_to_vertical_center(),
-            RenderOperation::JumpToBottom => self.jump_to_bottom(),
+            RenderOperation::JumpToBottomRow { index } => self.jump_to_bottom(*index),
             RenderOperation::RenderText { line: texts, alignment } => self.render_text(texts, alignment),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image) => self.render_image(image),
@@ -115,8 +115,9 @@ where
         Ok(())
     }
 
-    fn jump_to_bottom(&mut self) -> RenderResult {
-        self.terminal.move_to_row(self.current_dimensions().rows)?;
+    fn jump_to_bottom(&mut self, index: u16) -> RenderResult {
+        let target_row = self.current_dimensions().rows.saturating_sub(index).saturating_sub(1);
+        self.terminal.move_to_row(target_row)?;
         Ok(())
     }
 

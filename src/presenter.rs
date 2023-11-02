@@ -112,10 +112,22 @@ impl<'a> Presenter<'a> {
     }
 
     fn apply_command(&mut self, command: Command) -> CommandSideEffect {
-        // This one always happens no matter our state.
-        if matches!(command, Command::Exit) {
-            return CommandSideEffect::Exit;
-        }
+        // These ones always happens no matter our state.
+        match command {
+            Command::Reload => {
+                return CommandSideEffect::Reload;
+            }
+            Command::HardReload => {
+                if matches!(self.mode, PresentMode::Development) {
+                    self.resources.clear();
+                }
+                return CommandSideEffect::Reload;
+            }
+            Command::Exit => return CommandSideEffect::Exit,
+            _ => (),
+        };
+
+        // Now apply the commands that require a presentation.
         let PresenterState::Presenting(presentation) = &mut self.state else {
             return CommandSideEffect::None;
         };
@@ -134,16 +146,8 @@ impl<'a> Presenter<'a> {
                     return CommandSideEffect::None;
                 }
             }
-            Command::Reload => {
-                return CommandSideEffect::Reload;
-            }
-            Command::HardReload => {
-                if matches!(self.mode, PresentMode::Development) {
-                    self.resources.clear();
-                }
-                return CommandSideEffect::Reload;
-            }
-            Command::Exit => return CommandSideEffect::Exit,
+            // These are handled above as they don't require the presentation
+            Command::Reload | Command::HardReload | Command::Exit => panic!("unreachable commands"),
         };
         if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
     }
