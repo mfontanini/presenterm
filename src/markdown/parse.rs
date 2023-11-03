@@ -1,4 +1,3 @@
-use super::elements::SourcePosition;
 use crate::{
     markdown::elements::{
         Code, CodeFlags, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table,
@@ -18,6 +17,8 @@ use std::{
     io::BufWriter,
     mem,
 };
+
+use super::elements::SourcePosition;
 
 /// The result of parsing a markdown file.
 pub(crate) type ParseResult<T> = Result<T, ParseError>;
@@ -52,11 +53,37 @@ impl<'a> MarkdownParser<'a> {
     pub(crate) fn parse(&self, contents: &str) -> ParseResult<Vec<MarkdownElement>> {
         let node = parse_document(self.arena, contents, &self.options);
         let mut elements = Vec::new();
+        let mut lines_offset = 0;
         for node in node.children() {
-            let element = Self::parse_node(node)?;
-            elements.extend(element);
+            let mut parsed_elements =
+                Self::parse_node(node).map_err(|e| ParseError::new(e.kind, e.sourcepos.offset_lines(lines_offset)))?;
+            if let Some(MarkdownElement::FrontMatter(contents)) = parsed_elements.first() {
+                lines_offset += contents.lines().count() + 2;
+            }
+            // comrak ignores the lines in the front matter so we need to offset this ourselves.
+            Self::adjust_source_positions(parsed_elements.iter_mut(), lines_offset);
+            elements.extend(parsed_elements);
         }
         Ok(elements)
+    }
+
+    fn adjust_source_positions<'b>(elements: impl Iterator<Item = &'b mut MarkdownElement>, lines_offset: usize) {
+        for element in elements {
+            let position = match element {
+                MarkdownElement::FrontMatter(_)
+                | MarkdownElement::SetexHeading { .. }
+                | MarkdownElement::Heading { .. }
+                | MarkdownElement::Paragraph(_)
+                | MarkdownElement::Image(_)
+                | MarkdownElement::List(_)
+                | MarkdownElement::Code(_)
+                | MarkdownElement::Table(_)
+                | MarkdownElement::ThematicBreak
+                | MarkdownElement::BlockQuote(_) => continue,
+                MarkdownElement::Comment { source_position, .. } => source_position,
+            };
+            *position = position.offset_lines(lines_offset);
+        }
     }
 
     fn parse_node(node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
@@ -98,10 +125,7 @@ impl<'a> MarkdownParser<'a> {
         }
         let block = &block[start_tag.len()..];
         let block = &block[0..block.len() - end_tag.len()];
-        Ok(MarkdownElement::Comment {
-            comment: block.into(),
-            source_position: SourcePosition { line: sourcepos.start.line },
-        })
+        Ok(MarkdownElement::Comment { comment: block.into(), source_position: sourcepos.into() })
     }
 
     fn parse_block_quote(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
@@ -403,7 +427,7 @@ pub struct ParseError {
     pub(crate) kind: ParseErrorKind,
 
     /// The position in the source file this error originated from.
-    pub(crate) sourcepos: Sourcepos,
+    pub(crate) sourcepos: SourcePosition,
 }
 
 impl Display for ParseError {
@@ -413,8 +437,8 @@ impl Display for ParseError {
 }
 
 impl ParseError {
-    fn new(kind: ParseErrorKind, sourcepos: Sourcepos) -> Self {
-        Self { kind, sourcepos }
+    fn new<S: Into<SourcePosition>>(kind: ParseErrorKind, sourcepos: S) -> Self {
+        Self { kind, sourcepos: sourcepos.into() }
     }
 }
 
@@ -448,7 +472,7 @@ impl Display for ParseErrorKind {
 }
 
 impl ParseErrorKind {
-    fn with_sourcepos(self, sourcepos: Sourcepos) -> ParseError {
+    fn with_sourcepos<S: Into<SourcePosition>>(self, sourcepos: S) -> ParseError {
         ParseError::new(self, sourcepos)
     }
 }
@@ -497,9 +521,8 @@ impl Identifier for NodeValue {
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
-
     use super::*;
+    use std::path::Path;
 
     fn parse_single(input: &str) -> MarkdownElement {
         let arena = Arena::new();
@@ -760,5 +783,39 @@ bye
         );
         assert_eq!(parsed.len(), 3);
         assert!(matches!(parsed[1], MarkdownElement::ThematicBreak));
+    }
+
+    #[test]
+    fn error_lines_offset_by_front_matter() {
+        let input = r"---
+hi
+mom
+---
+
+* ![](potato.png)
+";
+        let arena = Arena::new();
+        let result = MarkdownParser::new(&arena).parse(input);
+        let Err(e) = result else {
+            panic!("parsing didn't fail");
+        };
+        assert_eq!(e.sourcepos.start.line, 5);
+        assert_eq!(e.sourcepos.start.column, 3);
+    }
+
+    #[test]
+    fn comment_lines_offset_by_front_matter() {
+        let parsed = parse_all(
+            r"---
+hi
+mom
+---
+
+<!-- hello -->
+",
+        );
+        let MarkdownElement::Comment { source_position, .. } = &parsed[1] else { panic!("not a comment") };
+        assert_eq!(source_position.start.line, 5);
+        assert_eq!(source_position.start.column, 1);
     }
 }
