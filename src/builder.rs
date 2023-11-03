@@ -225,7 +225,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         let comment = match comment.parse::<CommentCommand>() {
             Ok(comment) => comment,
-            Err(error) => return Err(BuildError::CommandParse { line: source_position.line, error }),
+            Err(error) => return Err(BuildError::CommandParse { line: source_position.start.line + 1, error }),
         };
         match comment {
             CommentCommand::Pause => self.process_pause(),

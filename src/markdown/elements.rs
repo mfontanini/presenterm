@@ -47,7 +47,33 @@ pub(crate) enum MarkdownElement {
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct SourcePosition {
+    pub(crate) start: LineColumn,
+}
+
+impl SourcePosition {
+    pub(crate) fn offset_lines(&self, offset: usize) -> SourcePosition {
+        let mut output = self.clone();
+        output.start.line += offset;
+        output
+    }
+}
+
+impl From<comrak::nodes::Sourcepos> for SourcePosition {
+    fn from(position: comrak::nodes::Sourcepos) -> Self {
+        Self { start: position.start.into() }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct LineColumn {
     pub(crate) line: usize,
+    pub(crate) column: usize,
+}
+
+impl From<comrak::nodes::LineColumn> for LineColumn {
+    fn from(position: comrak::nodes::LineColumn) -> Self {
+        Self { line: position.line, column: position.column }
+    }
 }
 
 /// The components that make up a paragraph.
