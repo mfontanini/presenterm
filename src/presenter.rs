@@ -260,7 +260,7 @@ pub enum PresentationError {
     Render(#[from] RenderError),
 
     #[error(transparent)]
-    LoadPresentationError(#[from] LoadPresentationError),
+    LoadPresentation(#[from] LoadPresentationError),
 
     #[error("io: {0}")]
     Io(#[from] io::Error),

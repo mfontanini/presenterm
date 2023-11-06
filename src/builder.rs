@@ -361,6 +361,7 @@ impl<'a> PresentationBuilder<'a> {
         // other.
         if matches!(last_chunk_operation, Some(RenderOperation::RenderLineBreak))
             && self.slide_state.last_chunk_ended_in_list
+            && self.chunk_operations.is_empty()
         {
             self.slide_chunks.last_mut().unwrap().pop_last();
         }
@@ -1245,6 +1246,30 @@ mod test {
         let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
         let expected_lines = &["   1. one", "      1. one_one", "      2. one_two", "   2. two"];
         assert_eq!(lines, expected_lines);
+    }
+
+    #[test]
+    fn pause_after_list() {
+        let elements = vec![
+            MarkdownElement::List(vec![ListItem {
+                depth: 0,
+                contents: "one".into(),
+                item_type: ListItemType::OrderedPeriod,
+            }]),
+            build_pause(),
+            MarkdownElement::Heading { level: 1, text: "hi".into() },
+            MarkdownElement::List(vec![ListItem {
+                depth: 0,
+                contents: "two".into(),
+                item_type: ListItemType::OrderedPeriod,
+            }]),
+        ];
+        let slides = build_presentation(elements).into_slides();
+        let first_chunk = &slides[0];
+        let operations = first_chunk.iter_operations().collect::<Vec<_>>();
+        // This is pretty easy to break, refactor soon
+        let last_operation = &operations[operations.len() - 4];
+        assert!(matches!(last_operation, RenderOperation::RenderLineBreak), "last operation is {last_operation:?}");
     }
 
     #[rstest]
