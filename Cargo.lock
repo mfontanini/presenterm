@@ -1051,6 +1051,7 @@ dependencies = [
  "once_cell",
  "rstest",
  "serde",
+ "serde_json",
  "serde_with",
  "serde_yaml",
  "strum",

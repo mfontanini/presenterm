@@ -131,7 +131,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::ThematicBreak => self.push_separator(),
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
             MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines),
-            MarkdownElement::Image(path) => self.push_image(path)?,
+            MarkdownElement::Image { path, .. } => self.push_image(path)?,
         };
         if should_clear_last {
             self.slide_state.last_element = Default::default();

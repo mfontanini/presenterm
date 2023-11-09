@@ -2,7 +2,7 @@ use clap::{error::ErrorKind, CommandFactory, Parser};
 use colored::Colorize;
 use comrak::Arena;
 use presenterm::{
-    CodeHighlighter, CommandSource, MarkdownParser, PresentMode, PresentationTheme, Presenter, Resources,
+    CodeHighlighter, CommandSource, Exporter, MarkdownParser, PresentMode, PresentationTheme, Presenter, Resources,
 };
 use std::path::{Path, PathBuf};
 
@@ -13,6 +13,14 @@ use std::path::{Path, PathBuf};
 struct Cli {
     /// The path to the markdown file that contains the presentation.
     path: PathBuf,
+
+    /// Export the presentation as a PDF rather than displaying it.
+    #[clap(short, long)]
+    export_pdf: bool,
+
+    /// Generate the PDF metadata without generating the PDF itself.
+    #[clap(long, hide = true)]
+    generate_pdf_metadata: bool,
 
     /// Whether to use presentation mode.
     #[clap(short, long, default_value_t = false)]
@@ -58,10 +66,19 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let default_highlighter = CodeHighlighter::new("base16-ocean.dark")?;
     let resources_path = cli.path.parent().unwrap_or(Path::new("/"));
     let resources = Resources::new(resources_path);
-    let commands = CommandSource::new(&cli.path);
-
-    let presenter = Presenter::new(&default_theme, default_highlighter, commands, parser, resources, mode);
-    presenter.present(&cli.path)?;
+    if cli.export_pdf || cli.generate_pdf_metadata {
+        let mut exporter = Exporter::new(parser, &default_theme, default_highlighter, resources);
+        if cli.export_pdf {
+            exporter.export_pdf(&cli.path)?;
+        } else {
+            let meta = exporter.generate_metadata(&cli.path)?;
+            println!("{}", serde_json::to_string_pretty(&meta)?);
+        }
+    } else {
+        let commands = CommandSource::new(&cli.path);
+        let presenter = Presenter::new(&default_theme, default_highlighter, commands, parser, resources, mode);
+        presenter.present(&cli.path)?;
+    }
     Ok(())
 }
 
