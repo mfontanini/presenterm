@@ -74,7 +74,7 @@ impl<'a> MarkdownParser<'a> {
                 | MarkdownElement::SetexHeading { .. }
                 | MarkdownElement::Heading { .. }
                 | MarkdownElement::Paragraph(_)
-                | MarkdownElement::Image(_)
+                | MarkdownElement::Image { .. }
                 | MarkdownElement::List(_)
                 | MarkdownElement::Code(_)
                 | MarkdownElement::Table(_)
@@ -230,7 +230,10 @@ impl<'a> MarkdownParser<'a> {
                     if !paragraph_elements.is_empty() {
                         elements.push(MarkdownElement::Paragraph(mem::take(&mut paragraph_elements)));
                     }
-                    elements.push(MarkdownElement::Image(path.into()));
+                    elements.push(MarkdownElement::Image {
+                        path: path.into(),
+                        source_position: node.data.borrow().sourcepos.into(),
+                    });
                 }
             }
         }
@@ -586,7 +589,7 @@ boop
     #[test]
     fn image() {
         let parsed = parse_single("![](potato.png)");
-        let MarkdownElement::Image(path) = parsed else { panic!("not an image: {parsed:?}") };
+        let MarkdownElement::Image { path, .. } = parsed else { panic!("not an image: {parsed:?}") };
         assert_eq!(path, Path::new("potato.png"));
     }
 

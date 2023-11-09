@@ -68,6 +68,7 @@ nix run github:mfontanini/presenterm
 * Support for an introduction slide that displays the presentation title and your name.
 * Support for slide titles.
 * Support for shell code execution.
+* Support for generating a PDF version of your presentation to share with other people.
 * Create pauses in between each slide so that it progressively renders for a more interactive presentation.
 * Text formatting support for **bold**, _italics_, ~strikethrough~, and `inline code`.
 * Automatically reload your presentation every time it changes for a fast development loop.
@@ -197,6 +198,27 @@ Any shell code can be marked for execution, making  _presenterm_ execute it and 
 In order to do this, annotate the code block with `+exec` (e.g. `bash +exec`). **Obviously use this at your own risk!**
 
 [![asciicast](https://asciinema.org/a/1v3IqCEtU9tqDjVj78Pp7SSe2.svg)](https://asciinema.org/a/1v3IqCEtU9tqDjVj78Pp7SSe2)
+
+## PDF export
+
+Presentations can be converted into PDF by using a helper tool. You can install it by running:
+
+```shell
+pip install presenterm-export
+```
+
+The only external dependency you'll need is [tmux](https://github.com/tmux/tmux/). After you've installed both of these, 
+simply run _presenterm_ with the `--export-pdf` parameter to generate the output PDF:
+
+```shell
+presenterm --export-pdf examples/demo.md
+```
+
+The output PDF will be placed in `examples/demo.pdf`. The size of each page will depend on the size of your terminal so 
+make sure to adjust accordingly before running the command above.
+
+> Note: if you're using a separate virtual env to install _presenterm-export_ just make sure you activate it before 
+> running _presenterm_ with the `--export-pdf` parameter.
 
 ## Navigation
 
