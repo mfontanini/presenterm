@@ -85,6 +85,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 fn main() {
     let cli = Cli::parse();
     if let Err(e) = run(cli) {
-        eprintln!("Failed to run presentation: {e}");
+        eprintln!("{e}");
+        std::process::exit(1);
     }
 }
