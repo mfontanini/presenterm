@@ -1,7 +1,7 @@
 use crate::{
     markdown::elements::{
-        Code, CodeFlags, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table,
-        TableRow, Text,
+        Code, CodeAttributes, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText,
+        Table, TableRow, Text,
     },
     style::TextStyle,
 };
@@ -204,8 +204,15 @@ impl<'a> MarkdownParser<'a> {
             "zig" => Zig,
             _ => Unknown,
         };
-        let flags = CodeFlags { execute: tokens.any(|token| token == "+exec") };
-        let code = Code { contents: block.literal.clone(), language, flags };
+        let mut attributes = CodeAttributes::default();
+        for token in tokens {
+            match token {
+                "+exec" => attributes.execute = true,
+                "+line_numbers" => attributes.line_numbers = true,
+                _ => (),
+            };
+        }
+        let code = Code { contents: block.literal.clone(), language, attributes };
         Ok(MarkdownElement::Code(code))
     }
 
@@ -683,7 +690,7 @@ let q = 42;
         let MarkdownElement::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
         assert_eq!(code.language, CodeLanguage::Rust);
         assert_eq!(code.contents, "let q = 42;\n");
-        assert!(!code.flags.execute);
+        assert!(!code.attributes.execute);
     }
 
     #[test]
@@ -697,7 +704,7 @@ echo hi mom
         );
         let MarkdownElement::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
         assert_eq!(code.language, CodeLanguage::Shell("bash".into()));
-        assert!(code.flags.execute);
+        assert!(code.attributes.execute);
     }
 
     #[test]

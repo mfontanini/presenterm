@@ -2,8 +2,8 @@ use crate::{
     execute::{CodeExecuter, ExecutionHandle, ExecutionState, ProcessStatus},
     markdown::{
         elements::{
-            Code, ListItem, ListItemType, MarkdownElement, ParagraphElement, SourcePosition, StyledText, Table,
-            TableRow, Text,
+            Code, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, SourcePosition, StyledText,
+            Table, TableRow, Text,
         },
         text::{WeightedLine, WeightedText},
     },
@@ -12,7 +12,7 @@ use crate::{
         PresentationThemeMetadata, RenderOnDemand, RenderOnDemandState, RenderOperation, Slide, SlideChunk,
     },
     render::{
-        highlighting::{CodeHighlighter, CodeLine},
+        highlighting::{CodeHighlighter, LanguageHighlighter, StyledTokens},
         properties::WindowSize,
     },
     resource::{LoadImageError, Resources},
@@ -22,6 +22,7 @@ use crate::{
 use itertools::Itertools;
 use serde::Deserialize;
 use std::{borrow::Cow, cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
+use syntect::highlighting::Style;
 use unicode_width::UnicodeWidthStr;
 
 // TODO: move to a theme config.
@@ -454,45 +455,25 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_code(&mut self, code: Code) {
-        let Code { contents, language, flags } = code;
-        let mut code = String::new();
-        let horizontal_padding = self.theme.code.padding.horizontal.unwrap_or(0);
-        let vertical_padding = self.theme.code.padding.vertical.unwrap_or(0);
-        if horizontal_padding == 0 && vertical_padding == 0 {
-            code = contents.clone();
-        } else {
-            if vertical_padding > 0 {
-                code.push('\n');
-            }
-            if horizontal_padding > 0 {
-                let padding = " ".repeat(horizontal_padding as usize);
-                for line in contents.lines() {
-                    code.push_str(&padding);
-                    code.push_str(line);
-                    code.push('\n');
-                }
-            } else {
-                code.push_str(&contents);
-            }
-            if vertical_padding > 0 {
-                code.push('\n');
-            }
-        }
-        let block_length = code.lines().map(|line| line.width()).max().unwrap_or(0) + horizontal_padding as usize;
-        for code_line in self.highlighter.highlight(&code, &language) {
-            let CodeLine { formatted, original } = code_line;
-            let trimmed = formatted.trim_end();
-            let original_length = original.width() - (formatted.width() - trimmed.width());
+        let lines = CodePreparer { theme: &self.theme }.prepare(&code);
+        let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
+        let padding_style = {
+            let mut highlighter = self.highlighter.language_highlighter(&CodeLanguage::Rust);
+            highlighter.style_line("//").first().expect("no styles").style
+        };
+        let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
+        for line in lines {
+            let text = line.highlight(&padding_style, &mut code_highlighter);
             self.chunk_operations.push(RenderOperation::RenderPreformattedLine(PreformattedLine {
-                text: trimmed.into(),
-                unformatted_length: original_length,
+                text,
+                unformatted_length: line.width(),
                 block_length,
                 alignment: self.theme.alignment(&ElementType::Code),
             }));
             self.push_line_break();
         }
-        if flags.execute {
-            self.push_code_execution(Code { contents, language, flags });
+        if code.attributes.execute {
+            self.push_code_execution(code);
         }
     }
 
@@ -582,6 +563,76 @@ impl<'a> PresentationBuilder<'a> {
             }
         }
         flattened_row
+    }
+}
+
+struct CodePreparer<'a> {
+    theme: &'a PresentationTheme,
+}
+
+impl<'a> CodePreparer<'a> {
+    fn prepare(&self, code: &Code) -> Vec<CodeLine> {
+        let mut lines = Vec::new();
+        let horizontal_padding = self.theme.code.padding.horizontal.unwrap_or(0);
+        let vertical_padding = self.theme.code.padding.vertical.unwrap_or(0);
+        if vertical_padding > 0 {
+            lines.push(CodeLine::empty());
+        }
+        self.push_lines(code, horizontal_padding, &mut lines);
+        if vertical_padding > 0 {
+            lines.push(CodeLine::empty());
+        }
+        lines
+    }
+
+    fn push_lines(&self, code: &Code, horizontal_padding: u8, lines: &mut Vec<CodeLine>) {
+        if code.contents.is_empty() {
+            return;
+        }
+
+        let padding = " ".repeat(horizontal_padding as usize);
+        let total_lines_width = code.contents.lines().count().ilog10();
+        for (index, line) in code.contents.lines().enumerate() {
+            let mut line = line.to_string();
+            let mut prefix = padding.clone();
+            if code.attributes.line_numbers {
+                let line_number = index + 1;
+                let line_number_width = line_number.ilog10();
+                // Suffix this with padding to make all numbers pad to the right
+                let number_padding = total_lines_width - line_number_width;
+                prefix.push_str(&" ".repeat(number_padding as usize));
+                prefix.push_str(&line_number.to_string());
+                // TODO pad based on total lines
+                prefix.push(' ');
+            }
+            line.push('\n');
+            lines.push(CodeLine { prefix, code: line, suffix: padding.clone() });
+        }
+    }
+}
+
+struct CodeLine {
+    prefix: String,
+    code: String,
+    suffix: String,
+}
+
+impl CodeLine {
+    fn empty() -> Self {
+        Self { prefix: String::new(), code: "\n".into(), suffix: String::new() }
+    }
+
+    fn width(&self) -> usize {
+        self.prefix.width() + self.code.width() + self.suffix.width()
+    }
+
+    fn highlight(&self, padding_style: &Style, code_highlighter: &mut LanguageHighlighter) -> String {
+        let mut output = StyledTokens { style: *padding_style, tokens: &self.prefix }.apply_style();
+        output.push_str(&code_highlighter.highlight_line(&self.code));
+        // Remove newline
+        output.pop();
+        output.push_str(&StyledTokens { style: *padding_style, tokens: &self.suffix }.apply_style());
+        output
     }
 }
 
@@ -954,7 +1005,10 @@ mod test {
     use rstest::rstest;
 
     use super::*;
-    use crate::{markdown::elements::CodeLanguage, presentation::PreformattedLine};
+    use crate::{
+        markdown::elements::{CodeAttributes, CodeLanguage},
+        presentation::PreformattedLine,
+    };
 
     fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
         try_build_presentation(elements).expect("build failed")
@@ -1080,7 +1134,7 @@ mod test {
             MarkdownElement::Code(Code {
                 contents: text.clone(),
                 language: CodeLanguage::Unknown,
-                flags: Default::default(),
+                attributes: Default::default(),
             }),
         ];
         let presentation = build_presentation(elements);
@@ -1278,5 +1332,30 @@ mod test {
     #[case::many_close_braces("}}}")]
     fn ignore_comments(#[case] comment: &str) {
         assert!(PresentationBuilder::should_ignore_comment(comment));
+    }
+
+    #[test]
+    fn code_with_line_numbers() {
+        let total_lines = 11;
+        let input_lines = "hi\n".repeat(total_lines);
+        let code = Code {
+            contents: input_lines,
+            language: CodeLanguage::Unknown,
+            attributes: CodeAttributes { line_numbers: true, ..Default::default() },
+        };
+        let lines = CodePreparer { theme: &Default::default() }.prepare(&code);
+        assert_eq!(lines.len(), total_lines);
+
+        let mut lines = lines.into_iter().enumerate();
+        // 0..=9
+        for (index, line) in lines.by_ref().take(9) {
+            let line_number = index + 1;
+            assert_eq!(&line.prefix, &format!(" {line_number} "));
+        }
+        // 10..
+        for (index, line) in lines {
+            let line_number = index + 1;
+            assert_eq!(&line.prefix, &format!("{line_number} "));
+        }
     }
 }
