@@ -184,8 +184,8 @@ pub(crate) struct Code {
     /// The programming language this code is written in.
     pub(crate) language: CodeLanguage,
 
-    /// The flags used for this code.
-    pub(crate) flags: CodeFlags,
+    /// The attributes used for this code.
+    pub(crate) attributes: CodeAttributes,
 }
 
 /// The language of a piece of code.
@@ -248,11 +248,14 @@ impl CodeLanguage {
     }
 }
 
-/// Flags for code blocks.
+/// Attributes for code blocks.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct CodeFlags {
-    /// Whether a code block is marked as executable.
+pub(crate) struct CodeAttributes {
+    /// Whether the code block is marked as executable.
     pub(crate) execute: bool,
+
+    /// Whether the code block should show line numbers.
+    pub(crate) line_numbers: bool,
 }
 
 /// A table.

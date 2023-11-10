@@ -18,7 +18,7 @@ impl CodeExecuter {
         if !code.language.supports_execution() {
             return Err(CodeExecuteError::UnsupportedExecution);
         }
-        if !code.flags.execute {
+        if !code.attributes.execute {
             return Err(CodeExecuteError::NotExecutableCode);
         }
         match &code.language {
@@ -147,7 +147,7 @@ impl ProcessStatus {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::markdown::elements::CodeFlags;
+    use crate::markdown::elements::CodeAttributes;
 
     #[test]
     fn shell_code_execution() {
@@ -155,7 +155,11 @@ mod test {
 echo 'hello world'
 echo 'bye'"
             .into();
-        let code = Code { contents, language: CodeLanguage::Shell("sh".into()), flags: CodeFlags { execute: true } };
+        let code = Code {
+            contents,
+            language: CodeLanguage::Shell("sh".into()),
+            attributes: CodeAttributes { execute: true, ..Default::default() },
+        };
         let handle = CodeExecuter::execute(&code).expect("execution failed");
         let state = loop {
             let state = handle.state();
@@ -171,7 +175,11 @@ echo 'bye'"
     #[test]
     fn non_executable_code_cant_be_executed() {
         let contents = String::new();
-        let code = Code { contents, language: CodeLanguage::Shell("sh".into()), flags: CodeFlags { execute: false } };
+        let code = Code {
+            contents,
+            language: CodeLanguage::Shell("sh".into()),
+            attributes: CodeAttributes { execute: false, ..Default::default() },
+        };
         let result = CodeExecuter::execute(&code);
         assert!(result.is_err());
     }

@@ -4,7 +4,7 @@ use syntect::{
     easy::HighlightLines,
     highlighting::{Style, Theme, ThemeSet},
     parsing::SyntaxSet,
-    util::{as_24_bit_terminal_escaped, LinesWithEndings},
+    util::as_24_bit_terminal_escaped,
 };
 
 static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(|| {
@@ -26,21 +26,12 @@ impl CodeHighlighter {
         Ok(Self { theme })
     }
 
-    /// Highlight a piece of code.
-    ///
-    /// This splits the given piece of code into lines, highlights them individually, and returns them.
-    pub(crate) fn highlight<'a>(&self, code: &'a str, language: &CodeLanguage) -> Vec<CodeLine<'a>> {
+    /// Create a highlighter for a specific language.
+    pub(crate) fn language_highlighter(&self, language: &CodeLanguage) -> LanguageHighlighter {
         let extension = Self::language_extension(language);
         let syntax = SYNTAX_SET.find_syntax_by_extension(extension).unwrap();
-        let mut highlight_lines = HighlightLines::new(syntax, self.theme);
-        let mut lines = Vec::new();
-        for line in LinesWithEndings::from(code) {
-            let ranges: Vec<(Style, &str)> = highlight_lines.highlight_line(line, &SYNTAX_SET).unwrap();
-            let escaped = as_24_bit_terminal_escaped(&ranges, true);
-            let code_line = CodeLine { original: line, formatted: escaped };
-            lines.push(code_line);
-        }
-        lines
+        let highlighter = HighlightLines::new(syntax, self.theme);
+        LanguageHighlighter { highlighter }
     }
 
     fn language_extension(language: &CodeLanguage) -> &'static str {
@@ -99,16 +90,35 @@ impl CodeHighlighter {
         }
     }
 }
+pub(crate) struct LanguageHighlighter {
+    highlighter: HighlightLines<'static>,
+}
 
-/// A line of highlighted code.
-pub(crate) struct CodeLine<'a> {
-    /// The original line of code.
-    pub(crate) original: &'a str,
+impl LanguageHighlighter {
+    pub(crate) fn highlight_line(&mut self, line: &str) -> String {
+        let ranges = self.highlighter.highlight_line(line, &SYNTAX_SET).unwrap();
+        as_24_bit_terminal_escaped(&ranges, true)
+    }
 
-    /// The formatted line of code.
-    ///
-    /// This uses terminal escape codes internally and is ready to be printed.
-    pub(crate) formatted: String,
+    pub(crate) fn style_line<'a>(&mut self, line: &'a str) -> Vec<StyledTokens<'a>> {
+        self.highlighter
+            .highlight_line(line, &SYNTAX_SET)
+            .unwrap()
+            .into_iter()
+            .map(|(style, tokens)| StyledTokens { style, tokens })
+            .collect()
+    }
+}
+
+pub(crate) struct StyledTokens<'a> {
+    pub(crate) style: Style,
+    pub(crate) tokens: &'a str,
+}
+
+impl<'a> StyledTokens<'a> {
+    pub(crate) fn apply_style(&self) -> String {
+        as_24_bit_terminal_escaped(&[(self.style, self.tokens)], true)
+    }
 }
 
 /// A theme could not be found.
