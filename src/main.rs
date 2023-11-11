@@ -1,5 +1,4 @@
 use clap::{error::ErrorKind, CommandFactory, Parser};
-use colored::Colorize;
 use comrak::Arena;
 use presenterm::{
     CodeHighlighter, CommandSource, Exporter, MarkdownParser, PresentMode, PresentationTheme, Presenter, Resources,
@@ -9,7 +8,7 @@ use std::path::{Path, PathBuf};
 /// Run slideshows from your terminal.
 #[derive(Parser)]
 #[command()]
-#[command(author, version, about = show_splashes(), long_about = show_splashes(), arg_required_else_help = true)]
+#[command(author, version, about = create_splash(), long_about = create_splash(), arg_required_else_help = true)]
 struct Cli {
     /// The path to the markdown file that contains the presentation.
     path: PathBuf,
@@ -31,10 +30,10 @@ struct Cli {
     theme: String,
 }
 
-fn show_splashes() -> String {
+fn create_splash() -> String {
     let crate_version = env!("CARGO_PKG_VERSION");
 
-    let logo = format!(
+    format!(
         r#"
   ┌─┐┬─┐┌─┐┌─┐┌─┐┌┐┌┌┬┐┌─┐┬─┐┌┬┐
   ├─┘├┬┘├┤ └─┐├┤ │││ │ ├┤ ├┬┘│││
@@ -44,9 +43,6 @@ fn show_splashes() -> String {
 "#,
         crate_version,
     )
-    .bold()
-    .purple();
-    format!("{logo}")
 }
 
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
