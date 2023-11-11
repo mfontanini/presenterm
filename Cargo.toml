@@ -26,7 +26,6 @@ tempfile = "3.8"
 thiserror = "1"
 unicode-width = "0.1"
 viuer = "0.7.1"
-colored = "2.0.4"
 
 [dependencies.syntect]
 version = "5.1"
