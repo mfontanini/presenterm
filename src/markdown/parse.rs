@@ -1,7 +1,7 @@
 use crate::{
-    markdown::elements::{
-        Code, CodeAttributes, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText,
-        Table, TableRow, Text,
+    markdown::{
+        code::CodeBlockParser,
+        elements::{ListItem, ListItemType, MarkdownElement, ParagraphElement, StyledText, Table, TableRow, Text},
     },
     style::TextStyle,
 };
@@ -18,7 +18,7 @@ use std::{
     mem,
 };
 
-use super::elements::SourcePosition;
+use super::{code::CodeBlockParseError, elements::SourcePosition};
 
 /// The result of parsing a markdown file.
 pub(crate) type ParseResult<T> = Result<T, ParseError>;
@@ -151,68 +151,8 @@ impl<'a> MarkdownParser<'a> {
         if !block.fenced {
             return Err(ParseErrorKind::UnfencedCodeBlock.with_sourcepos(sourcepos));
         }
-        use CodeLanguage::*;
-        let info = block.info.as_str();
-        let mut tokens = info.split(' ');
-        let language = match tokens.next().unwrap_or("") {
-            "ada" => Ada,
-            "asp" => Asp,
-            "awk" => Awk,
-            "c" => C,
-            "cmake" => CMake,
-            "crontab" => Crontab,
-            "csharp" => CSharp,
-            "clojure" => Clojure,
-            "cpp" | "c++" => Cpp,
-            "css" => Css,
-            "d" => DLang,
-            "docker" => Docker,
-            "dotenv" => Dotenv,
-            "elixir" => Elixir,
-            "elm" => Elm,
-            "erlang" => Erlang,
-            "go" => Go,
-            "haskell" => Haskell,
-            "html" => Html,
-            "java" => Java,
-            "javascript" | "js" => JavaScript,
-            "json" => Json,
-            "kotlin" => Kotlin,
-            "latex" => Latex,
-            "lua" => Lua,
-            "make" => Makefile,
-            "markdown" => Markdown,
-            "ocaml" => OCaml,
-            "perl" => Perl,
-            "php" => Php,
-            "protobuf" => Protobuf,
-            "puppet" => Puppet,
-            "python" => Python,
-            "r" => R,
-            "rust" => Rust,
-            "scala" => Scala,
-            "shell" => Shell("sh".into()),
-            interpreter @ ("bash" | "sh" | "zsh" | "fish") => Shell(interpreter.into()),
-            "sql" => Sql,
-            "svelte" => Svelte,
-            "swift" => Swift,
-            "terraform" => Terraform,
-            "typescript" | "ts" => TypeScript,
-            "xml" => Xml,
-            "yaml" => Yaml,
-            "vue" => Vue,
-            "zig" => Zig,
-            _ => Unknown,
-        };
-        let mut attributes = CodeAttributes::default();
-        for token in tokens {
-            match token {
-                "+exec" => attributes.execute = true,
-                "+line_numbers" => attributes.line_numbers = true,
-                _ => (),
-            };
-        }
-        let code = Code { contents: block.literal.clone(), language, attributes };
+        let code =
+            CodeBlockParser::parse(block).map_err(|e| ParseErrorKind::InvalidCodeBlock(e).with_sourcepos(sourcepos))?;
         Ok(MarkdownElement::Code(code))
     }
 
@@ -464,6 +404,9 @@ pub(crate) enum ParseErrorKind {
     /// We don't support unfenced code blocks.
     UnfencedCodeBlock,
 
+    /// A code block contains invalid attributes.
+    InvalidCodeBlock(CodeBlockParseError),
+
     /// An internal parsing error.
     Internal(String),
 }
@@ -476,6 +419,7 @@ impl Display for ParseErrorKind {
                 write!(f, "unsupported structure in {container}: {element}")
             }
             Self::UnfencedCodeBlock => write!(f, "only fenced code blocks are supported"),
+            Self::InvalidCodeBlock(error) => write!(f, "invalid code block: {error}"),
             Self::Internal(message) => write!(f, "internal error: {message}"),
         }
     }
@@ -532,6 +476,7 @@ impl Identifier for NodeValue {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::markdown::elements::CodeLanguage;
     use std::path::Path;
 
     fn parse_single(input: &str) -> MarkdownElement {
