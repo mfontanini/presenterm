@@ -256,6 +256,9 @@ pub(crate) struct CodeAttributes {
 
     /// Whether the code block should show line numbers.
     pub(crate) line_numbers: bool,
+
+    /// Highlight only these lines.
+    pub(crate) highlighted_lines: Option<Vec<u16>>,
 }
 
 /// A table.
