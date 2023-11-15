@@ -129,77 +129,33 @@ impl CodeBlockParser {
         Ok((attribute, input))
     }
 
-    fn parse_highlighted_lines(mut input: &str) -> ParseResult<(Vec<u16>, &str)> {
-        let mut lines = Vec::new();
-        loop {
-            let (numbers, tail) = Self::parse_numbers(input)?;
-            lines.extend(numbers);
-            input = tail;
-
-            let Some(next) = input.chars().next() else {
-                return Err(CodeBlockParseError::InvalidHighlightedLines("no enclosing '}'".into()));
-            };
-
-            match next {
-                '}' => {
-                    return Ok((lines, &input[1..]));
-                }
-                ',' => {
-                    input = &input[1..];
-                }
-                other => {
-                    return Err(CodeBlockParseError::InvalidHighlightedLines(format!(
-                        "unexpected token '{other}', expected ',' or '}}'"
-                    )));
-                }
-            };
-        }
-    }
-
-    fn parse_numbers(mut input: &str) -> ParseResult<(Vec<u16>, &str)> {
-        let (number, tail) = Self::parse_number(input)?;
-        input = tail;
-        let Some(next) = input.chars().next() else {
+    fn parse_highlighted_lines(input: &str) -> ParseResult<(Vec<u16>, &str)> {
+        let Some((head, tail)) = input.split_once('}') else {
             return Err(CodeBlockParseError::InvalidHighlightedLines("no enclosing '}'".into()));
         };
-        match next {
-            '}' | ',' => Ok((vec![number], input)),
-            '-' => {
-                let (range_end, tail) = Self::parse_number(&input[1..])?;
-                let range = (number..=range_end).collect();
-                Ok((range, tail))
-            }
-            _ => Err(CodeBlockParseError::InvalidHighlightedLines(format!(
-                "unexpected token '{next}', expected ',', '-', or '}}'"
-            ))),
-        }
-    }
-
-    fn parse_number(input: &str) -> ParseResult<(u16, &str)> {
-        let mut input = Self::skip_whitespace(input);
-        let mut output: Option<u16> = None;
-        loop {
-            let Some(next) = input.chars().next() else {
-                return Err(CodeBlockParseError::InvalidHighlightedLines("unexpected end of input".into()));
-            };
-            match next.to_digit(10) {
-                Some(digit) => {
-                    let digit = digit as u16;
-                    let next_number =
-                        output.unwrap_or(0).checked_mul(10).and_then(|number| number.checked_add(digit)).ok_or_else(
-                            || CodeBlockParseError::InvalidHighlightedLines("line number too large".into()),
-                        )?;
-                    output = Some(next_number);
+        let mut lines = Vec::new();
+        for piece in head.split(',') {
+            let piece = piece.trim();
+            match piece.split_once('-') {
+                Some((left, right)) => {
+                    let left = Self::parse_number(left)?;
+                    let right = Self::parse_number(right)?;
+                    lines.extend(left..=right);
                 }
                 None => {
-                    return match output {
-                        Some(output) => Ok((output, Self::skip_whitespace(input))),
-                        None => Err(CodeBlockParseError::InvalidHighlightedLines("missing number".into())),
-                    };
+                    let number = Self::parse_number(piece)?;
+                    lines.push(number);
                 }
-            };
-            input = &input[1..];
+            }
         }
+        Ok((lines, tail))
+    }
+
+    fn parse_number(input: &str) -> ParseResult<u16> {
+        input
+            .trim()
+            .parse()
+            .map_err(|_| CodeBlockParseError::InvalidHighlightedLines(format!("not a number: '{input}'")))
     }
 
     fn skip_whitespace(input: &str) -> &str {
