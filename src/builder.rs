@@ -461,9 +461,17 @@ impl<'a> PresentationBuilder<'a> {
             let mut highlighter = self.highlighter.language_highlighter(&CodeLanguage::Rust);
             highlighter.style_line("//").first().expect("no styles").style
         };
+        let mut empty_highlighter = self.highlighter.language_highlighter(&CodeLanguage::Unknown);
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
-        for line in lines {
-            let text = line.highlight(&padding_style, &mut code_highlighter);
+        for line in lines.into_iter() {
+            let needs_highlight = match &code.attributes.highlighted_lines {
+                Some(lines) => line.line_number.map(|number| lines.contains(&number)).unwrap_or_default(),
+                None => true,
+            };
+            let text = match needs_highlight {
+                true => line.highlight(&padding_style, &mut code_highlighter),
+                false => line.highlight(&padding_style, &mut empty_highlighter),
+            };
             self.chunk_operations.push(RenderOperation::RenderPreformattedLine(PreformattedLine {
                 text,
                 unformatted_length: line.width(),
@@ -606,7 +614,8 @@ impl<'a> CodePreparer<'a> {
                 prefix.push(' ');
             }
             line.push('\n');
-            lines.push(CodeLine { prefix, code: line, suffix: padding.clone() });
+            let line_number = Some(index as u16 + 1);
+            lines.push(CodeLine { prefix, code: line, suffix: padding.clone(), line_number });
         }
     }
 }
@@ -615,11 +624,12 @@ struct CodeLine {
     prefix: String,
     code: String,
     suffix: String,
+    line_number: Option<u16>,
 }
 
 impl CodeLine {
     fn empty() -> Self {
-        Self { prefix: String::new(), code: "\n".into(), suffix: String::new() }
+        Self { prefix: String::new(), code: "\n".into(), suffix: String::new(), line_number: None }
     }
 
     fn width(&self) -> usize {
