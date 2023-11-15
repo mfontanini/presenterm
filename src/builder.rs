@@ -465,7 +465,7 @@ impl<'a> PresentationBuilder<'a> {
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         for line in lines.into_iter() {
             let needs_highlight = match &code.attributes.highlighted_lines {
-                Some(lines) => line.line_number.map(|number| lines.contains(&number)).unwrap_or_default(),
+                Some(lines) => line.line_number.map(|number| lines.contains(number)).unwrap_or_default(),
                 None => true,
             };
             let text = match needs_highlight {

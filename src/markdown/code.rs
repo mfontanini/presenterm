@@ -1,4 +1,4 @@
-use super::elements::{Code, CodeAttributes, CodeLanguage};
+use super::elements::{Code, CodeAttributes, CodeLanguage, Highlight, HighlightedLines};
 use comrak::nodes::NodeCodeBlock;
 
 pub(crate) type ParseResult<T> = Result<T, CodeBlockParseError>;
@@ -99,7 +99,7 @@ impl CodeBlockParser {
                     if attributes.highlighted_lines.is_some() {
                         return Err(CodeBlockParseError::DuplicateAttribute("{..}"));
                     }
-                    attributes.highlighted_lines = Some(lines)
+                    attributes.highlighted_lines = Some(HighlightedLines::new(lines))
                 }
             };
             input = rest;
@@ -129,26 +129,38 @@ impl CodeBlockParser {
         Ok((attribute, input))
     }
 
-    fn parse_highlighted_lines(input: &str) -> ParseResult<(Vec<u16>, &str)> {
+    fn parse_highlighted_lines(input: &str) -> ParseResult<(Vec<Highlight>, &str)> {
+        use CodeBlockParseError::InvalidHighlightedLines;
         let Some((head, tail)) = input.split_once('}') else {
-            return Err(CodeBlockParseError::InvalidHighlightedLines("no enclosing '}'".into()));
+            return Err(InvalidHighlightedLines("no enclosing '}'".into()));
         };
-        let mut lines = Vec::new();
+        let head = head.trim();
+        if head.is_empty() {
+            return Ok((Vec::new(), tail));
+        }
+
+        let mut highlights = Vec::new();
         for piece in head.split(',') {
             let piece = piece.trim();
+            if piece == "all" {
+                highlights.push(Highlight::All);
+                continue;
+            }
             match piece.split_once('-') {
                 Some((left, right)) => {
                     let left = Self::parse_number(left)?;
                     let right = Self::parse_number(right)?;
-                    lines.extend(left..=right);
+                    let right =
+                        right.checked_add(1).ok_or_else(|| InvalidHighlightedLines(format!("{right} is too large")))?;
+                    highlights.push(Highlight::Range(left..right));
                 }
                 None => {
                     let number = Self::parse_number(piece)?;
-                    lines.push(number);
+                    highlights.push(Highlight::Single(number));
                 }
             }
         }
-        Ok((lines, tail))
+        Ok((highlights, tail))
     }
 
     fn parse_number(input: &str) -> ParseResult<u16> {
@@ -188,14 +200,14 @@ pub(crate) enum CodeBlockParseError {
 enum Attribute {
     LineNumbers,
     Exec,
-    HighlightedLines(Vec<u16>),
+    HighlightedLines(Vec<Highlight>),
 }
 
 #[cfg(test)]
 mod test {
-    use rstest::rstest;
-
     use super::*;
+    use rstest::rstest;
+    use Highlight::*;
 
     fn parse_language(input: &str) -> CodeLanguage {
         let (language, _) = CodeBlockParser::parse_block_info(input).expect("parse failed");
@@ -254,14 +266,23 @@ mod test {
     }
 
     #[test]
+    fn highlight_none() {
+        let attributes = parse_attributes("bash {}");
+        assert_eq!(attributes.highlighted_lines, Some(HighlightedLines::new(vec![])));
+    }
+
+    #[test]
     fn highlight_specific_lines() {
         let attributes = parse_attributes("bash {   1, 2  , 3   }");
-        assert_eq!(attributes.highlighted_lines, Some(vec![1, 2, 3]));
+        assert_eq!(attributes.highlighted_lines, Some(HighlightedLines::new(vec![Single(1), Single(2), Single(3)])));
     }
 
     #[test]
     fn highlight_line_range() {
-        let attributes = parse_attributes("bash {   1, 2-4,5 ,10 - 12  }");
-        assert_eq!(attributes.highlighted_lines, Some(vec![1, 2, 3, 4, 5, 10, 11, 12]));
+        let attributes = parse_attributes("bash {   1, 2-4,6 ,  all , 10 - 12  }");
+        assert_eq!(
+            attributes.highlighted_lines,
+            Some(HighlightedLines::new(vec![Single(1), Range(2..5), Single(6), All, Range(10..13)]))
+        );
     }
 }
