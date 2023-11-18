@@ -2,7 +2,7 @@ use crate::{
     execute::{CodeExecuter, ExecutionHandle, ExecutionState, ProcessStatus},
     markdown::{
         elements::{
-            Code, CodeLanguage, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement,
+            Code, CodeLanguage, Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement,
             SourcePosition, StyledText, Table, TableRow, Text,
         },
         text::{WeightedLine, WeightedText},
@@ -28,6 +28,16 @@ use unicode_width::UnicodeWidthStr;
 // TODO: move to a theme config.
 static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
 
+pub(crate) struct PresentationBuilderOptions {
+    pub(crate) allow_mutations: bool,
+}
+
+impl Default for PresentationBuilderOptions {
+    fn default() -> Self {
+        Self { allow_mutations: true }
+    }
+}
+
 /// Builds a presentation.
 ///
 /// This type transforms [MarkdownElement]s and turns them into a presentation, which is made up of
@@ -42,6 +52,7 @@ pub(crate) struct PresentationBuilder<'a> {
     resources: &'a mut Resources,
     slide_state: SlideState,
     footer_context: Rc<RefCell<FooterContext>>,
+    options: PresentationBuilderOptions,
 }
 
 impl<'a> PresentationBuilder<'a> {
@@ -50,6 +61,7 @@ impl<'a> PresentationBuilder<'a> {
         default_highlighter: CodeHighlighter,
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
+        options: PresentationBuilderOptions,
     ) -> Self {
         Self {
             slide_chunks: Vec::new(),
@@ -61,6 +73,7 @@ impl<'a> PresentationBuilder<'a> {
             resources,
             slide_state: Default::default(),
             footer_context: Default::default(),
+            options,
         }
     }
 
@@ -462,7 +475,9 @@ impl<'a> PresentationBuilder<'a> {
         for line in lines {
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
         }
-        self.chunk_mutators.push(Box::new(HighlightMutator { context }));
+        if self.options.allow_mutations && context.borrow().groups.len() > 1 {
+            self.chunk_mutators.push(Box::new(HighlightMutator { context }));
+        }
         if code.attributes.execute {
             self.push_code_execution(code);
         }
@@ -477,7 +492,10 @@ impl<'a> PresentationBuilder<'a> {
             let mut highlighter = self.highlighter.language_highlighter(&CodeLanguage::Rust);
             highlighter.style_line("//").first().expect("no styles").style
         };
-        let groups = code.attributes.highlight_groups.clone();
+        let groups = match self.options.allow_mutations {
+            true => code.attributes.highlight_groups.clone(),
+            false => vec![HighlightGroup::new(vec![Highlight::All])],
+        };
         let context = Rc::new(RefCell::new(HighlightContext {
             groups,
             current: 0,
@@ -1132,7 +1150,8 @@ mod test {
         let highlighter = CodeHighlighter::new("base16-ocean.dark").unwrap();
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp");
-        let builder = PresentationBuilder::new(highlighter, &theme, &mut resources);
+        let options = PresentationBuilderOptions::default();
+        let builder = PresentationBuilder::new(highlighter, &theme, &mut resources, options);
         builder.build(elements)
     }
 

@@ -1,5 +1,5 @@
 use crate::{
-    builder::{BuildError, PresentationBuilder},
+    builder::{BuildError, PresentationBuilder, PresentationBuilderOptions},
     markdown::{elements::MarkdownElement, parse::ParseError},
     presentation::Presentation,
     CodeHighlighter, MarkdownParser, PresentationTheme, Resources,
@@ -54,9 +54,14 @@ impl<'a> Exporter<'a> {
         let elements = self.parser.parse(content)?;
         let base_path = path.parent().expect("no parent").canonicalize().expect("canonicalize");
         let images = Self::build_image_metadata(&elements, &base_path);
-        let presentation =
-            PresentationBuilder::new(self.default_highlighter.clone(), self.default_theme, &mut self.resources)
-                .build(elements)?;
+        let options = PresentationBuilderOptions { allow_mutations: false };
+        let presentation = PresentationBuilder::new(
+            self.default_highlighter.clone(),
+            self.default_theme,
+            &mut self.resources,
+            options,
+        )
+        .build(elements)?;
         let commands = Self::build_capture_commands(presentation);
         let presentation_path = path.canonicalize().map_err(ExportError::ReadPresentation)?;
         let metadata = ExportMetadata { commands, presentation_path, images };
