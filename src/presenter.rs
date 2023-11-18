@@ -1,5 +1,5 @@
 use crate::{
-    builder::{BuildError, PresentationBuilder},
+    builder::{BuildError, PresentationBuilder, PresentationBuilderOptions},
     diff::PresentationDiffer,
     input::source::{Command, CommandSource},
     markdown::parse::{MarkdownParser, ParseError},
@@ -179,9 +179,17 @@ impl<'a> Presenter<'a> {
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
         let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
         let elements = self.parser.parse(&content)?;
-        let presentation =
-            PresentationBuilder::new(self.default_highlighter.clone(), self.default_theme, &mut self.resources)
-                .build(elements)?;
+        let mut options = PresentationBuilderOptions::default();
+        if matches!(self.mode, PresentMode::Export) {
+            options.allow_mutations = false;
+        }
+        let presentation = PresentationBuilder::new(
+            self.default_highlighter.clone(),
+            self.default_theme,
+            &mut self.resources,
+            options,
+        )
+        .build(elements)?;
         Ok(presentation)
     }
 }
@@ -238,6 +246,9 @@ pub enum PresentMode {
 
     /// This is a live presentation so we don't want hot reloading.
     Presentation,
+
+    /// We are running a presentation that's being consumed by `presenterm-export`.
+    Export,
 }
 
 /// An error when loading a presentation.

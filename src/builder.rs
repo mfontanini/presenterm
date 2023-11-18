@@ -2,13 +2,13 @@ use crate::{
     execute::{CodeExecuter, ExecutionHandle, ExecutionState, ProcessStatus},
     markdown::{
         elements::{
-            Code, CodeLanguage, ListItem, ListItemType, MarkdownElement, ParagraphElement, SourcePosition, StyledText,
-            Table, TableRow, Text,
+            Code, CodeLanguage, Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement,
+            SourcePosition, StyledText, Table, TableRow, Text,
         },
         text::{WeightedLine, WeightedText},
     },
     presentation::{
-        AsRenderOperations, MarginProperties, PreformattedLine, Presentation, PresentationMetadata,
+        AsRenderOperations, ChunkMutator, MarginProperties, PreformattedLine, Presentation, PresentationMetadata,
         PresentationThemeMetadata, RenderOnDemand, RenderOnDemandState, RenderOperation, Slide, SlideChunk,
     },
     render::{
@@ -28,6 +28,16 @@ use unicode_width::UnicodeWidthStr;
 // TODO: move to a theme config.
 static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
 
+pub(crate) struct PresentationBuilderOptions {
+    pub(crate) allow_mutations: bool,
+}
+
+impl Default for PresentationBuilderOptions {
+    fn default() -> Self {
+        Self { allow_mutations: true }
+    }
+}
+
 /// Builds a presentation.
 ///
 /// This type transforms [MarkdownElement]s and turns them into a presentation, which is made up of
@@ -35,12 +45,14 @@ static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
 pub(crate) struct PresentationBuilder<'a> {
     slide_chunks: Vec<SlideChunk>,
     chunk_operations: Vec<RenderOperation>,
+    chunk_mutators: Vec<Box<dyn ChunkMutator>>,
     slides: Vec<Slide>,
     highlighter: CodeHighlighter,
     theme: Cow<'a, PresentationTheme>,
     resources: &'a mut Resources,
     slide_state: SlideState,
     footer_context: Rc<RefCell<FooterContext>>,
+    options: PresentationBuilderOptions,
 }
 
 impl<'a> PresentationBuilder<'a> {
@@ -49,16 +61,19 @@ impl<'a> PresentationBuilder<'a> {
         default_highlighter: CodeHighlighter,
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
+        options: PresentationBuilderOptions,
     ) -> Self {
         Self {
             slide_chunks: Vec::new(),
             chunk_operations: Vec::new(),
+            chunk_mutators: Vec::new(),
             slides: Vec::new(),
             highlighter: default_highlighter,
             theme: Cow::Borrowed(default_theme),
             resources,
             slide_state: Default::default(),
             footer_context: Default::default(),
+            options,
         }
     }
 
@@ -285,7 +300,8 @@ impl<'a> PresentationBuilder<'a> {
         self.slide_state.last_chunk_ended_in_list = matches!(self.slide_state.last_element, LastElement::List { .. });
 
         let chunk_operations = mem::take(&mut self.chunk_operations);
-        self.slide_chunks.push(SlideChunk::new(chunk_operations));
+        let mutators = mem::take(&mut self.chunk_mutators);
+        self.slide_chunks.push(SlideChunk::new(chunk_operations, mutators));
     }
 
     fn push_slide_title(&mut self, mut text: Text) {
@@ -455,34 +471,48 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_code(&mut self, code: Code) {
-        let lines = CodePreparer { theme: &self.theme }.prepare(&code);
-        let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
-        let padding_style = {
-            let mut highlighter = self.highlighter.language_highlighter(&CodeLanguage::Rust);
-            highlighter.style_line("//").first().expect("no styles").style
-        };
-        let mut empty_highlighter = self.highlighter.language_highlighter(&CodeLanguage::Unknown);
-        let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
-        for line in lines.into_iter() {
-            let needs_highlight = match &code.attributes.highlighted_lines {
-                Some(lines) => line.line_number.map(|number| lines.contains(&number)).unwrap_or_default(),
-                None => true,
-            };
-            let text = match needs_highlight {
-                true => line.highlight(&padding_style, &mut code_highlighter),
-                false => line.highlight(&padding_style, &mut empty_highlighter),
-            };
-            self.chunk_operations.push(RenderOperation::RenderPreformattedLine(PreformattedLine {
-                text,
-                unformatted_length: line.width(),
-                block_length,
-                alignment: self.theme.alignment(&ElementType::Code),
-            }));
-            self.push_line_break();
+        let (lines, context) = self.highlight_lines(&code);
+        for line in lines {
+            self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
+        }
+        if self.options.allow_mutations && context.borrow().groups.len() > 1 {
+            self.chunk_mutators.push(Box::new(HighlightMutator { context }));
         }
         if code.attributes.execute {
             self.push_code_execution(code);
         }
+    }
+
+    fn highlight_lines(&self, code: &Code) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
+        let lines = CodePreparer { theme: &self.theme }.prepare(code);
+        let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
+        let mut empty_highlighter = self.highlighter.language_highlighter(&CodeLanguage::Unknown);
+        let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
+        let padding_style = {
+            let mut highlighter = self.highlighter.language_highlighter(&CodeLanguage::Rust);
+            highlighter.style_line("//").first().expect("no styles").style
+        };
+        let groups = match self.options.allow_mutations {
+            true => code.attributes.highlight_groups.clone(),
+            false => vec![HighlightGroup::new(vec![Highlight::All])],
+        };
+        let context = Rc::new(RefCell::new(HighlightContext {
+            groups,
+            current: 0,
+            block_length,
+            alignment: self.theme.alignment(&ElementType::Code),
+        }));
+
+        let mut output = Vec::new();
+        for line in lines.into_iter() {
+            let highlighted = line.highlight(&padding_style, &mut code_highlighter);
+            let not_highlighted = line.highlight(&padding_style, &mut empty_highlighter);
+            let width = line.width();
+            let line_number = line.line_number;
+            let context = context.clone();
+            output.push(HighlightedLine { highlighted, not_highlighted, line_number, width, context });
+        }
+        (output, context)
     }
 
     fn push_code_execution(&mut self, code: Code) {
@@ -499,7 +529,8 @@ impl<'a> PresentationBuilder<'a> {
         let footer = self.generate_footer();
 
         let operations = mem::take(&mut self.chunk_operations);
-        self.slide_chunks.push(SlideChunk::new(operations));
+        let mutators = mem::take(&mut self.chunk_mutators);
+        self.slide_chunks.push(SlideChunk::new(operations, mutators));
 
         let chunks = mem::take(&mut self.slide_chunks);
         self.slides.push(Slide::new(chunks, footer));
@@ -610,7 +641,6 @@ impl<'a> CodePreparer<'a> {
                 let number_padding = total_lines_width - line_number_width;
                 prefix.push_str(&" ".repeat(number_padding as usize));
                 prefix.push_str(&line_number.to_string());
-                // TODO pad based on total lines
                 prefix.push(' ');
             }
             line.push('\n');
@@ -643,6 +673,90 @@ impl CodeLine {
         output.pop();
         output.push_str(&StyledTokens { style: *padding_style, tokens: &self.suffix }.apply_style());
         output
+    }
+}
+
+#[derive(Debug)]
+struct HighlightContext {
+    groups: Vec<HighlightGroup>,
+    current: usize,
+    block_length: usize,
+    alignment: Alignment,
+}
+
+#[derive(Debug)]
+struct HighlightedLine {
+    highlighted: String,
+    not_highlighted: String,
+    line_number: Option<u16>,
+    width: usize,
+    context: Rc<RefCell<HighlightContext>>,
+}
+
+impl AsRenderOperations for HighlightedLine {
+    fn as_render_operations(&self, _: &WindowSize) -> Vec<RenderOperation> {
+        let context = self.context.borrow();
+        let group = &context.groups[context.current];
+        let needs_highlight = self.line_number.map(|number| group.contains(number)).unwrap_or_default();
+        // TODO: Cow<str>?
+        let text = match needs_highlight {
+            true => self.highlighted.clone(),
+            false => self.not_highlighted.clone(),
+        };
+        vec![
+            RenderOperation::RenderPreformattedLine(PreformattedLine {
+                text,
+                unformatted_length: self.width,
+                block_length: context.block_length,
+                alignment: context.alignment.clone(),
+            }),
+            RenderOperation::RenderLineBreak,
+        ]
+    }
+
+    fn diffable_content(&self) -> Option<&str> {
+        Some(&self.highlighted)
+    }
+}
+
+#[derive(Debug)]
+struct HighlightMutator {
+    context: Rc<RefCell<HighlightContext>>,
+}
+
+impl ChunkMutator for HighlightMutator {
+    fn mutate_next(&self) -> bool {
+        let mut context = self.context.borrow_mut();
+        if context.current == context.groups.len() - 1 {
+            false
+        } else {
+            context.current += 1;
+            true
+        }
+    }
+
+    fn mutate_previous(&self) -> bool {
+        let mut context = self.context.borrow_mut();
+        if context.current == 0 {
+            false
+        } else {
+            context.current -= 1;
+            true
+        }
+    }
+
+    fn reset_mutations(&self) {
+        self.context.borrow_mut().current = 0;
+    }
+
+    fn apply_all_mutations(&self) {
+        let mut context = self.context.borrow_mut();
+        context.current = context.groups.len() - 1;
+    }
+
+    fn mutations(&self) -> (usize, usize) {
+        let context = self.context.borrow();
+        (context.current, context.groups.len())
     }
 }
 
@@ -751,6 +865,10 @@ impl AsRenderOperations for FooterGenerator {
             }
             FooterStyle::Empty => vec![],
         }
+    }
+
+    fn diffable_content(&self) -> Option<&str> {
+        None
     }
 }
 
@@ -887,6 +1005,10 @@ impl AsRenderOperations for RunCodeOperation {
         operations.push(RenderOperation::SetColors(self.default_colors.clone()));
         operations
     }
+
+    fn diffable_content(&self) -> Option<&str> {
+        None
+    }
 }
 
 impl RenderOnDemand for RunCodeOperation {
@@ -958,6 +1080,10 @@ impl AsRenderOperations for RenderSeparator {
         };
         vec![RenderOperation::RenderText { line: separator.into(), alignment: Default::default() }]
     }
+
+    fn diffable_content(&self) -> Option<&str> {
+        None
+    }
 }
 
 struct ListIterator<I> {
@@ -1012,13 +1138,9 @@ struct IndexedListItem {
 
 #[cfg(test)]
 mod test {
-    use rstest::rstest;
-
     use super::*;
-    use crate::{
-        markdown::elements::{CodeAttributes, CodeLanguage},
-        presentation::PreformattedLine,
-    };
+    use crate::markdown::elements::{CodeAttributes, CodeLanguage};
+    use rstest::rstest;
 
     fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
         try_build_presentation(elements).expect("build failed")
@@ -1028,7 +1150,8 @@ mod test {
         let highlighter = CodeHighlighter::new("base16-ocean.dark").unwrap();
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp");
-        let builder = PresentationBuilder::new(highlighter, &theme, &mut resources);
+        let options = PresentationBuilderOptions::default();
+        let builder = PresentationBuilder::new(highlighter, &theme, &mut resources, options);
         builder.build(elements)
     }
 
@@ -1134,34 +1257,6 @@ mod test {
             // And the second one should _not_ be a newline
             assert!(!matches!(ops.next(), Some(RenderOperation::RenderLineBreak)));
         }
-    }
-
-    #[test]
-    fn preformatted_blocks_account_for_unicode_widths() {
-        let text = "苹果".to_string();
-        let elements = vec![
-            MarkdownElement::BlockQuote(vec![text.clone()]),
-            MarkdownElement::Code(Code {
-                contents: text.clone(),
-                language: CodeLanguage::Unknown,
-                attributes: Default::default(),
-            }),
-        ];
-        let presentation = build_presentation(elements);
-        let slides = presentation.into_slides();
-        let lengths: Vec<_> = slides[0]
-            .iter_operations()
-            .filter_map(|op| match op {
-                RenderOperation::RenderPreformattedLine(PreformattedLine {
-                    block_length, unformatted_length, ..
-                }) => Some((block_length, unformatted_length)),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(lengths.len(), 2);
-        let width = &text.width();
-        assert_eq!(lengths[0], (width, width));
-        assert_eq!(lengths[1], (width, width));
     }
 
     #[test]

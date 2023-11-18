@@ -1,5 +1,5 @@
 use crate::presentation::{Presentation, RenderOperation, SlideChunk};
-use std::{cmp::Ordering, fmt::Debug, mem};
+use std::{any::Any, cmp::Ordering, fmt::Debug, mem};
 
 /// Allow diffing presentations.
 pub(crate) struct PresentationDiffer;
@@ -77,8 +77,10 @@ impl ContentDiff for RenderOperation {
                 true
             }
             (EnterColumn { column: original }, EnterColumn { column: updated }) if original != updated => true,
-            // This is only used for footers which are global. Ignore for now.
-            (RenderDynamic(_), RenderDynamic(_)) => false,
+            (RenderDynamic(original), RenderDynamic(updated)) if original.type_id() != updated.type_id() => true,
+            (RenderDynamic(original), RenderDynamic(updated)) => {
+                original.diffable_content() != updated.diffable_content()
+            }
             _ => false,
         }
     }
@@ -87,8 +89,7 @@ impl ContentDiff for RenderOperation {
 impl<'a, T, U> ContentDiff for T
 where
     T: IntoIterator<Item = &'a U> + Clone,
-    // TODO no debu
-    U: ContentDiff + 'a + Debug,
+    U: ContentDiff + 'a,
 {
     fn is_content_different(&self, other: &Self) -> bool {
         let lhs = self.clone().into_iter();
@@ -121,6 +122,10 @@ mod test {
     impl AsRenderOperations for Dynamic {
         fn as_render_operations(&self, _dimensions: &WindowSize) -> Vec<RenderOperation> {
             Vec::new()
+        }
+
+        fn diffable_content(&self) -> Option<&str> {
+            None
         }
     }
 
@@ -264,14 +269,17 @@ mod test {
     fn chunk_change() {
         let lhs = Presentation::new(vec![
             Slide::from(vec![RenderOperation::ClearScreen]),
-            Slide::new(vec![SlideChunk::default(), SlideChunk::new(vec![RenderOperation::ClearScreen])], vec![]),
+            Slide::new(
+                vec![SlideChunk::default(), SlideChunk::new(vec![RenderOperation::ClearScreen], vec![])],
+                vec![],
+            ),
         ]);
         let rhs = Presentation::new(vec![
             Slide::from(vec![RenderOperation::ClearScreen]),
             Slide::new(
                 vec![
                     SlideChunk::default(),
-                    SlideChunk::new(vec![RenderOperation::ClearScreen, RenderOperation::ClearScreen]),
+                    SlideChunk::new(vec![RenderOperation::ClearScreen, RenderOperation::ClearScreen], vec![]),
                 ],
                 vec![],
             ),

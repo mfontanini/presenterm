@@ -1,3 +1,4 @@
+use super::{code::CodeBlockParseError, elements::SourcePosition};
 use crate::{
     markdown::{
         code::CodeBlockParser,
@@ -17,8 +18,6 @@ use std::{
     io::BufWriter,
     mem,
 };
-
-use super::{code::CodeBlockParseError, elements::SourcePosition};
 
 /// The result of parsing a markdown file.
 pub(crate) type ParseResult<T> = Result<T, ParseError>;

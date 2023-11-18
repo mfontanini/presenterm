@@ -1,5 +1,5 @@
 use crate::style::TextStyle;
-use std::{iter, path::PathBuf};
+use std::{iter, ops::Range, path::PathBuf};
 use strum::EnumIter;
 use unicode_width::UnicodeWidthStr;
 
@@ -257,8 +257,37 @@ pub(crate) struct CodeAttributes {
     /// Whether the code block should show line numbers.
     pub(crate) line_numbers: bool,
 
-    /// Highlight only these lines.
-    pub(crate) highlighted_lines: Option<Vec<u16>>,
+    /// The groups of lines to highlight.
+    pub(crate) highlight_groups: Vec<HighlightGroup>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct HighlightGroup(Vec<Highlight>);
+
+impl HighlightGroup {
+    pub(crate) fn new(highlights: Vec<Highlight>) -> Self {
+        Self(highlights)
+    }
+
+    pub(crate) fn contains(&self, line_number: u16) -> bool {
+        for higlight in &self.0 {
+            match higlight {
+                Highlight::All => return true,
+                Highlight::Single(number) if number == &line_number => return true,
+                Highlight::Range(range) if range.contains(&line_number) => return true,
+                _ => continue,
+            };
+        }
+        false
+    }
+}
+
+/// A highlighted set of lines
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Highlight {
+    All,
+    Single(u16),
+    Range(Range<u16>),
 }
 
 /// A table.

@@ -21,6 +21,10 @@ struct Cli {
     #[clap(long, hide = true)]
     generate_pdf_metadata: bool,
 
+    /// Run in export mode.
+    #[clap(long, hide = true)]
+    export: bool,
+
     /// Whether to use presentation mode.
     #[clap(short, long, default_value_t = false)]
     present: bool,
@@ -53,9 +57,10 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         cmd.error(ErrorKind::InvalidValue, error_message).exit();
     };
 
-    let mode = match cli.present {
-        true => PresentMode::Presentation,
-        false => PresentMode::Development,
+    let mode = match (cli.present, cli.export) {
+        (true, _) => PresentMode::Presentation,
+        (false, true) => PresentMode::Export,
+        (false, false) => PresentMode::Development,
     };
     let arena = Arena::new();
     let parser = MarkdownParser::new(&arena);

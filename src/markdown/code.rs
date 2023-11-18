@@ -1,5 +1,6 @@
-use super::elements::{Code, CodeAttributes, CodeLanguage};
+use super::elements::{Code, CodeAttributes, CodeLanguage, Highlight, HighlightGroup};
 use comrak::nodes::NodeCodeBlock;
+use strum::EnumDiscriminants;
 
 pub(crate) type ParseResult<T> = Result<T, CodeBlockParseError>;
 
@@ -80,29 +81,22 @@ impl CodeBlockParser {
 
     fn parse_attributes(mut input: &str) -> ParseResult<CodeAttributes> {
         let mut attributes = CodeAttributes::default();
+        let mut processed_attributes = Vec::new();
         while let (Some(attribute), rest) = Self::parse_attribute(input)? {
+            let discriminant = AttributeDiscriminants::from(&attribute);
+            if processed_attributes.contains(&discriminant) {
+                return Err(CodeBlockParseError::DuplicateAttribute("duplicate attribute"));
+            }
             match attribute {
-                Attribute::LineNumbers => {
-                    if attributes.line_numbers {
-                        return Err(CodeBlockParseError::DuplicateAttribute("line_numbers"));
-                    }
-                    attributes.line_numbers = true
-                }
-
-                Attribute::Exec => {
-                    if attributes.execute {
-                        return Err(CodeBlockParseError::DuplicateAttribute("exec"));
-                    }
-                    attributes.execute = true
-                }
-                Attribute::HighlightedLines(lines) => {
-                    if attributes.highlighted_lines.is_some() {
-                        return Err(CodeBlockParseError::DuplicateAttribute("{..}"));
-                    }
-                    attributes.highlighted_lines = Some(lines)
-                }
+                Attribute::LineNumbers => attributes.line_numbers = true,
+                Attribute::Exec => attributes.execute = true,
+                Attribute::HighlightedLines(lines) => attributes.highlight_groups = lines,
             };
+            processed_attributes.push(discriminant);
             input = rest;
+        }
+        if attributes.highlight_groups.is_empty() {
+            attributes.highlight_groups.push(HighlightGroup::new(vec![Highlight::All]));
         }
         Ok(attributes)
     }
@@ -120,7 +114,7 @@ impl CodeBlockParser {
                 (Some(attribute), &input[token.len() + 1..])
             }
             Some('{') => {
-                let (lines, input) = Self::parse_highlighted_lines(&input[1..])?;
+                let (lines, input) = Self::parse_highlight_groups(&input[1..])?;
                 (Some(Attribute::HighlightedLines(lines)), input)
             }
             Some(_) => return Err(CodeBlockParseError::InvalidToken(Self::next_identifier(input).into())),
@@ -129,77 +123,55 @@ impl CodeBlockParser {
         Ok((attribute, input))
     }
 
-    fn parse_highlighted_lines(mut input: &str) -> ParseResult<(Vec<u16>, &str)> {
-        let mut lines = Vec::new();
-        loop {
-            let (numbers, tail) = Self::parse_numbers(input)?;
-            lines.extend(numbers);
-            input = tail;
-
-            let Some(next) = input.chars().next() else {
-                return Err(CodeBlockParseError::InvalidHighlightedLines("no enclosing '}'".into()));
-            };
-
-            match next {
-                '}' => {
-                    return Ok((lines, &input[1..]));
-                }
-                ',' => {
-                    input = &input[1..];
-                }
-                other => {
-                    return Err(CodeBlockParseError::InvalidHighlightedLines(format!(
-                        "unexpected token '{other}', expected ',' or '}}'"
-                    )));
-                }
-            };
-        }
-    }
-
-    fn parse_numbers(mut input: &str) -> ParseResult<(Vec<u16>, &str)> {
-        let (number, tail) = Self::parse_number(input)?;
-        input = tail;
-        let Some(next) = input.chars().next() else {
-            return Err(CodeBlockParseError::InvalidHighlightedLines("no enclosing '}'".into()));
+    fn parse_highlight_groups(input: &str) -> ParseResult<(Vec<HighlightGroup>, &str)> {
+        use CodeBlockParseError::InvalidHighlightedLines;
+        let Some((head, tail)) = input.split_once('}') else {
+            return Err(InvalidHighlightedLines("no enclosing '}'".into()));
         };
-        match next {
-            '}' | ',' => Ok((vec![number], input)),
-            '-' => {
-                let (range_end, tail) = Self::parse_number(&input[1..])?;
-                let range = (number..=range_end).collect();
-                Ok((range, tail))
-            }
-            _ => Err(CodeBlockParseError::InvalidHighlightedLines(format!(
-                "unexpected token '{next}', expected ',', '-', or '}}'"
-            ))),
+        let head = head.trim();
+        if head.is_empty() {
+            return Ok((Vec::new(), tail));
         }
+
+        let mut highlight_groups = Vec::new();
+        for group in head.split('|') {
+            let group = Self::parse_highlight_group(group)?;
+            highlight_groups.push(group);
+        }
+        Ok((highlight_groups, tail))
     }
 
-    fn parse_number(input: &str) -> ParseResult<(u16, &str)> {
-        let mut input = Self::skip_whitespace(input);
-        let mut output: Option<u16> = None;
-        loop {
-            let Some(next) = input.chars().next() else {
-                return Err(CodeBlockParseError::InvalidHighlightedLines("unexpected end of input".into()));
-            };
-            match next.to_digit(10) {
-                Some(digit) => {
-                    let digit = digit as u16;
-                    let next_number =
-                        output.unwrap_or(0).checked_mul(10).and_then(|number| number.checked_add(digit)).ok_or_else(
-                            || CodeBlockParseError::InvalidHighlightedLines("line number too large".into()),
-                        )?;
-                    output = Some(next_number);
+    fn parse_highlight_group(input: &str) -> ParseResult<HighlightGroup> {
+        let mut highlights = Vec::new();
+        for piece in input.split(',') {
+            let piece = piece.trim();
+            if piece == "all" {
+                highlights.push(Highlight::All);
+                continue;
+            }
+            match piece.split_once('-') {
+                Some((left, right)) => {
+                    let left = Self::parse_number(left)?;
+                    let right = Self::parse_number(right)?;
+                    let right = right
+                        .checked_add(1)
+                        .ok_or_else(|| CodeBlockParseError::InvalidHighlightedLines(format!("{right} is too large")))?;
+                    highlights.push(Highlight::Range(left..right));
                 }
                 None => {
-                    return match output {
-                        Some(output) => Ok((output, Self::skip_whitespace(input))),
-                        None => Err(CodeBlockParseError::InvalidHighlightedLines("missing number".into())),
-                    };
+                    let number = Self::parse_number(piece)?;
+                    highlights.push(Highlight::Single(number));
                 }
-            };
-            input = &input[1..];
+            }
         }
+        Ok(HighlightGroup::new(highlights))
+    }
+
+    fn parse_number(input: &str) -> ParseResult<u16> {
+        input
+            .trim()
+            .parse()
+            .map_err(|_| CodeBlockParseError::InvalidHighlightedLines(format!("not a number: '{input}'")))
     }
 
     fn skip_whitespace(input: &str) -> &str {
@@ -229,17 +201,18 @@ pub(crate) enum CodeBlockParseError {
     ExecutionNotSupported(CodeLanguage),
 }
 
+#[derive(EnumDiscriminants)]
 enum Attribute {
     LineNumbers,
     Exec,
-    HighlightedLines(Vec<u16>),
+    HighlightedLines(Vec<HighlightGroup>),
 }
 
 #[cfg(test)]
 mod test {
-    use rstest::rstest;
-
     use super::*;
+    use rstest::rstest;
+    use Highlight::*;
 
     fn parse_language(input: &str) -> CodeLanguage {
         let (language, _) = CodeBlockParser::parse_block_info(input).expect("parse failed");
@@ -298,14 +271,31 @@ mod test {
     }
 
     #[test]
+    fn highlight_none() {
+        let attributes = parse_attributes("bash {}");
+        assert_eq!(attributes.highlight_groups, &[HighlightGroup::new(vec![Highlight::All])]);
+    }
+
+    #[test]
     fn highlight_specific_lines() {
         let attributes = parse_attributes("bash {   1, 2  , 3   }");
-        assert_eq!(attributes.highlighted_lines, Some(vec![1, 2, 3]));
+        assert_eq!(attributes.highlight_groups, &[HighlightGroup::new(vec![Single(1), Single(2), Single(3)])]);
     }
 
     #[test]
     fn highlight_line_range() {
-        let attributes = parse_attributes("bash {   1, 2-4,5 ,10 - 12  }");
-        assert_eq!(attributes.highlighted_lines, Some(vec![1, 2, 3, 4, 5, 10, 11, 12]));
+        let attributes = parse_attributes("bash {   1, 2-4,6 ,  all , 10 - 12  }");
+        assert_eq!(
+            attributes.highlight_groups,
+            &[HighlightGroup::new(vec![Single(1), Range(2..5), Single(6), All, Range(10..13)])]
+        );
+    }
+
+    #[test]
+    fn multiple_groups() {
+        let attributes = parse_attributes("bash {1-3,5  |6-9}");
+        assert_eq!(attributes.highlight_groups.len(), 2);
+        assert_eq!(attributes.highlight_groups[0], HighlightGroup::new(vec![Range(1..4), Single(5)]));
+        assert_eq!(attributes.highlight_groups[1], HighlightGroup::new(vec![Range(6..10)]));
     }
 }
