@@ -257,22 +257,20 @@ pub(crate) struct CodeAttributes {
     /// Whether the code block should show line numbers.
     pub(crate) line_numbers: bool,
 
-    /// Highlight only these lines.
-    pub(crate) highlighted_lines: Option<HighlightedLines>,
+    /// The groups of lines to highlight.
+    pub(crate) highlight_groups: Vec<HighlightGroup>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct HighlightedLines {
-    highlights: Vec<Highlight>,
-}
+pub(crate) struct HighlightGroup(Vec<Highlight>);
 
-impl HighlightedLines {
+impl HighlightGroup {
     pub(crate) fn new(highlights: Vec<Highlight>) -> Self {
-        Self { highlights }
+        Self(highlights)
     }
 
     pub(crate) fn contains(&self, line_number: u16) -> bool {
-        for higlight in &self.highlights {
+        for higlight in &self.0 {
             match higlight {
                 Highlight::All => return true,
                 Highlight::Single(number) if number == &line_number => return true,

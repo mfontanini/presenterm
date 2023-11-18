@@ -5,7 +5,7 @@ use crate::{
     theme::{Alignment, Margin, PresentationTheme},
 };
 use serde::Deserialize;
-use std::rc::Rc;
+use std::{fmt::Debug, rc::Rc};
 
 /// A presentation.
 pub(crate) struct Presentation {
@@ -43,7 +43,7 @@ impl Presentation {
     /// Jump to the next slide.
     pub(crate) fn jump_next_slide(&mut self) -> bool {
         let current_slide = self.current_slide_mut();
-        if current_slide.increase_visible_chunks() {
+        if current_slide.move_next() {
             return true;
         }
         if self.current_slide_index < self.slides.len() - 1 {
@@ -59,7 +59,7 @@ impl Presentation {
     /// Jump to the previous slide.
     pub(crate) fn jump_previous_slide(&mut self) -> bool {
         let current_slide = self.current_slide_mut();
-        if current_slide.decrease_visible_chunks() {
+        if current_slide.move_previous() {
             return true;
         }
         if self.current_slide_index > 0 {
@@ -102,7 +102,7 @@ impl Presentation {
 
     /// Get the current slide's chunk.
     pub(crate) fn current_chunk(&self) -> usize {
-        self.current_slide().current_chunk()
+        self.current_slide().current_chunk_index()
     }
 
     /// Render all widgets in this slide.
@@ -138,7 +138,7 @@ impl Presentation {
 ///
 /// Slides are composed of render operations that can be carried out to materialize this slide into
 /// the terminal's screen.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(crate) struct Slide {
     chunks: Vec<SlideChunk>,
     footer: Vec<RenderOperation>,
@@ -151,14 +151,14 @@ impl Slide {
     }
 
     pub(crate) fn iter_operations(&self) -> impl Iterator<Item = &RenderOperation> + Clone {
-        self.chunks.iter().take(self.visible_chunks).flat_map(|chunk| chunk.0.iter()).chain(self.footer.iter())
+        self.chunks.iter().take(self.visible_chunks).flat_map(|chunk| chunk.operations.iter()).chain(self.footer.iter())
     }
 
     pub(crate) fn iter_operations_mut(&mut self) -> impl Iterator<Item = &mut RenderOperation> {
         self.chunks
             .iter_mut()
             .take(self.visible_chunks)
-            .flat_map(|chunk| chunk.0.iter_mut())
+            .flat_map(|chunk| chunk.operations.iter_mut())
             .chain(self.footer.iter_mut())
     }
 
@@ -168,39 +168,59 @@ impl Slide {
 
     #[cfg(test)]
     pub(crate) fn into_operations(self) -> Vec<RenderOperation> {
-        self.chunks.into_iter().flat_map(|chunk| chunk.0.into_iter()).chain(self.footer.into_iter()).collect()
+        self.chunks.into_iter().flat_map(|chunk| chunk.operations.into_iter()).chain(self.footer.into_iter()).collect()
     }
 
     fn jump_chunk(&mut self, chunk_index: usize) {
         self.visible_chunks = (chunk_index + 1).min(self.chunks.len());
+        for chunk in self.chunks.iter().take(self.visible_chunks - 1) {
+            chunk.apply_all_mutations();
+        }
     }
 
-    fn current_chunk(&self) -> usize {
+    fn current_chunk_index(&self) -> usize {
         self.visible_chunks.saturating_sub(1)
+    }
+
+    fn current_chunk(&self) -> &SlideChunk {
+        &self.chunks[self.current_chunk_index()]
     }
 
     fn show_first_chunk(&mut self) {
         self.visible_chunks = 1;
+        self.current_chunk().reset_mutations();
     }
 
     fn show_all_chunks(&mut self) {
         self.visible_chunks = self.chunks.len();
-    }
-
-    fn decrease_visible_chunks(&mut self) -> bool {
-        if self.visible_chunks == 1 {
-            false
-        } else {
-            self.visible_chunks -= 1;
-            true
+        for chunk in &self.chunks {
+            chunk.apply_all_mutations();
         }
     }
 
-    fn increase_visible_chunks(&mut self) -> bool {
+    fn move_next(&mut self) -> bool {
+        if self.chunks[self.current_chunk_index()].mutate_next() {
+            return true;
+        }
+
         if self.visible_chunks == self.chunks.len() {
             false
         } else {
             self.visible_chunks += 1;
+            self.current_chunk().reset_mutations();
+            true
+        }
+    }
+
+    fn move_previous(&mut self) -> bool {
+        if self.chunks[self.current_chunk_index()].mutate_previous() {
+            return true;
+        }
+        if self.visible_chunks == 1 {
+            false
+        } else {
+            self.visible_chunks -= 1;
+            self.current_chunk().apply_all_mutations();
             true
         }
     }
@@ -208,25 +228,66 @@ impl Slide {
 
 impl From<Vec<RenderOperation>> for Slide {
     fn from(operations: Vec<RenderOperation>) -> Self {
-        Self::new(vec![SlideChunk::new(operations)], vec![])
+        Self::new(vec![SlideChunk::new(operations, Vec::new())], vec![])
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub(crate) struct SlideChunk(Vec<RenderOperation>);
+#[derive(Debug, Default)]
+pub(crate) struct SlideChunk {
+    operations: Vec<RenderOperation>,
+    mutators: Vec<Box<dyn ChunkMutator>>,
+}
 
 impl SlideChunk {
-    pub(crate) fn new(operations: Vec<RenderOperation>) -> Self {
-        Self(operations)
+    pub(crate) fn new(operations: Vec<RenderOperation>, mutators: Vec<Box<dyn ChunkMutator>>) -> Self {
+        Self { operations, mutators }
     }
 
     pub(crate) fn iter_operations(&self) -> impl Iterator<Item = &RenderOperation> + Clone {
-        self.0.iter()
+        self.operations.iter()
     }
 
     pub(crate) fn pop_last(&mut self) -> Option<RenderOperation> {
-        self.0.pop()
+        self.operations.pop()
     }
+
+    fn mutate_next(&self) -> bool {
+        for mutator in &self.mutators {
+            if mutator.mutate_next() {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn mutate_previous(&self) -> bool {
+        for mutator in self.mutators.iter().rev() {
+            if mutator.mutate_previous() {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn reset_mutations(&self) {
+        for mutator in &self.mutators {
+            mutator.reset_mutations();
+        }
+    }
+
+    fn apply_all_mutations(&self) {
+        for mutator in &self.mutators {
+            mutator.apply_all_mutations();
+        }
+    }
+}
+
+pub(crate) trait ChunkMutator: Debug {
+    fn mutate_next(&self) -> bool;
+    fn mutate_previous(&self) -> bool;
+    fn reset_mutations(&self);
+    fn apply_all_mutations(&self);
+    fn mutations(&self) -> (usize, usize);
 }
 
 /// The metadata for a presentation.
@@ -350,9 +411,12 @@ pub(crate) struct MarginProperties {
 }
 
 /// A type that can generate render operations.
-pub(crate) trait AsRenderOperations: std::fmt::Debug {
+pub(crate) trait AsRenderOperations: Debug + 'static {
     /// Generate render operations.
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation>;
+
+    /// Get the content in this type to diff it against another `AsRenderOperations`.
+    fn diffable_content(&self) -> Option<&str>;
 }
 
 /// A type that can be rendered on demand.
@@ -375,15 +439,81 @@ pub(crate) enum RenderOnDemandState {
 
 #[cfg(test)]
 mod test {
+    use std::cell::RefCell;
+
     use super::*;
     use rstest::rstest;
 
+    #[derive(Clone)]
     enum Jump {
         First,
         Last,
         Next,
         Previous,
         Specific(usize),
+    }
+
+    impl Jump {
+        fn apply(&self, presentation: &mut Presentation) {
+            use Jump::*;
+            match self {
+                First => presentation.jump_first_slide(),
+                Last => presentation.jump_last_slide(),
+                Next => presentation.jump_next_slide(),
+                Previous => presentation.jump_previous_slide(),
+                Specific(index) => presentation.jump_slide(*index),
+            };
+        }
+
+        fn repeat(&self, count: usize) -> Vec<Self> {
+            vec![self.clone(); count]
+        }
+    }
+
+    #[derive(Debug)]
+    struct DummyMutator {
+        current: RefCell<usize>,
+        limit: usize,
+    }
+
+    impl DummyMutator {
+        fn new(limit: usize) -> Self {
+            Self { current: 0.into(), limit }
+        }
+    }
+
+    impl ChunkMutator for DummyMutator {
+        fn mutate_next(&self) -> bool {
+            let mut current = self.current.borrow_mut();
+            if *current < self.limit {
+                *current += 1;
+                true
+            } else {
+                false
+            }
+        }
+
+        fn mutate_previous(&self) -> bool {
+            let mut current = self.current.borrow_mut();
+            if *current > 0 {
+                *current -= 1;
+                true
+            } else {
+                false
+            }
+        }
+
+        fn reset_mutations(&self) {
+            *self.current.borrow_mut() = 0;
+        }
+
+        fn apply_all_mutations(&self) {
+            *self.current.borrow_mut() = self.limit;
+        }
+
+        fn mutations(&self) -> (usize, usize) {
+            (*self.current.borrow(), self.limit)
+        }
     }
 
     #[rstest]
@@ -409,17 +539,70 @@ mod test {
         ]);
         presentation.jump_slide(from);
 
-        use Jump::*;
         for jump in jumps {
-            match jump {
-                First => presentation.jump_first_slide(),
-                Last => presentation.jump_last_slide(),
-                Next => presentation.jump_next_slide(),
-                Previous => presentation.jump_previous_slide(),
-                Specific(index) => presentation.jump_slide(*index),
-            };
+            jump.apply(&mut presentation);
         }
         assert_eq!(presentation.current_slide_index(), expected_slide);
         assert_eq!(presentation.current_slide().visible_chunks - 1, expected_chunk);
+    }
+
+    #[rstest]
+    #[case::next_1(0, &[Jump::Next], [1, 0, 0], 0, 0)]
+    #[case::next_previous(0, &[Jump::Next, Jump::Previous], [0, 0, 0], 0, 0)]
+    #[case::next_2(0, &Jump::Next.repeat(2), [1, 1, 0], 0, 0)]
+    #[case::next_3(0, &Jump::Next.repeat(3), [1, 2, 0], 0, 0)]
+    #[case::next_4(0, &Jump::Next.repeat(4), [1, 2, 0], 0, 1)]
+    #[case::next_4_back_4(
+        0,
+        &[Jump::Next.repeat(4), Jump::Previous.repeat(4)].concat(),
+        [0, 0, 0],
+        0,
+        0
+    )]
+    #[case::last_first(0, &[Jump::Last, Jump::First], [0, 0, 0], 0, 0)]
+    #[case::back_from_second(0, &[Jump::Specific(1), Jump::Previous], [1, 2, 0], 0, 1)]
+    #[case::specific_from_second(0, &[Jump::Specific(1), Jump::Previous, Jump::Specific(0)], [0, 0, 0], 0, 0)]
+    fn jumping_with_mutations(
+        #[case] from: usize,
+        #[case] jumps: &[Jump],
+        #[case] mutations: [usize; 3],
+        #[case] expected_slide: usize,
+        #[case] expected_chunk: usize,
+    ) {
+        let mut presentation = Presentation::new(vec![
+            Slide::new(
+                vec![
+                    SlideChunk::from(SlideChunk::new(
+                        vec![],
+                        vec![Box::new(DummyMutator::new(1)), Box::new(DummyMutator::new(2))],
+                    )),
+                    SlideChunk::default(),
+                ],
+                vec![],
+            ),
+            Slide::new(
+                vec![
+                    SlideChunk::from(SlideChunk::new(vec![], vec![Box::new(DummyMutator::new(2))])),
+                    SlideChunk::default(),
+                ],
+                vec![],
+            ),
+        ]);
+        presentation.jump_slide(from);
+
+        for jump in jumps {
+            jump.apply(&mut presentation);
+        }
+        let mutators: Vec<_> = presentation
+            .iter_slides()
+            .flat_map(|slide| slide.chunks.iter())
+            .flat_map(|chunk| chunk.mutators.iter())
+            .collect();
+        assert_eq!(mutators.len(), mutations.len(), "unexpected mutation count");
+        for (index, (mutator, expected_mutations)) in mutators.into_iter().zip(mutations).enumerate() {
+            assert_eq!(mutator.mutations().0, expected_mutations, "diff on {index}");
+        }
+        assert_eq!(presentation.current_slide_index(), expected_slide, "slide differs");
+        assert_eq!(presentation.current_slide().visible_chunks - 1, expected_chunk, "chunk differs");
     }
 }
