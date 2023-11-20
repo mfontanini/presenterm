@@ -1,5 +1,6 @@
 use crate::markdown::elements::CodeLanguage;
 use once_cell::sync::Lazy;
+use etcetera::BaseStrategy;
 use syntect::{
     easy::HighlightLines,
     highlighting::{Style, Theme, ThemeSet},
@@ -11,7 +12,14 @@ static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(|| {
     let contents = include_bytes!("../../syntaxes/syntaxes.bin");
     bincode::deserialize(contents).expect("syntaxes are broken")
 });
-static THEMES: Lazy<ThemeSet> = Lazy::new(ThemeSet::load_defaults);
+static THEMES: Lazy<ThemeSet> = Lazy::new(|| {
+    let mut theme_set = ThemeSet::load_defaults();
+    let basedirs = etcetera::choose_base_strategy().expect("could not choose base strategy");
+    let bat_themes = basedirs.config_dir().join("bat").join("themes");
+
+    theme_set.add_from_folder(&bat_themes).unwrap();
+    theme_set
+});
 
 /// A code highlighter.
 #[derive(Clone)]
