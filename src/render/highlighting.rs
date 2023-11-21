@@ -8,7 +8,7 @@ use syntect::{
 };
 
 static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(|| {
-    let contents = include_bytes!("../../syntaxes/syntaxes.bin");
+    let contents = include_bytes!("../../bat/syntaxes.bin");
     bincode::deserialize(contents).expect("syntaxes are broken")
 });
 static THEMES: Lazy<ThemeSet> = Lazy::new(ThemeSet::load_defaults);
