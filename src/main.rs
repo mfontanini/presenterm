@@ -11,7 +11,8 @@ use std::path::{Path, PathBuf};
 #[command(author, version, about = create_splash(), long_about = create_splash(), arg_required_else_help = true)]
 struct Cli {
     /// The path to the markdown file that contains the presentation.
-    path: PathBuf,
+    #[clap(group = "target")]
+    path: Option<PathBuf>,
 
     /// Export the presentation as a PDF rather than displaying it.
     #[clap(short, long)]
@@ -32,6 +33,10 @@ struct Cli {
     /// The theme to use.
     #[clap(short, long, default_value = "dark")]
     theme: String,
+
+    /// Display acknowledgements.
+    #[clap(long, group = "target")]
+    acknowledgements: bool,
 }
 
 fn create_splash() -> String {
@@ -47,6 +52,11 @@ fn create_splash() -> String {
 "#,
         crate_version,
     )
+}
+
+fn display_acknowledgements() {
+    let acknowledgements = include_bytes!("../bat/acknowledgements.txt");
+    println!("{}", String::from_utf8_lossy(acknowledgements));
 }
 
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
@@ -65,20 +75,25 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let arena = Arena::new();
     let parser = MarkdownParser::new(&arena);
     let default_highlighter = CodeHighlighter::new("base16-ocean.dark")?;
-    let resources_path = cli.path.parent().unwrap_or(Path::new("/"));
+    if cli.acknowledgements {
+        display_acknowledgements();
+        return Ok(());
+    }
+    let path = cli.path.expect("no path");
+    let resources_path = path.parent().unwrap_or(Path::new("/"));
     let resources = Resources::new(resources_path);
     if cli.export_pdf || cli.generate_pdf_metadata {
         let mut exporter = Exporter::new(parser, &default_theme, default_highlighter, resources);
         if cli.export_pdf {
-            exporter.export_pdf(&cli.path)?;
+            exporter.export_pdf(&path)?;
         } else {
-            let meta = exporter.generate_metadata(&cli.path)?;
+            let meta = exporter.generate_metadata(&path)?;
             println!("{}", serde_json::to_string_pretty(&meta)?);
         }
     } else {
-        let commands = CommandSource::new(&cli.path);
+        let commands = CommandSource::new(&path);
         let presenter = Presenter::new(&default_theme, default_highlighter, commands, parser, resources, mode);
-        presenter.present(&cli.path)?;
+        presenter.present(&path)?;
     }
     Ok(())
 }
