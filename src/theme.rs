@@ -45,7 +45,7 @@ pub struct PresentationTheme {
 
     /// The style of the presentation footer.
     #[serde(default)]
-    pub(crate) footer: FooterStyle,
+    pub(crate) footer: Option<FooterStyle>,
 }
 
 impl PresentationTheme {
