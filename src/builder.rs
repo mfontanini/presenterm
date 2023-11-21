@@ -540,7 +540,7 @@ impl<'a> PresentationBuilder<'a> {
 
     fn generate_footer(&mut self) -> Vec<RenderOperation> {
         let generator = FooterGenerator {
-            style: self.theme.footer.clone(),
+            style: self.theme.footer.clone().unwrap_or_default(),
             current_slide: self.slides.len(),
             context: self.footer_context.clone(),
         };
