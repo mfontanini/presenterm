@@ -490,7 +490,7 @@ impl<'a> PresentationBuilder<'a> {
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let padding_style = {
             let mut highlighter = self.highlighter.language_highlighter(&CodeLanguage::Rust);
-            highlighter.style_line("//").first().expect("no styles").style
+            highlighter.style_line("//").next().expect("no styles").style
         };
         let groups = match self.options.allow_mutations {
             true => code.attributes.highlight_groups.clone(),
@@ -669,8 +669,6 @@ impl CodeLine {
     fn highlight(&self, padding_style: &Style, code_highlighter: &mut LanguageHighlighter) -> String {
         let mut output = StyledTokens { style: *padding_style, tokens: &self.prefix }.apply_style();
         output.push_str(&code_highlighter.highlight_line(&self.code));
-        // Remove newline
-        output.pop();
         output.push_str(&StyledTokens { style: *padding_style, tokens: &self.suffix }.apply_style());
         output
     }
@@ -1147,7 +1145,7 @@ mod test {
     }
 
     fn try_build_presentation(elements: Vec<MarkdownElement>) -> Result<Presentation, BuildError> {
-        let highlighter = CodeHighlighter::new("base16-ocean.dark").unwrap();
+        let highlighter = CodeHighlighter::default();
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp");
         let options = PresentationBuilderOptions::default();

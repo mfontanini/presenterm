@@ -172,7 +172,7 @@ mod test {
         let arena = Arena::new();
         let parser = MarkdownParser::new(&arena);
         let theme = Default::default();
-        let highlighter = CodeHighlighter::new("base16-ocean.dark").unwrap();
+        let highlighter = CodeHighlighter::default();
         let resources = Resources::new("examples");
         let mut exporter = Exporter::new(parser, &theme, highlighter, resources);
         exporter.extract_metadata(content, Path::new(path)).expect("metadata extraction failed")

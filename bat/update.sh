@@ -19,6 +19,7 @@ cd $clone_path
 git reset --hard $git_hash
 
 cp assets/syntaxes.bin "$script_dir"
+cp assets/themes.bin "$script_dir"
 
 acknowledgements_file="$script_dir/acknowledgements.txt"
 cp LICENSE-MIT "$acknowledgements_file"
