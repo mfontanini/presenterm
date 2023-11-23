@@ -134,7 +134,7 @@ where
 
     fn render_image(&mut self, image: &Image) -> RenderResult {
         let position = CursorPosition { row: self.terminal.cursor_row, column: self.current_rect().start_column };
-        MediaRender
+        MediaRender::default()
             .draw_image(image, position, self.current_dimensions())
             .map_err(|e| RenderError::Other(Box::new(e)))?;
         // TODO try to avoid

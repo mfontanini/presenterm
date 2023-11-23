@@ -1,7 +1,7 @@
 use crate::render::properties::WindowSize;
 use image::{DynamicImage, ImageError};
-use std::{fmt::Debug, io, rc::Rc};
-use viuer::ViuError;
+use std::{fmt::Debug, io, path::PathBuf, rc::Rc};
+use viuer::{is_iterm_supported, ViuError};
 
 use super::properties::CursorPosition;
 
@@ -9,25 +9,30 @@ use super::properties::CursorPosition;
 ///
 /// This stores the image in an [std::rc::Rc] so it's cheap to clone.
 #[derive(Clone, PartialEq)]
-pub(crate) struct Image(Rc<DynamicImage>);
+pub(crate) struct Image {
+    contents: Rc<DynamicImage>,
+    path: PathBuf,
+}
 
 impl Debug for Image {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Image<{}x{}>", self.0.width(), self.0.height())
+        write!(f, "Image<{}x{}>", self.contents.width(), self.contents.height())
     }
 }
 
 impl Image {
     /// Construct a new image from a byte sequence.
-    pub(crate) fn new(contents: &[u8]) -> Result<Self, InvalidImage> {
+    pub(crate) fn new(contents: &[u8], path: PathBuf) -> Result<Self, InvalidImage> {
         let contents = image::load_from_memory(contents)?;
         let contents = Rc::new(contents);
-        Ok(Self(contents))
+        Ok(Self { contents, path })
     }
 }
 
 /// A media render.
-pub(crate) struct MediaRender;
+pub(crate) struct MediaRender {
+    mode: TerminalMode,
+}
 
 impl MediaRender {
     /// Draw an image.
@@ -47,7 +52,8 @@ impl MediaRender {
         if !dimensions.has_pixels {
             return Err(RenderImageError::NoWindowSize);
         }
-        let image = &image.0;
+        let image_path = &image.path;
+        let image = &image.contents;
 
         // Compute the image's width in columns by translating pixels -> columns.
         let column_in_pixels = dimensions.pixels_per_column();
@@ -78,9 +84,32 @@ impl MediaRender {
             y: position.row as i16,
             ..Default::default()
         };
-        viuer::print(image, &config)?;
+        // If we're using the iterm2 protocol, print this from the file as that makes images print
+        // faster _and_ it causes gifs to be animated.
+        //
+        // This switch is because otherwise `viuer::print_from_file` for kitty/ascii blocks will
+        // re-read the image every time.
+        match self.mode {
+            TerminalMode::Iterm2 => viuer::print_from_file(image_path, &config)?,
+            TerminalMode::Other => viuer::print(image, &config)?,
+        };
         Ok(())
     }
+}
+
+impl Default for MediaRender {
+    fn default() -> Self {
+        let mode = match is_iterm_supported() {
+            true => TerminalMode::Iterm2,
+            false => TerminalMode::Other,
+        };
+        Self { mode }
+    }
+}
+
+enum TerminalMode {
+    Iterm2,
+    Other,
 }
 
 /// An invalid image.
