@@ -52,8 +52,9 @@ impl<'a> Exporter<'a> {
     /// Extract the metadata necessary to make an export.
     fn extract_metadata(&mut self, content: &str, path: &Path) -> Result<ExportMetadata, ExportError> {
         let elements = self.parser.parse(content)?;
-        let base_path = path.parent().expect("no parent").canonicalize().expect("canonicalize");
-        let images = Self::build_image_metadata(&elements, &base_path);
+        let path = path.canonicalize().expect("canonicalize");
+        let base_path = path.parent().expect("no parent");
+        let images = Self::build_image_metadata(&elements, base_path);
         let options = PresentationBuilderOptions { allow_mutations: false };
         let presentation = PresentationBuilder::new(
             self.default_highlighter.clone(),
@@ -63,8 +64,7 @@ impl<'a> Exporter<'a> {
         )
         .build(elements)?;
         let commands = Self::build_capture_commands(presentation);
-        let presentation_path = path.canonicalize().map_err(ExportError::ReadPresentation)?;
-        let metadata = ExportMetadata { commands, presentation_path, images };
+        let metadata = ExportMetadata { commands, presentation_path: path, images };
         Ok(metadata)
     }
 
