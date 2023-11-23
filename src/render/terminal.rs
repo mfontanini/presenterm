@@ -85,6 +85,10 @@ impl<W: io::Write> Terminal<W> {
         self.cursor_row = CursorPosition::current()?.row;
         Ok(())
     }
+
+    pub(crate) fn manual_sync_cursor_row(&mut self, position: u16) {
+        self.cursor_row = position;
+    }
 }
 
 impl<W> Drop for Terminal<W>
