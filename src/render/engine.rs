@@ -158,9 +158,8 @@ where
 
         // If this line is longer than the screen, our cursor wrapped around so we need to update
         // the terminal.
-        let current_dimensions = self.current_dimensions();
-        if *unformatted_length as u16 > current_dimensions.columns {
-            let lines_wrapped = *unformatted_length as u16 / current_dimensions.columns;
+        if *unformatted_length as u16 > max_line_length {
+            let lines_wrapped = *unformatted_length as u16 / max_line_length;
             let new_row = self.terminal.cursor_row + lines_wrapped;
             self.terminal.manual_sync_cursor_row(new_row);
         }
