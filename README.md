@@ -48,13 +48,29 @@ paru/yay -S presenterm-bin # for binary
 paru/yay -S presenterm-git # for building from source
 ```
 
-## Nix flake
+## Nix
 
-If you're a Nix user, a Nix flake is available:
+To install _presenterm_ using the Nix package manager run:
+```shell
+nix-env -iA nixos.presenterm    # for nixos
+nix-env -iA nixpkgs.presenterm  # for non-nixos
+```
+
+Or, you can install it by adding the following to your configuration.nix if you are on NixOS
+```nix
+environment.systemPackages = [
+  pkgs.presenterm
+];
+```
+
+Alternatively if you're a Nix user using flakes you can run:
 
 ```shell
-nix run github:mfontanini/presenterm
+nix run nixpkgs#presenterm            # to run from nixpkgs
+nix run github:mfontanini/presenterm  # to run from github repo
 ```
+
+For more information see [nixpkgs](https://search.nixos.org/packages?channel=unstable&show=presenterm&from=0&size=50&sort=relevance&type=packages&query=presenterm)
 
 # Features
 
