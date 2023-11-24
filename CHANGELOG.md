@@ -1,3 +1,30 @@
+# v0.3.0 - 2023-11-24
+
+## New features
+
+* Support more languages in code blocks thanks to [bat](https://github.com/sharkdp/bat)'s syntax sets (#21 #53).
+* Add shell script executable code blocks (#17).
+* Allow exporting presentation to PDF (#43 #60).
+* Pauses no longer create new slides (#18 #25 #34 #42).
+* Allow display code block line numbers (#46).
+* Allow code block selective line highlighting (#48).
+* Allow code block dynamic line highlighting (#49).
+* Support animated gifs when using the iterm2 image protocol (#56).
+* Nix flake packaging (#11 #27).
+* Arch repo packaging (#10).
+* Ignore vim-like code folding tags in comments.
+* Add keybinding to refresh assets in presentation (#38).
+* Template style footer is now one row above bottom (#39).
+* Add `light` theme.
+
+## Fixes
+
+* Don't crash on Windows when terminal window size can't be found (#14).
+* Don't reset numbers on ordered lists when using pauses in between (#19).
+* Show proper line number when parsing a comment command fails (#29 #40).
+* Don't reset the default footer when overriding theme in presentation without setting footer (#52).
+* Don't let code blocks/block quotes that don't fit on the screen cause images to overlap with text (#57).
+
 # v0.2.1 - 2023-10-18
 
 ## New features

@@ -7,9 +7,6 @@ A terminal based slideshow tool.
 
 _presenterm_ lets you define slideshows that run in your terminal.
 
-This tool is heavily inspired by [slides](https://github.com/maaslalani/slides/) and 
-[lookatme](https://github.com/d0c-s4vage/lookatme).
-
 This is how the [demo presentation](examples/demo.md) looks like:
 
 ![](assets/demo.gif)
@@ -18,7 +15,7 @@ This is how the [demo presentation](examples/demo.md) looks like:
 
 There's different ways to install _presenterm_.
 
-## Pre-built binaries
+## Pre-built binaries (recommended)
 
 The recommended way to install _presenterm_ is to download the latest pre-built version for 
 your system from the [releases](https://github.com/mfontanini/presenterm/releases) page.
@@ -42,16 +39,18 @@ cargo build --release
 The output binary will be in `./target/release/presenterm`.
 
 ## Arch user repository
-presenterm is in the aur as well, So if you have any AUR helpers like paru/yay. You can install it as follows
+
+_presenterm_ is in the [AUR](https://aur.archlinux.org/) as well. If you have any AUR helpers like paru/yay, you can 
+install it as follows:
 
 ```bash
 paru/yay -S presenterm-bin # for binary
-paru/yay -S presenterm-git # for Building from source
+paru/yay -S presenterm-git # for building from source
 ```
 
-## Nix Flake
+## Nix flake
 
-If you're a Nix user a Nix Flake is available:
+If you're a Nix user, a Nix flake is available:
 
 ```shell
 nix run github:mfontanini/presenterm
@@ -64,10 +63,12 @@ nix run github:mfontanini/presenterm
 * Customize your presentation's look by defining themes, including colors, margins, layout (left/center aligned 
   content), footer for every slide, etc.
 * Code highlighting for a wide list of programming languages.
+* [Selective/dynamic](docs/highlighting.md) code highlighting such that only a subset of the lines are highlighted at a 
+  time, and different sets of lines are highlighted as you move your slides forward.
 * Configurable [column layouts](/docs/layouts.md) that let you structure parts of your slide into columns.
 * Support for an introduction slide that displays the presentation title and your name.
 * Support for slide titles.
-* Support for shell code execution.
+* Support for [shell code execution](docs/highlighting.md).
 * Support for generating a PDF version of your presentation to share with other people.
 * Create pauses in between each slide so that it progressively renders for a more interactive presentation.
 * Text formatting support for **bold**, _italics_, ~strikethrough~, and `inline code`.
@@ -192,12 +193,12 @@ See the [documentation](/docs/layouts.md) on layouts to learn more.
 
 ## Shell code execution
 
-> **Note**: this is available in the `master` branch and in the upcoming 0.3.0 version.
-
 Any shell code can be marked for execution, making  _presenterm_ execute it and render its output when you press ctrl+e. 
 In order to do this, annotate the code block with `+exec` (e.g. `bash +exec`). **Obviously use this at your own risk!**
 
 [![asciicast](https://asciinema.org/a/1v3IqCEtU9tqDjVj78Pp7SSe2.svg)](https://asciinema.org/a/1v3IqCEtU9tqDjVj78Pp7SSe2)
+
+See more details on this [here](docs/highlighting.md).
 
 ## PDF export
 
@@ -236,3 +237,16 @@ Besides this:
 # Docs
 
 Some docs on how to configure _presenterm_ and how it works internally can be found [here](docs/README.md).
+
+# Acknowledgements
+
+This tool is heavily inspired:
+* [slides](https://github.com/maaslalani/slides/)
+* [lookatme](https://github.com/d0c-s4vage/lookatme).
+* [sli.dev](https://sli.dev/).
+
+Support for code highlighting on many languages is thanks to [bat](https://github.com/sharkdp/bat), which contains a 
+custom set of syntaxes that extend [syntect](https://github.com/trishume/syntect)'s default set of supported languages. 
+Run `presenterm --acknowledgements` to get a full list of all the licenses for the binary files being pulled in.
+
+
