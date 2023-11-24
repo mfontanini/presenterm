@@ -117,17 +117,40 @@ And many more!
 
 <!-- end_slide -->
 
-Text formatting
+Dynamic code highlighting
 ---
 
-Text formatting works as expected:
+Select specific subsets of lines to be highlighted dynamically as you move to the next slide. Optionally enable line 
+numbers to make it easier to specify which lines you're referring to!
 
-* **This is bold text**.
-* _This is italics_.
-* **This is bold _and this is bold and italic_**.
-* ~This is strikethrough text.~
-* Inline code `is also supported`.
-* Links look like this [](https://example.com/)
+```rust {1-4|6-10|all} +line_numbers
+#[derive(Clone, Debug)]
+struct Person {
+    name: String,
+}
+
+impl Person {
+    fn say_hello(&self) {
+        println!("hello, I'm {}", self.name)
+    }
+}
+
+```
+
+<!-- end_slide -->
+
+Shell code execution
+---
+
+Run commands from the presentation and display their output dynamically.
+
+```bash +exec
+for i in $(seq 1 5)
+do
+    echo "hi $i"
+    sleep 0.5
+done
+```
 
 <!-- end_slide -->
 
@@ -183,6 +206,20 @@ like it usually does:
 ```python
 print("Hello world!")
 ```
+
+<!-- end_slide -->
+
+Text formatting
+---
+
+Text formatting works as expected:
+
+* **This is bold text**.
+* _This is italics_.
+* **This is bold _and this is bold and italic_**.
+* ~This is strikethrough text.~
+* Inline code `is also supported`.
+* Links look like this [](https://example.com/)
 
 <!-- end_slide -->
 
