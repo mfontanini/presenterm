@@ -1,0 +1,84 @@
+default:
+  margin:
+    percent: 8
+  colors:
+    foreground: null
+    background: null
+
+slide_title:
+  alignment: center
+  padding_bottom: 1
+  padding_top: 1
+  colors:
+    foreground: dark_yellow
+
+code:
+  alignment: center
+  minimum_size: 50
+  minimum_margin:
+    percent: 8
+  theme_name: GitHub
+  padding:
+    horizontal: 2
+    vertical: 1
+
+execution_output:
+  colors:
+    background: grey
+
+inline_code:
+  colors:
+    foreground: dark_green
+
+intro_slide:
+  title:
+    alignment: center
+    colors:
+      foreground: dark_green
+  subtitle:
+    alignment: center
+    colors:
+      foreground: dark_blue
+  author:
+    alignment: center
+    colors:
+      foreground: black
+    positioning: page_bottom
+
+headings:
+  h1:
+    prefix: "██"
+    colors:
+      foreground: dark_cyan
+  h2:
+    prefix: "▓▓▓"
+    colors:
+      foreground: dark_magenta
+  h3:
+    prefix: "▒▒▒▒"
+    colors:
+      foreground: dark_red
+  h4:
+    prefix: "░░░░░"
+    colors:
+      foreground: dark_blue
+  h5:
+    prefix: "░░░░░░"
+    colors:
+      foreground: dark_blue
+  h6:
+    prefix: "░░░░░░░"
+    colors:
+      foreground: dark_blue
+
+block_quote:
+  prefix: "▍ "
+  colors:
+    foreground: black
+    background: grey
+
+footer: 
+  style: progress_bar
+  colors:
+    foreground: dark_blue
+

@@ -8,6 +8,7 @@ use serde::Deserialize;
 use std::{fmt::Debug, rc::Rc};
 
 /// A presentation.
+#[derive(Debug)]
 pub(crate) struct Presentation {
     slides: Vec<Slide>,
     current_slide_index: usize,

@@ -72,6 +72,7 @@ impl<W: io::Write> Terminal<W> {
     }
 
     pub(crate) fn set_colors(&mut self, colors: Colors) -> io::Result<()> {
+        self.writer.queue(style::ResetColor)?;
         self.writer.queue(style::SetColors(colors.into()))?;
         Ok(())
     }

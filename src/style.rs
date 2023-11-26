@@ -131,18 +131,55 @@ impl FromStr for Color {
     type Err = ParseColorError;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let values = <[u8; 3]>::from_hex(input)?;
-        Ok(Self(crossterm::style::Color::Rgb { r: values[0], g: values[1], b: values[2] }))
+        use crossterm::style::Color as C;
+        let output = match input {
+            "black" => Self(C::Black),
+            "white" => Self(C::White),
+            "grey" => Self(C::Grey),
+            "red" => Self(C::Red),
+            "dark_red" => Self(C::DarkRed),
+            "green" => Self(C::Green),
+            "dark_green" => Self(C::DarkGreen),
+            "blue" => Self(C::Blue),
+            "dark_blue" => Self(C::DarkBlue),
+            "yellow" => Self(C::Yellow),
+            "dark_yellow" => Self(C::DarkYellow),
+            "magenta" => Self(C::Magenta),
+            "dark_magenta" => Self(C::DarkMagenta),
+            "cyan" => Self(C::Cyan),
+            "dark_cyan" => Self(C::DarkCyan),
+            // Fallback to hex-encoded rgb
+            _ => {
+                let values = <[u8; 3]>::from_hex(input)?;
+                Self(crossterm::style::Color::Rgb { r: values[0], g: values[1], b: values[2] })
+            }
+        };
+        Ok(output)
     }
 }
 
 impl Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let rgb = match self.0 {
-            crossterm::style::Color::Rgb { r, g, b } => [r, g, b],
-            _ => panic!("not rgb"),
-        };
-        write!(f, "{}", hex::encode(rgb))
+        use crossterm::style::Color as C;
+        match self.0 {
+            C::Rgb { r, g, b } => write!(f, "{}", hex::encode([r, g, b])),
+            C::Black => write!(f, "black"),
+            C::White => write!(f, "white"),
+            C::Grey => write!(f, "grey"),
+            C::Red => write!(f, "red"),
+            C::DarkRed => write!(f, "dark_red"),
+            C::Green => write!(f, "green"),
+            C::DarkGreen => write!(f, "dark_green"),
+            C::Blue => write!(f, "blue"),
+            C::DarkBlue => write!(f, "dark_blue"),
+            C::Yellow => write!(f, "yellow"),
+            C::DarkYellow => write!(f, "dark_yellow"),
+            C::Magenta => write!(f, "magenta"),
+            C::DarkMagenta => write!(f, "dark_magenta"),
+            C::Cyan => write!(f, "cyan"),
+            C::DarkCyan => write!(f, "dark_cyan"),
+            _ => panic!("unsupported color"),
+        }
     }
 }
 
