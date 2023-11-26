@@ -903,6 +903,7 @@ dependencies = [
  "clap",
  "comrak",
  "crossterm",
+ "flate2",
  "hex",
  "image",
  "itertools",

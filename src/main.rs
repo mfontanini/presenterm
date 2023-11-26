@@ -74,7 +74,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     };
     let arena = Arena::new();
     let parser = MarkdownParser::new(&arena);
-    let default_highlighter = CodeHighlighter::new("base16-ocean.dark")?;
+    let default_highlighter = CodeHighlighter::default();
     if cli.acknowledgements {
         display_acknowledgements();
         return Ok(());
