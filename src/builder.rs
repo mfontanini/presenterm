@@ -475,6 +475,7 @@ impl<'a> PresentationBuilder<'a> {
         for line in lines {
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
         }
+        self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
         if self.options.allow_mutations && context.borrow().groups.len() > 1 {
             self.chunk_mutators.push(Box::new(HighlightMutator { context }));
         }
