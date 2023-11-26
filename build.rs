@@ -26,10 +26,10 @@ fn main() -> io::Result<()> {
         let theme_name = file_name.split_once('.').unwrap().0;
         // TODO this wastes a bit of space
         output_file.write_all(format!("(\"{theme_name}\", {contents:?}.as_slice()),\n").as_bytes())?;
-
-        // Rebuild if this theme changes.
-        println!("cargo:rerun-if-changed={}", path.display());
     }
     output_file.write_all(b"]));\n")?;
+
+    // Rebuild if anything changes.
+    println!("cargo:rerun-if-changed=themes");
     Ok(())
 }
