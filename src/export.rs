@@ -1,7 +1,7 @@
 use crate::{
     builder::{BuildError, PresentationBuilder, PresentationBuilderOptions},
     markdown::{elements::MarkdownElement, parse::ParseError},
-    presentation::Presentation,
+    presentation::{Presentation, RenderOperation},
     CodeHighlighter, MarkdownParser, PresentationTheme, Resources,
 };
 use serde::Serialize;
@@ -63,6 +63,7 @@ impl<'a> Exporter<'a> {
             options,
         )
         .build(elements)?;
+        Self::validate_theme_colors(&presentation)?;
         let commands = Self::build_capture_commands(presentation);
         let metadata = ExportMetadata { commands, presentation_path: path, images };
         Ok(metadata)
@@ -120,6 +121,26 @@ impl<'a> Exporter<'a> {
         }
         positions
     }
+
+    fn validate_theme_colors(presentation: &Presentation) -> Result<(), ExportError> {
+        for slide in presentation.iter_slides() {
+            for operation in slide.iter_operations() {
+                let RenderOperation::SetColors(colors) = operation else {
+                    continue;
+                };
+                // The PDF requires a specific theme to be set, as "no background" means "what the
+                // browser uses" which is likely white and it will probably look terrible. It's
+                // better to err early and let you choose a theme that contains _some_ color.
+                if colors.background.is_none() {
+                    return Err(ExportError::UnsupportedColor("background"));
+                }
+                if colors.foreground.is_none() {
+                    return Err(ExportError::UnsupportedColor("foreground"));
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -135,6 +156,9 @@ pub enum ExportError {
 
     #[error("failed to invoke presenterm-export (is it installed?): {0}")]
     InvokeExporter(io::Error),
+
+    #[error("unsupported {0} color in theme")]
+    UnsupportedColor(&'static str),
 }
 
 /// The metadata necessary to export a presentation.
@@ -171,7 +195,7 @@ mod test {
     fn extract_metadata(content: &str, path: &str) -> ExportMetadata {
         let arena = Arena::new();
         let parser = MarkdownParser::new(&arena);
-        let theme = Default::default();
+        let theme = PresentationTheme::from_name("dark").unwrap();
         let highlighter = CodeHighlighter::default();
         let resources = Resources::new("examples");
         let mut exporter = Exporter::new(parser, &theme, highlighter, resources);
