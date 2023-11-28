@@ -3,7 +3,10 @@ use comrak::Arena;
 use presenterm::{
     CodeHighlighter, CommandSource, Exporter, MarkdownParser, PresentMode, PresentationTheme, Presenter, Resources,
 };
-use std::path::{Path, PathBuf};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 /// Run slideshows from your terminal.
 #[derive(Parser)]
@@ -54,6 +57,14 @@ fn create_splash() -> String {
     )
 }
 
+fn load_custom_themes() {
+    let Ok(home) = env::var("HOME") else {
+        return;
+    };
+    let config = PathBuf::from(home).join(".config/presenterm");
+    let _ = CodeHighlighter::load_themes_from_path(&config.join("themes/highlighting"));
+}
+
 fn display_acknowledgements() {
     let acknowledgements = include_bytes!("../bat/acknowledgements.txt");
     println!("{}", String::from_utf8_lossy(acknowledgements));
@@ -66,6 +77,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         let error_message = format!("invalid theme name, valid themes are: {valid_themes}");
         cmd.error(ErrorKind::InvalidValue, error_message).exit();
     };
+    load_custom_themes();
 
     let mode = match (cli.present, cli.export) {
         (true, _) => PresentMode::Presentation,

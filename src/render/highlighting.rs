@@ -9,12 +9,14 @@ use serde::Deserialize;
 use std::{
     collections::BTreeMap,
     io::{self, Write},
+    path::Path,
     sync::{Arc, Mutex},
 };
 use syntect::{
     easy::HighlightLines,
     highlighting::{Style, Theme, ThemeSet},
     parsing::SyntaxSet,
+    LoadingError,
 };
 
 static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(|| {
@@ -72,6 +74,13 @@ impl CodeHighlighter {
     pub fn new(theme: &str) -> Result<Self, ThemeNotFound> {
         let theme = THEMES.get(theme).ok_or(ThemeNotFound)?;
         Ok(Self { theme })
+    }
+
+    /// Load .tmTheme themes from the provided path.
+    pub fn load_themes_from_path(path: &Path) -> Result<(), LoadingError> {
+        let themes = ThemeSet::load_from_folder(path)?;
+        THEMES.merge(themes);
+        Ok(())
     }
 
     /// Create a highlighter for a specific language.
