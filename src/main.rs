@@ -1,7 +1,8 @@
 use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use presenterm::{
-    CodeHighlighter, CommandSource, Exporter, MarkdownParser, PresentMode, PresentationTheme, Presenter, Resources,
+    CodeHighlighter, CommandSource, Exporter, LoadThemeError, MarkdownParser, PresentMode, PresentationTheme,
+    Presenter, Resources,
 };
 use std::{
     env,
@@ -57,12 +58,17 @@ fn create_splash() -> String {
     )
 }
 
-fn load_custom_themes() {
+fn load_custom_themes() -> Result<(), Box<dyn std::error::Error>> {
     let Ok(home) = env::var("HOME") else {
-        return;
+        return Ok(());
     };
     let config = PathBuf::from(home).join(".config/presenterm");
-    let _ = CodeHighlighter::load_themes_from_path(&config.join("themes/highlighting"));
+    CodeHighlighter::register_themes_from_path(&config.join("themes/highlighting"))?;
+    match PresentationTheme::register_themes_from_path(&config.join("themes")) {
+        Ok(_) => Ok(()),
+        Err(e @ (LoadThemeError::Duplicate(_) | LoadThemeError::Corrupted(..))) => Err(e.into()),
+        _ => Ok(()),
+    }
 }
 
 fn display_acknowledgements() {
@@ -71,13 +77,14 @@ fn display_acknowledgements() {
 }
 
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
+    load_custom_themes()?;
+
     let Some(default_theme) = PresentationTheme::from_name(&cli.theme) else {
         let mut cmd = Cli::command();
-        let valid_themes = PresentationTheme::theme_names().collect::<Vec<_>>().join(", ");
+        let valid_themes = PresentationTheme::theme_names().join(", ");
         let error_message = format!("invalid theme name, valid themes are: {valid_themes}");
         cmd.error(ErrorKind::InvalidValue, error_message).exit();
     };
-    load_custom_themes();
 
     let mode = match (cli.present, cli.export) {
         (true, _) => PresentMode::Presentation,

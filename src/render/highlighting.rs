@@ -8,6 +8,7 @@ use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::{
     collections::BTreeMap,
+    fs,
     io::{self, Write},
     path::Path,
     sync::{Arc, Mutex},
@@ -77,7 +78,13 @@ impl CodeHighlighter {
     }
 
     /// Load .tmTheme themes from the provided path.
-    pub fn load_themes_from_path(path: &Path) -> Result<(), LoadingError> {
+    pub fn register_themes_from_path(path: &Path) -> Result<(), LoadingError> {
+        let Ok(metadata) = fs::metadata(path) else {
+            return Ok(());
+        };
+        if !metadata.is_dir() {
+            return Ok(());
+        }
         let themes = ThemeSet::load_from_folder(path)?;
         THEMES.merge(themes);
         Ok(())

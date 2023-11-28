@@ -1,8 +1,10 @@
 use crate::style::Colors;
 use serde::{Deserialize, Serialize};
-use std::{fs, io, path::Path};
+use std::{fs, io, path::Path, sync::Mutex};
 
 include!(concat!(env!("OUT_DIR"), "/themes.rs"));
+
+static CUSTOM_THEMES: Lazy<Mutex<HashMap<String, PresentationTheme>>> = Lazy::new(Default::default);
 
 /// A presentation theme.
 #[derive(Default, Clone, Debug, Deserialize, Serialize)]
@@ -54,19 +56,54 @@ impl PresentationTheme {
     /// Default themes are bundled into the final binary during build time so this is an in-memory
     /// lookup.
     pub fn from_name(name: &str) -> Option<Self> {
-        let contents = THEMES.get(name)?;
-        // This is going to be caught by the test down here.
-        Some(serde_yaml::from_slice(contents).expect("corrupted theme"))
+        if let Some(contents) = THEMES.get(name) {
+            // This is going to be caught by the test down here.
+            Some(serde_yaml::from_slice(contents).expect("corrupted theme"))
+        } else if let Some(theme) = CUSTOM_THEMES.lock().unwrap().get(name).cloned() {
+            return Some(theme);
+        } else {
+            None
+        }
     }
 
-    pub fn theme_names() -> impl Iterator<Item = &'static str> {
-        THEMES.keys().copied()
+    /// Register all the themes in the given directory.
+    pub fn register_themes_from_path(path: &Path) -> Result<(), LoadThemeError> {
+        let Ok(metadata) = fs::metadata(path) else {
+            return Ok(());
+        };
+        if !metadata.is_dir() {
+            return Ok(());
+        }
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let metadata = entry.metadata()?;
+            let Some(file_name) = entry.file_name().to_str().map(ToOwned::to_owned) else {
+                continue;
+            };
+            if metadata.is_file() && file_name.ends_with(".yaml") {
+                let theme_name = file_name.trim_end_matches(".yaml");
+                if THEMES.contains_key(theme_name) {
+                    return Err(LoadThemeError::Duplicate(theme_name.into()));
+                }
+                let theme = Self::from_path(&entry.path())?;
+                CUSTOM_THEMES.lock().unwrap().insert(theme_name.into(), theme);
+            }
+        }
+        Ok(())
+    }
+
+    /// Get all the registered theme names.
+    pub fn theme_names() -> Vec<String> {
+        let builtin_themes = THEMES.keys().map(|name| name.to_string());
+        let themes = CUSTOM_THEMES.lock().unwrap().keys().cloned().chain(builtin_themes).collect();
+        themes
     }
 
     /// Construct a presentation from a path.
     pub(crate) fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, LoadThemeError> {
-        let contents = fs::read_to_string(path)?;
-        let theme = serde_yaml::from_str(&contents)?;
+        let contents = fs::read_to_string(&path)?;
+        let theme = serde_yaml::from_str(&contents)
+            .map_err(|e| LoadThemeError::Corrupted(path.as_ref().display().to_string(), e))?;
         Ok(theme)
     }
 
@@ -435,8 +472,11 @@ pub enum LoadThemeError {
     #[error(transparent)]
     Io(#[from] io::Error),
 
-    #[error(transparent)]
-    Corrupted(#[from] serde_yaml::Error),
+    #[error("theme at '{0}' is corrupted: {1}")]
+    Corrupted(String, serde_yaml::Error),
+
+    #[error("duplicate custom theme '{0}'")]
+    Duplicate(String),
 }
 
 #[cfg(test)]

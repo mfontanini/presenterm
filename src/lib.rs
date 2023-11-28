@@ -22,5 +22,5 @@ pub use crate::{
     presenter::{PresentMode, Presenter},
     render::highlighting::CodeHighlighter,
     resource::Resources,
-    theme::PresentationTheme,
+    theme::{LoadThemeError, PresentationTheme},
 };
