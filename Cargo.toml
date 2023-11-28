@@ -31,7 +31,7 @@ viuer = "0.7"
 [dependencies.syntect]
 version = "5.1"
 default-features = false
-features = ["parsing", "default-themes", "regex-onig"]
+features = ["parsing", "default-themes", "regex-onig", "plist-load"]
 
 [dev-dependencies]
 rstest = { version = "0.18", default-features = false }
