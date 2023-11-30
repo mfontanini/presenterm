@@ -16,11 +16,12 @@ pub(crate) mod style;
 pub(crate) mod theme;
 
 pub use crate::{
+    builder::Themes,
     export::{ExportError, Exporter},
     input::source::CommandSource,
     markdown::parse::MarkdownParser,
     presenter::{PresentMode, Presenter},
     render::highlighting::CodeHighlighter,
     resource::Resources,
-    theme::{LoadThemeError, PresentationTheme},
+    theme::{LoadThemeError, PresentationTheme, PresentationThemeSet},
 };

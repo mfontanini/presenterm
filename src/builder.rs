@@ -17,7 +17,10 @@ use crate::{
     },
     resource::{LoadImageError, Resources},
     style::{Colors, TextStyle},
-    theme::{Alignment, AuthorPositioning, ElementType, FooterStyle, LoadThemeError, Margin, PresentationTheme},
+    theme::{
+        Alignment, AuthorPositioning, ElementType, FooterStyle, LoadThemeError, Margin, PresentationTheme,
+        PresentationThemeSet,
+    },
 };
 use itertools::Itertools;
 use serde::Deserialize;
@@ -27,6 +30,11 @@ use unicode_width::UnicodeWidthStr;
 
 // TODO: move to a theme config.
 static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
+
+#[derive(Default)]
+pub struct Themes {
+    pub presentation: PresentationThemeSet,
+}
 
 pub(crate) struct PresentationBuilderOptions {
     pub(crate) allow_mutations: bool,
@@ -52,6 +60,7 @@ pub(crate) struct PresentationBuilder<'a> {
     resources: &'a mut Resources,
     slide_state: SlideState,
     footer_context: Rc<RefCell<FooterContext>>,
+    themes: &'a Themes,
     options: PresentationBuilderOptions,
 }
 
@@ -61,6 +70,7 @@ impl<'a> PresentationBuilder<'a> {
         default_highlighter: CodeHighlighter,
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
+        themes: &'a Themes,
         options: PresentationBuilderOptions,
     ) -> Self {
         Self {
@@ -73,6 +83,7 @@ impl<'a> PresentationBuilder<'a> {
             resources,
             slide_state: Default::default(),
             footer_context: Default::default(),
+            themes,
             options,
         }
     }
@@ -173,7 +184,10 @@ impl<'a> PresentationBuilder<'a> {
             return Err(BuildError::InvalidMetadata("cannot have both theme path and theme name".into()));
         }
         if let Some(theme_name) = &metadata.name {
-            let theme = PresentationTheme::from_name(theme_name)
+            let theme = self
+                .themes
+                .presentation
+                .load_by_name(theme_name)
                 .ok_or_else(|| BuildError::InvalidMetadata(format!("theme '{theme_name}' does not exist")))?;
             self.theme = Cow::Owned(theme);
         }
@@ -1150,7 +1164,8 @@ mod test {
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp");
         let options = PresentationBuilderOptions::default();
-        let builder = PresentationBuilder::new(highlighter, &theme, &mut resources, options);
+        let themes = Themes::default();
+        let builder = PresentationBuilder::new(highlighter, &theme, &mut resources, &themes, options);
         builder.build(elements)
     }
 

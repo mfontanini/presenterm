@@ -1,8 +1,8 @@
 use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use presenterm::{
-    CodeHighlighter, CommandSource, Exporter, LoadThemeError, MarkdownParser, PresentMode, PresentationTheme,
-    Presenter, Resources,
+    CodeHighlighter, CommandSource, Exporter, LoadThemeError, MarkdownParser, PresentMode, PresentationThemeSet,
+    Presenter, Resources, Themes,
 };
 use std::{
     env,
@@ -58,17 +58,21 @@ fn create_splash() -> String {
     )
 }
 
-fn load_custom_themes() -> Result<(), Box<dyn std::error::Error>> {
+fn load_themes() -> Result<Themes, Box<dyn std::error::Error>> {
     let Ok(home) = env::var("HOME") else {
-        return Ok(());
+        return Ok(Themes::default());
     };
-    let config = PathBuf::from(home).join(".config/presenterm");
-    CodeHighlighter::register_themes_from_path(&config.join("themes/highlighting"))?;
-    match PresentationTheme::register_themes_from_path(&config.join("themes")) {
-        Ok(_) => Ok(()),
-        Err(e @ (LoadThemeError::Duplicate(_) | LoadThemeError::Corrupted(..))) => Err(e.into()),
-        _ => Ok(()),
+    let config_path = PathBuf::from(home).join(".config/presenterm");
+    let themes_path = config_path.join("themes");
+    CodeHighlighter::register_themes_from_path(&themes_path.join("highlighting"))?;
+    let mut presentation_themes = PresentationThemeSet::default();
+
+    let register_result = presentation_themes.register_from_directory(&themes_path);
+    if let Err(e @ (LoadThemeError::Duplicate(_) | LoadThemeError::Corrupted(..))) = register_result {
+        return Err(e.into());
     }
+    let themes = Themes { presentation: presentation_themes };
+    Ok(themes)
 }
 
 fn display_acknowledgements() {
@@ -77,11 +81,11 @@ fn display_acknowledgements() {
 }
 
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
-    load_custom_themes()?;
+    let themes = load_themes()?;
 
-    let Some(default_theme) = PresentationTheme::from_name(&cli.theme) else {
+    let Some(default_theme) = themes.presentation.load_by_name(&cli.theme) else {
         let mut cmd = Cli::command();
-        let valid_themes = PresentationTheme::theme_names().join(", ");
+        let valid_themes = themes.presentation.theme_names().join(", ");
         let error_message = format!("invalid theme name, valid themes are: {valid_themes}");
         cmd.error(ErrorKind::InvalidValue, error_message).exit();
     };
@@ -102,7 +106,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let resources_path = path.parent().unwrap_or(Path::new("/"));
     let resources = Resources::new(resources_path);
     if cli.export_pdf || cli.generate_pdf_metadata {
-        let mut exporter = Exporter::new(parser, &default_theme, default_highlighter, resources);
+        let mut exporter = Exporter::new(parser, &default_theme, default_highlighter, resources, themes);
         if cli.export_pdf {
             exporter.export_pdf(&path)?;
         } else {
@@ -111,7 +115,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         let commands = CommandSource::new(&path);
-        let presenter = Presenter::new(&default_theme, default_highlighter, commands, parser, resources, mode);
+        let presenter = Presenter::new(&default_theme, default_highlighter, commands, parser, resources, themes, mode);
         presenter.present(&path)?;
     }
     Ok(())
