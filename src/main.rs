@@ -1,7 +1,7 @@
 use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use presenterm::{
-    CodeHighlighter, CommandSource, Exporter, HighlightThemeSet, LoadThemeError, MarkdownParser, PresentMode,
+    CodeHighlighter, CommandSource, Config, Exporter, HighlightThemeSet, LoadThemeError, MarkdownParser, PresentMode,
     PresentationThemeSet, Presenter, Resources, Themes,
 };
 use std::{
@@ -58,11 +58,18 @@ fn create_splash() -> String {
     )
 }
 
-fn load_themes() -> Result<Themes, Box<dyn std::error::Error>> {
-    let Ok(home) = env::var("HOME") else {
-        return Ok(Themes::default());
+fn load_customizations() -> Result<(Config, Themes), Box<dyn std::error::Error>> {
+    let Ok(home_path) = env::var("HOME") else {
+        return Ok(Default::default());
     };
-    let config_path = PathBuf::from(home).join(".config/presenterm");
+    let home_path = PathBuf::from(home_path);
+    let config_path = home_path.join(".config/presenterm");
+    let themes = load_themes(&config_path)?;
+    let config = Config::load(&config_path.join("config.yaml"))?;
+    Ok((config, themes))
+}
+
+fn load_themes(config_path: &Path) -> Result<Themes, Box<dyn std::error::Error>> {
     let themes_path = config_path.join("themes");
 
     let mut highlight_themes = HighlightThemeSet::default();
@@ -84,9 +91,10 @@ fn display_acknowledgements() {
 }
 
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
-    let themes = load_themes()?;
+    let (config, themes) = load_customizations()?;
 
-    let Some(default_theme) = themes.presentation.load_by_name(&cli.theme) else {
+    let default_theme_name = config.defaults.theme.unwrap_or(cli.theme);
+    let Some(default_theme) = themes.presentation.load_by_name(&default_theme_name) else {
         let mut cmd = Cli::command();
         let valid_themes = themes.presentation.theme_names().join(", ");
         let error_message = format!("invalid theme name, valid themes are: {valid_themes}");
