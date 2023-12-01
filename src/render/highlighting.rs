@@ -7,11 +7,12 @@ use flate2::read::ZlibDecoder;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::{
+    cell::RefCell,
     collections::BTreeMap,
     fs,
     io::{self, Write},
     path::Path,
-    sync::{Arc, Mutex},
+    rc::Rc,
 };
 use syntect::{
     easy::HighlightLines,
@@ -25,11 +26,9 @@ static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(|| {
     bincode::deserialize(contents).expect("syntaxes are broken")
 });
 
-static THEMES: Lazy<LazyThemeSet> = Lazy::new(|| {
+static BAT_THEMES: Lazy<LazyThemeSet> = Lazy::new(|| {
     let contents = include_bytes!("../../bat/themes.bin");
     let theme_set: LazyThemeSet = bincode::deserialize(contents).expect("syntaxes are broken");
-    let default_themes = ThemeSet::load_defaults();
-    theme_set.merge(default_themes);
     theme_set
 });
 
@@ -37,59 +36,66 @@ static THEMES: Lazy<LazyThemeSet> = Lazy::new(|| {
 #[derive(Debug, Deserialize)]
 struct LazyThemeSet {
     serialized_themes: BTreeMap<String, Vec<u8>>,
-    #[serde(skip)]
-    themes: Mutex<BTreeMap<String, Arc<Theme>>>,
 }
 
-impl LazyThemeSet {
-    fn merge(&self, themes: ThemeSet) {
-        let mut all_themes = self.themes.lock().unwrap();
-        for (name, theme) in themes.themes {
-            if !self.serialized_themes.contains_key(&name) {
-                all_themes.insert(name, theme.into());
-            }
+pub struct HighlightThemeSet {
+    themes: RefCell<BTreeMap<String, Rc<Theme>>>,
+}
+
+impl HighlightThemeSet {
+    /// Construct a new highlighter using the given [syntect] theme name.
+    pub fn load_by_name(&self, name: &str) -> Option<CodeHighlighter> {
+        let mut themes = self.themes.borrow_mut();
+        // Check if we already loaded this one.
+        if let Some(theme) = themes.get(name).cloned() {
+            Some(CodeHighlighter { theme })
+        }
+        // Otherwise try to deserialize it from bat's themes
+        else if let Some(theme) = self.deserialize_bat_theme(name) {
+            themes.insert(name.into(), theme.clone());
+            Some(CodeHighlighter { theme })
+        } else {
+            None
         }
     }
 
-    fn get(&self, theme_name: &str) -> Option<Arc<Theme>> {
-        let mut themes = self.themes.lock().unwrap();
-        if let Some(theme) = themes.get(theme_name) {
-            return Some(theme.clone());
-        }
-        let serialized = self.serialized_themes.get(theme_name)?;
-        let decoded: Theme = bincode::deserialize_from(ZlibDecoder::new(serialized.as_slice())).ok()?;
-        let decoded = Arc::new(decoded);
-        themes.insert(theme_name.to_string(), decoded);
-        themes.get(theme_name).cloned()
-    }
-}
-
-/// A code highlighter.
-#[derive(Clone)]
-pub struct CodeHighlighter {
-    theme: Arc<Theme>,
-}
-
-impl CodeHighlighter {
-    /// Construct a new highlighted using the given [syntect] theme name.
-    pub fn new(theme: &str) -> Result<Self, ThemeNotFound> {
-        let theme = THEMES.get(theme).ok_or(ThemeNotFound)?;
-        Ok(Self { theme })
-    }
-
-    /// Load .tmTheme themes from the provided path.
-    pub fn register_themes_from_path(path: &Path) -> Result<(), LoadingError> {
-        let Ok(metadata) = fs::metadata(path) else {
+    /// Register all highlighting themes in the given directory.
+    pub fn register_from_directory<P: AsRef<Path>>(&mut self, path: P) -> Result<(), LoadingError> {
+        let Ok(metadata) = fs::metadata(&path) else {
             return Ok(());
         };
         if !metadata.is_dir() {
             return Ok(());
         }
         let themes = ThemeSet::load_from_folder(path)?;
-        THEMES.merge(themes);
+        let themes = themes.themes.into_iter().map(|(name, theme)| (name, Rc::new(theme)));
+        self.themes.borrow_mut().extend(themes);
         Ok(())
     }
 
+    fn deserialize_bat_theme(&self, name: &str) -> Option<Rc<Theme>> {
+        let serialized = BAT_THEMES.serialized_themes.get(name)?;
+        let decoded: Theme = bincode::deserialize_from(ZlibDecoder::new(serialized.as_slice())).ok()?;
+        let decoded = Rc::new(decoded);
+        Some(decoded)
+    }
+}
+
+impl Default for HighlightThemeSet {
+    fn default() -> Self {
+        let themes = ThemeSet::load_defaults();
+        let themes = themes.themes.into_iter().map(|(name, theme)| (name, Rc::new(theme))).collect();
+        Self { themes: RefCell::new(themes) }
+    }
+}
+
+/// A code highlighter.
+#[derive(Clone)]
+pub struct CodeHighlighter {
+    theme: Rc<Theme>,
+}
+
+impl CodeHighlighter {
     /// Create a highlighter for a specific language.
     pub(crate) fn language_highlighter(&self, language: &CodeLanguage) -> LanguageHighlighter {
         let extension = Self::language_extension(language);
@@ -157,7 +163,8 @@ impl CodeHighlighter {
 
 impl Default for CodeHighlighter {
     fn default() -> Self {
-        Self::new("base16-eighties.dark").expect("default theme not found")
+        let themes = HighlightThemeSet::default();
+        themes.load_by_name("base16-eighties.dark").expect("default theme not found")
     }
 }
 
@@ -243,6 +250,7 @@ fn to_ansi_color(color: syntect::highlighting::Color) -> Option<crossterm::style
 mod test {
     use super::*;
     use strum::IntoEnumIterator;
+    use tempfile::tempdir;
 
     #[test]
     fn language_extensions_exist() {
@@ -256,5 +264,47 @@ mod test {
     #[test]
     fn default_highlighter() {
         CodeHighlighter::default();
+    }
+
+    #[test]
+    fn load_custom() {
+        let directory = tempdir().expect("creating tempdir");
+        // A minimalistic .tmTheme theme.
+        let theme = r#"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>potato</key>
+    <string>Example Color Scheme</string>
+    <key>settings</key>
+    <array>
+        <dict>
+            <key>settings</key>
+            <dict></dict>
+        </dict>
+    </array>
+</dict>"#;
+        fs::write(directory.path().join("potato.tmTheme"), &theme).expect("writing theme");
+
+        let mut themes = HighlightThemeSet::default();
+        themes.register_from_directory(directory.path()).expect("loading themes");
+        assert!(themes.load_by_name("potato").is_some());
+    }
+
+    #[test]
+    fn register_from_missing_directory() {
+        let mut themes = HighlightThemeSet::default();
+        let result = themes.register_from_directory("/tmp/presenterm/8ee2027983915ec78acc45027d874316");
+        result.expect("loading failed");
+    }
+
+    #[test]
+    fn default_themes() {
+        let themes = HighlightThemeSet::default();
+        // This is a bat theme
+        assert!(themes.load_by_name("GitHub").is_some());
+        // This is a default syntect theme
+        assert!(themes.load_by_name("InspiredGitHub").is_some());
     }
 }

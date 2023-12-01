@@ -1,8 +1,8 @@
 use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use presenterm::{
-    CodeHighlighter, CommandSource, Exporter, LoadThemeError, MarkdownParser, PresentMode, PresentationThemeSet,
-    Presenter, Resources, Themes,
+    CodeHighlighter, CommandSource, Exporter, HighlightThemeSet, LoadThemeError, MarkdownParser, PresentMode,
+    PresentationThemeSet, Presenter, Resources, Themes,
 };
 use std::{
     env,
@@ -64,14 +64,17 @@ fn load_themes() -> Result<Themes, Box<dyn std::error::Error>> {
     };
     let config_path = PathBuf::from(home).join(".config/presenterm");
     let themes_path = config_path.join("themes");
-    CodeHighlighter::register_themes_from_path(&themes_path.join("highlighting"))?;
-    let mut presentation_themes = PresentationThemeSet::default();
 
+    let mut highlight_themes = HighlightThemeSet::default();
+    highlight_themes.register_from_directory(&themes_path.join("highlighting"))?;
+
+    let mut presentation_themes = PresentationThemeSet::default();
     let register_result = presentation_themes.register_from_directory(&themes_path);
     if let Err(e @ (LoadThemeError::Duplicate(_) | LoadThemeError::Corrupted(..))) = register_result {
         return Err(e.into());
     }
-    let themes = Themes { presentation: presentation_themes };
+
+    let themes = Themes { presentation: presentation_themes, highlight: highlight_themes };
     Ok(themes)
 }
 

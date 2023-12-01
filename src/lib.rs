@@ -21,7 +21,7 @@ pub use crate::{
     input::source::CommandSource,
     markdown::parse::MarkdownParser,
     presenter::{PresentMode, Presenter},
-    render::highlighting::CodeHighlighter,
+    render::highlighting::{CodeHighlighter, HighlightThemeSet},
     resource::Resources,
     theme::{LoadThemeError, PresentationTheme, PresentationThemeSet},
 };

@@ -12,7 +12,7 @@ use crate::{
         PresentationThemeMetadata, RenderOnDemand, RenderOnDemandState, RenderOperation, Slide, SlideChunk,
     },
     render::{
-        highlighting::{CodeHighlighter, LanguageHighlighter, StyledTokens},
+        highlighting::{CodeHighlighter, HighlightThemeSet, LanguageHighlighter, StyledTokens},
         properties::WindowSize,
     },
     resource::{LoadImageError, Resources},
@@ -34,6 +34,7 @@ static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
 #[derive(Default)]
 pub struct Themes {
     pub presentation: PresentationThemeSet,
+    pub highlight: HighlightThemeSet,
 }
 
 pub(crate) struct PresentationBuilderOptions {
@@ -206,7 +207,8 @@ impl<'a> PresentationBuilder<'a> {
 
     fn set_code_theme(&mut self) -> Result<(), BuildError> {
         if let Some(theme) = &self.theme.code.theme_name {
-            let highlighter = CodeHighlighter::new(theme).map_err(|_| BuildError::InvalidCodeTheme)?;
+            let highlighter =
+                self.themes.highlight.load_by_name(theme).ok_or_else(|| BuildError::InvalidCodeTheme(theme.clone()))?;
             self.highlighter = highlighter;
         }
         Ok(())
@@ -897,8 +899,8 @@ pub enum BuildError {
     #[error("invalid theme: {0}")]
     InvalidTheme(#[from] LoadThemeError),
 
-    #[error("invalid code highlighter theme")]
-    InvalidCodeTheme,
+    #[error("invalid code highlighter theme: '{0}'")]
+    InvalidCodeTheme(String),
 
     #[error("invalid layout: {0}")]
     InvalidLayout(&'static str),
