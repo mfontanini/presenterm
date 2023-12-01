@@ -1,5 +1,5 @@
 use crate::{
-    builder::{BuildError, PresentationBuilder, PresentationBuilderOptions},
+    builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     markdown::{elements::MarkdownElement, parse::ParseError},
     presentation::{Presentation, RenderOperation},
     CodeHighlighter, MarkdownParser, PresentationTheme, Resources,
@@ -20,6 +20,7 @@ pub struct Exporter<'a> {
     default_theme: &'a PresentationTheme,
     default_highlighter: CodeHighlighter,
     resources: Resources,
+    themes: Themes,
 }
 
 impl<'a> Exporter<'a> {
@@ -29,8 +30,9 @@ impl<'a> Exporter<'a> {
         default_theme: &'a PresentationTheme,
         default_highlighter: CodeHighlighter,
         resources: Resources,
+        themes: Themes,
     ) -> Self {
-        Self { parser, default_theme, default_highlighter, resources }
+        Self { parser, default_theme, default_highlighter, resources, themes }
     }
 
     /// Export the given presentation into PDF.
@@ -60,6 +62,7 @@ impl<'a> Exporter<'a> {
             self.default_highlighter.clone(),
             self.default_theme,
             &mut self.resources,
+            &self.themes,
             options,
         )
         .build(elements)?;
@@ -190,15 +193,17 @@ enum CaptureCommand {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::theme::PresentationThemeSet;
     use comrak::Arena;
 
     fn extract_metadata(content: &str, path: &str) -> ExportMetadata {
         let arena = Arena::new();
         let parser = MarkdownParser::new(&arena);
-        let theme = PresentationTheme::from_name("dark").unwrap();
+        let theme = PresentationThemeSet::default().load_by_name("dark").unwrap();
         let highlighter = CodeHighlighter::default();
         let resources = Resources::new("examples");
-        let mut exporter = Exporter::new(parser, &theme, highlighter, resources);
+        let themes = Themes::default();
+        let mut exporter = Exporter::new(parser, &theme, highlighter, resources, themes);
         exporter.extract_metadata(content, Path::new(path)).expect("metadata extraction failed")
     }
 

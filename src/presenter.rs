@@ -1,5 +1,5 @@
 use crate::{
-    builder::{BuildError, PresentationBuilder, PresentationBuilderOptions},
+    builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     diff::PresentationDiffer,
     input::source::{Command, CommandSource},
     markdown::parse::{MarkdownParser, ParseError},
@@ -31,6 +31,7 @@ pub struct Presenter<'a> {
     mode: PresentMode,
     state: PresenterState,
     slides_with_pending_widgets: HashSet<usize>,
+    themes: Themes,
 }
 
 impl<'a> Presenter<'a> {
@@ -41,6 +42,7 @@ impl<'a> Presenter<'a> {
         commands: CommandSource,
         parser: MarkdownParser<'a>,
         resources: Resources,
+        themes: Themes,
         mode: PresentMode,
     ) -> Self {
         Self {
@@ -52,6 +54,7 @@ impl<'a> Presenter<'a> {
             mode,
             state: PresenterState::Empty,
             slides_with_pending_widgets: HashSet::new(),
+            themes,
         }
     }
 
@@ -187,6 +190,7 @@ impl<'a> Presenter<'a> {
             self.default_highlighter.clone(),
             self.default_theme,
             &mut self.resources,
+            &self.themes,
             options,
         )
         .build(elements)?;

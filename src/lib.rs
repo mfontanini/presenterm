@@ -3,6 +3,7 @@
 //! This is not meant to be used as a crate!
 
 pub(crate) mod builder;
+pub(crate) mod custom;
 pub(crate) mod diff;
 pub(crate) mod execute;
 pub(crate) mod export;
@@ -16,11 +17,13 @@ pub(crate) mod style;
 pub(crate) mod theme;
 
 pub use crate::{
+    builder::Themes,
+    custom::Config,
     export::{ExportError, Exporter},
     input::source::CommandSource,
     markdown::parse::MarkdownParser,
     presenter::{PresentMode, Presenter},
-    render::highlighting::CodeHighlighter,
+    render::highlighting::{CodeHighlighter, HighlightThemeSet},
     resource::Resources,
-    theme::{LoadThemeError, PresentationTheme},
+    theme::{LoadThemeError, PresentationTheme, PresentationThemeSet},
 };
