@@ -78,6 +78,11 @@ block_quote:
     foreground: "212529"
     background: "e9ecef"
 
+typst:
+  colors:
+    foreground: "212529"
+    background: "e9ecef"
+
 footer: 
   style: progress_bar
   colors:
