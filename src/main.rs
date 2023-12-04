@@ -1,8 +1,8 @@
 use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use presenterm::{
-    CodeHighlighter, CommandSource, Config, Exporter, HighlightThemeSet, LoadThemeError, MarkdownParser, PresentMode,
-    PresentationThemeSet, Presenter, Resources, Themes,
+    CommandSource, Config, Exporter, HighlightThemeSet, LoadThemeError, MarkdownParser, PresentMode,
+    PresentationThemeSet, Presenter, Resources, Themes, TypstRender,
 };
 use std::{
     env,
@@ -108,7 +108,6 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     };
     let arena = Arena::new();
     let parser = MarkdownParser::new(&arena);
-    let default_highlighter = CodeHighlighter::default();
     if cli.acknowledgements {
         display_acknowledgements();
         return Ok(());
@@ -116,8 +115,9 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let path = cli.path.expect("no path");
     let resources_path = path.parent().unwrap_or(Path::new("/"));
     let resources = Resources::new(resources_path);
+    let typst = TypstRender::new(config.typst.ppi);
     if cli.export_pdf || cli.generate_pdf_metadata {
-        let mut exporter = Exporter::new(parser, &default_theme, default_highlighter, resources, themes);
+        let mut exporter = Exporter::new(parser, &default_theme, resources, typst, themes);
         if cli.export_pdf {
             exporter.export_pdf(&path)?;
         } else {
@@ -126,7 +126,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         let commands = CommandSource::new(&path);
-        let presenter = Presenter::new(&default_theme, default_highlighter, commands, parser, resources, themes, mode);
+        let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, mode);
         presenter.present(&path)?;
     }
     Ok(())

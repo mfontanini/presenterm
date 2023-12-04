@@ -21,6 +21,7 @@ use crate::{
         Alignment, AuthorPositioning, ElementType, FooterStyle, LoadThemeError, Margin, PresentationTheme,
         PresentationThemeSet,
     },
+    typst::{TypstRender, TypstRenderError},
 };
 use itertools::Itertools;
 use serde::Deserialize;
@@ -59,6 +60,7 @@ pub(crate) struct PresentationBuilder<'a> {
     highlighter: CodeHighlighter,
     theme: Cow<'a, PresentationTheme>,
     resources: &'a mut Resources,
+    typst: &'a mut TypstRender,
     slide_state: SlideState,
     footer_context: Rc<RefCell<FooterContext>>,
     themes: &'a Themes,
@@ -71,6 +73,7 @@ impl<'a> PresentationBuilder<'a> {
         default_highlighter: CodeHighlighter,
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
+        typst: &'a mut TypstRender,
         themes: &'a Themes,
         options: PresentationBuilderOptions,
     ) -> Self {
@@ -82,6 +85,7 @@ impl<'a> PresentationBuilder<'a> {
             highlighter: default_highlighter,
             theme: Cow::Borrowed(default_theme),
             resources,
+            typst,
             slide_state: Default::default(),
             footer_context: Default::default(),
             themes,
@@ -154,7 +158,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::Heading { level, text } => self.push_heading(level, text),
             MarkdownElement::Paragraph(elements) => self.push_paragraph(elements)?,
             MarkdownElement::List(elements) => self.push_list(elements),
-            MarkdownElement::Code(code) => self.push_code(code),
+            MarkdownElement::Code(code) => self.push_code(code)?,
             MarkdownElement::Table(table) => self.push_table(table),
             MarkdownElement::ThematicBreak => self.push_separator(),
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
@@ -486,7 +490,10 @@ impl<'a> PresentationBuilder<'a> {
         self.chunk_operations.push(RenderOperation::RenderLineBreak);
     }
 
-    fn push_code(&mut self, code: Code) {
+    fn push_code(&mut self, code: Code) -> Result<(), BuildError> {
+        if code.attributes.auto_render {
+            return self.push_rendered_code(code);
+        }
         let (lines, context) = self.highlight_lines(&code);
         for line in lines {
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
@@ -498,6 +505,18 @@ impl<'a> PresentationBuilder<'a> {
         if code.attributes.execute {
             self.push_code_execution(code);
         }
+        Ok(())
+    }
+
+    fn push_rendered_code(&mut self, code: Code) -> Result<(), BuildError> {
+        let image = match code.language {
+            CodeLanguage::Typst => self.typst.render_typst(&code.contents, &self.theme.typst)?,
+            CodeLanguage::Latex => self.typst.render_latex(&code.contents, &self.theme.typst)?,
+            _ => panic!("language {:?} should not be renderable", code.language),
+        };
+        let operation = RenderOperation::RenderImage(image);
+        self.chunk_operations.push(operation);
+        Ok(())
     }
 
     fn highlight_lines(&self, code: &Code) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
@@ -919,6 +938,9 @@ pub enum BuildError {
 
     #[error("error parsing command at line {line}: {error}")]
     CommandParse { line: usize, error: CommandParseError },
+
+    #[error("typst render failed: {0}")]
+    TypstRender(#[from] TypstRenderError),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -1165,9 +1187,10 @@ mod test {
         let highlighter = CodeHighlighter::default();
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp");
+        let mut typst = TypstRender::default();
         let options = PresentationBuilderOptions::default();
         let themes = Themes::default();
-        let builder = PresentationBuilder::new(highlighter, &theme, &mut resources, &themes, options);
+        let builder = PresentationBuilder::new(highlighter, &theme, &mut resources, &mut typst, &themes, options);
         builder.build(elements)
     }
 

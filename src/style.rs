@@ -125,6 +125,13 @@ impl Color {
     pub(crate) fn new(r: u8, g: u8, b: u8) -> Self {
         Self(crossterm::style::Color::Rgb { r, g, b })
     }
+
+    pub(crate) fn as_rgb(&self) -> Option<(u8, u8, u8)> {
+        match self.0 {
+            crossterm::style::Color::Rgb { r, g, b } => Some((r, g, b)),
+            _ => None,
+        }
+    }
 }
 
 impl FromStr for Color {

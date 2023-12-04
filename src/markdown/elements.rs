@@ -235,6 +235,7 @@ pub(crate) enum CodeLanguage {
     Svelte,
     Terraform,
     TypeScript,
+    Typst,
     Unknown,
     Xml,
     Yaml,
@@ -246,6 +247,10 @@ impl CodeLanguage {
     pub(crate) fn supports_execution(&self) -> bool {
         matches!(self, Self::Shell(_))
     }
+
+    pub(crate) fn supports_auto_render(&self) -> bool {
+        matches!(self, Self::Latex | Self::Typst)
+    }
 }
 
 /// Attributes for code blocks.
@@ -253,6 +258,12 @@ impl CodeLanguage {
 pub(crate) struct CodeAttributes {
     /// Whether the code block is marked as executable.
     pub(crate) execute: bool,
+
+    /// Whether a code block is marked to be auto rendered.
+    ///
+    /// An auto rendered piece of code is transformed during parsing, leading to some visual
+    /// representation of it being shown rather than the original code.
+    pub(crate) auto_render: bool,
 
     /// Whether the code block should show line numbers.
     pub(crate) line_numbers: bool,

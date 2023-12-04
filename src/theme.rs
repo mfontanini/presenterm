@@ -95,6 +95,10 @@ pub struct PresentationTheme {
     /// The style of the presentation footer.
     #[serde(default)]
     pub(crate) footer: Option<FooterStyle>,
+
+    /// The style for typst auto-rendered code blocks.
+    #[serde(default)]
+    pub(crate) typst: TypstStyle,
 }
 
 impl PresentationTheme {
@@ -463,6 +467,19 @@ pub(crate) enum AuthorPositioning {
     /// At the bottom of the page.
     #[default]
     PageBottom,
+}
+
+/// Where to position the author's name in the intro slide.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct TypstStyle {
+    /// The horizontal margin on the generated images.
+    pub(crate) horizontal_margin: Option<u16>,
+
+    /// The vertical margin on the generated images.
+    pub(crate) vertical_margin: Option<u16>,
+
+    /// The colors to be used.
+    pub(crate) colors: Colors,
 }
 
 /// An error loading a presentation theme.

@@ -11,7 +11,7 @@ use super::properties::CursorPosition;
 #[derive(Clone, PartialEq)]
 pub(crate) struct Image {
     contents: Rc<DynamicImage>,
-    path: PathBuf,
+    source: ImageSource,
 }
 
 impl Debug for Image {
@@ -22,11 +22,17 @@ impl Debug for Image {
 
 impl Image {
     /// Construct a new image from a byte sequence.
-    pub(crate) fn new(contents: &[u8], path: PathBuf) -> Result<Self, InvalidImage> {
+    pub(crate) fn new(contents: &[u8], source: ImageSource) -> Result<Self, InvalidImage> {
         let contents = image::load_from_memory(contents)?;
         let contents = Rc::new(contents);
-        Ok(Self { contents, path })
+        Ok(Self { contents, source })
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum ImageSource {
+    Filesystem(PathBuf),
+    Generated,
 }
 
 /// A media render.
@@ -52,7 +58,7 @@ impl MediaRender {
         if !dimensions.has_pixels {
             return Err(RenderImageError::NoWindowSize);
         }
-        let image_path = &image.path;
+        let source = &image.source;
         let image = &image.contents;
 
         // Compute the image's width in columns by translating pixels -> columns.
@@ -70,7 +76,7 @@ impl MediaRender {
             // Because we only use the width to draw, here we scale the width based on how much we
             // need to shrink the height.
             let shrink_ratio = available_height as f64 / height_in_rows as f64;
-            width_in_columns = (width_in_columns as f64 * shrink_ratio) as u32;
+            width_in_columns = (width_in_columns as f64 * shrink_ratio).ceil() as u32;
         }
         // Don't go too far wide.
         let width_in_columns = width_in_columns.min(column_margin);
@@ -89,9 +95,9 @@ impl MediaRender {
         //
         // This switch is because otherwise `viuer::print_from_file` for kitty/ascii blocks will
         // re-read the image every time.
-        match self.mode {
-            TerminalMode::Iterm2 => viuer::print_from_file(image_path, &config)?,
-            TerminalMode::Other => viuer::print(image, &config)?,
+        match (&self.mode, source) {
+            (TerminalMode::Iterm2, ImageSource::Filesystem(image_path)) => viuer::print_from_file(image_path, &config)?,
+            (TerminalMode::Other, _) | (_, ImageSource::Generated) => viuer::print(image, &config)?,
         };
         Ok(())
     }
