@@ -10,6 +10,7 @@ use crate::{
     },
     resource::Resources,
     theme::PresentationTheme,
+    typst::TypstRender,
 };
 use std::{
     collections::HashSet,
@@ -24,10 +25,10 @@ use std::{
 /// This type puts everything else together.
 pub struct Presenter<'a> {
     default_theme: &'a PresentationTheme,
-    default_highlighter: CodeHighlighter,
     commands: CommandSource,
     parser: MarkdownParser<'a>,
     resources: Resources,
+    typst: TypstRender,
     mode: PresentMode,
     state: PresenterState,
     slides_with_pending_widgets: HashSet<usize>,
@@ -38,19 +39,19 @@ impl<'a> Presenter<'a> {
     /// Construct a new presenter.
     pub fn new(
         default_theme: &'a PresentationTheme,
-        default_highlighter: CodeHighlighter,
         commands: CommandSource,
         parser: MarkdownParser<'a>,
         resources: Resources,
+        typst: TypstRender,
         themes: Themes,
         mode: PresentMode,
     ) -> Self {
         Self {
             default_theme,
-            default_highlighter,
             commands,
             parser,
             resources,
+            typst,
             mode,
             state: PresenterState::Empty,
             slides_with_pending_widgets: HashSet::new(),
@@ -187,9 +188,10 @@ impl<'a> Presenter<'a> {
             options.allow_mutations = false;
         }
         let presentation = PresentationBuilder::new(
-            self.default_highlighter.clone(),
+            CodeHighlighter::default(),
             self.default_theme,
             &mut self.resources,
+            &mut self.typst,
             &self.themes,
             options,
         )

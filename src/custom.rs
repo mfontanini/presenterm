@@ -5,6 +5,9 @@ use std::{fs, io, path::Path};
 pub struct Config {
     #[serde(default)]
     pub defaults: DefaultsConfig,
+
+    #[serde(default)]
+    pub typst: TypstConfig,
 }
 
 impl Config {
@@ -32,4 +35,20 @@ pub enum ConfigLoadError {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct DefaultsConfig {
     pub theme: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct TypstConfig {
+    #[serde(default = "default_typst_ppi")]
+    pub ppi: u32,
+}
+
+impl Default for TypstConfig {
+    fn default() -> Self {
+        Self { ppi: default_typst_ppi() }
+    }
+}
+
+fn default_typst_ppi() -> u32 {
+    300
 }

@@ -15,6 +15,7 @@ pub(crate) mod render;
 pub(crate) mod resource;
 pub(crate) mod style;
 pub(crate) mod theme;
+pub(crate) mod typst;
 
 pub use crate::{
     builder::Themes,
@@ -26,4 +27,5 @@ pub use crate::{
     render::highlighting::{CodeHighlighter, HighlightThemeSet},
     resource::Resources,
     theme::{LoadThemeError, PresentationTheme, PresentationThemeSet},
+    typst::TypstRender,
 };

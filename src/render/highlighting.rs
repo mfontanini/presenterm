@@ -151,6 +151,7 @@ impl CodeHighlighter {
             Svelte => "svelte",
             Terraform => "tf",
             TypeScript => "ts",
+            Typst => "txt",
             // default to plain text so we get the same look&feel
             Unknown => "txt",
             Vue => "vue",

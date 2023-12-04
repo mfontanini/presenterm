@@ -1,5 +1,5 @@
 use crate::{
-    render::media::{Image, InvalidImage},
+    render::media::{Image, ImageSource, InvalidImage},
     theme::{LoadThemeError, PresentationTheme},
 };
 use std::{
@@ -34,7 +34,7 @@ impl Resources {
         }
 
         let contents = fs::read(&path).map_err(|e| LoadImageError::Io(path.clone(), e))?;
-        let image = Image::new(&contents, path.clone())?;
+        let image = Image::new(&contents, ImageSource::Filesystem(path.clone()))?;
         self.images.insert(path, image.clone());
         Ok(image)
     }

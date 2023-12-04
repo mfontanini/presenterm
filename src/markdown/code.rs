@@ -17,7 +17,10 @@ impl CodeBlockParser {
         let (language, input) = Self::parse_language(input);
         let attributes = Self::parse_attributes(input)?;
         if attributes.execute && !language.supports_execution() {
-            return Err(CodeBlockParseError::ExecutionNotSupported(language));
+            return Err(CodeBlockParseError::UnsupportedAttribute(language, "execution"));
+        }
+        if attributes.auto_render && !language.supports_auto_render() {
+            return Err(CodeBlockParseError::UnsupportedAttribute(language, "rendering"));
         }
         Ok((language, attributes))
     }
@@ -69,6 +72,7 @@ impl CodeBlockParser {
             "swift" => Swift,
             "terraform" => Terraform,
             "typescript" | "ts" => TypeScript,
+            "typst" => Typst,
             "xml" => Xml,
             "yaml" => Yaml,
             "vue" => Vue,
@@ -90,6 +94,7 @@ impl CodeBlockParser {
             match attribute {
                 Attribute::LineNumbers => attributes.line_numbers = true,
                 Attribute::Exec => attributes.execute = true,
+                Attribute::AutoRender => attributes.auto_render = true,
                 Attribute::HighlightedLines(lines) => attributes.highlight_groups = lines,
             };
             processed_attributes.push(discriminant);
@@ -109,6 +114,7 @@ impl CodeBlockParser {
                 let attribute = match token {
                     "line_numbers" => Attribute::LineNumbers,
                     "exec" => Attribute::Exec,
+                    "render" => Attribute::AutoRender,
                     _ => return Err(CodeBlockParseError::InvalidToken(Self::next_identifier(input).into())),
                 };
                 (Some(attribute), &input[token.len() + 1..])
@@ -197,14 +203,15 @@ pub(crate) enum CodeBlockParseError {
     #[error("duplicate attribute: {0}")]
     DuplicateAttribute(&'static str),
 
-    #[error("language {0:?} does not support execution")]
-    ExecutionNotSupported(CodeLanguage),
+    #[error("language {0:?} does not support {1}")]
+    UnsupportedAttribute(CodeLanguage, &'static str),
 }
 
 #[derive(EnumDiscriminants)]
 enum Attribute {
     LineNumbers,
     Exec,
+    AutoRender,
     HighlightedLines(Vec<HighlightGroup>),
 }
 
