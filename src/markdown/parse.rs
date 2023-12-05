@@ -176,10 +176,7 @@ impl<'a> MarkdownParser<'a> {
                     if !paragraph_elements.is_empty() {
                         elements.push(MarkdownElement::Paragraph(mem::take(&mut paragraph_elements)));
                     }
-                    elements.push(MarkdownElement::Image {
-                        path: path.into(),
-                        source_position: node.data.borrow().sourcepos.into(),
-                    });
+                    elements.push(MarkdownElement::Image { path: path.into() });
                 }
             }
         }

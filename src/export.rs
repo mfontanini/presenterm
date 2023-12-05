@@ -1,10 +1,13 @@
 use crate::{
     builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
-    markdown::{elements::MarkdownElement, parse::ParseError},
+    markdown::parse::ParseError,
     presentation::{Presentation, RenderOperation},
+    render::media::{Image, ImageSource},
     typst::TypstRender,
     CodeHighlighter, MarkdownParser, PresentationTheme, Resources,
 };
+use base64::{engine::general_purpose::STANDARD, Engine};
+use image::{codecs::png::PngEncoder, DynamicImage, GenericImageView, ImageEncoder, ImageError};
 use serde::Serialize;
 use std::{
     env, fs,
@@ -56,10 +59,8 @@ impl<'a> Exporter<'a> {
     fn extract_metadata(&mut self, content: &str, path: &Path) -> Result<ExportMetadata, ExportError> {
         let elements = self.parser.parse(content)?;
         let path = path.canonicalize().expect("canonicalize");
-        let base_path = path.parent().expect("no parent");
-        let images = Self::build_image_metadata(&elements, base_path);
         let options = PresentationBuilderOptions { allow_mutations: false };
-        let presentation = PresentationBuilder::new(
+        let mut presentation = PresentationBuilder::new(
             CodeHighlighter::default(),
             self.default_theme,
             &mut self.resources,
@@ -68,6 +69,7 @@ impl<'a> Exporter<'a> {
             options,
         )
         .build(elements)?;
+        let images = Self::build_image_metadata(&mut presentation)?;
         Self::validate_theme_colors(&presentation)?;
         let commands = Self::build_capture_commands(presentation);
         let metadata = ExportMetadata { commands, presentation_path: path, images };
@@ -110,21 +112,33 @@ impl<'a> Exporter<'a> {
         commands
     }
 
-    fn build_image_metadata(elements: &[MarkdownElement], base_path: &Path) -> Vec<ImageMetadata> {
+    fn build_image_metadata(presentation: &mut Presentation) -> Result<Vec<ImageMetadata>, ExportError> {
+        let mut replacer = ImageReplacer::default();
+        replacer.replace_presentation_images(presentation);
+
         let mut positions = Vec::new();
-        for element in elements {
-            if let MarkdownElement::Image { path, source_position } = element {
-                let full_path = base_path.join(path);
-                let meta = ImageMetadata {
-                    content_path: path.into(),
-                    full_path,
-                    line: source_position.start.line,
-                    column: source_position.start.column,
-                };
-                positions.push(meta);
-            }
+        for image in replacer.images {
+            let meta = match image.original.source {
+                ImageSource::Filesystem(path) => {
+                    let path = Some(path.canonicalize().map_err(ExportError::Io)?);
+                    ImageMetadata { path, color: image.color, contents: None }
+                }
+                ImageSource::Generated => {
+                    let mut buffer = Vec::new();
+                    let dimensions = image.original.dimensions();
+                    PngEncoder::new(&mut buffer).write_image(
+                        image.original.as_bytes(),
+                        dimensions.0,
+                        dimensions.1,
+                        image.original.color(),
+                    )?;
+                    let contents = Some(STANDARD.encode(buffer));
+                    ImageMetadata { path: None, color: image.color, contents }
+                }
+            };
+            positions.push(meta);
         }
-        positions
+        Ok(positions)
     }
 
     fn validate_theme_colors(presentation: &Presentation) -> Result<(), ExportError> {
@@ -164,6 +178,12 @@ pub enum ExportError {
 
     #[error("unsupported {0} color in theme")]
     UnsupportedColor(&'static str),
+
+    #[error("generating images: {0}")]
+    GeneratingImages(#[from] ImageError),
+
+    #[error("io: {0}")]
+    Io(io::Error),
 }
 
 /// The metadata necessary to export a presentation.
@@ -177,10 +197,9 @@ pub struct ExportMetadata {
 /// Metadata about an image.
 #[derive(Clone, Debug, Serialize)]
 struct ImageMetadata {
-    content_path: PathBuf,
-    full_path: PathBuf,
-    line: usize,
-    column: usize,
+    path: Option<PathBuf>,
+    contents: Option<String>,
+    color: u32,
 }
 
 /// A command to whoever is capturing us indicating what to do.
@@ -190,6 +209,60 @@ enum CaptureCommand {
     Capture,
     SendKeys { keys: &'static str },
     WaitForChange,
+}
+
+struct ReplacedImage {
+    original: Image,
+    color: u32,
+}
+
+pub(crate) struct ImageReplacer {
+    next_color: u32,
+    images: Vec<ReplacedImage>,
+}
+
+impl ImageReplacer {
+    pub(crate) fn replace_presentation_images(&mut self, presentation: &mut Presentation) {
+        let callback = |operation: &mut RenderOperation| {
+            let RenderOperation::RenderImage(image) = operation else {
+                return;
+            };
+            let replacement = self.replace_image(image.clone());
+            *operation = RenderOperation::RenderImage(replacement);
+        };
+
+        presentation.mutate_operations(callback);
+    }
+
+    fn replace_image(&mut self, image: Image) -> Image {
+        let dimensions = image.dimensions();
+        let color = self.allocate_color();
+        let rgb_color = Self::as_rgb(color);
+
+        let mut replacement = DynamicImage::new_rgb8(dimensions.0, dimensions.1);
+        let buffer = replacement.as_mut_rgb8().expect("not rgb8");
+        for pixel in buffer.pixels_mut() {
+            pixel.0 = rgb_color;
+        }
+        self.images.push(ReplacedImage { original: image, color });
+        Image::new(replacement)
+    }
+
+    fn allocate_color(&mut self) -> u32 {
+        let color = self.next_color;
+        self.next_color += 1;
+        color
+    }
+
+    fn as_rgb(color: u32) -> [u8; 3] {
+        [(color >> 16) as u8, (color >> 8) as u8, (color & 0xff) as u8]
+    }
+}
+
+impl Default for ImageReplacer {
+    fn default() -> Self {
+        Self { next_color: 0xffbad3, images: Vec::new() }
+    }
 }
 
 #[cfg(test)]

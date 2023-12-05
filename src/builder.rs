@@ -13,6 +13,7 @@ use crate::{
     },
     render::{
         highlighting::{CodeHighlighter, HighlightThemeSet, LanguageHighlighter, StyledTokens},
+        media::Image,
         properties::WindowSize,
     },
     resource::{LoadImageError, Resources},
@@ -163,7 +164,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::ThematicBreak => self.push_separator(),
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
             MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines),
-            MarkdownElement::Image { path, .. } => self.push_image(path)?,
+            MarkdownElement::Image { path, .. } => self.push_image_from_path(path)?,
         };
         if should_clear_last {
             self.slide_state.last_element = Default::default();
@@ -385,11 +386,15 @@ impl<'a> PresentationBuilder<'a> {
         self.chunk_operations.extend([RenderSeparator::default().into(), RenderOperation::RenderLineBreak]);
     }
 
-    fn push_image(&mut self, path: PathBuf) -> Result<(), BuildError> {
+    fn push_image_from_path(&mut self, path: PathBuf) -> Result<(), BuildError> {
         let image = self.resources.image(&path)?;
+        self.push_image(image);
+        Ok(())
+    }
+
+    fn push_image(&mut self, image: Image) {
         self.chunk_operations.push(RenderOperation::RenderImage(image));
         self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
-        Ok(())
     }
 
     fn push_list(&mut self, list: Vec<ListItem>) {
@@ -514,8 +519,7 @@ impl<'a> PresentationBuilder<'a> {
             CodeLanguage::Latex => self.typst.render_latex(&code.contents, &self.theme.typst)?,
             _ => panic!("language {:?} should not be renderable", code.language),
         };
-        let operation = RenderOperation::RenderImage(image);
-        self.chunk_operations.push(operation);
+        self.push_image(image);
         Ok(())
     }
 

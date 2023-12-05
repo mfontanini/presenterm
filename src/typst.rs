@@ -69,7 +69,7 @@ impl TypstRender {
         Self::validate_output(&output, "typst")?;
 
         let png_contents = fs::read(&output_path)?;
-        let image = Image::new(&png_contents, ImageSource::Generated)?;
+        let image = Image::decode(&png_contents, ImageSource::Generated)?;
         Ok(image)
     }
 
