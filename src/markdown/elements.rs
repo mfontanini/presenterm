@@ -220,6 +220,7 @@ pub(crate) enum CodeLanguage {
     Lua,
     Makefile,
     Markdown,
+    Nix,
     OCaml,
     Perl,
     Php,

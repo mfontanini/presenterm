@@ -56,6 +56,7 @@ impl CodeBlockParser {
             "lua" => Lua,
             "make" => Makefile,
             "markdown" => Markdown,
+            "nix" => Nix,
             "ocaml" => OCaml,
             "perl" => Perl,
             "php" => Php,
