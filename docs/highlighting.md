@@ -31,6 +31,7 @@ Code highlighting is supported for the following languages:
 * lua
 * makefile
 * markdown
+* nix
 * ocaml
 * perl
 * php
