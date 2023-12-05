@@ -34,7 +34,7 @@ impl Resources {
         }
 
         let contents = fs::read(&path).map_err(|e| LoadImageError::Io(path.clone(), e))?;
-        let image = Image::new(&contents, ImageSource::Filesystem(path.clone()))?;
+        let image = Image::decode(&contents, ImageSource::Filesystem(path.clone()))?;
         self.images.insert(path, image.clone());
         Ok(image)
     }

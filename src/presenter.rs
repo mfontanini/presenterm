@@ -1,6 +1,7 @@
 use crate::{
     builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     diff::PresentationDiffer,
+    export::ImageReplacer,
     input::source::{Command, CommandSource},
     markdown::parse::{MarkdownParser, ParseError},
     presentation::Presentation,
@@ -184,10 +185,11 @@ impl<'a> Presenter<'a> {
         let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
         let elements = self.parser.parse(&content)?;
         let mut options = PresentationBuilderOptions::default();
-        if matches!(self.mode, PresentMode::Export) {
+        let export_mode = matches!(self.mode, PresentMode::Export);
+        if export_mode {
             options.allow_mutations = false;
         }
-        let presentation = PresentationBuilder::new(
+        let mut presentation = PresentationBuilder::new(
             CodeHighlighter::default(),
             self.default_theme,
             &mut self.resources,
@@ -196,6 +198,10 @@ impl<'a> Presenter<'a> {
             options,
         )
         .build(elements)?;
+        if export_mode {
+            ImageReplacer::default().replace_presentation_images(&mut presentation);
+        }
+
         Ok(presentation)
     }
 }

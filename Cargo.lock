@@ -922,6 +922,7 @@ checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 name = "presenterm"
 version = "0.3.0"
 dependencies = [
+ "base64",
  "bincode",
  "clap",
  "comrak",

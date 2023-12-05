@@ -130,6 +130,22 @@ impl Presentation {
         all_rendered
     }
 
+    /// Run a callback through every operation and let it mutate it in place.
+    ///
+    /// This should be used with care!
+    pub(crate) fn mutate_operations<F>(&mut self, mut callback: F)
+    where
+        F: FnMut(&mut RenderOperation),
+    {
+        for slide in &mut self.slides {
+            for chunk in &mut slide.chunks {
+                for operation in &mut chunk.operations {
+                    callback(operation);
+                }
+            }
+        }
+    }
+
     fn current_slide_mut(&mut self) -> &mut Slide {
         &mut self.slides[self.current_slide_index]
     }

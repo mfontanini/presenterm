@@ -1,6 +1,6 @@
 use crate::render::properties::WindowSize;
 use image::{DynamicImage, ImageError};
-use std::{fmt::Debug, io, path::PathBuf, rc::Rc};
+use std::{fmt::Debug, io, ops::Deref, path::PathBuf, rc::Rc};
 use viuer::{is_iterm_supported, ViuError};
 
 use super::properties::CursorPosition;
@@ -11,7 +11,7 @@ use super::properties::CursorPosition;
 #[derive(Clone, PartialEq)]
 pub(crate) struct Image {
     contents: Rc<DynamicImage>,
-    source: ImageSource,
+    pub(crate) source: ImageSource,
 }
 
 impl Debug for Image {
@@ -21,11 +21,24 @@ impl Debug for Image {
 }
 
 impl Image {
-    /// Construct a new image from a byte sequence.
-    pub(crate) fn new(contents: &[u8], source: ImageSource) -> Result<Self, InvalidImage> {
+    /// Constructs a new image.
+    pub(crate) fn new(image: DynamicImage) -> Self {
+        Self { contents: Rc::new(image), source: ImageSource::Generated }
+    }
+
+    /// Decodes an image from a byte sequence.
+    pub(crate) fn decode(contents: &[u8], source: ImageSource) -> Result<Self, InvalidImage> {
         let contents = image::load_from_memory(contents)?;
         let contents = Rc::new(contents);
         Ok(Self { contents, source })
+    }
+}
+
+impl Deref for Image {
+    type Target = DynamicImage;
+
+    fn deref(&self) -> &Self::Target {
+        &self.contents
     }
 }
 
