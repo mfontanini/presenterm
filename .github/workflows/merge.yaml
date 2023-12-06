@@ -76,10 +76,19 @@ jobs:
     name: Validate nix flake
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Install nix
-      uses: DeterminateSystems/nix-installer-action@v4
-    - name: Magic nix cache
-      uses: DeterminateSystems/magic-nix-cache-action@v2
-    - name: Build
-      run: nix build .#dev.presenterm
+      - uses: actions/checkout@v4
+      - name: Install nix
+        uses: DeterminateSystems/nix-installer-action@v4
+      - name: Magic nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@v2
+      - name: Build
+        run: nix build .#dev.presenterm
+
+  bat-assets:
+    name: Validate bat assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Verify assets
+        run: ./bat/verify.sh
