@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/use/bin/env bash
 
 set -e
 
@@ -14,9 +14,9 @@ git_hash=$1
 clone_path=$(mktemp -d)
 
 echo "Cloning repo @ ${git_hash} into '$clone_path'"
-git clone https://github.com/sharkdp/bat.git $clone_path
-cd $clone_path
-git reset --hard $git_hash
+git clone https://github.com/sharkdp/bat.git "$clone_path"
+cd "$clone_path"
+git reset --hard "$git_hash"
 
 cp assets/syntaxes.bin "$script_dir"
 cp assets/themes.bin "$script_dir"
@@ -24,7 +24,7 @@ cp assets/themes.bin "$script_dir"
 acknowledgements_file="$script_dir/acknowledgements.txt"
 cp LICENSE-MIT "$acknowledgements_file"
 zlib-flate -uncompress < assets/acknowledgements.bin >> "$acknowledgements_file"
-echo $git_hash > "$script_dir/bat.git-hash"
+echo "$git_hash" > "$script_dir/bat.git-hash"
 
 echo "syntaxes/themes updated"
 
