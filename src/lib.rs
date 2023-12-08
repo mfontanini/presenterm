@@ -15,6 +15,7 @@ pub(crate) mod render;
 pub(crate) mod resource;
 pub(crate) mod style;
 pub(crate) mod theme;
+pub(crate) mod tools;
 pub(crate) mod typst;
 
 pub use crate::{

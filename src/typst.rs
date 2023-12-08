@@ -2,12 +2,12 @@ use crate::{
     render::media::{Image, ImageSource, InvalidImage},
     style::Color,
     theme::TypstStyle,
+    tools::{ExecutionError, ThirdPartyTools},
 };
 use std::{
     fs,
-    io::{self, Write},
+    io::{self},
     path::Path,
-    process::{Command, Output, Stdio},
 };
 use tempfile::tempdir;
 
@@ -35,52 +35,30 @@ impl TypstRender {
     }
 
     pub(crate) fn render_latex(&self, input: &str, style: &TypstStyle) -> Result<Image, TypstRenderError> {
-        let mut child = Command::new("pandoc")
-            .args(["--from", "latex", "--to", "typst"])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| TypstRenderError::CommandRun("pandoc", e.to_string()))?;
+        let output = ThirdPartyTools::pandoc(&["--from", "latex", "--to", "typst"])
+            .stdin(input.as_bytes().into())
+            .run_and_capture_stdout()?;
 
-        child.stdin.take().expect("no stdin").write_all(input.as_bytes())?;
-        let output = child.wait_with_output().map_err(|e| TypstRenderError::CommandRun("pandoc", e.to_string()))?;
-        Self::validate_output(&output, "pandoc")?;
-
-        let input = String::from_utf8_lossy(&output.stdout);
+        let input = String::from_utf8_lossy(&output);
         self.render_typst(&input, style)
     }
 
     fn render_to_image(&self, base_path: &Path, path: &Path) -> Result<Image, TypstRenderError> {
         let output_path = base_path.join("output.png");
-        let output = Command::new("typst")
-            .args([
-                "compile",
-                "--format",
-                "png",
-                "--ppi",
-                &self.ppi,
-                &path.to_string_lossy(),
-                &output_path.to_string_lossy(),
-            ])
-            .stderr(Stdio::piped())
-            .output()
-            .map_err(|e| TypstRenderError::CommandRun("typst", e.to_string()))?;
-        Self::validate_output(&output, "typst")?;
+        ThirdPartyTools::typst(&[
+            "compile",
+            "--format",
+            "png",
+            "--ppi",
+            &self.ppi,
+            &path.to_string_lossy(),
+            &output_path.to_string_lossy(),
+        ])
+        .run()?;
 
         let png_contents = fs::read(&output_path)?;
         let image = Image::decode(&png_contents, ImageSource::Generated)?;
         Ok(image)
-    }
-
-    fn validate_output(output: &Output, name: &'static str) -> Result<(), TypstRenderError> {
-        if output.status.success() {
-            Ok(())
-        } else {
-            let error = String::from_utf8_lossy(&output.stderr);
-            let error = error.lines().take(10).collect();
-            Err(TypstRenderError::CommandRun(name, error))
-        }
     }
 
     fn generate_page_header(style: &TypstStyle) -> Result<String, TypstRenderError> {
@@ -114,14 +92,14 @@ impl Default for TypstRender {
 
 #[derive(Debug, thiserror::Error)]
 pub enum TypstRenderError {
+    #[error(transparent)]
+    Execution(#[from] ExecutionError),
+
     #[error("io: {0}")]
     Io(#[from] io::Error),
 
     #[error("invalid output image: {0}")]
     InvalidImage(#[from] InvalidImage),
-
-    #[error("running command '{0}': {1}")]
-    CommandRun(&'static str, String),
 
     #[error("unsupported color '{0}', only RGB is supported")]
     UnsupportedColor(String),

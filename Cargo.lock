@@ -934,6 +934,7 @@ dependencies = [
  "merge-struct",
  "once_cell",
  "rstest",
+ "semver",
  "serde",
  "serde_json",
  "serde_with",

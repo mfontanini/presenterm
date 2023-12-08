@@ -3,20 +3,21 @@ use crate::{
     markdown::parse::ParseError,
     presentation::{Presentation, RenderOperation},
     render::media::{Image, ImageSource},
+    tools::{ExecutionError, ThirdPartyTools},
     typst::TypstRender,
     CodeHighlighter, MarkdownParser, PresentationTheme, Resources,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use image::{codecs::png::PngEncoder, DynamicImage, GenericImageView, ImageEncoder, ImageError};
+use semver::Version;
 use serde::Serialize;
 use std::{
     env, fs,
-    io::{self, Write},
+    io::{self},
     path::{Path, PathBuf},
-    process::{Command, Stdio},
 };
 
-const COMMAND: &str = "presenterm-export";
+const MINIMUM_EXPORTER_VERSION: Version = Version::new(0, 2, 0);
 
 /// Allows exporting presentations into PDF.
 pub struct Exporter<'a> {
@@ -43,8 +44,10 @@ impl<'a> Exporter<'a> {
     ///
     /// This uses a separate `presenterm-export` tool.
     pub fn export_pdf(&mut self, presentation_path: &Path) -> Result<(), ExportError> {
+        Self::validate_exporter_version()?;
+
         let metadata = self.generate_metadata(presentation_path)?;
-        Self::execute_exporter(metadata).map_err(ExportError::InvokeExporter)?;
+        Self::execute_exporter(metadata)?;
         Ok(())
     }
 
@@ -53,6 +56,17 @@ impl<'a> Exporter<'a> {
         let content = fs::read_to_string(presentation_path).map_err(ExportError::ReadPresentation)?;
         let metadata = self.extract_metadata(&content, presentation_path)?;
         Ok(metadata)
+    }
+
+    fn validate_exporter_version() -> Result<(), ExportError> {
+        let result = ThirdPartyTools::presenterm_export(&["--version"]).run_and_capture_stdout();
+        let version = match result {
+            Ok(version) => String::from_utf8(version).expect("not utf8"),
+            Err(ExecutionError::Execution { .. }) => return Err(ExportError::MinimumVersion),
+            Err(e) => return Err(e.into()),
+        };
+        let version = Version::parse(version.trim()).map_err(|_| ExportError::MinimumVersion)?;
+        if version >= MINIMUM_EXPORTER_VERSION { Ok(()) } else { Err(ExportError::MinimumVersion) }
     }
 
     /// Extract the metadata necessary to make an export.
@@ -69,6 +83,7 @@ impl<'a> Exporter<'a> {
             options,
         )
         .build(elements)?;
+
         let images = Self::build_image_metadata(&mut presentation)?;
         Self::validate_theme_colors(&presentation)?;
         let commands = Self::build_capture_commands(presentation);
@@ -76,21 +91,11 @@ impl<'a> Exporter<'a> {
         Ok(metadata)
     }
 
-    fn execute_exporter(metadata: ExportMetadata) -> io::Result<()> {
-        let presenterm_path = env::current_exe()?;
-        let mut command =
-            Command::new(COMMAND).arg("--presenterm-path").arg(presenterm_path).stdin(Stdio::piped()).spawn()?;
-        let mut stdin = command.stdin.take().expect("no stdin");
+    fn execute_exporter(metadata: ExportMetadata) -> Result<(), ExportError> {
+        let presenterm_path = env::current_exe().map_err(ExportError::Io)?;
+        let presenterm_path = presenterm_path.display().to_string();
         let metadata = serde_json::to_vec(&metadata).expect("serialization failed");
-        stdin.write_all(&metadata)?;
-        stdin.flush()?;
-        drop(stdin);
-
-        let status = command.wait()?;
-        if !status.success() {
-            println!("PDF generation failed");
-        }
-        // huh?
+        ThirdPartyTools::presenterm_export(&["--presenterm-path", &presenterm_path]).stdin(metadata).run()?;
         Ok(())
     }
 
@@ -173,14 +178,17 @@ pub enum ExportError {
     #[error("failed to build presentation: {0}")]
     BuildPresentation(#[from] BuildError),
 
-    #[error("failed to invoke presenterm-export (is it installed?): {0}")]
-    InvokeExporter(io::Error),
-
     #[error("unsupported {0} color in theme")]
     UnsupportedColor(&'static str),
 
     #[error("generating images: {0}")]
     GeneratingImages(#[from] ImageError),
+
+    #[error(transparent)]
+    Execution(#[from] ExecutionError),
+
+    #[error("minimum presenterm-export version ({MINIMUM_EXPORTER_VERSION}) not met")]
+    MinimumVersion,
 
     #[error("io: {0}")]
     Io(io::Error),
