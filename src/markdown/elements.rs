@@ -204,6 +204,7 @@ pub(crate) enum CodeLanguage {
     Cpp,
     Css,
     DLang,
+    Diff,
     Docker,
     Dotenv,
     Elixir,
