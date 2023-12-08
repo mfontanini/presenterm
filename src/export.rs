@@ -9,12 +9,15 @@ use crate::{
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use image::{codecs::png::PngEncoder, DynamicImage, GenericImageView, ImageEncoder, ImageError};
+use semver::Version;
 use serde::Serialize;
 use std::{
     env, fs,
     io::{self},
     path::{Path, PathBuf},
 };
+
+const MINIMUM_EXPORTER_VERSION: Version = Version::new(0, 2, 0);
 
 /// Allows exporting presentations into PDF.
 pub struct Exporter<'a> {
@@ -41,6 +44,8 @@ impl<'a> Exporter<'a> {
     ///
     /// This uses a separate `presenterm-export` tool.
     pub fn export_pdf(&mut self, presentation_path: &Path) -> Result<(), ExportError> {
+        Self::validate_exporter_version()?;
+
         let metadata = self.generate_metadata(presentation_path)?;
         Self::execute_exporter(metadata)?;
         Ok(())
@@ -51,6 +56,17 @@ impl<'a> Exporter<'a> {
         let content = fs::read_to_string(presentation_path).map_err(ExportError::ReadPresentation)?;
         let metadata = self.extract_metadata(&content, presentation_path)?;
         Ok(metadata)
+    }
+
+    fn validate_exporter_version() -> Result<(), ExportError> {
+        let result = ThirdPartyTools::presenterm_export(&["--version"]).run_and_capture_stdout();
+        let version = match result {
+            Ok(version) => String::from_utf8(version).expect("not utf8"),
+            Err(ExecutionError::Execution { .. }) => return Err(ExportError::MinimumVersion),
+            Err(e) => return Err(e.into()),
+        };
+        let version = Version::parse(version.trim()).map_err(|_| ExportError::MinimumVersion)?;
+        if version >= MINIMUM_EXPORTER_VERSION { Ok(()) } else { Err(ExportError::MinimumVersion) }
     }
 
     /// Extract the metadata necessary to make an export.
@@ -170,6 +186,9 @@ pub enum ExportError {
 
     #[error(transparent)]
     Execution(#[from] ExecutionError),
+
+    #[error("minimum presenterm-export version ({MINIMUM_EXPORTER_VERSION}) not met")]
+    MinimumVersion,
 
     #[error("io: {0}")]
     Io(io::Error),
