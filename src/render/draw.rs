@@ -46,9 +46,9 @@ where
             WeightedText::from(StyledText::new("Error loading presentation", TextStyle::default().bold())),
             WeightedText::from(StyledText::from(": ")),
         ];
-        let error = vec![WeightedText::from(StyledText::from(message))];
+
         let alignment = Alignment::Center { minimum_size: 0, minimum_margin: Margin::Percent(8) };
-        let operations = [
+        let mut operations = vec![
             RenderOperation::ClearScreen,
             RenderOperation::SetColors(Colors {
                 foreground: Some(Color::new(255, 0, 0)),
@@ -58,8 +58,12 @@ where
             RenderOperation::RenderText { line: WeightedLine::from(heading), alignment: alignment.clone() },
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
-            RenderOperation::RenderText { line: WeightedLine::from(error), alignment: alignment.clone() },
         ];
+        for line in message.lines() {
+            let error = vec![WeightedText::from(StyledText::from(line))];
+            let op = RenderOperation::RenderText { line: WeightedLine::from(error), alignment: alignment.clone() };
+            operations.extend([op, RenderOperation::RenderLineBreak]);
+        }
         let engine = RenderEngine::new(&mut self.terminal, dimensions);
         engine.render(operations.iter())?;
         self.terminal.flush()?;
