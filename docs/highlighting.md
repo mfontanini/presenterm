@@ -15,6 +15,7 @@ Code highlighting is supported for the following languages:
 * C++
 * CSS
 * D
+* diff
 * docker
 * dotenv
 * elixir
@@ -54,9 +55,9 @@ Code highlighting is supported for the following languages:
 
 ## Enabling line numbers
 
-If you would like line numbers to be shown on the left of a code block use the `+line_numbers` switch after specifying 
+If you would like line numbers to be shown on the left of a code block use the `+line_numbers` switch after specifying
 the language in a code block:
- 
+
 ~~~
 ```rust +line_numbers
    fn hello_world() {
@@ -67,7 +68,7 @@ the language in a code block:
 
 ## Selective highlighting
 
-By default, the entire code block will be syntax-highlighted. If instead you only wanted a subset of it to be 
+By default, the entire code block will be syntax-highlighted. If instead you only wanted a subset of it to be
 highlighted, you can use braces and a list of either individual lines, or line ranges that you'd want to highlight.
 
 ~~~
@@ -84,7 +85,7 @@ highlighted, you can use braces and a list of either individual lines, or line r
 
 ## Dynamic highlighting
 
-Similar to the syntax used for selective highlighting, dynamic highlighting will change which lines of the code in a 
+Similar to the syntax used for selective highlighting, dynamic highlighting will change which lines of the code in a
 code block are highlighted every time you move to the next/previous slide.
 
 This is achieved by using the separator `|` to indicate what sections of the code will be highlighted at a given time.
@@ -101,8 +102,8 @@ This is achieved by using the separator `|` to indicate what sections of the cod
 ```
 ~~~
 
-In this example, lines 1 and 3 will be highlighted initially. Then once you press a key to move to the next slide, lines 
-1 and 3 will no longer be highlighted and instead lines 5 through 7 will. This allows you to create more dynamic 
+In this example, lines 1 and 3 will be highlighted initially. Then once you press a key to move to the next slide, lines
+1 and 3 will no longer be highlighted and instead lines 5 through 7 will. This allows you to create more dynamic
 presentations where you can display sections of the code to explain something specific about each of them.
 
 See this real example of how this looks like.
@@ -111,8 +112,8 @@ See this real example of how this looks like.
 
 ## Executing code
 
-Annotating a shell code block with a `+exec` switch will make it executable. Once you're in a slide that contains an 
-executable block, press `control+e` to execute it. The output of the execution will be displayed on a box below the 
+Annotating a shell code block with a `+exec` switch will make it executable. Once you're in a slide that contains an
+executable block, press `control+e` to execute it. The output of the execution will be displayed on a box below the
 code. The code execution is stateful so if you switch to another slide and then go back, you will still see the output.
 
 ~~~

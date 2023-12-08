@@ -40,6 +40,7 @@ impl CodeBlockParser {
             "cpp" | "c++" => Cpp,
             "css" => Css,
             "d" => DLang,
+            "diff" => Diff,
             "docker" => Docker,
             "dotenv" => Dotenv,
             "elixir" => Elixir,

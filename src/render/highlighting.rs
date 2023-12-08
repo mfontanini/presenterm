@@ -120,6 +120,7 @@ impl CodeHighlighter {
             Crontab => "crontab",
             Css => "css",
             DLang => "d",
+            Diff => "diff",
             Docker => "Dockerfile",
             Dotenv => "env",
             Elixir => "ex",
