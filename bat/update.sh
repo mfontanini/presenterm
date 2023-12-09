@@ -2,10 +2,9 @@
 
 set -e
 
-if [ $# -ne 1 ]
-then
-  echo "Usage: $0 <bat-git-hash>"
-  exit 1
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <bat-git-hash>"
+    exit 1
 fi
 
 script_path=$(realpath "$0")
@@ -23,8 +22,7 @@ cp assets/themes.bin "$script_dir"
 
 acknowledgements_file="$script_dir/acknowledgements.txt"
 cp LICENSE-MIT "$acknowledgements_file"
-zlib-flate -uncompress < assets/acknowledgements.bin >> "$acknowledgements_file"
-echo "$git_hash" > "$script_dir/bat.git-hash"
+zlib-flate -uncompress <assets/acknowledgements.bin >>"$acknowledgements_file"
+echo "$git_hash" >"$script_dir/bat.git-hash"
 
 echo "syntaxes/themes updated"
-
