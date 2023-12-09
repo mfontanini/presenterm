@@ -8,6 +8,9 @@ pub struct Config {
 
     #[serde(default)]
     pub typst: TypstConfig,
+
+    #[serde(default)]
+    pub options: OptionsConfig,
 }
 
 impl Config {
@@ -35,6 +38,12 @@ pub enum ConfigLoadError {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct DefaultsConfig {
     pub theme: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct OptionsConfig {
+    /// Whether slides are automatically terminated when a slide title is found.
+    pub implicit_slide_ends: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]

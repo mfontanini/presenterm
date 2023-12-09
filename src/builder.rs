@@ -39,13 +39,15 @@ pub struct Themes {
     pub highlight: HighlightThemeSet,
 }
 
-pub(crate) struct PresentationBuilderOptions {
-    pub(crate) allow_mutations: bool,
+#[derive(Clone, Debug)]
+pub struct PresentationBuilderOptions {
+    pub allow_mutations: bool,
+    pub implicit_slide_ends: bool,
 }
 
 impl Default for PresentationBuilderOptions {
     fn default() -> Self {
-        Self { allow_mutations: true }
+        Self { allow_mutations: true, implicit_slide_ends: false }
     }
 }
 
@@ -167,7 +169,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::Image { path, .. } => self.push_image_from_path(path)?,
         };
         if should_clear_last {
-            self.slide_state.last_element = Default::default();
+            self.slide_state.last_element = LastElement::Other;
         }
         Ok(())
     }
@@ -327,6 +329,12 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_slide_title(&mut self, mut text: Text) {
+        if self.options.implicit_slide_ends
+            && !matches!(self.slide_state.last_element, LastElement::EndSlide | LastElement::SlideStart)
+        {
+            self.terminate_slide();
+        }
+
         let style = self.theme.slide_title.clone();
         text.apply_style(&TextStyle::default().bold().colors(style.colors.clone()));
 
@@ -577,6 +585,7 @@ impl<'a> PresentationBuilder<'a> {
         self.slides.push(Slide::new(chunks, footer));
         self.push_slide_prelude();
         self.slide_state = Default::default();
+        self.slide_state.last_element = LastElement::EndSlide;
     }
 
     fn generate_footer(&mut self) -> Vec<RenderOperation> {
@@ -824,10 +833,12 @@ enum LayoutState {
 #[derive(Debug, Default)]
 enum LastElement {
     #[default]
-    Any,
+    SlideStart,
+    EndSlide,
     List {
         last_index: usize,
     },
+    Other,
 }
 
 #[derive(Debug, Default)]
@@ -1189,12 +1200,25 @@ mod test {
         try_build_presentation(elements).expect("build failed")
     }
 
+    fn build_presentation_with_options(
+        elements: Vec<MarkdownElement>,
+        options: PresentationBuilderOptions,
+    ) -> Presentation {
+        try_build_presentation_with_options(elements, options).expect("build failed")
+    }
+
     fn try_build_presentation(elements: Vec<MarkdownElement>) -> Result<Presentation, BuildError> {
+        try_build_presentation_with_options(elements, Default::default())
+    }
+
+    fn try_build_presentation_with_options(
+        elements: Vec<MarkdownElement>,
+        options: PresentationBuilderOptions,
+    ) -> Result<Presentation, BuildError> {
         let highlighter = CodeHighlighter::default();
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp");
         let mut typst = TypstRender::default();
-        let options = PresentationBuilderOptions::default();
         let themes = Themes::default();
         let builder = PresentationBuilder::new(highlighter, &theme, &mut resources, &mut typst, &themes, options);
         builder.build(elements)
@@ -1474,6 +1498,24 @@ mod test {
         // This is pretty easy to break, refactor soon
         let last_operation = &operations[operations.len() - 4];
         assert!(matches!(last_operation, RenderOperation::RenderLineBreak), "last operation is {last_operation:?}");
+    }
+
+    #[test]
+    fn implicit_slide_ends() {
+        let elements = vec![
+            // first slide
+            MarkdownElement::SetexHeading { text: "hi".into() },
+            // second
+            MarkdownElement::SetexHeading { text: "hi".into() },
+            MarkdownElement::Heading { level: 1, text: "hi".into() },
+            // explicitly ends
+            MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
+            // third starts
+            MarkdownElement::SetexHeading { text: "hi".into() },
+        ];
+        let options = PresentationBuilderOptions { implicit_slide_ends: true, ..Default::default() };
+        let slides = build_presentation_with_options(elements, options).into_slides();
+        assert_eq!(slides.len(), 3);
     }
 
     #[rstest]

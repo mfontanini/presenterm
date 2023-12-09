@@ -26,6 +26,7 @@ pub struct Exporter<'a> {
     resources: Resources,
     typst: TypstRender,
     themes: Themes,
+    options: PresentationBuilderOptions,
 }
 
 impl<'a> Exporter<'a> {
@@ -36,8 +37,9 @@ impl<'a> Exporter<'a> {
         resources: Resources,
         typst: TypstRender,
         themes: Themes,
+        options: PresentationBuilderOptions,
     ) -> Self {
-        Self { parser, default_theme, resources, typst, themes }
+        Self { parser, default_theme, resources, typst, themes, options }
     }
 
     /// Export the given presentation into PDF.
@@ -73,14 +75,13 @@ impl<'a> Exporter<'a> {
     fn extract_metadata(&mut self, content: &str, path: &Path) -> Result<ExportMetadata, ExportError> {
         let elements = self.parser.parse(content)?;
         let path = path.canonicalize().expect("canonicalize");
-        let options = PresentationBuilderOptions { allow_mutations: false };
         let mut presentation = PresentationBuilder::new(
             CodeHighlighter::default(),
             self.default_theme,
             &mut self.resources,
             &mut self.typst,
             &self.themes,
-            options,
+            self.options.clone(),
         )
         .build(elements)?;
 
@@ -286,7 +287,8 @@ mod test {
         let resources = Resources::new("examples");
         let typst = TypstRender::default();
         let themes = Themes::default();
-        let mut exporter = Exporter::new(parser, &theme, resources, typst, themes);
+        let options = PresentationBuilderOptions { allow_mutations: false, ..Default::default() };
+        let mut exporter = Exporter::new(parser, &theme, resources, typst, themes, options);
         exporter.extract_metadata(content, Path::new(path)).expect("metadata extraction failed")
     }
 
