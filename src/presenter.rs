@@ -34,10 +34,12 @@ pub struct Presenter<'a> {
     state: PresenterState,
     slides_with_pending_widgets: HashSet<usize>,
     themes: Themes,
+    builder_options: PresentationBuilderOptions,
 }
 
 impl<'a> Presenter<'a> {
     /// Construct a new presenter.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         default_theme: &'a PresentationTheme,
         commands: CommandSource,
@@ -46,6 +48,7 @@ impl<'a> Presenter<'a> {
         typst: TypstRender,
         themes: Themes,
         mode: PresentMode,
+        builder_options: PresentationBuilderOptions,
     ) -> Self {
         Self {
             default_theme,
@@ -57,6 +60,7 @@ impl<'a> Presenter<'a> {
             state: PresenterState::Empty,
             slides_with_pending_widgets: HashSet::new(),
             themes,
+            builder_options,
         }
     }
 
@@ -184,18 +188,14 @@ impl<'a> Presenter<'a> {
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
         let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
         let elements = self.parser.parse(&content)?;
-        let mut options = PresentationBuilderOptions::default();
         let export_mode = matches!(self.mode, PresentMode::Export);
-        if export_mode {
-            options.allow_mutations = false;
-        }
         let mut presentation = PresentationBuilder::new(
             CodeHighlighter::default(),
             self.default_theme,
             &mut self.resources,
             &mut self.typst,
             &self.themes,
-            options,
+            self.builder_options.clone(),
         )
         .build(elements)?;
         if export_mode {

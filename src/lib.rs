@@ -19,7 +19,7 @@ pub(crate) mod tools;
 pub(crate) mod typst;
 
 pub use crate::{
-    builder::Themes,
+    builder::{PresentationBuilderOptions, Themes},
     custom::Config,
     export::{ExportError, Exporter},
     input::source::CommandSource,
