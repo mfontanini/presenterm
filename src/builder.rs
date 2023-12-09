@@ -267,6 +267,7 @@ impl<'a> PresentationBuilder<'a> {
         match comment {
             CommentCommand::Pause => self.process_pause(),
             CommentCommand::EndSlide => self.terminate_slide(),
+            CommentCommand::JumpToMiddle => self.chunk_operations.push(RenderOperation::JumpToVerticalCenter),
             CommentCommand::InitColumnLayout(columns) => {
                 Self::validate_column_layout(&columns)?;
                 self.slide_state.layout = LayoutState::InLayout { columns_count: columns.len() };
@@ -956,6 +957,7 @@ enum CommentCommand {
     InitColumnLayout(Vec<u8>),
     Column(usize),
     ResetLayout,
+    JumpToMiddle,
 }
 
 impl FromStr for CommentCommand {
