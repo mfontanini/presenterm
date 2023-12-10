@@ -64,6 +64,21 @@ A few built-in themes are bundled with the application binary, meaning you don't
 available to use them. These are packed as part of the [build process](/build.rs) as a binary blob and are decoded on 
 demand only when used.
 
+Currently, the following themes are supported:
+
+* `dark`: A dark theme.
+* `light`: A light theme.
+* `tokyonight-storm`: A theme inspired by the colors used in [toyonight](https://github.com/folke/tokyonight.nvim).
+* `terminal-dark`: A theme that uses your terminals color and looks best if your terminal uses a dark color scheme. This 
+  means if your terminal background is e.g. transparent, or uses an image, the presentation will inherit that.
+* `terminal-light`: The same as `terminal-dark` but works best if your terminal uses a light color scheme.
+
+# Loading custom themes
+
+On startup, _presenterm_ will look into the `~/.config/presenterm/themes` directory and will load any `.yaml` file as a 
+theme and make it available as if it was a built-in theme. This means you can use it as an argument to the `--theme` 
+parameter, use it in the `theme.name` property in a presentation's front matter, etc.
+
 # Theme definition
 
 This section goes through the structure of the theme files. Have a look at some of the [existing themes](/themes) to 
@@ -262,8 +277,9 @@ headings:
 
 ## Code blocks
 
-The syntax highlighting for code blocks is done via the [syntect](https://github.com/trishume/syntect) crate. 
-_presenterm_ currently only supports _syntect_'s built-in themes:
+The syntax highlighting for code blocks is done via the [syntect](https://github.com/trishume/syntect) crate. The list 
+of all the supported built-in _syntect_ themes is the following:
+
 * base16-ocean.dark
 * base16-eighties.dark
 * base16-mocha.dark
@@ -271,6 +287,10 @@ _presenterm_ currently only supports _syntect_'s built-in themes:
 * InspiredGitHub
 * Solarized (dark)
 * Solarized (light)
+
+Besides those and thanks to the work done on the awesome [bat tool](https://github.com/sharkdp/bat), _presenterm_ has 
+access to not only the built-in _syntect_'s built-in themes but also the ones in _bat_. Run `bat --list-themes` to see a 
+list of all of them.
 
 Code blocks can also have an optional vertical and horizontal padding so your code is not too close to its bounding 
 rectangle:
@@ -282,6 +302,11 @@ code:
     horizontal: 2
     vertical: 1
 ```
+
+### Custom highlighting themes
+
+Besides the built-in highlighting themes, you can drop any `.tmTheme` theme in 
+`~/.config/presenterm/themes/highlighting` and they will be loaded automatically when _presenterm_ starts.
 
 ## Block quotes
 

@@ -127,3 +127,12 @@ Note that using `bash`, `zsh`, `fish`, etc, will end up using that specific shel
 [![asciicast](https://asciinema.org/a/gnzjXpVSOwOiyUqQvhi0AaHG7.svg)](https://asciinema.org/a/gnzjXpVSOwOiyUqQvhi0AaHG7)
 
 > **Note**: because this is spawning a process and executing code, you should use this at your own risk.
+
+## Pre-rendering 
+
+Some languages support pre-rendering. This means the code block is transformed into something else when the presentation 
+is loaded. The languages that currently support this are _LaTeX_ and _typst_ where the contents of the code block is 
+transformed into an image, allowing you to define formulas as text in your presentation. This can be done by using the 
+`+render` attribute on a code block.
+
+See the [LaTeX and typst docs] for more information.

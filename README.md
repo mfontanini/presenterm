@@ -13,82 +13,31 @@ This is how the [demo presentation](examples/demo.md) looks like:
 
 # Installation
 
-There's different ways to install _presenterm_.
+The recommended way to install _presenterm_ is to download the latest pre-built version for your system from the 
+[releases](https://github.com/mfontanini/presenterm/releases) page.
 
-## Pre-built binaries (recommended)
-
-The recommended way to install _presenterm_ is to download the latest pre-built version for 
-your system from the [releases](https://github.com/mfontanini/presenterm/releases) page.
-
-## Install via cargo
-
-Alternatively, download [rust](https://www.rust-lang.org/) and run:
-
-```shell
-cargo install presenterm
-```
-
-## Latest unreleased version
-
-To run the latest unreleased version clone the repo, then run:
-
-```shell
-cargo build --release
-```
-
-The output binary will be in `./target/release/presenterm`.
-
-## Arch user repository
-
-_presenterm_ is in the [AUR](https://aur.archlinux.org/) as well. If you have any AUR helpers like paru/yay, you can 
-install it as follows:
-
-```bash
-paru/yay -S presenterm-bin # for binary
-paru/yay -S presenterm-git # for building from source
-```
-
-## Nix
-
-To install _presenterm_ using the Nix package manager run:
-```shell
-nix-env -iA nixos.presenterm    # for nixos
-nix-env -iA nixpkgs.presenterm  # for non-nixos
-```
-
-Or, you can install it by adding the following to your configuration.nix if you are on NixOS
-```nix
-environment.systemPackages = [
-  pkgs.presenterm
-];
-```
-
-Alternatively if you're a Nix user using flakes you can run:
-
-```shell
-nix run nixpkgs#presenterm            # to run from nixpkgs
-nix run github:mfontanini/presenterm  # to run from github repo
-```
-
-For more information see [nixpkgs](https://search.nixos.org/packages?channel=unstable&show=presenterm&from=0&size=50&sort=relevance&type=packages&query=presenterm)
+For other alternative ways to install it, visit the [installation](/docs/install.md) docs.
 
 # Features
 
 * Define your presentation in a single markdown file.
-* Image rendering support for iterm2, terminals that support the kitty graphics protocol, or sixel.
-* Customize your presentation's look by defining themes, including colors, margins, layout (left/center aligned 
-  content), footer for every slide, etc.
-* Code highlighting for a wide list of programming languages.
+* Image rendering support for _iterm2_, terminals that support the _kitty_ graphics protocol, and _sixel_.
+* [Customize your presentation's look](/docs/themes.md) by defining themes, including colors, margins, layout 
+  (left/center aligned content), footer for every slide, etc.
+* Code highlighting for a [wide list of programming languages](/docs/highlighting.md).
 * [Selective/dynamic](docs/highlighting.md) code highlighting such that only a subset of the lines are highlighted at a 
   time, and different sets of lines are highlighted as you move your slides forward.
 * Configurable [column layouts](/docs/layouts.md) that let you structure parts of your slide into columns.
+* Support for [_LaTeX_ and _typst_ code block rendering](/docs/latex.md) so you can define formulas as text and have 
+  them automatically render as images when rendering a presentation.
 * Support for an introduction slide that displays the presentation title and your name.
 * Support for slide titles.
 * Support for [shell code execution](docs/highlighting.md).
-* Support for generating a PDF version of your presentation to share with other people.
+* Support for generating PDF files from presentations to share with other people.
 * Create pauses in between each slide so that it progressively renders for a more interactive presentation.
-* Text formatting support for **bold**, _italics_, ~strikethrough~, and `inline code`.
 * Automatically reload your presentation every time it changes for a fast development loop.
+* [Terminal colored themes](/docs/themes.md) that use your terminal's color scheme. This means if your terminal uses 
+  transparent backgrounds or images as background, those will be implicitly set as the background of your presentation.
 
 ## Hot reload
 
@@ -256,7 +205,8 @@ Some docs on how to configure _presenterm_ and how it works internally can be fo
 
 # Acknowledgements
 
-This tool is heavily inspired:
+This tool is heavily inspired by:
+
 * [slides](https://github.com/maaslalani/slides/)
 * [lookatme](https://github.com/d0c-s4vage/lookatme).
 * [sli.dev](https://sli.dev/).
