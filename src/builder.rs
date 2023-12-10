@@ -98,9 +98,16 @@ impl<'a> PresentationBuilder<'a> {
 
     /// Build a presentation.
     pub(crate) fn build(mut self, elements: Vec<MarkdownElement>) -> Result<Presentation, BuildError> {
+        let mut skip_first = false;
         if let Some(MarkdownElement::FrontMatter(contents)) = elements.first() {
             self.process_front_matter(contents)?;
+            skip_first = true;
         }
+        let mut elements = elements.into_iter();
+        if skip_first {
+            elements.next();
+        }
+
         self.set_code_theme()?;
 
         if self.chunk_operations.is_empty() {
@@ -329,9 +336,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_slide_title(&mut self, mut text: Text) {
-        if self.options.implicit_slide_ends
-            && !matches!(self.slide_state.last_element, LastElement::EndSlide | LastElement::SlideStart)
-        {
+        if self.options.implicit_slide_ends && !matches!(self.slide_state.last_element, LastElement::None) {
             self.terminate_slide();
         }
 
@@ -585,7 +590,7 @@ impl<'a> PresentationBuilder<'a> {
         self.slides.push(Slide::new(chunks, footer));
         self.push_slide_prelude();
         self.slide_state = Default::default();
-        self.slide_state.last_element = LastElement::EndSlide;
+        self.slide_state.last_element = LastElement::None;
     }
 
     fn generate_footer(&mut self) -> Vec<RenderOperation> {
@@ -833,8 +838,7 @@ enum LayoutState {
 #[derive(Debug, Default)]
 enum LastElement {
     #[default]
-    SlideStart,
-    EndSlide,
+    None,
     List {
         last_index: usize,
     },
@@ -1516,6 +1520,17 @@ mod test {
         let options = PresentationBuilderOptions { implicit_slide_ends: true, ..Default::default() };
         let slides = build_presentation_with_options(elements, options).into_slides();
         assert_eq!(slides.len(), 3);
+    }
+
+    #[test]
+    fn implicit_slide_ends_with_front_matter() {
+        let elements = vec![
+            MarkdownElement::FrontMatter("theme:\n name: light".into()),
+            MarkdownElement::SetexHeading { text: "hi".into() },
+        ];
+        let options = PresentationBuilderOptions { implicit_slide_ends: true, ..Default::default() };
+        let slides = build_presentation_with_options(elements, options).into_slides();
+        assert_eq!(slides.len(), 1);
     }
 
     #[rstest]
