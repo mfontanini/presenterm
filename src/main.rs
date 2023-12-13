@@ -93,7 +93,8 @@ fn display_acknowledgements() {
 fn make_builder_options(config: &Config, mode: &PresentMode) -> PresentationBuilderOptions {
     PresentationBuilderOptions {
         allow_mutations: !matches!(mode, PresentMode::Export),
-        implicit_slide_ends: config.options.implicit_slide_ends,
+        implicit_slide_ends: config.options.implicit_slide_ends.unwrap_or_default(),
+        command_prefix: config.options.command_prefix.clone().unwrap_or_default(),
     }
 }
 
