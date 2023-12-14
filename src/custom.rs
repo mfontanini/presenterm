@@ -43,7 +43,10 @@ pub struct DefaultsConfig {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct OptionsConfig {
     /// Whether slides are automatically terminated when a slide title is found.
-    pub implicit_slide_ends: bool,
+    pub implicit_slide_ends: Option<bool>,
+
+    /// The prefix to use for commands.
+    pub command_prefix: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

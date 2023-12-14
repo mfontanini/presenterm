@@ -1,4 +1,5 @@
 use crate::{
+    custom::OptionsConfig,
     execute::{CodeExecuter, ExecutionHandle, ExecutionState, ProcessStatus},
     markdown::{
         elements::{
@@ -43,11 +44,21 @@ pub struct Themes {
 pub struct PresentationBuilderOptions {
     pub allow_mutations: bool,
     pub implicit_slide_ends: bool,
+    pub command_prefix: String,
+}
+
+impl PresentationBuilderOptions {
+    fn merge(&mut self, options: OptionsConfig) {
+        self.implicit_slide_ends = options.implicit_slide_ends.unwrap_or(self.implicit_slide_ends);
+        if let Some(prefix) = options.command_prefix {
+            self.command_prefix = prefix;
+        }
+    }
 }
 
 impl Default for PresentationBuilderOptions {
     fn default() -> Self {
-        Self { allow_mutations: true, implicit_slide_ends: false }
+        Self { allow_mutations: true, implicit_slide_ends: false, command_prefix: String::default() }
     }
 }
 
@@ -182,9 +193,12 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_front_matter(&mut self, contents: &str) -> Result<(), BuildError> {
-        let metadata: PresentationMetadata =
+        let mut metadata: PresentationMetadata =
             serde_yaml::from_str(contents).map_err(|e| BuildError::InvalidMetadata(e.to_string()))?;
 
+        if let Some(options) = metadata.options.take() {
+            self.options.merge(options);
+        }
         self.footer_context.borrow_mut().author = metadata.author.clone().unwrap_or_default();
         self.set_theme(&metadata.theme)?;
         if metadata.title.is_some() || metadata.sub_title.is_some() || metadata.author.is_some() {
@@ -266,9 +280,11 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_comment(&mut self, comment: String, source_position: SourcePosition) -> Result<(), BuildError> {
-        if Self::should_ignore_comment(&comment) {
+        let comment = comment.trim();
+        if self.should_ignore_comment(comment) {
             return Ok(());
         }
+        let comment = comment.trim_start_matches(&self.options.command_prefix);
         let comment = match comment.parse::<CommentCommand>() {
             Ok(comment) => comment,
             Err(error) => return Err(BuildError::CommandParse { line: source_position.start.line + 1, error }),
@@ -307,14 +323,16 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn should_ignore_comment(comment: &str) -> bool {
-        // Ignore any multi line comment; those are assumed to be user comments
-        if comment.contains('\n') {
-            return true;
+    fn should_ignore_comment(&self, comment: &str) -> bool {
+        if comment.contains('\n') || !comment.starts_with(&self.options.command_prefix) {
+            // Ignore any multi line comment; those are assumed to be user comments
+            // Ignore any line that doesn't start with the selected prefix.
+            true
+        } else {
+            // Ignore vim-like code folding tags
+            let comment = comment.trim();
+            comment == "{{{" || comment == "}}}"
         }
-        // Ignore vim-like code folding tags
-        let comment = comment.trim();
-        comment == "{{{" || comment == "}}}"
     }
 
     fn validate_column_layout(columns: &[u8]) -> Result<(), BuildError> {
@@ -1538,7 +1556,21 @@ mod test {
     #[case::many_open_braces("{{{")]
     #[case::many_close_braces("}}}")]
     fn ignore_comments(#[case] comment: &str) {
-        assert!(PresentationBuilder::should_ignore_comment(comment));
+        let element = MarkdownElement::Comment { comment: comment.into(), source_position: Default::default() };
+        build_presentation(vec![element]);
+    }
+
+    #[rstest]
+    #[case::command_with_prefix("cmd:end_slide", true)]
+    #[case::non_command_with_prefix("cmd:bogus", false)]
+    #[case::non_prefixed("random", true)]
+    fn comment_prefix(#[case] comment: &str, #[case] should_work: bool) {
+        let mut options = PresentationBuilderOptions::default();
+        options.command_prefix = "cmd:".into();
+
+        let element = MarkdownElement::Comment { comment: comment.into(), source_position: Default::default() };
+        let result = try_build_presentation_with_options(vec![element], options);
+        assert_eq!(result.is_ok(), should_work, "{result:?}");
     }
 
     #[test]
