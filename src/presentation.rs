@@ -1,4 +1,5 @@
 use crate::{
+    custom::OptionsConfig,
     markdown::text::WeightedLine,
     render::{media::Image, properties::WindowSize},
     style::Colors,
@@ -324,6 +325,10 @@ pub(crate) struct PresentationMetadata {
     /// The presentation's theme metadata.
     #[serde(default)]
     pub(crate) theme: PresentationThemeMetadata,
+
+    /// The presentation's options.
+    #[serde(default)]
+    pub(crate) options: Option<OptionsConfig>,
 }
 
 /// A presentation's theme metadata.

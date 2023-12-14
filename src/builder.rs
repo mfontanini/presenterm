@@ -1,4 +1,5 @@
 use crate::{
+    custom::OptionsConfig,
     execute::{CodeExecuter, ExecutionHandle, ExecutionState, ProcessStatus},
     markdown::{
         elements::{
@@ -44,6 +45,15 @@ pub struct PresentationBuilderOptions {
     pub allow_mutations: bool,
     pub implicit_slide_ends: bool,
     pub command_prefix: String,
+}
+
+impl PresentationBuilderOptions {
+    fn merge(&mut self, options: OptionsConfig) {
+        self.implicit_slide_ends = options.implicit_slide_ends.unwrap_or(self.implicit_slide_ends);
+        if let Some(prefix) = options.command_prefix {
+            self.command_prefix = prefix;
+        }
+    }
 }
 
 impl Default for PresentationBuilderOptions {
@@ -183,9 +193,12 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_front_matter(&mut self, contents: &str) -> Result<(), BuildError> {
-        let metadata: PresentationMetadata =
+        let mut metadata: PresentationMetadata =
             serde_yaml::from_str(contents).map_err(|e| BuildError::InvalidMetadata(e.to_string()))?;
 
+        if let Some(options) = metadata.options.take() {
+            self.options.merge(options);
+        }
         self.footer_context.borrow_mut().author = metadata.author.clone().unwrap_or_default();
         self.set_theme(&metadata.theme)?;
         if metadata.title.is_some() || metadata.sub_title.is_some() || metadata.author.is_some() {
@@ -267,7 +280,8 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_comment(&mut self, comment: String, source_position: SourcePosition) -> Result<(), BuildError> {
-        if self.should_ignore_comment(&comment) {
+        let comment = comment.trim();
+        if self.should_ignore_comment(comment) {
             return Ok(());
         }
         let comment = comment.trim_start_matches(&self.options.command_prefix);
