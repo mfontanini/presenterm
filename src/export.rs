@@ -95,8 +95,11 @@ impl<'a> Exporter<'a> {
     fn execute_exporter(metadata: ExportMetadata) -> Result<(), ExportError> {
         let presenterm_path = env::current_exe().map_err(ExportError::Io)?;
         let presenterm_path = presenterm_path.display().to_string();
+        let presentation_path = metadata.presentation_path.display().to_string();
         let metadata = serde_json::to_vec(&metadata).expect("serialization failed");
-        ThirdPartyTools::presenterm_export(&["--presenterm-path", &presenterm_path]).stdin(metadata).run()?;
+        ThirdPartyTools::presenterm_export(&[&presenterm_path, "--export", &presentation_path])
+            .stdin(metadata)
+            .run()?;
         Ok(())
     }
 
