@@ -1,3 +1,18 @@
+# v0.4.0 - TODOOOOOO
+
+## New features
+
+* Add support for all of [bat](https://github.com/sharkdp/bat)'s code highlighting themes (#67).
+* Add `terminal-dark` and `terminal-light` themes that preserve the terminal's colors and background (#68 #69).
+* Allow placing themes in `$HOME/.config/presenterm/themes` to make them available automatically as if they were 
+  built-in themes (#73).
+* Allow configuring the default theme in `$HOME/.config/presenterm/config.yaml` (#74).
+* Add support for rendering _LaTeX_ and _typst_ code blocks automatically as images (#75 #76 #79 #81).
+* Add syntax highlighting support for _nix_ and _diff_ (#78 #82).
+* Add comment command to jump into the middle of a slide (#86).
+* Add configuration option to have implicit slide ends (#87 #89).
+* Add configuration option to have custom comment-command prefix (#91).
+
 # v0.3.0 - 2023-11-24
 
 ## New features
