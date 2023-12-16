@@ -1,4 +1,4 @@
-# v0.4.0 - TODOOOOOO
+# v0.4.0 - 2023-12-16
 
 ## New features
 
