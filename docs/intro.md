@@ -27,6 +27,17 @@ the terminals where at least one of these is supported are:
 * wezterm
 * foot
 
+Note that sixel support is experimental so it needs to be explicitly enabled via the `sixel` configuration flag:
+
+```shell
+cargo build --release --features sixel
+```
+
+> **Note**: this feature flag is only needed if your terminal emulator only supports sixel. Many terminals support the 
+> kitty or iterm2 protocols so this isn't necessary.
+
+---
+
 Things you should know when using image tags in your presentation's markdown are:
 * Image paths are relative to your presentation path. That is a tag like `![](food/potato.png)` will be looked up at 
   `$PRESENTATION_DIRECTORY/food/potato.png`.
@@ -36,6 +47,7 @@ Things you should know when using image tags in your presentation's markdown are
   preserving the aspect ratio.
 * If your terminal does not support any of the graphics protocol above, images will be rendered using ascii blocks. It 
   ain't great but it's something!
+* Image rendering is currently not supported on Windows.
 
 # Extensions
 
@@ -43,15 +55,18 @@ Besides the standard markdown elements, _presenterm_ supports a few extensions.
 
 ## Introduction slide
 
-By setting a front matter at the beginning of your presentation, you can configure the title and author of your 
-presentation and implicitly create an introduction slide:
+By setting a front matter at the beginning of your presentation, you can configure the title, sub title, and author of 
+your presentation and implicitly create an introduction slide:
 
 ```markdown
 ---
 title: My first presentation
+sub_title: (in presenterm!)
 author: Myself
 ---
 ```
+
+All of these attributes are optional so you're not forced to set them all.
 
 ## Slide titles
 
@@ -88,4 +103,17 @@ While other applications use a thematic break (`---`) to mark the end of a slide
 
 This makes the end of a slide more explicit and easy to spot while you're editing your presentation.
 
-See the [configuration](/docs/config.md) if you want to customize this behavior.
+See the [configuration](/docs/config.md#implicit_slide_ends) if you want to customize this behavior.
+
+# Key bindings
+
+Navigation within a presentation should be intuitive: jumping to the next/previous slide can be done by using the arrow 
+keys, _hjkl_, and page up/down keys.
+
+Besides this:
+
+* Jumping to the first slide: `gg`.
+* Jumping to the last slide: `G`.
+* Jumping to a specific slide: `<slide-number>G`.
+* Exit the presentation: `<ctrl>c`.
+* Refresh images: `<ctrl>r`.
