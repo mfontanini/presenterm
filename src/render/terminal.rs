@@ -1,4 +1,3 @@
-use super::properties::CursorPosition;
 use crate::style::Colors;
 use crossterm::{
     cursor,
@@ -82,12 +81,7 @@ impl<W: io::Write> Terminal<W> {
         Ok(())
     }
 
-    pub(crate) fn sync_cursor_row(&mut self) -> io::Result<()> {
-        self.cursor_row = CursorPosition::current()?.row;
-        Ok(())
-    }
-
-    pub(crate) fn manual_sync_cursor_row(&mut self, position: u16) {
+    pub(crate) fn sync_cursor_row(&mut self, position: u16) {
         self.cursor_row = position;
     }
 }

@@ -25,7 +25,10 @@ pub use crate::{
     input::source::CommandSource,
     markdown::parse::MarkdownParser,
     presenter::{PresentMode, Presenter},
-    render::highlighting::{CodeHighlighter, HighlightThemeSet},
+    render::{
+        highlighting::{CodeHighlighter, HighlightThemeSet},
+        media::MediaRender,
+    },
     resource::Resources,
     theme::{LoadThemeError, PresentationTheme, PresentationThemeSet},
     typst::TypstRender,

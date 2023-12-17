@@ -49,7 +49,7 @@ pub(crate) enum ImageSource {
 }
 
 /// A media render.
-pub(crate) struct MediaRender {
+pub struct MediaRender {
     mode: TerminalMode,
 }
 
@@ -67,7 +67,7 @@ impl MediaRender {
         image: &Image,
         position: CursorPosition,
         dimensions: &WindowSize,
-    ) -> Result<(), RenderImageError> {
+    ) -> Result<(u32, u32), RenderImageError> {
         if !dimensions.has_pixels {
             return Err(RenderImageError::NoWindowSize);
         }
@@ -108,11 +108,19 @@ impl MediaRender {
         //
         // This switch is because otherwise `viuer::print_from_file` for kitty/ascii blocks will
         // re-read the image every time.
-        match (&self.mode, source) {
+        let dimensions = match (&self.mode, source) {
             (TerminalMode::Iterm2, ImageSource::Filesystem(image_path)) => viuer::print_from_file(image_path, &config)?,
             (TerminalMode::Other, _) | (_, ImageSource::Generated) => viuer::print(image, &config)?,
         };
-        Ok(())
+        Ok(dimensions)
+    }
+
+    /// Detect the terminal protocol we're using.
+    ///
+    /// This simply forces all of the lazy constants in viuer to initialize.
+    pub fn detect_terminal_protocol() {
+        viuer::is_iterm_supported();
+        viuer::get_kitty_support();
     }
 }
 

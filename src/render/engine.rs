@@ -134,11 +134,11 @@ where
 
     fn render_image(&mut self, image: &Image) -> RenderResult {
         let position = CursorPosition { row: self.terminal.cursor_row, column: self.current_rect().start_column };
-        MediaRender::default()
+        let (_, height) = MediaRender::default()
             .draw_image(image, position, self.current_dimensions())
             .map_err(|e| RenderError::Other(Box::new(e)))?;
-        // TODO try to avoid
-        self.terminal.sync_cursor_row()?;
+        let row = self.terminal.cursor_row + height as u16;
+        self.terminal.sync_cursor_row(row);
         Ok(())
     }
 
@@ -161,7 +161,7 @@ where
         if *unformatted_length as u16 > max_line_length {
             let lines_wrapped = *unformatted_length as u16 / max_line_length;
             let new_row = self.terminal.cursor_row + lines_wrapped;
-            self.terminal.manual_sync_cursor_row(new_row);
+            self.terminal.sync_cursor_row(new_row);
         }
 
         // Restore colors
@@ -190,8 +190,8 @@ where
             self.exit_layout()?;
         }
         let columns = columns.iter().copied().map(u16::from).collect();
-        let current_position = CursorPosition::current()?;
-        self.layout = LayoutState::InitializedColumn { columns, start_row: current_position.row };
+        let current_position = self.terminal.cursor_row;
+        self.layout = LayoutState::InitializedColumn { columns, start_row: current_position };
         Ok(())
     }
 

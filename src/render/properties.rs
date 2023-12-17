@@ -1,4 +1,4 @@
-use crossterm::{cursor::position, terminal};
+use crossterm::terminal;
 use std::io::{self, ErrorKind};
 
 /// The size of the terminal window.
@@ -86,14 +86,6 @@ impl From<(u16, u16)> for WindowSize {
 pub(crate) struct CursorPosition {
     pub(crate) column: u16,
     pub(crate) row: u16,
-}
-
-impl CursorPosition {
-    /// Get the current cursor position.
-    pub(crate) fn current() -> io::Result<Self> {
-        let (column, row) = position()?;
-        Ok(Self { column, row })
-    }
 }
 
 #[cfg(test)]

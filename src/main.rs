@@ -1,7 +1,7 @@
 use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use presenterm::{
-    CommandSource, Config, Exporter, HighlightThemeSet, LoadThemeError, MarkdownParser, PresentMode,
+    CommandSource, Config, Exporter, HighlightThemeSet, LoadThemeError, MarkdownParser, MediaRender, PresentMode,
     PresentationBuilderOptions, PresentationThemeSet, Presenter, Resources, Themes, TypstRender,
 };
 use std::{
@@ -120,6 +120,9 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         display_acknowledgements();
         return Ok(());
     }
+    // Pre-load this so we don't flicker on the first displayed image.
+    MediaRender::detect_terminal_protocol();
+
     let path = cli.path.expect("no path");
     let resources_path = path.parent().unwrap_or(Path::new("/"));
     let resources = Resources::new(resources_path);
