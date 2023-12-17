@@ -190,8 +190,8 @@ where
             self.exit_layout()?;
         }
         let columns = columns.iter().copied().map(u16::from).collect();
-        let current_position = CursorPosition::current()?;
-        self.layout = LayoutState::InitializedColumn { columns, start_row: current_position.row };
+        let current_position = self.terminal.cursor_row;
+        self.layout = LayoutState::InitializedColumn { columns, start_row: current_position };
         Ok(())
     }
 
