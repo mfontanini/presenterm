@@ -49,7 +49,7 @@ pub(crate) enum ImageSource {
 }
 
 /// A media render.
-pub(crate) struct MediaRender {
+pub struct MediaRender {
     mode: TerminalMode,
 }
 
@@ -113,6 +113,14 @@ impl MediaRender {
             (TerminalMode::Other, _) | (_, ImageSource::Generated) => viuer::print(image, &config)?,
         };
         Ok(dimensions)
+    }
+
+    /// Detect the terminal protocol we're using.
+    ///
+    /// This simply forces all of the lazy constants in viuer to initialize.
+    pub fn detect_terminal_protocol() {
+        viuer::is_iterm_supported();
+        viuer::get_kitty_support();
     }
 }
 
