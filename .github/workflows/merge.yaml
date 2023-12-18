@@ -12,65 +12,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@1.74.0
 
       - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
+        run: cargo test
 
   test:
     name: Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@1.74.0
 
       - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+        run: cargo test
 
   lints:
     name: Lints
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          profile: minimal
-          toolchain: nightly
-          override: true
           components: rustfmt, clippy
 
       - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+        run: cargo clippy -- -D warnings
 
   nix-flake:
     name: Validate nix flake
