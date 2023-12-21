@@ -1,7 +1,7 @@
 use crate::render::properties::WindowSize;
 use image::{DynamicImage, ImageError};
 use std::{fmt::Debug, io, ops::Deref, path::PathBuf, rc::Rc};
-use viuer::{is_iterm_supported, ViuError};
+use viuer::{get_kitty_support, is_iterm_supported, KittySupport, ViuError};
 
 use super::properties::CursorPosition;
 
@@ -50,10 +50,15 @@ pub(crate) enum ImageSource {
 
 /// A media render.
 pub struct MediaRender {
-    mode: TerminalMode,
+    mode: GraphicsMode,
 }
 
 impl MediaRender {
+    /// Construct a new media render.
+    pub fn new(mode: GraphicsMode) -> Self {
+        Self { mode }
+    }
+
     /// Draw an image.
     ///
     /// This will use the current terminal size and try to render the image where the cursor is
@@ -101,16 +106,19 @@ impl MediaRender {
             width: Some(width_in_columns),
             x: start_column,
             y: position.row as i16,
+            use_iterm: false,
+            use_kitty: false,
             ..Default::default()
         };
+        let config = self.mode.apply(config);
         // If we're using the iterm2 protocol, print this from the file as that makes images print
         // faster _and_ it causes gifs to be animated.
         //
         // This switch is because otherwise `viuer::print_from_file` for kitty/ascii blocks will
         // re-read the image every time.
         let dimensions = match (&self.mode, source) {
-            (TerminalMode::Iterm2, ImageSource::Filesystem(image_path)) => viuer::print_from_file(image_path, &config)?,
-            (TerminalMode::Other, _) | (_, ImageSource::Generated) => viuer::print(image, &config)?,
+            (GraphicsMode::Iterm2, ImageSource::Filesystem(image_path)) => viuer::print_from_file(image_path, &config)?,
+            _ => viuer::print(image, &config)?,
         };
         Ok(dimensions)
     }
@@ -124,19 +132,34 @@ impl MediaRender {
     }
 }
 
-impl Default for MediaRender {
+#[derive(Clone, Debug)]
+pub enum GraphicsMode {
+    Iterm2,
+    Kitty,
+    AsciiBlocks,
+}
+
+impl Default for GraphicsMode {
     fn default() -> Self {
-        let mode = match is_iterm_supported() {
-            true => TerminalMode::Iterm2,
-            false => TerminalMode::Other,
-        };
-        Self { mode }
+        if is_iterm_supported() {
+            Self::Iterm2
+        } else if get_kitty_support() != KittySupport::None {
+            Self::Kitty
+        } else {
+            Self::Iterm2
+        }
     }
 }
 
-enum TerminalMode {
-    Iterm2,
-    Other,
+impl GraphicsMode {
+    fn apply(&self, mut config: viuer::Config) -> viuer::Config {
+        match self {
+            Self::Iterm2 => config.use_iterm = true,
+            Self::Kitty => config.use_kitty = true,
+            Self::AsciiBlocks => (),
+        };
+        config
+    }
 }
 
 /// An invalid image.

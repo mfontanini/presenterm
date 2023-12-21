@@ -1,7 +1,7 @@
 use super::{
     draw::{RenderError, RenderResult},
     layout::Layout,
-    media::{Image, MediaRender},
+    media::{GraphicsMode, Image, MediaRender},
     properties::CursorPosition,
     terminal::Terminal,
     text::TextDrawer,
@@ -24,17 +24,29 @@ where
     colors: Colors,
     max_modified_row: u16,
     layout: LayoutState,
+    graphics_mode: GraphicsMode,
 }
 
 impl<'a, W> RenderEngine<'a, W>
 where
     W: io::Write,
 {
-    pub(crate) fn new(terminal: &'a mut Terminal<W>, window_dimensions: WindowSize) -> Self {
+    pub(crate) fn new(
+        terminal: &'a mut Terminal<W>,
+        window_dimensions: WindowSize,
+        graphics_mode: GraphicsMode,
+    ) -> Self {
         let max_modified_row = terminal.cursor_row;
         let current_rect = WindowRect { dimensions: window_dimensions, start_column: 0 };
         let window_rects = vec![current_rect.clone()];
-        Self { terminal, window_rects, colors: Default::default(), max_modified_row, layout: Default::default() }
+        Self {
+            terminal,
+            window_rects,
+            colors: Default::default(),
+            max_modified_row,
+            layout: Default::default(),
+            graphics_mode,
+        }
     }
 
     pub(crate) fn render<'b>(mut self, operations: impl Iterator<Item = &'b RenderOperation>) -> RenderResult {
@@ -134,7 +146,7 @@ where
 
     fn render_image(&mut self, image: &Image) -> RenderResult {
         let position = CursorPosition { row: self.terminal.cursor_row, column: self.current_rect().start_column };
-        let (_, height) = MediaRender::default()
+        let (_, height) = MediaRender::new(self.graphics_mode.clone())
             .draw_image(image, position, self.current_dimensions())
             .map_err(|e| RenderError::Other(Box::new(e)))?;
         let row = self.terminal.cursor_row + height as u16;

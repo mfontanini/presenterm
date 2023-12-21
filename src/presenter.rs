@@ -8,6 +8,7 @@ use crate::{
     render::{
         draw::{RenderError, RenderResult, TerminalDrawer},
         highlighting::CodeHighlighter,
+        media::GraphicsMode,
     },
     resource::Resources,
     theme::PresentationTheme,
@@ -68,7 +69,11 @@ impl<'a> Presenter<'a> {
     pub fn present(mut self, path: &Path) -> Result<(), PresentationError> {
         self.state = PresenterState::Presenting(self.load_presentation(path)?);
 
-        let mut drawer = TerminalDrawer::new(io::stdout())?;
+        let graphics_mode = match self.mode {
+            PresentMode::Export => GraphicsMode::AsciiBlocks,
+            _ => GraphicsMode::default(),
+        };
+        let mut drawer = TerminalDrawer::new(io::stdout(), graphics_mode)?;
         loop {
             self.render(&mut drawer)?;
             self.update_widgets(&mut drawer)?;
