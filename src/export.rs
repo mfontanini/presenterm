@@ -97,10 +97,6 @@ impl<'a> Exporter<'a> {
         let presenterm_path = presenterm_path.display().to_string();
         let presentation_path = metadata.presentation_path.display().to_string();
         let metadata = serde_json::to_vec(&metadata).expect("serialization failed");
-        // Remove the LC_TERMINAL environment variable as otherwise viuer will try to talk in
-        // iterm2 protocol to tmux and that breaks.
-        env::remove_var("LC_TERMINAL");
-
         ThirdPartyTools::presenterm_export(&[&presenterm_path, "--export", &presentation_path])
             .stdin(metadata)
             .run()?;
