@@ -7,6 +7,11 @@ can install it by running:
 pip install presenterm-export
 ```
 
+> **Note**: make sure that `presenterm-export` works by running `presenterm-export --version` before attempting to 
+> generate a PDF file. If you get errors related to _weasyprint_, follow their [installation 
+> instructions](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) to ensure you meet all of their 
+> dependencies. This has otherwise caused issues in macOS.
+
 The only external dependency you'll need is [tmux](https://github.com/tmux/tmux/). After you've installed both of these, 
 simply run _presenterm_ with the `--export-pdf` parameter to generate the output PDF:
 
