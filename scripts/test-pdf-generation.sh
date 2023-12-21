@@ -11,17 +11,19 @@ trap 'rm -rf "${env_dir}"' EXIT
 python -mvenv "${env_dir}/pyenv"
 source "${env_dir}/pyenv/bin/activate"
 
-echo "Installing presenterm-export==0.2.0"
+echo "Installing presenterm-export==0.1.2"
 pip install presenterm-export
 
 echo "Running presenterm..."
 rm -f "${root_dir}/examples/demo.pdf"
 cargo run -q -- --export-pdf "${root_dir}/examples/demo.md"
 
-if test -f "${root_dir}/examples/demo.pdf"; then
-	echo "PDF file has been created"
-	rm -f "${root_dir}/examples/demo.pdf"
+if test -f "${root_dir}/examples/demo.pdf"
+then
+  echo "PDF file has been created"
+  rm -f "${root_dir}/examples/demo.pdf"
 else
-	echo "PDF file does not exist"
-	exit 1
+  echo "PDF file does not exist"
+  exit 1
 fi
+

@@ -1,4 +1,4 @@
-use super::{engine::RenderEngine, terminal::Terminal};
+use super::{engine::RenderEngine, media::GraphicsMode, terminal::Terminal};
 use crate::{
     markdown::{
         elements::StyledText,
@@ -17,6 +17,7 @@ pub(crate) type RenderResult = Result<(), RenderError>;
 /// Allows drawing elements in the terminal.
 pub(crate) struct TerminalDrawer<W: io::Write> {
     terminal: Terminal<W>,
+    graphics_mode: GraphicsMode,
 }
 
 impl<W> TerminalDrawer<W>
@@ -24,16 +25,16 @@ where
     W: io::Write,
 {
     /// Construct a drawer over a [std::io::Write].
-    pub(crate) fn new(handle: W) -> io::Result<Self> {
+    pub(crate) fn new(handle: W, graphics_mode: GraphicsMode) -> io::Result<Self> {
         let terminal = Terminal::new(handle)?;
-        Ok(Self { terminal })
+        Ok(Self { terminal, graphics_mode })
     }
 
     /// Render a slide.
     pub(crate) fn render_slide(&mut self, presentation: &Presentation) -> RenderResult {
         let window_dimensions = WindowSize::current()?;
         let slide = presentation.current_slide();
-        let engine = RenderEngine::new(&mut self.terminal, window_dimensions);
+        let engine = RenderEngine::new(&mut self.terminal, window_dimensions, self.graphics_mode.clone());
         engine.render(slide.iter_operations())?;
         self.terminal.flush()?;
         Ok(())
@@ -64,7 +65,7 @@ where
             let op = RenderOperation::RenderText { line: WeightedLine::from(error), alignment: alignment.clone() };
             operations.extend([op, RenderOperation::RenderLineBreak]);
         }
-        let engine = RenderEngine::new(&mut self.terminal, dimensions);
+        let engine = RenderEngine::new(&mut self.terminal, dimensions, self.graphics_mode.clone());
         engine.render(operations.iter())?;
         self.terminal.flush()?;
         Ok(())
