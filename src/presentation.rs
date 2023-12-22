@@ -310,6 +310,7 @@ pub(crate) trait ChunkMutator: Debug {
 
 /// The metadata for a presentation.
 #[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct PresentationMetadata {
     /// The presentation title.
     pub(crate) title: Option<String>,
