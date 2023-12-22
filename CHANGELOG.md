@@ -1,3 +1,14 @@
+# v0.4.1 - 2023-12-22
+
+## New features
+
+* Cause an error if an unknown field name is found on a theme, config file, or front matter (#102).
+
+## Fixes
+
+* Explicitly disable kitty/iterm protocols when printing images in export PDF mode as this was causing PDF generation in 
+  macOS to fail (#101).
+
 # v0.4.0 - 2023-12-16
 
 ## New features
