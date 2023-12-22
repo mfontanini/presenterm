@@ -1597,4 +1597,11 @@ mod test {
             assert_eq!(&line.prefix, &format!("{line_number} "));
         }
     }
+
+    #[test]
+    fn extra_fields_in_metadata() {
+        let element = MarkdownElement::FrontMatter("nope: 42".into());
+        let result = try_build_presentation(vec![element]);
+        assert!(result.is_err());
+    }
 }

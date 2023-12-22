@@ -55,6 +55,7 @@ impl PresentationThemeSet {
 
 /// A presentation theme.
 #[derive(Default, Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct PresentationTheme {
     /// The style for a slide's title.
     #[serde(default)]
