@@ -317,6 +317,9 @@ impl<'a> PresentationBuilder<'a> {
                 self.slide_state.layout = LayoutState::InColumn { column, columns_count };
                 self.chunk_operations.push(RenderOperation::EnterColumn { column });
             }
+            CommentCommand::IncrementalLists(value) => {
+                self.slide_state.incremental_lists = value;
+            }
         };
         // Don't push line breaks for any comments.
         self.slide_state.ignore_element_line_break = true;
@@ -447,6 +450,9 @@ impl<'a> PresentationBuilder<'a> {
 
         let iter = ListIterator::new(list, start_index);
         for item in iter {
+            if item.index > 0 && self.slide_state.incremental_lists {
+                self.process_pause();
+            }
             self.push_list_item(item.index, item.item);
         }
     }
@@ -837,6 +843,7 @@ struct SlideState {
     needs_enter_column: bool,
     last_chunk_ended_in_list: bool,
     last_element: LastElement,
+    incremental_lists: bool,
     layout: LayoutState,
 }
 
@@ -991,6 +998,7 @@ enum CommentCommand {
     Column(usize),
     ResetLayout,
     JumpToMiddle,
+    IncrementalLists(bool),
 }
 
 impl FromStr for CommentCommand {
@@ -1207,6 +1215,7 @@ where
     }
 }
 
+#[derive(Debug)]
 struct IndexedListItem {
     index: usize,
     item: ListItem,
@@ -1418,6 +1427,7 @@ mod test {
     #[case::column_layout("column_layout: [1, 2]", CommentCommand::InitColumnLayout(vec![1, 2]))]
     #[case::column("column: 1", CommentCommand::Column(1))]
     #[case::reset_layout("reset_layout", CommentCommand::ResetLayout)]
+    #[case::incremental_lists("incremental_lists: true", CommentCommand::IncrementalLists(true))]
     fn command_formatting(#[case] input: &str, #[case] expected: CommentCommand) {
         let parsed: CommentCommand = input.parse().expect("deserialization failed");
         assert_eq!(parsed, expected);
@@ -1496,6 +1506,20 @@ mod test {
         let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
         let expected_lines = &["   1. one", "      1. one_one", "      2. one_two", "   2. two"];
         assert_eq!(lines, expected_lines);
+    }
+
+    #[test]
+    fn automatic_pauses() {
+        let elements = vec![
+            MarkdownElement::Comment { comment: "incremental_lists: true".into(), source_position: Default::default() },
+            MarkdownElement::List(vec![
+                ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 0, contents: "two".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 0, contents: "three".into(), item_type: ListItemType::Unordered },
+            ]),
+        ];
+        let slides = build_presentation(elements).into_slides();
+        assert_eq!(slides[0].iter_chunks().count(), 3);
     }
 
     #[test]
