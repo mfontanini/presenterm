@@ -108,5 +108,5 @@ theme explicitly will use this one:
 
 ```yaml
 defaults:
-  themes: light
+  theme: light
 ```
