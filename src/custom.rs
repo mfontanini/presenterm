@@ -37,11 +37,13 @@ pub enum ConfigLoadError {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DefaultsConfig {
     pub theme: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OptionsConfig {
     /// Whether slides are automatically terminated when a slide title is found.
     pub implicit_slide_ends: Option<bool>,
@@ -51,6 +53,7 @@ pub struct OptionsConfig {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TypstConfig {
     #[serde(default = "default_typst_ppi")]
     pub ppi: u32,
