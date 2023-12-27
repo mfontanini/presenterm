@@ -50,6 +50,9 @@ pub struct OptionsConfig {
 
     /// The prefix to use for commands.
     pub command_prefix: Option<String>,
+
+    /// Show all lists incrementally, by implicitly adding pauses in between elements.
+    pub incremental_lists: Option<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

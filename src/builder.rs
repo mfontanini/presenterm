@@ -45,11 +45,13 @@ pub struct PresentationBuilderOptions {
     pub allow_mutations: bool,
     pub implicit_slide_ends: bool,
     pub command_prefix: String,
+    pub incremental_lists: bool,
 }
 
 impl PresentationBuilderOptions {
     fn merge(&mut self, options: OptionsConfig) {
         self.implicit_slide_ends = options.implicit_slide_ends.unwrap_or(self.implicit_slide_ends);
+        self.incremental_lists = options.incremental_lists.unwrap_or(self.incremental_lists);
         if let Some(prefix) = options.command_prefix {
             self.command_prefix = prefix;
         }
@@ -58,7 +60,12 @@ impl PresentationBuilderOptions {
 
 impl Default for PresentationBuilderOptions {
     fn default() -> Self {
-        Self { allow_mutations: true, implicit_slide_ends: false, command_prefix: String::default() }
+        Self {
+            allow_mutations: true,
+            implicit_slide_ends: false,
+            command_prefix: String::default(),
+            incremental_lists: false,
+        }
     }
 }
 
@@ -318,7 +325,7 @@ impl<'a> PresentationBuilder<'a> {
                 self.chunk_operations.push(RenderOperation::EnterColumn { column });
             }
             CommentCommand::IncrementalLists(value) => {
-                self.slide_state.incremental_lists = value;
+                self.slide_state.incremental_lists = Some(value);
             }
         };
         // Don't push line breaks for any comments.
@@ -448,9 +455,10 @@ impl<'a> PresentationBuilder<'a> {
             _ => 0,
         };
 
+        let incremental_lists = self.slide_state.incremental_lists.unwrap_or(self.options.incremental_lists);
         let iter = ListIterator::new(list, start_index);
         for item in iter {
-            if item.index > 0 && self.slide_state.incremental_lists {
+            if item.index > 0 && incremental_lists {
                 self.process_pause();
             }
             self.push_list_item(item.index, item.item);
@@ -843,7 +851,7 @@ struct SlideState {
     needs_enter_column: bool,
     last_chunk_ended_in_list: bool,
     last_element: LastElement,
-    incremental_lists: bool,
+    incremental_lists: Option<bool>,
     layout: LayoutState,
 }
 

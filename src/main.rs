@@ -95,6 +95,7 @@ fn make_builder_options(config: &Config, mode: &PresentMode) -> PresentationBuil
         allow_mutations: !matches!(mode, PresentMode::Export),
         implicit_slide_ends: config.options.implicit_slide_ends.unwrap_or_default(),
         command_prefix: config.options.command_prefix.clone().unwrap_or_default(),
+        incremental_lists: config.options.incremental_lists.unwrap_or_default(),
     }
 }
 
