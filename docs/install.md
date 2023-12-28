@@ -49,15 +49,5 @@ nix run nixpkgs#presenterm            # to run from nixpkgs
 nix run github:mfontanini/presenterm  # to run from github repo
 ```
 
-For more information see [nixpkgs](https://search.nixos.org/packages?channel=unstable&show=presenterm&from=0&size=50&sort=relevance&type=packages&query=presenterm)
-
-## Arch user repository
-
-_presenterm_ is in the [AUR](https://aur.archlinux.org/) as well. If you have any AUR helpers like paru/yay, you can 
-install it as follows:
-
-```bash
-paru/yay -S presenterm-bin # for binary
-paru/yay -S presenterm-git # for building from source
-```
-
+For more information see 
+[nixpkgs](https://search.nixos.org/packages?channel=unstable&show=presenterm&from=0&size=50&sort=relevance&type=packages&query=presenterm)
