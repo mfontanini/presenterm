@@ -457,8 +457,8 @@ impl<'a> PresentationBuilder<'a> {
 
         let incremental_lists = self.slide_state.incremental_lists.unwrap_or(self.options.incremental_lists);
         let iter = ListIterator::new(list, start_index);
-        for item in iter {
-            if item.index > 0 && incremental_lists {
+        for (index, item) in iter.enumerate() {
+            if index > 0 && incremental_lists {
                 self.process_pause();
             }
             self.push_list_item(item.index, item.item);
@@ -1522,7 +1522,7 @@ mod test {
             MarkdownElement::Comment { comment: "incremental_lists: true".into(), source_position: Default::default() },
             MarkdownElement::List(vec![
                 ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::Unordered },
-                ListItem { depth: 0, contents: "two".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 1, contents: "two".into(), item_type: ListItemType::Unordered },
                 ListItem { depth: 0, contents: "three".into(), item_type: ListItemType::Unordered },
             ]),
         ];
