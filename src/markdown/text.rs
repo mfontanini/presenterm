@@ -124,7 +124,7 @@ impl<'a> Iterator for SplitTextIter<'a> {
     }
 }
 
-/// A reference of a peice of a [WeightedText].
+/// A reference of a piece of a [WeightedText].
 #[derive(Clone, Debug)]
 pub(crate) struct WeightedTextRef<'a> {
     text: &'a str,
