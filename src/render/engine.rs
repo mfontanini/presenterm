@@ -230,15 +230,13 @@ where
         let new_column_count = (total_column_units - columns[column_index]) * unit_width as u16;
         let new_size = current_rect.dimensions.shrink_columns(new_column_count);
         let mut dimensions = WindowRect { dimensions: new_size, start_column };
-        if columns.len() != 1 {
-            // Shrink every column's right edge except for last
-            if column_index < columns.len() - 1 {
-                dimensions = dimensions.shrink_right(4);
-            }
-            // Shrink every column's left edge except for first
-            if column_index > 0 {
-                dimensions = dimensions.shrink_left(4);
-            }
+        // Shrink every column's right edge except for last
+        if column_index < columns.len() - 1 {
+            dimensions = dimensions.shrink_right(4);
+        }
+        // Shrink every column's left edge except for first
+        if column_index > 0 {
+            dimensions = dimensions.shrink_left(4);
         }
 
         self.window_rects.push(dimensions);
@@ -292,7 +290,7 @@ impl WindowRect {
     }
 
     fn shrink_left(&self, size: u16) -> Self {
-        let dimensions = self.dimensions.clone();
+        let dimensions = self.dimensions.shrink_columns(size);
         let start_column = self.start_column.saturating_add(size);
         Self { dimensions, start_column }
     }
