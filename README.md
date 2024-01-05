@@ -5,7 +5,7 @@ A terminal based slideshow tool.
 
 ---
 
-_presenterm_ lets you define presentations that run in your terminal.
+_presenterm_ lets you create presentations in markdown format and render them in your terminal.
 
 This is how the [demo presentation](examples/demo.md) looks like:
 
