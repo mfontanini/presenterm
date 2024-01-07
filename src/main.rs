@@ -2,17 +2,19 @@ use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use presenterm::{
     CommandSource, Config, Exporter, HighlightThemeSet, LoadThemeError, MarkdownParser, MediaRender, PresentMode,
-    PresentationBuilderOptions, PresentationThemeSet, Presenter, Resources, Themes, TypstRender,
+    PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter, Resources, Themes, TypstRender,
 };
 use std::{
     env,
     path::{Path, PathBuf},
 };
 
+const DEFAULT_THEME: &str = "dark";
+
 /// Run slideshows from your terminal.
 #[derive(Parser)]
 #[command()]
-#[command(author, version, about = create_splash(), long_about = create_splash(), arg_required_else_help = true)]
+#[command(author, version, about = create_splash(), arg_required_else_help = true)]
 struct Cli {
     /// The path to the markdown file that contains the presentation.
     #[clap(group = "target")]
@@ -35,8 +37,8 @@ struct Cli {
     present: bool,
 
     /// The theme to use.
-    #[clap(short, long, default_value = "dark")]
-    theme: String,
+    #[clap(short, long)]
+    theme: Option<String>,
 
     /// Display acknowledgements.
     #[clap(long, group = "target")]
@@ -90,26 +92,33 @@ fn display_acknowledgements() {
     println!("{}", String::from_utf8_lossy(acknowledgements));
 }
 
-fn make_builder_options(config: &Config, mode: &PresentMode) -> PresentationBuilderOptions {
+fn make_builder_options(config: &Config, mode: &PresentMode, force_default_theme: bool) -> PresentationBuilderOptions {
     PresentationBuilderOptions {
         allow_mutations: !matches!(mode, PresentMode::Export),
         implicit_slide_ends: config.options.implicit_slide_ends.unwrap_or_default(),
         command_prefix: config.options.command_prefix.clone().unwrap_or_default(),
         incremental_lists: config.options.incremental_lists.unwrap_or_default(),
+        force_default_theme,
     }
 }
 
-fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
-    let (config, themes) = load_customizations()?;
-
-    let default_theme_name = config.defaults.theme.as_ref().unwrap_or(&cli.theme);
+fn load_default_theme(config: &Config, themes: &Themes, cli: &Cli) -> PresentationTheme {
+    let default_theme_name =
+        cli.theme.as_ref().or(config.defaults.theme.as_ref()).map(|s| s.as_str()).unwrap_or(DEFAULT_THEME);
     let Some(default_theme) = themes.presentation.load_by_name(default_theme_name) else {
         let mut cmd = Cli::command();
         let valid_themes = themes.presentation.theme_names().join(", ");
         let error_message = format!("invalid theme name, valid themes are: {valid_themes}");
         cmd.error(ErrorKind::InvalidValue, error_message).exit();
     };
+    default_theme
+}
 
+fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
+    let (config, themes) = load_customizations()?;
+
+    let default_theme = load_default_theme(&config, &themes, &cli);
+    let force_default_theme = cli.theme.is_some();
     let mode = match (cli.present, cli.export) {
         (true, _) => PresentMode::Presentation,
         (false, true) => PresentMode::Export,
@@ -128,7 +137,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let resources_path = path.parent().unwrap_or(Path::new("/"));
     let resources = Resources::new(resources_path);
     let typst = TypstRender::new(config.typst.ppi);
-    let options = make_builder_options(&config, &mode);
+    let options = make_builder_options(&config, &mode, force_default_theme);
     if cli.export_pdf || cli.generate_pdf_metadata {
         let mut exporter = Exporter::new(parser, &default_theme, resources, typst, themes, options);
         if cli.export_pdf {
