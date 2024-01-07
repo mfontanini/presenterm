@@ -67,7 +67,8 @@ impl<'a> Presenter<'a> {
 
     /// Run a presentation.
     pub fn present(mut self, path: &Path) -> Result<(), PresentationError> {
-        self.state = PresenterState::Presenting(self.load_presentation(path)?);
+        self.state = PresenterState::Presenting(Presentation::new(vec![]));
+        self.try_reload(path);
 
         let graphics_mode = match self.mode {
             PresentMode::Export => GraphicsMode::AsciiBlocks,
