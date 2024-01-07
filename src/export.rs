@@ -45,11 +45,11 @@ impl<'a> Exporter<'a> {
     /// Export the given presentation into PDF.
     ///
     /// This uses a separate `presenterm-export` tool.
-    pub fn export_pdf(&mut self, presentation_path: &Path) -> Result<(), ExportError> {
+    pub fn export_pdf(&mut self, presentation_path: &Path, extra_args: &[&str]) -> Result<(), ExportError> {
         Self::validate_exporter_version()?;
 
         let metadata = self.generate_metadata(presentation_path)?;
-        Self::execute_exporter(metadata)?;
+        Self::execute_exporter(metadata, extra_args)?;
         Ok(())
     }
 
@@ -92,14 +92,15 @@ impl<'a> Exporter<'a> {
         Ok(metadata)
     }
 
-    fn execute_exporter(metadata: ExportMetadata) -> Result<(), ExportError> {
+    fn execute_exporter(metadata: ExportMetadata, extra_args: &[&str]) -> Result<(), ExportError> {
         let presenterm_path = env::current_exe().map_err(ExportError::Io)?;
         let presenterm_path = presenterm_path.display().to_string();
         let presentation_path = metadata.presentation_path.display().to_string();
         let metadata = serde_json::to_vec(&metadata).expect("serialization failed");
-        ThirdPartyTools::presenterm_export(&[&presenterm_path, "--export", &presentation_path])
-            .stdin(metadata)
-            .run()?;
+        let mut args = vec![&presenterm_path, "--export"];
+        args.extend(extra_args);
+        args.push(&presentation_path);
+        ThirdPartyTools::presenterm_export(&args).stdin(metadata).run()?;
         Ok(())
     }
 

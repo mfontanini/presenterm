@@ -140,8 +140,12 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let options = make_builder_options(&config, &mode, force_default_theme);
     if cli.export_pdf || cli.generate_pdf_metadata {
         let mut exporter = Exporter::new(parser, &default_theme, resources, typst, themes, options);
+        let mut args = Vec::new();
+        if let Some(theme) = cli.theme.as_ref() {
+            args.extend(["--theme", theme]);
+        }
         if cli.export_pdf {
-            exporter.export_pdf(&path)?;
+            exporter.export_pdf(&path, &args)?;
         } else {
             let meta = exporter.generate_metadata(&path)?;
             println!("{}", serde_json::to_string_pretty(&meta)?);
