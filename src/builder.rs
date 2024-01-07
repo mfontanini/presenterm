@@ -46,6 +46,7 @@ pub struct PresentationBuilderOptions {
     pub implicit_slide_ends: bool,
     pub command_prefix: String,
     pub incremental_lists: bool,
+    pub force_default_theme: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -65,6 +66,7 @@ impl Default for PresentationBuilderOptions {
             implicit_slide_ends: false,
             command_prefix: String::default(),
             incremental_lists: false,
+            force_default_theme: false,
         }
     }
 }
@@ -219,17 +221,21 @@ impl<'a> PresentationBuilder<'a> {
         if metadata.name.is_some() && metadata.path.is_some() {
             return Err(BuildError::InvalidMetadata("cannot have both theme path and theme name".into()));
         }
-        if let Some(theme_name) = &metadata.name {
-            let theme = self
-                .themes
-                .presentation
-                .load_by_name(theme_name)
-                .ok_or_else(|| BuildError::InvalidMetadata(format!("theme '{theme_name}' does not exist")))?;
-            self.theme = Cow::Owned(theme);
-        }
-        if let Some(theme_path) = &metadata.path {
-            let theme = self.resources.theme(theme_path)?;
-            self.theme = Cow::Owned(theme);
+        // Only override the theme if we're not forced to use the defaul theme if we're not forced
+        // to use the default one.
+        if !self.options.force_default_theme {
+            if let Some(theme_name) = &metadata.name {
+                let theme = self
+                    .themes
+                    .presentation
+                    .load_by_name(theme_name)
+                    .ok_or_else(|| BuildError::InvalidMetadata(format!("theme '{theme_name}' does not exist")))?;
+                self.theme = Cow::Owned(theme);
+            }
+            if let Some(theme_path) = &metadata.path {
+                let theme = self.resources.theme(theme_path)?;
+                self.theme = Cow::Owned(theme);
+            }
         }
         if let Some(overrides) = &metadata.overrides {
             // This shouldn't fail as the models are already correct.
