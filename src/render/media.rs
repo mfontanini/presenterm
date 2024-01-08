@@ -73,9 +73,6 @@ impl MediaRender {
         position: CursorPosition,
         dimensions: &WindowSize,
     ) -> Result<(u32, u32), RenderImageError> {
-        if !dimensions.has_pixels {
-            return Err(RenderImageError::NoWindowSize);
-        }
         let source = &image.source;
         let image = &image.contents;
 
@@ -179,7 +176,4 @@ pub enum RenderImageError {
 
     #[error("invalid image: {0}")]
     InvalidImage(#[from] InvalidImage),
-
-    #[error("no window size support in terminal")]
-    NoWindowSize,
 }

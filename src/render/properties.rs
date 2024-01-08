@@ -1,6 +1,8 @@
 use crossterm::terminal;
 use std::io::{self, ErrorKind};
 
+const DEFAULT_FONT_SIZE_FALLBACK: u8 = 16;
+
 /// The size of the terminal window.
 ///
 /// This is the same as [crossterm::terminal::window_size] except with some added functionality,
@@ -11,21 +13,28 @@ pub(crate) struct WindowSize {
     pub(crate) columns: u16,
     pub(crate) height: u16,
     pub(crate) width: u16,
-    pub(crate) has_pixels: bool,
 }
 
 impl WindowSize {
     /// Get the current window size.
-    pub(crate) fn current() -> io::Result<Self> {
-        match terminal::window_size() {
-            Ok(size) => Ok(size.into()),
+    pub(crate) fn current(font_size_fallback: Option<u8>) -> io::Result<Self> {
+        let mut size: Self = match terminal::window_size() {
+            Ok(size) => size.into(),
             Err(e) if e.kind() == ErrorKind::Unsupported => {
                 // Fall back to a `WindowSize` that doesn't have pixel support.
                 let size = terminal::size()?;
-                Ok(size.into())
+                size.into()
             }
-            Err(e) => Err(e),
+            Err(e) => return Err(e),
+        };
+        let font_size_fallback = font_size_fallback.unwrap_or(DEFAULT_FONT_SIZE_FALLBACK) as u16;
+        if size.width == 0 {
+            size.width = size.columns * font_size_fallback;
         }
+        if size.height == 0 {
+            size.height = size.rows * font_size_fallback * 2;
+        }
+        Ok(size)
     }
 
     /// Shrink a window by the given number of rows.
@@ -39,7 +48,6 @@ impl WindowSize {
             columns: self.columns,
             height: self.height.saturating_sub(height_to_shrink),
             width: self.width,
-            has_pixels: self.has_pixels,
         }
     }
 
@@ -54,7 +62,6 @@ impl WindowSize {
             columns: self.columns.saturating_sub(amount),
             height: self.height,
             width: self.width.saturating_sub(width_to_shrink),
-            has_pixels: self.has_pixels,
         }
     }
 
@@ -71,13 +78,13 @@ impl WindowSize {
 
 impl From<crossterm::terminal::WindowSize> for WindowSize {
     fn from(size: crossterm::terminal::WindowSize) -> Self {
-        Self { rows: size.rows, columns: size.columns, width: size.width, height: size.height, has_pixels: true }
+        Self { rows: size.rows, columns: size.columns, width: size.width, height: size.height }
     }
 }
 
 impl From<(u16, u16)> for WindowSize {
     fn from((columns, rows): (u16, u16)) -> Self {
-        Self { columns, rows, width: 0, height: 0, has_pixels: false }
+        Self { columns, rows, width: 0, height: 0 }
     }
 }
 
@@ -94,7 +101,7 @@ mod test {
 
     #[test]
     fn shrink() {
-        let dimensions = WindowSize { rows: 10, columns: 10, width: 200, height: 100, has_pixels: true };
+        let dimensions = WindowSize { rows: 10, columns: 10, width: 200, height: 100 };
         assert_eq!(dimensions.pixels_per_column(), 20.0);
         assert_eq!(dimensions.pixels_per_row(), 10.0);
 
@@ -105,7 +112,5 @@ mod test {
         let new_dimensions = new_dimensions.shrink_columns(3);
         assert_eq!(new_dimensions.columns, 7);
         assert_eq!(new_dimensions.width, 140);
-
-        assert!(new_dimensions.has_pixels);
     }
 }
