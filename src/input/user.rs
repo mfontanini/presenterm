@@ -1,5 +1,5 @@
 use super::source::Command;
-use crossterm::event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{poll, read, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use std::{io, mem, time::Duration};
 
 /// A user input handler.
@@ -27,6 +27,9 @@ impl UserInput {
     }
 
     fn apply_key_event(event: KeyEvent, state: InputState) -> (Option<Command>, InputState) {
+        if event.kind == KeyEventKind::Release {
+            return (None, state);
+        }
         match event.code {
             KeyCode::Char('h') | KeyCode::Char('k') | KeyCode::Left | KeyCode::PageUp | KeyCode::Up => {
                 (Some(Command::JumpPreviousSlide), InputState::Empty)
