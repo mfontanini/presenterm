@@ -83,8 +83,10 @@ impl<W: io::Write> Terminal<W> {
         Ok(())
     }
 
-    pub(crate) fn sync_cursor_row(&mut self, position: u16) {
+    pub(crate) fn sync_cursor_row(&mut self, position: u16) -> io::Result<()> {
         self.cursor_row = position;
+        self.writer.queue(cursor::MoveToRow(position))?;
+        Ok(())
     }
 }
 

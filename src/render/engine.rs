@@ -150,7 +150,7 @@ where
             .draw_image(image, position, self.current_dimensions())
             .map_err(|e| RenderError::Other(Box::new(e)))?;
         let row = self.terminal.cursor_row + height as u16;
-        self.terminal.sync_cursor_row(row);
+        self.terminal.sync_cursor_row(row)?;
         Ok(())
     }
 
@@ -173,7 +173,7 @@ where
         if *unformatted_length as u16 > max_line_length {
             let lines_wrapped = *unformatted_length as u16 / max_line_length;
             let new_row = self.terminal.cursor_row + lines_wrapped;
-            self.terminal.sync_cursor_row(new_row);
+            self.terminal.sync_cursor_row(new_row)?;
         }
 
         // Restore colors
