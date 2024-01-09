@@ -19,7 +19,9 @@ where
 impl<W: io::Write> Terminal<W> {
     pub(crate) fn new(mut writer: W) -> io::Result<Self> {
         terminal::enable_raw_mode()?;
-        writer.queue(cursor::Hide)?;
+        if should_hide_cursor() {
+            writer.queue(cursor::Hide)?;
+        }
         writer.queue(terminal::EnterAlternateScreen)?;
 
         Ok(Self { writer, cursor_row: 0 })
@@ -81,8 +83,10 @@ impl<W: io::Write> Terminal<W> {
         Ok(())
     }
 
-    pub(crate) fn sync_cursor_row(&mut self, position: u16) {
+    pub(crate) fn sync_cursor_row(&mut self, position: u16) -> io::Result<()> {
         self.cursor_row = position;
+        self.writer.queue(cursor::MoveToRow(position))?;
+        Ok(())
     }
 }
 
@@ -92,8 +96,24 @@ where
 {
     fn drop(&mut self) {
         let _ = self.writer.queue(terminal::LeaveAlternateScreen);
-        let _ = self.writer.queue(cursor::Show);
+        if should_hide_cursor() {
+            let _ = self.writer.queue(cursor::Show);
+        }
         let _ = self.writer.flush();
         let _ = terminal::disable_raw_mode();
     }
+}
+
+fn should_hide_cursor() -> bool {
+    // WezTerm on Windows fails to display images if we've hidden the cursor so we **always** hide it
+    // unless we're on WezTerm on Windows.
+    let term = std::env::var("TERM_PROGRAM");
+    let is_wezterm = term.as_ref().map(|s| s.as_str()) == Ok("WezTerm");
+    !(is_windows_based_os() && is_wezterm)
+}
+
+fn is_windows_based_os() -> bool {
+    let is_windows = std::env::consts::OS == "windows";
+    let is_wsl = std::env::var("WSL_DISTRO_NAME").is_ok();
+    is_windows || is_wsl
 }

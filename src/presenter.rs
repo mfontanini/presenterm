@@ -22,6 +22,12 @@ use std::{
     path::Path,
 };
 
+pub struct PresenterOptions {
+    pub mode: PresentMode,
+    pub builder_options: PresentationBuilderOptions,
+    pub font_size_fallback: Option<u8>,
+}
+
 /// A slideshow presenter.
 ///
 /// This type puts everything else together.
@@ -31,11 +37,10 @@ pub struct Presenter<'a> {
     parser: MarkdownParser<'a>,
     resources: Resources,
     typst: TypstRender,
-    mode: PresentMode,
     state: PresenterState,
     slides_with_pending_widgets: HashSet<usize>,
     themes: Themes,
-    builder_options: PresentationBuilderOptions,
+    options: PresenterOptions,
 }
 
 impl<'a> Presenter<'a> {
@@ -48,8 +53,7 @@ impl<'a> Presenter<'a> {
         resources: Resources,
         typst: TypstRender,
         themes: Themes,
-        mode: PresentMode,
-        builder_options: PresentationBuilderOptions,
+        options: PresenterOptions,
     ) -> Self {
         Self {
             default_theme,
@@ -57,11 +61,10 @@ impl<'a> Presenter<'a> {
             parser,
             resources,
             typst,
-            mode,
             state: PresenterState::Empty,
             slides_with_pending_widgets: HashSet::new(),
             themes,
-            builder_options,
+            options,
         }
     }
 
@@ -70,11 +73,11 @@ impl<'a> Presenter<'a> {
         self.state = PresenterState::Presenting(Presentation::new(vec![]));
         self.try_reload(path);
 
-        let graphics_mode = match self.mode {
+        let graphics_mode = match self.options.mode {
             PresentMode::Export => GraphicsMode::AsciiBlocks,
             _ => GraphicsMode::default(),
         };
-        let mut drawer = TerminalDrawer::new(io::stdout(), graphics_mode)?;
+        let mut drawer = TerminalDrawer::new(io::stdout(), graphics_mode, self.options.font_size_fallback)?;
         loop {
             self.render(&mut drawer)?;
             self.update_widgets(&mut drawer)?;
@@ -133,7 +136,7 @@ impl<'a> Presenter<'a> {
                 return CommandSideEffect::Reload;
             }
             Command::HardReload => {
-                if matches!(self.mode, PresentMode::Development) {
+                if matches!(self.options.mode, PresentMode::Development) {
                     self.resources.clear();
                 }
                 return CommandSideEffect::Reload;
@@ -168,7 +171,7 @@ impl<'a> Presenter<'a> {
     }
 
     fn try_reload(&mut self, path: &Path) {
-        if matches!(self.mode, PresentMode::Presentation) {
+        if matches!(self.options.mode, PresentMode::Presentation) {
             return;
         }
         self.slides_with_pending_widgets.clear();
@@ -194,14 +197,14 @@ impl<'a> Presenter<'a> {
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
         let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
         let elements = self.parser.parse(&content)?;
-        let export_mode = matches!(self.mode, PresentMode::Export);
+        let export_mode = matches!(self.options.mode, PresentMode::Export);
         let mut presentation = PresentationBuilder::new(
             CodeHighlighter::default(),
             self.default_theme,
             &mut self.resources,
             &mut self.typst,
             &self.themes,
-            self.builder_options.clone(),
+            self.options.builder_options.clone(),
         )
         .build(elements)?;
         if export_mode {

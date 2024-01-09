@@ -40,6 +40,8 @@ pub enum ConfigLoadError {
 #[serde(deny_unknown_fields)]
 pub struct DefaultsConfig {
     pub theme: Option<String>,
+
+    pub terminal_font_size: Option<u8>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

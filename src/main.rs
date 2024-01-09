@@ -2,7 +2,8 @@ use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use presenterm::{
     CommandSource, Config, Exporter, HighlightThemeSet, LoadThemeError, MarkdownParser, MediaRender, PresentMode,
-    PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter, Resources, Themes, TypstRender,
+    PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter, PresenterOptions, Resources,
+    Themes, TypstRender,
 };
 use std::{
     env,
@@ -152,7 +153,9 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         let commands = CommandSource::new(&path);
-        let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, mode, options);
+        let options =
+            PresenterOptions { builder_options: options, mode, font_size_fallback: config.defaults.terminal_font_size };
+        let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, options);
         presenter.present(&path)?;
     }
     Ok(())

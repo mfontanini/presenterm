@@ -18,6 +18,7 @@ pub(crate) type RenderResult = Result<(), RenderError>;
 pub(crate) struct TerminalDrawer<W: io::Write> {
     terminal: Terminal<W>,
     graphics_mode: GraphicsMode,
+    font_size_fallback: Option<u8>,
 }
 
 impl<W> TerminalDrawer<W>
@@ -25,14 +26,14 @@ where
     W: io::Write,
 {
     /// Construct a drawer over a [std::io::Write].
-    pub(crate) fn new(handle: W, graphics_mode: GraphicsMode) -> io::Result<Self> {
+    pub(crate) fn new(handle: W, graphics_mode: GraphicsMode, font_size_fallback: Option<u8>) -> io::Result<Self> {
         let terminal = Terminal::new(handle)?;
-        Ok(Self { terminal, graphics_mode })
+        Ok(Self { terminal, graphics_mode, font_size_fallback })
     }
 
     /// Render a slide.
     pub(crate) fn render_slide(&mut self, presentation: &Presentation) -> RenderResult {
-        let window_dimensions = WindowSize::current()?;
+        let window_dimensions = WindowSize::current(self.font_size_fallback)?;
         let slide = presentation.current_slide();
         let engine = RenderEngine::new(&mut self.terminal, window_dimensions, self.graphics_mode.clone());
         engine.render(slide.iter_operations())?;
@@ -42,7 +43,7 @@ where
 
     /// Render an error.
     pub(crate) fn render_error(&mut self, message: &str) -> RenderResult {
-        let dimensions = WindowSize::current()?;
+        let dimensions = WindowSize::current(self.font_size_fallback)?;
         let heading = vec![
             WeightedText::from(StyledText::new("Error loading presentation", TextStyle::default().bold())),
             WeightedText::from(StyledText::from(": ")),
