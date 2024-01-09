@@ -24,6 +24,7 @@ code:
 
 execution_output:
   colors:
+    foreground: "212529"
     background: "e9ecef"
 
 inline_code:
