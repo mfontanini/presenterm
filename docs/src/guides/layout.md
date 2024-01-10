@@ -100,3 +100,4 @@ This would render the following way:
 Besides organizing your slides into columns, you can use column layouts to center a piece of your slide. For example, if 
 you want a certain portion of your slide to be centered, you could define a column layout like `[1, 3, 1]` and then only 
 write content into the middle column. This would make your content take up the center 60% of the screen.
+
