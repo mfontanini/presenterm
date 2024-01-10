@@ -1,6 +1,6 @@
 # Installation
 
-There's different ways to install _presenterm_.
+There are different ways to install _presenterm_.
 
 ## Pre-built binaries (recommended)
 
@@ -51,3 +51,19 @@ nix run github:mfontanini/presenterm  # to run from github repo
 
 For more information see 
 [nixpkgs](https://search.nixos.org/packages?channel=unstable&show=presenterm&from=0&size=50&sort=relevance&type=packages&query=presenterm)
+
+## Arch linux repository (Aur)
+
+Presenterm is also available in the aur. You can use any AUR helper to install.
+
+#### Building from git  
+> ***recommended for upstream updates***
+
+```bash
+paru/yay -S presenterm-git
+```
+
+#### Binary release
+```bash
+paru/yay -S presenterm-bin
+```
