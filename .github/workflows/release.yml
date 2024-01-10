@@ -62,6 +62,8 @@ jobs:
           if [ "${{ matrix.config.OS }}" = "windows-latest" ]; then
             7z a -tzip "presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.zip" \
               presenterm-${{ env.RELEASE_VERSION }}
+            sha512sum "presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.zip" \
+              > presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.zip.sha512
           else
             tar -czvf presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.tar.gz \
               presenterm-${{ env.RELEASE_VERSION }}/
