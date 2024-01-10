@@ -1,0 +1,36 @@
+name: MdBook Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install MdBook
+        run: |
+          curl -sSL -o /tmp/mdbook.tar.gz https://github.com/rust-lang/mdBook/releases/download/v0.4.36/mdbook-v0.4.36-x86_64-unknown-linux-gnu.tar.gz
+          tar -xf /tmp/mdbook.tar.gz -C /usr/local/bin
+          mdbook --version
+
+      - name: Build the book
+        run: |
+          mdbook build
+
+      - name: Deploy build to gh-pages branch
+        uses: crazy-max/ghaction-github-pages@v4
+        with:
+          target_branch: book
+          build_dir: book 
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
