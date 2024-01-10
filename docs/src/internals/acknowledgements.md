@@ -13,7 +13,7 @@ Run `presenterm --acknowledgements` to get a full list of all the licenses for t
 
 ### Also a warm thanks goes to these wonderful people ✨
 
-<a href="https://github.com/orhun/git-cliff/graphs/contributors">
+<a href="https://github.com/mfontanini/presenterm/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=mfontanini/presenterm" />
 </a>
 
