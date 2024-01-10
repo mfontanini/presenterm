@@ -28,7 +28,7 @@ jobs:
           cd docs
           mdbook build
 
-      - name: Deploy build to gh-pages branch
+      - name: Deploy build to book branch
         uses: crazy-max/ghaction-github-pages@v4
         with:
           target_branch: book
