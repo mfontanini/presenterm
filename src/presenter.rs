@@ -70,7 +70,7 @@ impl<'a> Presenter<'a> {
 
     /// Run a presentation.
     pub fn present(mut self, path: &Path) -> Result<(), PresentationError> {
-        self.state = PresenterState::Presenting(Presentation::new(vec![]));
+        self.state = PresenterState::Presenting(Presentation::new(vec![], vec![], Default::default()));
         self.try_reload(path);
 
         let graphics_mode = match self.options.mode {
@@ -121,6 +121,10 @@ impl<'a> Presenter<'a> {
     fn render(&mut self, drawer: &mut TerminalDrawer<Stdout>) -> RenderResult {
         let result = match &self.state {
             PresenterState::Presenting(presentation) => drawer.render_slide(presentation),
+            PresenterState::SlideIndex(presentation) => {
+                drawer.render_slide(presentation)?;
+                drawer.render_slide_index(presentation)
+            }
             PresenterState::Failure { error, .. } => drawer.render_error(error),
             PresenterState::Empty => panic!("cannot render without state"),
         };
@@ -146,8 +150,11 @@ impl<'a> Presenter<'a> {
         };
 
         // Now apply the commands that require a presentation.
-        let PresenterState::Presenting(presentation) = &mut self.state else {
-            return CommandSideEffect::None;
+        let presentation = match &mut self.state {
+            PresenterState::Presenting(presentation) | PresenterState::SlideIndex(presentation) => presentation,
+            _ => {
+                return CommandSideEffect::None;
+            }
         };
         let needs_redraw = match command {
             Command::Redraw => true,
@@ -164,8 +171,14 @@ impl<'a> Presenter<'a> {
                     return CommandSideEffect::None;
                 }
             }
+            Command::ToggleSlideIndex => {
+                self.toggle_slide_index();
+                true
+            }
             // These are handled above as they don't require the presentation
-            Command::Reload | Command::HardReload | Command::Exit => panic!("unreachable commands"),
+            Command::Reload | Command::HardReload | Command::Exit => {
+                panic!("unreachable commands")
+            }
         };
         if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
     }
@@ -213,6 +226,15 @@ impl<'a> Presenter<'a> {
 
         Ok(presentation)
     }
+
+    fn toggle_slide_index(&mut self) {
+        let state = mem::take(&mut self.state);
+        match state {
+            PresenterState::Presenting(presentation) => self.state = PresenterState::SlideIndex(presentation),
+            PresenterState::SlideIndex(presentation) => self.state = PresenterState::Presenting(presentation),
+            other => self.state = other,
+        }
+    }
 }
 
 enum CommandSideEffect {
@@ -228,6 +250,7 @@ enum PresenterState {
     #[default]
     Empty,
     Presenting(Presentation),
+    SlideIndex(Presentation),
     Failure {
         error: String,
         presentation: Presentation,
@@ -237,24 +260,27 @@ enum PresenterState {
 impl PresenterState {
     fn presentation(&self) -> &Presentation {
         match self {
-            Self::Presenting(presentation) => presentation,
-            Self::Failure { presentation, .. } => presentation,
+            Self::Presenting(presentation) | Self::SlideIndex(presentation) | Self::Failure { presentation, .. } => {
+                presentation
+            }
             Self::Empty => panic!("state is empty"),
         }
     }
 
     fn presentation_mut(&mut self) -> &mut Presentation {
         match self {
-            Self::Presenting(presentation) => presentation,
-            Self::Failure { presentation, .. } => presentation,
+            Self::Presenting(presentation) | Self::SlideIndex(presentation) | Self::Failure { presentation, .. } => {
+                presentation
+            }
             Self::Empty => panic!("state is empty"),
         }
     }
 
     fn into_presentation(self) -> Presentation {
         match self {
-            Self::Presenting(presentation) => presentation,
-            Self::Failure { presentation, .. } => presentation,
+            Self::Presenting(presentation) | Self::SlideIndex(presentation) | Self::Failure { presentation, .. } => {
+                presentation
+            }
             Self::Empty => panic!("state is empty"),
         }
     }

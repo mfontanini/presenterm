@@ -24,6 +24,13 @@ impl WeightedLine {
     pub(crate) fn iter_texts(&self) -> impl Iterator<Item = &WeightedText> {
         self.0.iter()
     }
+
+    /// Apply a style to all text chunks in this line.
+    pub(crate) fn apply_style(&mut self, style: TextStyle) {
+        for text in &mut self.0 {
+            text.text.style = style.clone();
+        }
+    }
 }
 
 impl From<Vec<WeightedText>> for WeightedLine {
@@ -34,7 +41,7 @@ impl From<Vec<WeightedText>> for WeightedLine {
 
 impl From<String> for WeightedLine {
     fn from(text: String) -> Self {
-        let texts = vec![WeightedText::from(StyledText::from(text))];
+        let texts = vec![WeightedText::from(text)];
         Self(texts)
     }
 }
@@ -57,8 +64,14 @@ impl WeightedText {
         WeightedTextRef { text: &self.text.text, accumulators: &self.accumulators, style: self.text.style.clone() }
     }
 
-    fn width(&self) -> usize {
+    pub(crate) fn width(&self) -> usize {
         self.accumulators.last().map(|a| a.width).unwrap_or(0)
+    }
+}
+
+impl<S: Into<String>> From<S> for WeightedText {
+    fn from(text: S) -> Self {
+        Self::from(StyledText::from(text.into()))
     }
 }
 
@@ -199,7 +212,7 @@ mod test {
 
     #[test]
     fn text_creation() {
-        let text = WeightedText::from(StyledText::from("hello world"));
+        let text = WeightedText::from("hello world");
 
         let text_ref = text.to_ref();
         assert_eq!(text_ref.width(), 11);
@@ -207,7 +220,7 @@ mod test {
 
     #[test]
     fn text_creation_utf8() {
-        let text = WeightedText::from(StyledText::from("█████"));
+        let text = WeightedText::from("█████");
 
         let text_ref = text.to_ref();
         assert_eq!(text_ref.width(), 5);
@@ -232,7 +245,7 @@ mod test {
 
     #[test]
     fn minimal_split() {
-        let text = WeightedText::from(StyledText::from("█████"));
+        let text = WeightedText::from("█████");
         let text_ref = text.to_ref();
         let (head, rest) = text_ref.word_split_at_length(1);
         assert_eq!(head.width(), 1);
@@ -241,7 +254,7 @@ mod test {
 
     #[test]
     fn no_spaces_split() {
-        let text = WeightedText::from(StyledText::from("█████"));
+        let text = WeightedText::from("█████");
         let text_ref = text.to_ref();
         let (head, rest) = text_ref.word_split_at_length(2);
         assert_eq!(head.width(), 2);
@@ -250,7 +263,7 @@ mod test {
 
     #[test]
     fn make_ref() {
-        let text = WeightedText::from(StyledText::from("hello world"));
+        let text = WeightedText::from("hello world");
         let text_ref = text.to_ref();
         let head = text_ref.make_ref(0, 1);
         assert_eq!(head.text, "h");
@@ -263,7 +276,7 @@ mod test {
 
     #[test]
     fn word_split() {
-        let text = WeightedText::from(StyledText::from("short string"));
+        let text = WeightedText::from("short string");
         let (head, rest) = text.to_ref().word_split_at_length(7);
         assert_eq!(head.text, "short");
         assert_eq!(rest.text, " string");
@@ -271,7 +284,7 @@ mod test {
 
     #[test]
     fn split_at_full_length() {
-        let text = WeightedLine(vec![WeightedText::from(StyledText::from("hello world"))]);
+        let text = WeightedLine(vec![WeightedText::from("hello world")]);
         let lines = join_lines(text.split(11));
         let expected = vec!["hello world"];
         assert_eq!(lines, expected);
@@ -279,10 +292,7 @@ mod test {
 
     #[test]
     fn no_split_necessary() {
-        let text = WeightedLine(vec![
-            WeightedText::from(StyledText::from("short")),
-            WeightedText::from(StyledText::from("text")),
-        ]);
+        let text = WeightedLine(vec![WeightedText::from("short"), WeightedText::from("text")]);
         let lines = join_lines(text.split(50));
         let expected = vec!["short text"];
         assert_eq!(lines, expected);
@@ -290,7 +300,7 @@ mod test {
 
     #[test]
     fn split_lines_single() {
-        let text = WeightedLine(vec![WeightedText::from(StyledText::from("this is a slightly long line"))]);
+        let text = WeightedLine(vec![WeightedText::from("this is a slightly long line")]);
         let lines = join_lines(text.split(6));
         let expected = vec!["this", "is a", "slight", "ly", "long", "line"];
         assert_eq!(lines, expected);
@@ -299,9 +309,9 @@ mod test {
     #[test]
     fn split_lines_multi() {
         let text = WeightedLine(vec![
-            WeightedText::from(StyledText::from("this is a slightly long line")),
-            WeightedText::from(StyledText::from("another chunk")),
-            WeightedText::from(StyledText::from("yet some other piece")),
+            WeightedText::from("this is a slightly long line"),
+            WeightedText::from("another chunk"),
+            WeightedText::from("yet some other piece"),
         ]);
         let lines = join_lines(text.split(10));
         let expected = vec!["this is a", "slightly", "long line", "another", "chunk yet", "some other", "piece"];
@@ -311,9 +321,9 @@ mod test {
     #[test]
     fn long_splits() {
         let text = WeightedLine(vec![
-            WeightedText::from(StyledText::from("this is a slightly long line")),
-            WeightedText::from(StyledText::from("another chunk")),
-            WeightedText::from(StyledText::from("yet some other piece")),
+            WeightedText::from("this is a slightly long line"),
+            WeightedText::from("another chunk"),
+            WeightedText::from("yet some other piece"),
         ]);
         let lines = join_lines(text.split(50));
         let expected = vec!["this is a slightly long line another chunk yet some", "other piece"];
@@ -322,7 +332,7 @@ mod test {
 
     #[test]
     fn prefixed_by_whitespace() {
-        let text = WeightedLine(vec![WeightedText::from(StyledText::from("   * bullet"))]);
+        let text = WeightedLine(vec![WeightedText::from("   * bullet")]);
         let lines = join_lines(text.split(50));
         let expected = vec!["   * bullet"];
         assert_eq!(lines, expected);
@@ -330,7 +340,7 @@ mod test {
 
     #[test]
     fn utf8_character() {
-        let text = WeightedLine(vec![WeightedText::from(StyledText::from("• A"))]);
+        let text = WeightedLine(vec![WeightedText::from("• A")]);
         let lines = join_lines(text.split(50));
         let expected = vec!["• A"];
         assert_eq!(lines, expected);
@@ -339,7 +349,7 @@ mod test {
     #[test]
     fn many_utf8_characters() {
         let content = "█████ ██";
-        let text = WeightedLine(vec![WeightedText::from(StyledText::from(content))]);
+        let text = WeightedLine(vec![WeightedText::from(content)]);
         let lines = join_lines(text.split(3));
         let expected = vec!["███", "██", "██"];
         assert_eq!(lines, expected);
@@ -348,7 +358,7 @@ mod test {
     #[test]
     fn no_whitespaces_ascii() {
         let content = "X".repeat(10);
-        let text = WeightedLine(vec![WeightedText::from(StyledText::from(content))]);
+        let text = WeightedLine(vec![WeightedText::from(content)]);
         let lines = join_lines(text.split(3));
         let expected = vec!["XXX", "XXX", "XXX", "X"];
         assert_eq!(lines, expected);
@@ -357,7 +367,7 @@ mod test {
     #[test]
     fn no_whitespaces_utf8() {
         let content = "─".repeat(10);
-        let text = WeightedLine(vec![WeightedText::from(StyledText::from(content))]);
+        let text = WeightedLine(vec![WeightedText::from(content)]);
         let lines = join_lines(text.split(3));
         let expected = vec!["───", "───", "───", "─"];
         assert_eq!(lines, expected);
@@ -366,7 +376,7 @@ mod test {
     #[test]
     fn wide_characters() {
         let content = "Ｈｅｌｌｏ ｗｏｒｌｄ";
-        let text = WeightedLine(vec![WeightedText::from(StyledText::from(content))]);
+        let text = WeightedLine(vec![WeightedText::from(content)]);
         let lines = join_lines(text.split(10));
         // Each word is 10 characters long
         let expected = vec!["Ｈｅｌｌｏ", "ｗｏｒｌｄ"];

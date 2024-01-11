@@ -6,24 +6,30 @@ use crate::{
     theme::{Alignment, Margin, PresentationTheme},
 };
 use serde::Deserialize;
-use std::{fmt::Debug, rc::Rc};
+use std::{cell::RefCell, fmt::Debug, ops::Deref, rc::Rc};
 
 /// A presentation.
 #[derive(Debug)]
 pub(crate) struct Presentation {
     slides: Vec<Slide>,
-    current_slide_index: usize,
+    slide_index: Vec<RenderOperation>,
+    state: PresentationState,
 }
 
 impl Presentation {
     /// Construct a new presentation.
-    pub(crate) fn new(slides: Vec<Slide>) -> Self {
-        Self { slides, current_slide_index: 0 }
+    pub(crate) fn new(slides: Vec<Slide>, slide_index: Vec<RenderOperation>, state: PresentationState) -> Self {
+        Self { slides, slide_index, state }
     }
 
     /// Iterate the slides in this presentation.
     pub(crate) fn iter_slides(&self) -> impl Iterator<Item = &Slide> {
         self.slides.iter()
+    }
+
+    /// Iterate the operations that render the slide index.
+    pub(crate) fn iter_index_operations(&self) -> impl Iterator<Item = &RenderOperation> {
+        self.slide_index.iter()
     }
 
     /// Consume this presentation and return its slides.
@@ -34,12 +40,12 @@ impl Presentation {
 
     /// Get the current slide.
     pub(crate) fn current_slide(&self) -> &Slide {
-        &self.slides[self.current_slide_index]
+        &self.slides[self.current_slide_index()]
     }
 
     /// Get the current slide index.
     pub(crate) fn current_slide_index(&self) -> usize {
-        self.current_slide_index
+        self.state.current_slide_index()
     }
 
     /// Jump to the next slide.
@@ -48,8 +54,9 @@ impl Presentation {
         if current_slide.move_next() {
             return true;
         }
-        if self.current_slide_index < self.slides.len() - 1 {
-            self.current_slide_index += 1;
+        let current_slide_index = self.current_slide_index();
+        if current_slide_index < self.slides.len() - 1 {
+            self.state.set_current_slide_index(current_slide_index + 1);
             // Going forward we show only the first chunk.
             self.current_slide_mut().show_first_chunk();
             true
@@ -64,8 +71,9 @@ impl Presentation {
         if current_slide.move_previous() {
             return true;
         }
-        if self.current_slide_index > 0 {
-            self.current_slide_index -= 1;
+        let current_slide_index = self.current_slide_index();
+        if current_slide_index > 0 {
+            self.state.set_current_slide_index(current_slide_index - 1);
             // Going backwards we show all chunks.
             self.current_slide_mut().show_all_chunks();
             true
@@ -88,7 +96,7 @@ impl Presentation {
     /// Jump to a specific slide.
     pub(crate) fn jump_slide(&mut self, slide_index: usize) -> bool {
         if slide_index < self.slides.len() {
-            self.current_slide_index = slide_index;
+            self.state.set_current_slide_index(slide_index);
             // Always show only the first slide when jumping to a particular one.
             self.current_slide_mut().show_first_chunk();
             true
@@ -148,7 +156,57 @@ impl Presentation {
     }
 
     fn current_slide_mut(&mut self) -> &mut Slide {
-        &mut self.slides[self.current_slide_index]
+        let index = self.current_slide_index();
+        &mut self.slides[index]
+    }
+}
+
+impl From<Vec<Slide>> for Presentation {
+    fn from(slides: Vec<Slide>) -> Self {
+        Self::new(slides, vec![], Default::default())
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct PresentationStateInner {
+    current_slide_index: usize,
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct PresentationState {
+    inner: Rc<RefCell<PresentationStateInner>>,
+}
+
+impl PresentationState {
+    pub(crate) fn current_slide_index(&self) -> usize {
+        self.inner.deref().borrow().current_slide_index
+    }
+
+    fn set_current_slide_index(&self, value: usize) {
+        self.inner.deref().borrow_mut().current_slide_index = value;
+    }
+}
+
+/// A slide builder.
+#[derive(Default)]
+pub(crate) struct SlideBuilder {
+    chunks: Vec<SlideChunk>,
+    footer: Vec<RenderOperation>,
+}
+
+impl SlideBuilder {
+    pub(crate) fn chunks(mut self, chunks: Vec<SlideChunk>) -> Self {
+        self.chunks = chunks;
+        self
+    }
+
+    pub(crate) fn footer(mut self, footer: Vec<RenderOperation>) -> Self {
+        self.footer = footer;
+        self
+    }
+
+    pub(crate) fn build(self) -> Slide {
+        Slide::new(self.chunks, self.footer)
     }
 }
 
@@ -372,7 +430,12 @@ pub(crate) enum RenderOperation {
     /// Jump the draw cursor into the vertical center, that is, at `screen_height / 2`.
     JumpToVerticalCenter,
 
-    /// Jumps to the N-th to last row in the slide.
+    /// Jumps to the N-th row in the current layout.
+    ///
+    /// The index is zero based where 0 represents the top row.
+    JumpToRow { index: u16 },
+
+    /// Jumps to the N-th to last row in the current layout.
     ///
     /// The index is zero based where 0 represents the bottom row.
     JumpToBottomRow { index: u16 },
@@ -555,7 +618,7 @@ mod test {
         #[case] expected_slide: usize,
         #[case] expected_chunk: usize,
     ) {
-        let mut presentation = Presentation::new(vec![
+        let mut presentation = Presentation::from(vec![
             Slide::new(vec![SlideChunk::from(SlideChunk::default()), SlideChunk::default()], vec![]),
             Slide::new(vec![SlideChunk::from(SlideChunk::default()), SlideChunk::default()], vec![]),
             Slide::new(vec![SlideChunk::from(SlideChunk::default()), SlideChunk::default()], vec![]),
@@ -592,24 +655,22 @@ mod test {
         #[case] expected_slide: usize,
         #[case] expected_chunk: usize,
     ) {
-        let mut presentation = Presentation::new(vec![
-            Slide::new(
-                vec![
+        let mut presentation = Presentation::from(vec![
+            SlideBuilder::default()
+                .chunks(vec![
                     SlideChunk::from(SlideChunk::new(
                         vec![],
                         vec![Box::new(DummyMutator::new(1)), Box::new(DummyMutator::new(2))],
                     )),
                     SlideChunk::default(),
-                ],
-                vec![],
-            ),
-            Slide::new(
-                vec![
+                ])
+                .build(),
+            SlideBuilder::default()
+                .chunks(vec![
                     SlideChunk::from(SlideChunk::new(vec![], vec![Box::new(DummyMutator::new(2))])),
                     SlideChunk::default(),
-                ],
-                vec![],
-            ),
+                ])
+                .build(),
         ]);
         presentation.jump_slide(from);
 
