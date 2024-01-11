@@ -54,7 +54,7 @@ For more information see
 
 ## Arch linux repository (Aur)
 
-Presenterm is also available in the aur. You can use any AUR helper to install.
+presenterm is also available in the aur. You can use any AUR helper to install.
 
 #### Building from git  
 > ***recommended for upstream updates***

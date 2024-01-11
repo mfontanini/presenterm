@@ -3,7 +3,7 @@ authors = ["mfontanini"]
 language = "en"
 multilingual = false
 src = "src"
-title = "Presenterm documentation"
+title = "presenterm documentation"
 
 [preprocessor]
 
