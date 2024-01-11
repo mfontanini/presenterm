@@ -2,7 +2,7 @@
 
 ##### Welcome to the [presenterm][github] documentation !!
 
-Presenterm is a terminal-based tool that allows you to create presentations in
+presenterm is a terminal-based tool that allows you to create presentations in
 Markdown format and easily render them within your terminal interface.
 
 ## Quick demo
