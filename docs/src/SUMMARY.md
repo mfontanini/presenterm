@@ -3,7 +3,7 @@
 [About](./about.md)
 
 # Guides
-- [installation](./guides/installation.md)
+- [Installation](./guides/installation.md)
 - [Introduction](./guides/introduction.md)
 - [Themes](./guides/themes.md)
 - [Layout](./guides/layout.md)
