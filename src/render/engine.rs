@@ -53,6 +53,7 @@ where
         for operation in operations {
             self.render_one(operation)?;
         }
+        self.terminal.flush()?;
         Ok(())
     }
 
@@ -63,8 +64,9 @@ where
             RenderOperation::PopMargin => self.pop_margin(),
             RenderOperation::SetColors(colors) => self.set_colors(colors),
             RenderOperation::JumpToVerticalCenter => self.jump_to_vertical_center(),
+            RenderOperation::JumpToRow { index } => self.jump_to_row(*index),
             RenderOperation::JumpToBottomRow { index } => self.jump_to_bottom(*index),
-            RenderOperation::RenderText { line: texts, alignment } => self.render_text(texts, alignment),
+            RenderOperation::RenderText { line, alignment } => self.render_text(line, alignment),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image) => self.render_image(image),
             RenderOperation::RenderPreformattedLine(operation) => self.render_preformatted_line(operation),
@@ -124,6 +126,11 @@ where
     fn jump_to_vertical_center(&mut self) -> RenderResult {
         let center_row = self.current_dimensions().rows / 2;
         self.terminal.move_to_row(center_row)?;
+        Ok(())
+    }
+
+    fn jump_to_row(&mut self, index: u16) -> RenderResult {
+        self.terminal.move_to_row(index)?;
         Ok(())
     }
 

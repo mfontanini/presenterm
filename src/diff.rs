@@ -108,7 +108,7 @@ where
 mod test {
     use super::*;
     use crate::{
-        presentation::{AsRenderOperations, PreformattedLine, Slide},
+        presentation::{AsRenderOperations, PreformattedLine, Slide, SlideBuilder},
         render::properties::WindowSize,
         style::{Color, Colors},
         theme::{Alignment, Margin},
@@ -196,7 +196,7 @@ mod test {
 
     #[test]
     fn no_slide_changes() {
-        let presentation = Presentation::new(vec![
+        let presentation = Presentation::from(vec![
             Slide::from(vec![RenderOperation::ClearScreen]),
             Slide::from(vec![RenderOperation::ClearScreen]),
             Slide::from(vec![RenderOperation::ClearScreen]),
@@ -206,11 +206,11 @@ mod test {
 
     #[test]
     fn slides_truncated() {
-        let lhs = Presentation::new(vec![
+        let lhs = Presentation::from(vec![
             Slide::from(vec![RenderOperation::ClearScreen]),
             Slide::from(vec![RenderOperation::ClearScreen]),
         ]);
-        let rhs = Presentation::new(vec![Slide::from(vec![RenderOperation::ClearScreen])]);
+        let rhs = Presentation::from(vec![Slide::from(vec![RenderOperation::ClearScreen])]);
 
         assert_eq!(
             PresentationDiffer::find_first_modification(&lhs, &rhs),
@@ -220,8 +220,8 @@ mod test {
 
     #[test]
     fn slides_added() {
-        let lhs = Presentation::new(vec![Slide::from(vec![RenderOperation::ClearScreen])]);
-        let rhs = Presentation::new(vec![
+        let lhs = Presentation::from(vec![Slide::from(vec![RenderOperation::ClearScreen])]);
+        let rhs = Presentation::from(vec![
             Slide::from(vec![RenderOperation::ClearScreen]),
             Slide::from(vec![RenderOperation::ClearScreen]),
         ]);
@@ -234,12 +234,12 @@ mod test {
 
     #[test]
     fn second_slide_content_changed() {
-        let lhs = Presentation::new(vec![
+        let lhs = Presentation::from(vec![
             Slide::from(vec![RenderOperation::ClearScreen]),
             Slide::from(vec![RenderOperation::ClearScreen]),
             Slide::from(vec![RenderOperation::ClearScreen]),
         ]);
-        let rhs = Presentation::new(vec![
+        let rhs = Presentation::from(vec![
             Slide::from(vec![RenderOperation::ClearScreen]),
             Slide::from(vec![RenderOperation::JumpToVerticalCenter]),
             Slide::from(vec![RenderOperation::ClearScreen]),
@@ -253,11 +253,11 @@ mod test {
 
     #[test]
     fn presentation_changed_style() {
-        let lhs = Presentation::new(vec![Slide::from(vec![RenderOperation::SetColors(Colors {
+        let lhs = Presentation::from(vec![Slide::from(vec![RenderOperation::SetColors(Colors {
             background: None,
             foreground: Some(Color::new(255, 0, 0)),
         })])]);
-        let rhs = Presentation::new(vec![Slide::from(vec![RenderOperation::SetColors(Colors {
+        let rhs = Presentation::from(vec![Slide::from(vec![RenderOperation::SetColors(Colors {
             background: None,
             foreground: Some(Color::new(0, 0, 0)),
         })])]);
@@ -267,22 +267,20 @@ mod test {
 
     #[test]
     fn chunk_change() {
-        let lhs = Presentation::new(vec![
+        let lhs = Presentation::from(vec![
             Slide::from(vec![RenderOperation::ClearScreen]),
-            Slide::new(
-                vec![SlideChunk::default(), SlideChunk::new(vec![RenderOperation::ClearScreen], vec![])],
-                vec![],
-            ),
+            SlideBuilder::default()
+                .chunks(vec![SlideChunk::default(), SlideChunk::new(vec![RenderOperation::ClearScreen], vec![])])
+                .build(),
         ]);
-        let rhs = Presentation::new(vec![
+        let rhs = Presentation::from(vec![
             Slide::from(vec![RenderOperation::ClearScreen]),
-            Slide::new(
-                vec![
+            SlideBuilder::default()
+                .chunks(vec![
                     SlideChunk::default(),
                     SlideChunk::new(vec![RenderOperation::ClearScreen, RenderOperation::ClearScreen], vec![]),
-                ],
-                vec![],
-            ),
+                ])
+                .build(),
         ]);
 
         assert_eq!(

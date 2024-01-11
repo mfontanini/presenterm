@@ -53,6 +53,9 @@ impl UserInput {
             KeyCode::Char('r') if event.modifiers == KeyModifiers::CONTROL => {
                 (Some(Command::HardReload), InputState::Empty)
             }
+            KeyCode::Char('p') if event.modifiers == KeyModifiers::CONTROL => {
+                (Some(Command::ToggleSlideIndex), InputState::Empty)
+            }
             _ => (None, InputState::Empty),
         }
     }

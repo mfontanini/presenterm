@@ -64,4 +64,7 @@ pub(crate) enum Command {
     ///
     /// Like [Command::Reload] but also reloads any external resources like images and themes.
     HardReload,
+
+    /// Toggle the slide index view.
+    ToggleSlideIndex,
 }

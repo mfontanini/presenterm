@@ -134,7 +134,6 @@ impl Person {
         println!("hello, I'm {}", self.name)
     }
 }
-
 ```
 
 <!-- end_slide -->

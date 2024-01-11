@@ -33,11 +33,10 @@ where
 
     /// Render a slide.
     pub(crate) fn render_slide(&mut self, presentation: &Presentation) -> RenderResult {
-        let window_dimensions = WindowSize::current(self.font_size_fallback)?;
+        let dimensions = WindowSize::current(self.font_size_fallback)?;
         let slide = presentation.current_slide();
-        let engine = RenderEngine::new(&mut self.terminal, window_dimensions, self.graphics_mode.clone());
+        let engine = self.create_engine(dimensions);
         engine.render(slide.iter_operations())?;
-        self.terminal.flush()?;
         Ok(())
     }
 
@@ -46,7 +45,7 @@ where
         let dimensions = WindowSize::current(self.font_size_fallback)?;
         let heading = vec![
             WeightedText::from(StyledText::new("Error loading presentation", TextStyle::default().bold())),
-            WeightedText::from(StyledText::from(": ")),
+            WeightedText::from(": "),
         ];
 
         let alignment = Alignment::Center { minimum_size: 0, minimum_margin: Margin::Percent(8) };
@@ -62,14 +61,24 @@ where
             RenderOperation::RenderLineBreak,
         ];
         for line in message.lines() {
-            let error = vec![WeightedText::from(StyledText::from(line))];
+            let error = vec![WeightedText::from(line)];
             let op = RenderOperation::RenderText { line: WeightedLine::from(error), alignment: alignment.clone() };
             operations.extend([op, RenderOperation::RenderLineBreak]);
         }
-        let engine = RenderEngine::new(&mut self.terminal, dimensions, self.graphics_mode.clone());
+        let engine = self.create_engine(dimensions);
         engine.render(operations.iter())?;
-        self.terminal.flush()?;
         Ok(())
+    }
+
+    pub(crate) fn render_slide_index(&mut self, presentation: &Presentation) -> RenderResult {
+        let dimensions = WindowSize::current(self.font_size_fallback)?;
+        let engine = self.create_engine(dimensions);
+        engine.render(presentation.iter_index_operations())?;
+        Ok(())
+    }
+
+    fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<W> {
+        RenderEngine::new(&mut self.terminal, dimensions, self.graphics_mode.clone())
     }
 }
 
