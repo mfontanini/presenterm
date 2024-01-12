@@ -158,11 +158,11 @@ impl<'a> Presenter<'a> {
         };
         let needs_redraw = match command {
             Command::Redraw => true,
-            Command::JumpNextSlide => presentation.jump_next_slide(),
-            Command::JumpPreviousSlide => presentation.jump_previous_slide(),
-            Command::JumpFirstSlide => presentation.jump_first_slide(),
-            Command::JumpLastSlide => presentation.jump_last_slide(),
-            Command::JumpSlide(number) => presentation.jump_slide(number.saturating_sub(1) as usize),
+            Command::NextSlide => presentation.jump_next_slide(),
+            Command::PreviousSlide => presentation.jump_previous_slide(),
+            Command::FirstSlide => presentation.jump_first_slide(),
+            Command::LastSlide => presentation.jump_last_slide(),
+            Command::GoToSlide(number) => presentation.go_to_slide(number.saturating_sub(1) as usize),
             Command::RenderWidgets => {
                 if presentation.render_slide_widgets() {
                     self.slides_with_pending_widgets.insert(self.state.presentation().current_slide_index());
@@ -192,10 +192,10 @@ impl<'a> Presenter<'a> {
             Ok(mut presentation) => {
                 let current = self.state.presentation();
                 if let Some(modification) = PresentationDiffer::find_first_modification(current, &presentation) {
-                    presentation.jump_slide(modification.slide_index);
+                    presentation.go_to_slide(modification.slide_index);
                     presentation.jump_chunk(modification.chunk_index);
                 } else {
-                    presentation.jump_slide(current.current_slide_index());
+                    presentation.go_to_slide(current.current_slide_index());
                     presentation.jump_chunk(current.current_chunk());
                 }
                 self.state = PresenterState::Presenting(presentation)

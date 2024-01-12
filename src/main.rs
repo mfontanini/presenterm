@@ -152,7 +152,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", serde_json::to_string_pretty(&meta)?);
         }
     } else {
-        let commands = CommandSource::new(&path);
+        let commands = CommandSource::new(&path, config.bindings)?;
         let options =
             PresenterOptions { builder_options: options, mode, font_size_fallback: config.defaults.terminal_font_size };
         let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, options);
