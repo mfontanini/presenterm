@@ -175,6 +175,11 @@ impl<'a> Presenter<'a> {
                 self.toggle_slide_index();
                 true
             }
+            Command::CloseModal => {
+                let presentation = mem::take(&mut self.state).into_presentation();
+                self.state = PresenterState::Presenting(presentation);
+                true
+            }
             // These are handled above as they don't require the presentation
             Command::Reload | Command::HardReload | Command::Exit => {
                 panic!("unreachable commands")

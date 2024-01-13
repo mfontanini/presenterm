@@ -91,6 +91,7 @@ impl CommandKeyBindings {
             Reload => Command::Reload,
             HardReload => Command::HardReload,
             ToggleSlideIndex => Command::ToggleSlideIndex,
+            CloseModal => Command::CloseModal,
         };
         InputAction::Emit(command)
     }
@@ -130,6 +131,7 @@ impl TryFrom<KeyBindingsConfig> for CommandKeyBindings {
             .chain(zip(CommandDiscriminants::HardReload, config.hard_reload))
             .chain(zip(CommandDiscriminants::ToggleSlideIndex, config.toggle_slide_index))
             .chain(zip(CommandDiscriminants::RenderWidgets, config.render_widgets))
+            .chain(zip(CommandDiscriminants::CloseModal, config.close_modal))
             .collect();
         Self::validate_conflicts(bindings.iter().map(|binding| &binding.0))?;
         Ok(Self { bindings })

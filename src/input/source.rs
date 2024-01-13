@@ -1,9 +1,8 @@
-use crate::custom::KeyBindingsConfig;
-
 use super::{
     fs::PresentationFileWatcher,
     user::{CommandKeyBindings, KeyBindingsValidationError, UserInput},
 };
+use crate::custom::KeyBindingsConfig;
 use serde::Deserialize;
 use std::{io, path::PathBuf, time::Duration};
 use strum::EnumDiscriminants;
@@ -79,4 +78,7 @@ pub(crate) enum Command {
 
     /// Toggle the slide index view.
     ToggleSlideIndex,
+
+    /// Hide the currently open modal, if any.
+    CloseModal,
 }
