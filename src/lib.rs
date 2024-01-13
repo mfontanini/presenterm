@@ -2,7 +2,6 @@
 //!
 //! This is not meant to be used as a crate!
 
-pub(crate) mod builder;
 pub(crate) mod custom;
 pub(crate) mod diff;
 pub(crate) mod execute;
@@ -11,6 +10,7 @@ pub(crate) mod input;
 pub(crate) mod markdown;
 pub(crate) mod presentation;
 pub(crate) mod presenter;
+pub(crate) mod processing;
 pub(crate) mod render;
 pub(crate) mod resource;
 pub(crate) mod style;
@@ -19,12 +19,12 @@ pub(crate) mod tools;
 pub(crate) mod typst;
 
 pub use crate::{
-    builder::{PresentationBuilderOptions, Themes},
     custom::Config,
     export::{ExportError, Exporter},
     input::source::CommandSource,
     markdown::parse::MarkdownParser,
     presenter::{PresentMode, Presenter, PresenterOptions},
+    processing::builder::{PresentationBuilderOptions, Themes},
     render::{
         highlighting::{CodeHighlighter, HighlightThemeSet},
         media::MediaRender,
