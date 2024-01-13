@@ -84,17 +84,17 @@ impl Presentation {
 
     /// Jump to the first slide.
     pub(crate) fn jump_first_slide(&mut self) -> bool {
-        self.jump_slide(0)
+        self.go_to_slide(0)
     }
 
     /// Jump to the last slide.
     pub(crate) fn jump_last_slide(&mut self) -> bool {
         let last_slide_index = self.slides.len().saturating_sub(1);
-        self.jump_slide(last_slide_index)
+        self.go_to_slide(last_slide_index)
     }
 
     /// Jump to a specific slide.
-    pub(crate) fn jump_slide(&mut self, slide_index: usize) -> bool {
+    pub(crate) fn go_to_slide(&mut self, slide_index: usize) -> bool {
         if slide_index < self.slides.len() {
             self.state.set_current_slide_index(slide_index);
             // Always show only the first slide when jumping to a particular one.
@@ -547,7 +547,7 @@ mod test {
                 Last => presentation.jump_last_slide(),
                 Next => presentation.jump_next_slide(),
                 Previous => presentation.jump_previous_slide(),
-                Specific(index) => presentation.jump_slide(*index),
+                Specific(index) => presentation.go_to_slide(*index),
             };
         }
 
@@ -623,7 +623,7 @@ mod test {
             Slide::new(vec![SlideChunk::from(SlideChunk::default()), SlideChunk::default()], vec![]),
             Slide::new(vec![SlideChunk::from(SlideChunk::default()), SlideChunk::default()], vec![]),
         ]);
-        presentation.jump_slide(from);
+        presentation.go_to_slide(from);
 
         for jump in jumps {
             jump.apply(&mut presentation);
@@ -672,7 +672,7 @@ mod test {
                 ])
                 .build(),
         ]);
-        presentation.jump_slide(from);
+        presentation.go_to_slide(from);
 
         for jump in jumps {
             jump.apply(&mut presentation);

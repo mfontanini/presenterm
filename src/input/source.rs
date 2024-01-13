@@ -1,5 +1,12 @@
-use super::{fs::PresentationFileWatcher, user::UserInput};
+use crate::custom::KeyBindingsConfig;
+
+use super::{
+    fs::PresentationFileWatcher,
+    user::{CommandKeyBindings, KeyBindingsValidationError, UserInput},
+};
+use serde::Deserialize;
 use std::{io, path::PathBuf, time::Duration};
+use strum::EnumDiscriminants;
 
 /// The source of commands.
 ///
@@ -12,9 +19,13 @@ pub struct CommandSource {
 
 impl CommandSource {
     /// Create a new command source over the given presentation path.
-    pub fn new<P: Into<PathBuf>>(presentation_path: P) -> Self {
+    pub fn new<P: Into<PathBuf>>(
+        presentation_path: P,
+        config: KeyBindingsConfig,
+    ) -> Result<Self, KeyBindingsValidationError> {
         let watcher = PresentationFileWatcher::new(presentation_path);
-        Self { watcher, user_input: UserInput::default() }
+        let bindings = CommandKeyBindings::try_from(config)?;
+        Ok(Self { watcher, user_input: UserInput::new(bindings) })
     }
 
     /// Try to get the next command.
@@ -29,27 +40,28 @@ impl CommandSource {
 }
 
 /// A command.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, EnumDiscriminants)]
+#[strum_discriminants(derive(Deserialize))]
 pub(crate) enum Command {
     /// Redraw the presentation.
     ///
     /// This can happen on terminal resize.
     Redraw,
 
-    /// Jump to the next slide.
-    JumpNextSlide,
+    /// Go to the next slide.
+    NextSlide,
 
-    /// Jump to the previous slide.
-    JumpPreviousSlide,
+    /// Go to the previous slide.
+    PreviousSlide,
 
-    /// Jump to the first slide.
-    JumpFirstSlide,
+    /// Go to the first slide.
+    FirstSlide,
 
-    /// Jump to the last slide.
-    JumpLastSlide,
+    /// Go to the last slide.
+    LastSlide,
 
-    /// Jump to one particular slide.
-    JumpSlide(u32),
+    /// Go to one particular slide.
+    GoToSlide(u32),
 
     /// Render any widgets in the currently visible slide.
     RenderWidgets,
