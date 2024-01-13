@@ -108,6 +108,9 @@ pub struct KeyBindingsConfig {
 
     #[serde(default = "default_exit_bindings")]
     pub(crate) exit: Vec<KeyBinding>,
+
+    #[serde(default = "default_close_modal_bindings")]
+    pub(crate) close_modal: Vec<KeyBinding>,
 }
 
 impl Default for KeyBindingsConfig {
@@ -122,6 +125,7 @@ impl Default for KeyBindingsConfig {
             hard_reload: default_hard_reload_bindings(),
             toggle_slide_index: default_toggle_index_bindings(),
             exit: default_exit_bindings(),
+            close_modal: default_close_modal_bindings(),
         }
     }
 }
@@ -168,6 +172,10 @@ fn default_toggle_index_bindings() -> Vec<KeyBinding> {
 
 fn default_exit_bindings() -> Vec<KeyBinding> {
     make_keybindings(["<c-c>"])
+}
+
+fn default_close_modal_bindings() -> Vec<KeyBinding> {
+    make_keybindings(["<esc>"])
 }
 
 #[cfg(test)]
