@@ -1,4 +1,4 @@
-use super::padding::pad_right;
+use super::padding::NumberPadder;
 use crate::{
     markdown::elements::{Code, HighlightGroup},
     presentation::{AsRenderOperations, ChunkMutator, PreformattedLine, RenderOperation},
@@ -42,13 +42,13 @@ impl<'a> CodePreparer<'a> {
         }
 
         let padding = " ".repeat(horizontal_padding as usize);
-        let total_lines_width = code.contents.lines().count().ilog10() as usize + 1;
+        let padder = NumberPadder::new(code.contents.lines().count());
         for (index, line) in code.contents.lines().enumerate() {
             let mut line = line.to_string();
             let mut prefix = padding.clone();
             if code.attributes.line_numbers {
                 let line_number = index + 1;
-                prefix.push_str(&pad_right(line_number, total_lines_width));
+                prefix.push_str(&padder.pad_right(line_number));
                 prefix.push(' ');
             }
             line.push('\n');

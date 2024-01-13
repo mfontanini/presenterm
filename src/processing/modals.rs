@@ -4,7 +4,7 @@ use crate::{
         text::{WeightedLine, WeightedText},
     },
     presentation::{AsRenderOperations, MarginProperties, PresentationState, RenderOperation},
-    processing::padding::pad_right,
+    processing::padding::NumberPadder,
     render::properties::WindowSize,
     style::{Colors, TextStyle},
     theme::Margin,
@@ -30,7 +30,8 @@ impl IndexBuilder {
         let longest_line = longest_line.max(heading.len() as u16);
         // Ensure we have a minimum width so it doesn't look too narrow.
         let longest_line = longest_line.max(12);
-        let numbers_length = self.titles.len().ilog10() as usize + 1;
+        let padder = NumberPadder::new(self.titles.len());
+        let numbers_length = padder.width();
         // The final text looks like "| <number>: <content> |"
         let content_width = longest_line + numbers_length as u16 + 6;
         let mut prefix = vec![RenderOperation::SetColors(colors)];
@@ -46,7 +47,7 @@ impl IndexBuilder {
         prefix.extend(Self::make_horizontal_border(content_width, '├', '┤'));
         let mut titles = Vec::new();
         for (index, title) in self.titles.into_iter().enumerate() {
-            let index = pad_right(index + 1, numbers_length);
+            let index = padder.pad_right(index + 1);
             titles.push(Self::build_line(format!("{index}:"), title.chunks, content_width));
         }
         let suffix = Self::make_horizontal_border(content_width, '└', '┘').into_iter().collect();
