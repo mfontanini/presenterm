@@ -24,6 +24,7 @@ use std::{
 
 pub struct PresenterOptions {
     pub mode: PresentMode,
+    pub graphics_mode: GraphicsMode,
     pub builder_options: PresentationBuilderOptions,
     pub font_size_fallback: Option<u8>,
 }
@@ -75,7 +76,7 @@ impl<'a> Presenter<'a> {
 
         let graphics_mode = match self.options.mode {
             PresentMode::Export => GraphicsMode::AsciiBlocks,
-            _ => GraphicsMode::default(),
+            _ => self.options.graphics_mode.clone(),
         };
         let mut drawer = TerminalDrawer::new(io::stdout(), graphics_mode, self.options.font_size_fallback)?;
         loop {
