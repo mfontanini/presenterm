@@ -1,7 +1,7 @@
 use crate::{
-    builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     markdown::parse::ParseError,
     presentation::{Presentation, RenderOperation},
+    processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     render::media::{Image, ImageSource},
     tools::{ExecutionError, ThirdPartyTools},
     typst::TypstRender,

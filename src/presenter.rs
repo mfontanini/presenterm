@@ -1,10 +1,10 @@
 use crate::{
-    builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     diff::PresentationDiffer,
     export::ImageReplacer,
     input::source::{Command, CommandSource},
     markdown::parse::{MarkdownParser, ParseError},
     presentation::Presentation,
+    processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     render::{
         draw::{RenderError, RenderResult, TerminalDrawer},
         highlighting::CodeHighlighter,
