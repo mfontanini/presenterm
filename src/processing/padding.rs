@@ -10,10 +10,6 @@ impl NumberPadder {
         Self { width }
     }
 
-    pub(crate) fn width(&self) -> usize {
-        self.width
-    }
-
     pub(crate) fn pad_right(&self, number: usize) -> String {
         let line_number_width = number.ilog10() as usize + 1;
         let number_padding = self.width - line_number_width;
