@@ -1,9 +1,8 @@
+use super::properties::CursorPosition;
 use crate::render::properties::WindowSize;
 use image::{DynamicImage, ImageError};
 use std::{fmt::Debug, io, ops::Deref, path::PathBuf, rc::Rc};
 use viuer::{get_kitty_support, is_iterm_supported, KittySupport, ViuError};
-
-use super::properties::CursorPosition;
 
 /// An image.
 ///

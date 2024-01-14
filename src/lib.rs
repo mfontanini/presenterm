@@ -27,7 +27,7 @@ pub use crate::{
     processing::builder::{PresentationBuilderOptions, Themes},
     render::{
         highlighting::{CodeHighlighter, HighlightThemeSet},
-        media::MediaRender,
+        media::{GraphicsMode, MediaRender},
     },
     resource::Resources,
     theme::{LoadThemeError, PresentationTheme, PresentationThemeSet},

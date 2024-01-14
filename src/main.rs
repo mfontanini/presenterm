@@ -1,9 +1,9 @@
-use clap::{error::ErrorKind, CommandFactory, Parser};
+use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use comrak::Arena;
 use presenterm::{
-    CommandSource, Config, Exporter, HighlightThemeSet, LoadThemeError, MarkdownParser, MediaRender, PresentMode,
-    PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter, PresenterOptions, Resources,
-    Themes, TypstRender,
+    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, LoadThemeError, MarkdownParser, MediaRender,
+    PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter, PresenterOptions,
+    Resources, Themes, TypstRender,
 };
 use std::{
     env,
@@ -44,7 +44,38 @@ struct Cli {
     /// Display acknowledgements.
     #[clap(long, group = "target")]
     acknowledgements: bool,
+
+    /// The preferred image protocol.
+    #[clap(long)]
+    image_protocol: Option<ImageProtocol>,
 }
+
+#[derive(Clone, Debug, ValueEnum)]
+enum ImageProtocol {
+    Iterm2,
+    Kitty,
+    Sixel,
+    AsciiBlocks,
+}
+
+impl TryFrom<ImageProtocol> for GraphicsMode {
+    type Error = SixelUnsupported;
+
+    fn try_from(protocol: ImageProtocol) -> Result<Self, Self::Error> {
+        let mode = match protocol {
+            ImageProtocol::Iterm2 => GraphicsMode::Iterm2,
+            ImageProtocol::Kitty => GraphicsMode::Kitty,
+            ImageProtocol::AsciiBlocks => GraphicsMode::AsciiBlocks,
+            #[cfg(feature = "sixel")]
+            ImageProtocol::Sixel => GraphicsMode::Sixel,
+            #[cfg(not(feature = "sixel"))]
+            ImageProtocol::Sixel => return Err(SixelUnsupported),
+        };
+        Ok(mode)
+    }
+}
+
+struct SixelUnsupported;
 
 fn create_splash() -> String {
     let crate_version = env!("CARGO_PKG_VERSION");
@@ -153,8 +184,20 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         let commands = CommandSource::new(&path, config.bindings)?;
-        let options =
-            PresenterOptions { builder_options: options, mode, font_size_fallback: config.defaults.terminal_font_size };
+        let graphics_mode = match cli.image_protocol.map(GraphicsMode::try_from) {
+            Some(Ok(mode)) => mode,
+            Some(Err(_)) => {
+                let mut cmd = Cli::command();
+                cmd.error(ErrorKind::InvalidValue, "sixel support was not enabled during compilation").exit();
+            }
+            None => GraphicsMode::default(),
+        };
+        let options = PresenterOptions {
+            builder_options: options,
+            mode,
+            graphics_mode,
+            font_size_fallback: config.defaults.terminal_font_size,
+        };
         let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, options);
         presenter.present(&path)?;
     }
