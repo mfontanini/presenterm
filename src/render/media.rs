@@ -105,6 +105,8 @@ impl MediaRender {
             y: position.row as i16,
             use_iterm: false,
             use_kitty: false,
+            #[cfg(feature = "sixel")]
+            use_sixel: false,
             ..Default::default()
         };
         let config = self.mode.apply(config);
@@ -126,6 +128,8 @@ impl MediaRender {
     pub fn detect_terminal_protocol() {
         viuer::is_iterm_supported();
         viuer::get_kitty_support();
+        #[cfg(feature = "sixel")]
+        viuer::is_sixel_supported();
     }
 }
 
@@ -134,6 +138,8 @@ pub enum GraphicsMode {
     Iterm2,
     Kitty,
     AsciiBlocks,
+    #[cfg(feature = "sixel")]
+    Sixel,
 }
 
 impl Default for GraphicsMode {
@@ -143,7 +149,11 @@ impl Default for GraphicsMode {
         } else if get_kitty_support() != KittySupport::None {
             Self::Kitty
         } else {
-            Self::Iterm2
+            #[cfg(feature = "sixel")]
+            if viuer::is_sixel_supported() {
+                return Self::Sixel;
+            }
+            Self::AsciiBlocks
         }
     }
 }
@@ -154,6 +164,8 @@ impl GraphicsMode {
             Self::Iterm2 => config.use_iterm = true,
             Self::Kitty => config.use_kitty = true,
             Self::AsciiBlocks => (),
+            #[cfg(feature = "sixel")]
+            Self::Sixel => config.use_sixel = true,
         };
         config
     }
