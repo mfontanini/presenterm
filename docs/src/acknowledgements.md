@@ -1,4 +1,4 @@
-# Acknowledgements
+## Acknowledgements
 
 This tool is heavily inspired by:
 
@@ -10,8 +10,10 @@ Support for code highlighting on many languages is thanks to [bat][bat_url], whi
 custom set of syntaxes that extend [syntect][syntect_url]'s default set of supported languages. 
 Run `presenterm --acknowledgements` to get a full list of all the licenses for the binary files being pulled in.
 
+## Contributors
 
-### Also a warm thanks goes to these wonderful people ✨
+Thanks to everyone who's contributed to _presenterm_ in one way or another! This is a list of the users who have 
+contributed code to make _presenterm_ better in some way:
 
 <a href="https://github.com/mfontanini/presenterm/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=mfontanini/presenterm" />

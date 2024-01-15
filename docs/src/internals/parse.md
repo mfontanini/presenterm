@@ -71,4 +71,4 @@ about how large the screen is and simply delegate that responsibility to this pi
 
 ## Entire flow
 
-![](/assets/parse-flow.png)
+![](../assets/parse-flow.png)

@@ -14,3 +14,4 @@ assets_version = "2.1.0"
 
 [output.html]
 additional-css = ["./theme/catppuccin.css", "./theme/catppuccin-admonish.css"]
+git-repository-url = "https://github.com/mfontanini/presenterm"
