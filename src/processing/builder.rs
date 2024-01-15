@@ -49,12 +49,14 @@ pub struct PresentationBuilderOptions {
     pub command_prefix: String,
     pub incremental_lists: bool,
     pub force_default_theme: bool,
+    pub end_slide_shorthand: bool,
 }
 
 impl PresentationBuilderOptions {
     fn merge(&mut self, options: OptionsConfig) {
         self.implicit_slide_ends = options.implicit_slide_ends.unwrap_or(self.implicit_slide_ends);
         self.incremental_lists = options.incremental_lists.unwrap_or(self.incremental_lists);
+        self.end_slide_shorthand = options.end_slide_shorthand.unwrap_or(self.end_slide_shorthand);
         if let Some(prefix) = options.command_prefix {
             self.command_prefix = prefix;
         }
@@ -69,6 +71,7 @@ impl Default for PresentationBuilderOptions {
             command_prefix: String::default(),
             incremental_lists: false,
             force_default_theme: false,
+            end_slide_shorthand: false,
         }
     }
 }
@@ -197,7 +200,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::List(elements) => self.push_list(elements),
             MarkdownElement::Code(code) => self.push_code(code)?,
             MarkdownElement::Table(table) => self.push_table(table),
-            MarkdownElement::ThematicBreak => self.push_separator(),
+            MarkdownElement::ThematicBreak => self.process_thematic_break(),
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
             MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines),
             MarkdownElement::Image { path, .. } => self.push_image_from_path(path)?,
@@ -442,8 +445,12 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_separator(&mut self) {
-        self.chunk_operations.extend([RenderSeparator::default().into(), RenderOperation::RenderLineBreak]);
+    fn process_thematic_break(&mut self) {
+        if self.options.end_slide_shorthand {
+            self.terminate_slide();
+        } else {
+            self.chunk_operations.extend([RenderSeparator::default().into(), RenderOperation::RenderLineBreak]);
+        }
     }
 
     fn push_image_from_path(&mut self, path: PathBuf) -> Result<(), BuildError> {
@@ -1242,8 +1249,7 @@ mod test {
     #[case::non_command_with_prefix("cmd:bogus", false)]
     #[case::non_prefixed("random", true)]
     fn comment_prefix(#[case] comment: &str, #[case] should_work: bool) {
-        let mut options = PresentationBuilderOptions::default();
-        options.command_prefix = "cmd:".into();
+        let options = PresentationBuilderOptions { command_prefix: "cmd:".into(), ..Default::default() };
 
         let element = MarkdownElement::Comment { comment: comment.into(), source_position: Default::default() };
         let result = try_build_presentation_with_options(vec![element], options);
@@ -1255,5 +1261,17 @@ mod test {
         let element = MarkdownElement::FrontMatter("nope: 42".into());
         let result = try_build_presentation(vec![element]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn end_slide_shorthand() {
+        let options = PresentationBuilderOptions { end_slide_shorthand: true, ..Default::default() };
+        let elements = vec![
+            MarkdownElement::Paragraph(vec![]),
+            MarkdownElement::ThematicBreak,
+            MarkdownElement::Paragraph(vec![]),
+        ];
+        let presentation = build_presentation_with_options(elements, options);
+        assert_eq!(presentation.iter_slides().count(), 2);
     }
 }
