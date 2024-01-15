@@ -1,4 +1,4 @@
-# Code highlighting
+## Code highlighting
 
 Code highlighting is supported for the following languages:
 
@@ -53,7 +53,7 @@ Code highlighting is supported for the following languages:
 * vue
 * zig
 
-## Enabling line numbers
+### Enabling line numbers
 
 If you would like line numbers to be shown on the left of a code block use the `+line_numbers` switch after specifying
 the language in a code block:
@@ -66,7 +66,7 @@ the language in a code block:
 ```
 ~~~
 
-## Selective highlighting
+### Selective highlighting
 
 By default, the entire code block will be syntax-highlighted. If instead you only wanted a subset of it to be
 highlighted, you can use braces and a list of either individual lines, or line ranges that you'd want to highlight.
@@ -83,7 +83,7 @@ highlighted, you can use braces and a list of either individual lines, or line r
 ```
 ~~~
 
-## Dynamic highlighting
+### Dynamic highlighting
 
 Similar to the syntax used for selective highlighting, dynamic highlighting will change which lines of the code in a
 code block are highlighted every time you move to the next/previous slide.
@@ -110,7 +110,7 @@ See this real example of how this looks like.
 
 [![asciicast](https://asciinema.org/a/dpXDXJoJRRX4mQ7V6LdR3rO2z.svg)](https://asciinema.org/a/dpXDXJoJRRX4mQ7V6LdR3rO2z)
 
-## Executing code
+### Executing code
 
 Annotating a shell code block with a `+exec` switch will make it executable. Once you're in a slide that contains an
 executable block, press `control+e` to execute it. The output of the execution will be displayed on a box below the
@@ -128,7 +128,7 @@ Note that using `bash`, `zsh`, `fish`, etc, will end up using that specific shel
 
 > **Note**: because this is spawning a process and executing code, you should use this at your own risk.
 
-## Pre-rendering 
+### Pre-rendering 
 
 Some languages support pre-rendering. This means the code block is transformed into something else when the presentation 
 is loaded. The languages that currently support this are _LaTeX_ and _typst_ where the contents of the code block is 

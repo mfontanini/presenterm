@@ -1,4 +1,4 @@
-# Configuration
+## Configuration
 
 _presenterm_ currently supports a limited number of configuration options that let you customize its behavior. Most 
 configuration options can be set in two ways:
@@ -9,7 +9,7 @@ configuration options can be set in two ways:
 * Via the front matter on a per presentation basis. This makes _that presentation_ use those configuration options while 
   leaving all others unaffected.
 
-# Structure
+## Structure
 
 Both in the front matter and in the config file, the structure of the configuration is the same:
 
@@ -20,11 +20,11 @@ options:
   # ...
 ```
 
-# Options
+## Options
 
 The supported configuration options are currently the following.
 
-## implicit_slide_ends
+### implicit_slide_ends
 
 This option removes the need to use `<!-- end_slide -->` in between slides and instead assumes that if you use a slide 
 title, then you're implying that the previous slide ended. For example, the following presentation:
@@ -62,7 +62,7 @@ Awful vegetables
 * Lettuce
 ```
 
-## command_prefix
+### command_prefix
 
 Because _presenterm_ uses HTML comments to represent commands, it is necessary to make some assumptions on _what_ is a 
 command and what isn't. The current heuristic is:
@@ -101,7 +101,7 @@ In the example above, the first comment is ignored because it doesn't start with
 because it does.
 
 
-# Default theme
+## Default theme
 
 The default theme can be configured only via the config file. When this is set, every presentation that doesn't set a 
 theme explicitly will use this one:

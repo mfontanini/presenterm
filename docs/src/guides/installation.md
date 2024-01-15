@@ -1,13 +1,13 @@
-# Installation
+## Installation
 
 There are different ways to install _presenterm_.
 
-## Pre-built binaries (recommended)
+### Pre-built binaries (recommended)
 
 The recommended way to install _presenterm_ is to download the latest pre-built version for 
 your system from the [releases](https://github.com/mfontanini/presenterm/releases) page.
 
-## Install via cargo
+### Install via cargo
 
 Alternatively, download [rust](https://www.rust-lang.org/) and run:
 
@@ -15,7 +15,7 @@ Alternatively, download [rust](https://www.rust-lang.org/) and run:
 cargo install presenterm
 ```
 
-## Latest unreleased version
+### Latest unreleased version
 
 To run the latest unreleased version clone the repo, then run:
 
@@ -25,7 +25,7 @@ cargo build --release
 
 The output binary will be in `./target/release/presenterm`.
 
-## Nix
+### Nix
 
 To install _presenterm_ using the Nix package manager run:
 
@@ -52,7 +52,7 @@ nix run github:mfontanini/presenterm  # to run from github repo
 For more information see 
 [nixpkgs](https://search.nixos.org/packages?channel=unstable&show=presenterm&from=0&size=50&sort=relevance&type=packages&query=presenterm)
 
-## Arch linux repository (Aur)
+### Arch linux repository (Aur)
 
 presenterm is also available in the aur. You can use any AUR helper to install.
 

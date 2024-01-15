@@ -1,4 +1,4 @@
-# PDF export
+## PDF export
 
 Presentations can be converted into PDF by using a [helper tool](https://github.com/mfontanini/presenterm-export). You 
 can install it by running:
@@ -25,7 +25,7 @@ make sure to adjust accordingly before running the command above.
 > Note: if you're using a separate virtual env to install _presenterm-export_ just make sure you activate it before 
 > running _presenterm_ with the `--export-pdf` parameter.
 
-## How it works
+### How it works
 
 The conversion into PDF format is pretty convoluted. If you'd like to learn more visit 
 [presenterm-export](https://github.com/mfontanini/presenterm-export)'s repo.
