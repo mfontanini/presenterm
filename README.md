@@ -9,50 +9,51 @@ _presenterm_ lets you create presentations in markdown format and render them in
 
 This is how the [demo presentation](examples/demo.md) looks like:
 
-![](assets/demo.gif)
+![](/docs/src/assets/demo.gif)
 
 # Installation
 
 The recommended way to install _presenterm_ is to download the latest pre-built version for your system from the 
 [releases](https://github.com/mfontanini/presenterm/releases) page.
 
-For other alternative ways to install it, visit the [installation](/docs/install.md) docs.
+For other alternative ways to install it, visit the [installation](/docs/src/guides/installation.md) docs.
 
 # Features
 
 * Define your presentation in a single markdown file.
-* [Image rendering support](/docs/intro.md#images) for _iterm2_, terminals that support the _kitty_ graphics protocol, 
-  and _sixel_.
-* [Customize your presentation's look](/docs/themes.md) by defining themes, including colors, margins, layout 
+* [Image rendering support](/docs/src/guides/introduction.md#images) for _iterm2_, terminals that support the _kitty_ 
+  graphics protocol, and _sixel_.
+* [Customize your presentation's look](/docs/src/guides/themes.md) by defining themes, including colors, margins, layout 
   (left/center aligned content), footer for every slide, etc.
-* Code highlighting for a [wide list of programming languages](/docs/highlighting.md).
-* [Selective/dynamic](/docs/highlighting.md#selective-highlighting) code highlighting such that only a subset of the 
-  lines are highlighted at a time, and different sets of lines are highlighted as you move your slides forward.
-* Configurable [column layouts](/docs/layouts.md) that let you structure parts of your slide into columns.
-* Support for [_LaTeX_ and _typst_ code block rendering](/docs/latex.md) so you can define formulas as text and have 
-  them automatically render as images when rendering a presentation.
-* Support for an [introduction slide](/docs/intro.md#introduction-slide) that displays the presentation title and your 
-  name.
-* Support for [slide titles](/docs/intro.md#slide-titles).
-* Support for [shell code execution](/docs/highlighting.md#executing-code).
-* Support for [generating PDF files](/docs/pdf-export.md) from presentations to share with other people.
-* Support for [pauses](/docs/intro.md#pauses) in between each slide so that it progressively renders for a more 
-  interactive presentation.
+* Code highlighting for a [wide list of programming languages](/docs/src/guides/code-highlight.md).
+* [Selective/dynamic](/docs/src/guides/code-highlight.md#selective-highlighting) code highlighting such that only a 
+  subset of the lines are highlighted at a time, and different sets of lines are highlighted as you move your slides 
+  forward.
+* Configurable [column layouts](/docs/src/guides/layout.md) that let you structure parts of your slide into columns.
+* Support for [_LaTeX_ and _typst_ code block rendering](/docs/src/guides/latex.md) so you can define formulas as text 
+  and have them automatically render as images when rendering a presentation.
+* Support for an [introduction slide](/docs/src/guides/introduction.md#introduction-slide) that displays the 
+  presentation title and your name.
+* Support for [slide titles](/docs/src/guides/introduction.md#slide-titles).
+* Support for [shell code execution](/docs/src/guides/code-highlight.md#executing-code).
+* Support for [generating PDF files](/docs/src/guides/pdf-export.md) from presentations to share with other people.
+* Support for [pauses](/docs/src/guides/introduction.md#pauses) in between each slide so that it progressively renders 
+  for a more interactive presentation.
 * Automatically reload your presentation every time it changes for a fast development loop.
-* [Terminal colored themes](/docs/themes.md#built-in-themes) that use your terminal's color scheme. This means if your 
-  terminal uses transparent backgrounds or images as background, those will be implicitly set as the background of your 
-  presentation.
+* [Terminal colored themes](/docs/src/guides/themes.md#built-in-themes) that use your terminal's color scheme. This 
+  means if your terminal uses transparent backgrounds or images as background, those will be implicitly set as the 
+  background of your presentation.
 
-See the [introduction page](/docs/intro.md) to learn more.
+See the [introduction page](/docs/src/guides/introduction.md) to learn more.
 
 ## Images
 
 Images are supported if you're using iterm2, a terminal the supports the kitty graphics protocol (such as 
 [kitty](https://sw.kovidgoyal.net/kitty/), of course), or one that supports sixel. 
 
-![](assets/demo-image.png)
+![](/docs/src/assets/demo-image.png)
 
-Read more about images [here](/docs/intro.md#images).
+Read more about images [here](/docs/src/guides/introduction.md#images).
 
 ## Hot reload
 
@@ -68,9 +69,9 @@ how the changes look like.
 Column layouts allow you to organize content into columns. You can define 2 or more columns, choose how wide you want 
 them to be, and then put any content into them. For example:
 
-![](/assets/layouts.png)
+![](/docs/src/assets/layouts.png)
 
-See the [documentation](/docs/layouts.md) on layouts to learn more.
+See the [documentation](/docs/src/guides/layout.md) on layouts to learn more.
 
 ## Shell code execution
 
@@ -79,11 +80,11 @@ In order to do this, annotate the code block with `+exec` (e.g. `bash +exec`). *
 
 [![asciicast](https://asciinema.org/a/1v3IqCEtU9tqDjVj78Pp7SSe2.svg)](https://asciinema.org/a/1v3IqCEtU9tqDjVj78Pp7SSe2)
 
-See more details on this [here](docs/highlighting.md).
+See more details on this [here](/docs/src/guides/code-highlight.md).
 
 # Docs
 
-Some docs on how to configure _presenterm_ and how it works internally can be found [here](docs/README.md).
+Some docs on how to configure _presenterm_ and how it works internally can be found [here](/docs/src/SUMMARY.md).
 
 # Acknowledgements
 

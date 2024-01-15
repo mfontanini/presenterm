@@ -166,7 +166,10 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     // Pre-load this so we don't flicker on the first displayed image.
     MediaRender::detect_terminal_protocol();
 
-    let path = cli.path.expect("no path");
+    let path = cli.path.unwrap_or_else(|| {
+        eprintln!("Error: No path specified.");
+        std::process::exit(1);
+    });
     let resources_path = path.parent().unwrap_or(Path::new("/"));
     let resources = Resources::new(resources_path);
     let typst = TypstRender::new(config.typst.ppi);

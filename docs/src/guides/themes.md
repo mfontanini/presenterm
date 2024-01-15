@@ -1,21 +1,21 @@
-# Themes
+## Themes
 
 Themes are defined in the form of yaml files. A few built-in themes are defined in the [themes](/themes) directory, but 
 others can be created and referenced directly in every presentation.
 
-## Setting themes
+### Setting themes
 
 There's various ways of setting the theme you want in your presentation:
 
-### CLI
+#### CLI
 
 Passing in the `--theme` parameter when running _presenterm_ to select one of the built-in themes.
 
-### Within the presentation
+#### Within the presentation
 
 The presentation's markdown file can contain a front matter that specifies the theme to use. This comes in 3 flavors:
 
-#### By name
+##### By name
 
 Using a built-in theme name makes your presentation use that one regardless of what the default or what the `--theme` 
 option specifies:
@@ -27,7 +27,7 @@ theme:
 ---
 ```
 
-#### By path
+##### By path
 
 You can define a theme file in yaml format somewhere in your filesystem and reference it within the presentation:
 
@@ -38,7 +38,7 @@ theme:
 ---
 ```
 
-#### Overrides
+##### Overrides
 
 You can partially/completely override the theme in use from within the presentation:
 
@@ -58,7 +58,7 @@ This lets you:
    copying somewhere, and changing it when you only expect to use it for that one presentation.
 2. Iterate quickly on styles given overrides are reloaded whenever you save your presentation file.
 
-# Built-in themes
+## Built-in themes
 
 A few built-in themes are bundled with the application binary, meaning you don't need to have any external files 
 available to use them. These are packed as part of the [build process](/build.rs) as a binary blob and are decoded on 
@@ -73,18 +73,18 @@ Currently, the following themes are supported:
   means if your terminal background is e.g. transparent, or uses an image, the presentation will inherit that.
 * `terminal-light`: The same as `terminal-dark` but works best if your terminal uses a light color scheme.
 
-# Loading custom themes
+## Loading custom themes
 
 On startup, _presenterm_ will look into the `~/.config/presenterm/themes` directory and will load any `.yaml` file as a 
 theme and make it available as if it was a built-in theme. This means you can use it as an argument to the `--theme` 
 parameter, use it in the `theme.name` property in a presentation's front matter, etc.
 
-# Theme definition
+## Theme definition
 
 This section goes through the structure of the theme files. Have a look at some of the [existing themes](/themes) to 
 have an idea of how to structure themes. 
 
-## Root elements
+### Root elements
 
 The root attributes on the theme yaml files specify either:
 
@@ -92,7 +92,7 @@ The root attributes on the theme yaml files specify either:
   etc.
 * A default to be applied as a fallback if no specific style is specified for a particular element.
 
-## Alignment
+### Alignment
 
 _presenterm_ uses the notion of alignment, just like you would have in a GUI editor, to align text to the left, center, 
 or right. You probably want most elements to be aligned left, _some_ to be aligned on the center, and probably none to 
@@ -104,14 +104,14 @@ The following elements support alignment:
 * The title, subtitle, and author elements in the intro slide.
 * Tables.
 
-### Left/right alignment
+#### Left/right alignment
 
 Left and right alignments take a margin property which specifies the number of columns to keep between the text and the 
 left/right terminal screen borders. 
 
 The margin can be specified in two ways:
 
-#### Fixed
+##### Fixed
 
 A specific number of characters regardless of the terminal size.
 
@@ -121,7 +121,7 @@ margin:
   fixed: 5
 ```
 
-#### Percent
+##### Percent
 
 A percentage over the total number of columns in the terminal.
 
@@ -134,7 +134,7 @@ margin:
 Percent alignment tends to look a bit nicer as it won't change the presentation's look as much when the terminal size 
 changes.
 
-### Center alignment
+#### Center alignment
 
 Center alignment has 2 properties:
 * `minimum_size` which specifies the minimum size you want that element to have. This is normally useful for code blocks 
@@ -143,7 +143,7 @@ Center alignment has 2 properties:
   alignment. This doesn't play very well with `minimum_size` but in isolation it specifies the minimum number of columns 
   you want to the left and right of your text.
 
-## Colors
+### Colors
 
 Every element can have its own background/foreground color using hex notation:
 
@@ -154,7 +154,7 @@ default:
     background: "00ff00"
 ```
 
-## Default style
+### Default style
 
 The default style specifies:
 
@@ -170,7 +170,7 @@ default:
     background: "040312"
 ```
 
-## Intro slide
+### Intro slide
 
 The introductory slide will be rendered if you specify a title, subtitle, or author in the presentation's front matter. 
 This lets you have a less markdown-looking introductory slide that stands out so that it doesn't end up looking too 
@@ -203,11 +203,11 @@ intro_slide:
     positioning: below_title
 ```
 
-## Footer
+### Footer
 
 The footer currently comes in 3 flavors:
 
-### None
+#### None
 
 No footer at all!
 
@@ -216,7 +216,7 @@ footer:
   style: empty
 ```
 
-### Progress bar
+#### Progress bar
 
 A progress bar that will advance as you move in your presentation. This will by default use a block-looking character to 
 draw the progress bar but you can customize it:
@@ -229,7 +229,7 @@ footer:
   character: 🚀
 ```
 
-### Template
+#### Template
 
 A template footer that lets you put something on the left, center and/or right of the screen. The template strings have 
 access to `{author}` as specified in the front matter, `{current_slide}` and `{total_slides}` which will point to the 
@@ -243,7 +243,7 @@ footer:
   right: "{current_slide} / {total_slides}"
 ```
 
-## Slide title
+### Slide title
 
 Slide titles, as specified by using a setext header, has the following properties:
 * `padding_top` which specifies the number of rows you want as padding before the text.
@@ -257,7 +257,7 @@ slide_title:
   separator: true
 ```
 
-## Headings
+### Headings
 
 Every header type (h1 through h6) can have its own style composed of:
 * The prefix you want to use.
@@ -275,7 +275,7 @@ headings:
       foreground: "rgb_(168,223,142)"
 ```
 
-## Code blocks
+### Code blocks
 
 The syntax highlighting for code blocks is done via the [syntect](https://github.com/trishume/syntect) crate. The list 
 of all the supported built-in _syntect_ themes is the following:
@@ -303,12 +303,12 @@ code:
     vertical: 1
 ```
 
-### Custom highlighting themes
+#### Custom highlighting themes
 
 Besides the built-in highlighting themes, you can drop any `.tmTheme` theme in 
 `~/.config/presenterm/themes/highlighting` and they will be loaded automatically when _presenterm_ starts.
 
-## Block quotes
+### Block quotes
 
 For block quotes you can specify a string to use as a prefix in every line of quoted text:
 
