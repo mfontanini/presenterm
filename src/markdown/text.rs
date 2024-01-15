@@ -24,13 +24,6 @@ impl WeightedLine {
     pub(crate) fn iter_texts(&self) -> impl Iterator<Item = &WeightedText> {
         self.0.iter()
     }
-
-    /// Apply a style to all text chunks in this line.
-    pub(crate) fn apply_style(&mut self, style: TextStyle) {
-        for text in &mut self.0 {
-            text.text.style = style.clone();
-        }
-    }
 }
 
 impl From<Vec<WeightedText>> for WeightedLine {

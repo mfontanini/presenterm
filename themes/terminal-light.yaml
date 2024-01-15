@@ -87,3 +87,6 @@ footer:
   colors:
     foreground: dark_blue
 
+modals:
+  selection_colors:
+    foreground: dark_yellow

@@ -88,3 +88,7 @@ footer:
   style: progress_bar
   colors:
     foreground: "7aa2f7"
+
+modals:
+  selection_colors:
+    foreground: "f77f00"

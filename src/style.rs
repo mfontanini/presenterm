@@ -206,6 +206,14 @@ pub(crate) struct Colors {
     pub(crate) foreground: Option<Color>,
 }
 
+impl Colors {
+    pub(crate) fn merge(&self, other: &Colors) -> Self {
+        let background = self.background.or(other.background);
+        let foreground = self.foreground.or(other.foreground);
+        Self { background, foreground }
+    }
+}
+
 impl From<Colors> for crossterm::style::Colors {
     fn from(value: Colors) -> Self {
         let foreground = value.foreground.map(Color::into);

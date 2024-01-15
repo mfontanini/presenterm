@@ -87,3 +87,6 @@ footer:
   colors:
     foreground: blue
 
+modals:
+  selection_colors:
+    foreground: yellow
