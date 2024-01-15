@@ -8,6 +8,7 @@ use crate::{
     render::properties::WindowSize,
     style::{Colors, TextStyle},
     theme::Margin,
+    PresentationTheme,
 };
 use std::{iter, rc::Rc};
 
@@ -21,7 +22,7 @@ impl IndexBuilder {
         self.titles.push(title);
     }
 
-    pub(crate) fn build(self, colors: Colors, state: PresentationState) -> Vec<RenderOperation> {
+    pub(crate) fn build(self, theme: &PresentationTheme, state: PresentationState) -> Vec<RenderOperation> {
         let mut builder = ModalBuilder::new("Slides");
         let padder = NumberPadder::new(self.titles.len());
         for (index, mut title) in self.titles.into_iter().enumerate() {
@@ -29,8 +30,10 @@ impl IndexBuilder {
             title.chunks.insert(0, format!("{index}: ").into());
             builder.content.push(title);
         }
-        let ModalContent { prefix, content, suffix, content_width } = builder.build(colors);
-        let drawer = IndexDrawer { prefix, titles: content, suffix, state, content_width };
+        let base_color = theme.modals.colors.merge(&theme.default_style.colors);
+        let selection_style = TextStyle::default().colors(theme.modals.selection_colors.clone()).bold();
+        let ModalContent { prefix, content, suffix, content_width } = builder.build(base_color);
+        let drawer = IndexDrawer { prefix, rows: content, suffix, state, content_width, selection_style };
         vec![RenderOperation::RenderDynamic(Rc::new(drawer))]
     }
 }
@@ -38,10 +41,11 @@ impl IndexBuilder {
 #[derive(Debug)]
 struct IndexDrawer {
     prefix: Vec<RenderOperation>,
-    titles: Vec<WeightedLine>,
+    rows: Vec<ContentRow>,
     suffix: Vec<RenderOperation>,
     content_width: u16,
     state: PresentationState,
+    selection_style: TextStyle,
 }
 
 impl IndexDrawer {
@@ -59,24 +63,23 @@ impl AsRenderOperations for IndexDrawer {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let current_slide_index = self.state.current_slide_index();
         let max_rows = (dimensions.rows as f64 * 0.8) as u16;
-        let titles = self.titles.iter().cloned();
-        let (skip, take) = match titles.len() as u16 > max_rows {
+        let (skip, take) = match self.rows.len() as u16 > max_rows {
             true => {
                 let start = (current_slide_index as u16).saturating_sub(max_rows / 2);
-                let start = start.min(titles.len() as u16 - max_rows);
+                let start = start.min(self.rows.len() as u16 - max_rows);
                 (start as usize, max_rows as usize)
             }
-            false => (0, titles.len()),
+            false => (0, self.rows.len()),
         };
-
-        let visible_titles = self.titles.iter().cloned().enumerate().skip(skip).take(take);
+        let visible_rows = self.rows.iter().enumerate().skip(skip).take(take);
         let mut operations = self.initialize_layout(dimensions, take);
         operations.extend(self.prefix.iter().cloned());
-        for (index, mut title) in visible_titles {
+        for (index, row) in visible_rows {
+            let mut row = row.clone();
             if index == current_slide_index {
-                title.apply_style(TextStyle::default().bold());
+                row = row.with_style(self.selection_style.clone());
             }
-            let operation = RenderOperation::RenderText { line: title, alignment: Default::default() };
+            let operation = RenderOperation::RenderText { line: row.build(), alignment: Default::default() };
             operations.extend([operation, RenderOperation::RenderLineBreak]);
         }
         operations.extend(self.suffix.iter().cloned());
@@ -109,20 +112,20 @@ impl ModalBuilder {
         let mut prefix = vec![RenderOperation::SetColors(colors)];
 
         let heading = Self::center_line(self.heading, longest_line as usize);
-        prefix.extend(ModalRow::Top.render_line(content_width));
+        prefix.extend(Border::Top.render_line(content_width));
         prefix.extend([
             RenderOperation::RenderText {
-                line: Self::build_line([StyledText::from(heading)], content_width),
+                line: Self::build_line([StyledText::from(heading)], content_width).build(),
                 alignment: Default::default(),
             },
             RenderOperation::RenderLineBreak,
         ]);
-        prefix.extend(ModalRow::Separator.render_line(content_width));
+        prefix.extend(Border::Separator.render_line(content_width));
         let mut content = Vec::new();
         for title in self.content {
             content.push(Self::build_line(title.chunks, content_width));
         }
-        let suffix = ModalRow::Bottom.render_line(content_width).into_iter().collect();
+        let suffix = Border::Bottom.render_line(content_width).into_iter().collect();
         ModalContent { prefix, content, suffix, content_width }
     }
 
@@ -135,35 +138,61 @@ impl ModalBuilder {
         output
     }
 
-    fn build_line<C>(text_chunks: C, content_width: u16) -> WeightedLine
+    fn build_line<C>(text_chunks: C, content_width: u16) -> ContentRow
     where
         C: IntoIterator<Item = StyledText>,
     {
-        let (opening, closing) = ModalRow::Regular.edges();
-        let mut chunks = vec![WeightedText::from(format!("{opening}  "))];
-        chunks.extend(text_chunks.into_iter().map(WeightedText::from));
-        let missing = content_width as usize - 1 - chunks.iter().map(|c| c.width()).sum::<usize>();
-        chunks.extend([WeightedText::from(" ".repeat(missing)), WeightedText::from(closing.to_string())]);
+        let (opening, closing) = Border::Regular.edges();
+        let prefix = WeightedText::from(format!("{opening}  "));
+        let content: Vec<_> = text_chunks.into_iter().map(WeightedText::from).collect();
+        let total_width = content.iter().map(|c| c.width()).sum::<usize>() + prefix.width();
+        let missing = content_width as usize - 1 - total_width;
 
-        WeightedLine::from(chunks)
+        let mut suffix = " ".repeat(missing);
+        suffix.push(closing);
+        let suffix = WeightedText::from(suffix);
+        ContentRow { prefix, content, suffix }
     }
 }
 
 struct ModalContent {
     prefix: Vec<RenderOperation>,
-    content: Vec<WeightedLine>,
+    content: Vec<ContentRow>,
     suffix: Vec<RenderOperation>,
     content_width: u16,
 }
 
-enum ModalRow {
+#[derive(Clone, Debug)]
+struct ContentRow {
+    prefix: WeightedText,
+    content: Vec<WeightedText>,
+    suffix: WeightedText,
+}
+
+impl ContentRow {
+    fn with_style(mut self, style: TextStyle) -> ContentRow {
+        for chunk in &mut self.content {
+            chunk.text.style.merge(&style);
+        }
+        self
+    }
+
+    fn build(self) -> WeightedLine {
+        let mut chunks = self.content;
+        chunks.insert(0, self.prefix);
+        chunks.push(self.suffix);
+        WeightedLine::from(chunks)
+    }
+}
+
+enum Border {
     Regular,
     Top,
     Separator,
     Bottom,
 }
 
-impl ModalRow {
+impl Border {
     fn render_line(&self, content_length: u16) -> [RenderOperation; 2] {
         let (opening, closing) = self.edges();
         let mut line = String::from(opening);

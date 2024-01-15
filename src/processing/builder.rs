@@ -155,7 +155,7 @@ impl<'a> PresentationBuilder<'a> {
 
         // TODO consider a separate color palette
         let presentation_state = PresentationState::default();
-        let index = self.index_builder.build(self.theme.default_style.colors.clone(), presentation_state.clone());
+        let index = self.index_builder.build(&self.theme, presentation_state.clone());
         let presentation = Presentation::new(self.slides, index, presentation_state);
         Ok(presentation)
     }

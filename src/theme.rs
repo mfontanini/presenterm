@@ -100,6 +100,10 @@ pub struct PresentationTheme {
     /// The style for typst auto-rendered code blocks.
     #[serde(default)]
     pub(crate) typst: TypstStyle,
+
+    /// The style for typst auto-rendered code blocks.
+    #[serde(default)]
+    pub(crate) modals: ModalStyle,
 }
 
 impl PresentationTheme {
@@ -480,7 +484,20 @@ pub(crate) struct TypstStyle {
     pub(crate) vertical_margin: Option<u16>,
 
     /// The colors to be used.
+    #[serde(default)]
     pub(crate) colors: Colors,
+}
+
+/// Modals style.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct ModalStyle {
+    /// The default colors to use for everything in the modal.
+    #[serde(default)]
+    pub(crate) colors: Colors,
+
+    /// The colors to use for selected lines.
+    #[serde(default)]
+    pub(crate) selection_colors: Colors,
 }
 
 /// An error loading a presentation theme.

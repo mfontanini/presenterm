@@ -89,3 +89,6 @@ footer:
   colors:
     foreground: "7aa2f7"
 
+modals:
+  selection_colors:
+    foreground: "ee9322"
