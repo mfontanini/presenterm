@@ -60,6 +60,9 @@ pub struct OptionsConfig {
 
     /// Show all lists incrementally, by implicitly adding pauses in between elements.
     pub incremental_lists: Option<bool>,
+
+    /// Whether to treat a thematic break as a slide end.
+    pub end_slide_shorthand: Option<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
