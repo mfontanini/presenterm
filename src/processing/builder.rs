@@ -3,9 +3,9 @@ use crate::{
     markdown::{
         elements::{
             Code, CodeLanguage, Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement,
-            SourcePosition, StyledText, Table, TableRow, Text,
+            SourcePosition, Table, TableRow, Text, TextBlock,
         },
-        text::{WeightedLine, WeightedText},
+        text::WeightedTextBlock,
     },
     presentation::{
         ChunkMutator, MarginProperties, PreformattedLine, Presentation, PresentationMetadata, PresentationState,
@@ -267,23 +267,23 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_intro_slide(&mut self, metadata: PresentationMetadata) {
         let styles = &self.theme.intro_slide;
-        let title = StyledText::new(
+        let title = Text::new(
             metadata.title.unwrap_or_default().clone(),
             TextStyle::default().bold().colors(styles.title.colors.clone()),
         );
         let sub_title = metadata
             .sub_title
             .as_ref()
-            .map(|text| StyledText::new(text.clone(), TextStyle::default().colors(styles.subtitle.colors.clone())));
+            .map(|text| Text::new(text.clone(), TextStyle::default().colors(styles.subtitle.colors.clone())));
         let author = metadata
             .author
             .as_ref()
-            .map(|text| StyledText::new(text.clone(), TextStyle::default().colors(styles.author.colors.clone())));
+            .map(|text| Text::new(text.clone(), TextStyle::default().colors(styles.author.colors.clone())));
         self.chunk_operations.push(RenderOperation::JumpToVerticalCenter);
-        self.push_text(Text::from(title), ElementType::PresentationTitle);
+        self.push_text(TextBlock::from(title), ElementType::PresentationTitle);
         self.push_line_break();
         if let Some(text) = sub_title {
-            self.push_text(Text::from(text), ElementType::PresentationSubTitle);
+            self.push_text(TextBlock::from(text), ElementType::PresentationSubTitle);
             self.push_line_break();
         }
         if let Some(text) = author {
@@ -297,9 +297,9 @@ impl<'a> PresentationBuilder<'a> {
                     self.chunk_operations.push(RenderOperation::JumpToBottomRow { index: 0 });
                 }
             };
-            self.push_text(Text::from(text), ElementType::PresentationAuthor);
+            self.push_text(TextBlock::from(text), ElementType::PresentationAuthor);
         }
-        self.slide_state.title = Some(Text::from("[Introduction]"));
+        self.slide_state.title = Some(TextBlock::from("[Introduction]"));
         self.terminate_slide();
     }
 
@@ -380,7 +380,7 @@ impl<'a> PresentationBuilder<'a> {
         self.slide_chunks.push(SlideChunk::new(chunk_operations, mutators));
     }
 
-    fn push_slide_title(&mut self, mut text: Text) {
+    fn push_slide_title(&mut self, mut text: TextBlock) {
         if self.options.implicit_slide_ends && !matches!(self.slide_state.last_element, LastElement::None) {
             self.terminate_slide();
         }
@@ -408,7 +408,7 @@ impl<'a> PresentationBuilder<'a> {
         self.slide_state.ignore_element_line_break = true;
     }
 
-    fn push_heading(&mut self, level: u8, mut text: Text) {
+    fn push_heading(&mut self, level: u8, mut text: TextBlock) {
         let (element_type, style) = match level {
             1 => (ElementType::Heading1, &self.theme.headings.h1),
             2 => (ElementType::Heading2, &self.theme.headings.h2),
@@ -421,7 +421,7 @@ impl<'a> PresentationBuilder<'a> {
         if let Some(prefix) = &style.prefix {
             let mut prefix = prefix.clone();
             prefix.push(' ');
-            text.chunks.insert(0, StyledText::from(prefix));
+            text.0.insert(0, Text::from(prefix));
         }
         let text_style = TextStyle::default().bold().colors(style.colors.clone());
         text.apply_style(&text_style);
@@ -543,22 +543,22 @@ impl<'a> PresentationBuilder<'a> {
         self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
     }
 
-    fn push_text(&mut self, text: Text, element_type: ElementType) {
+    fn push_text(&mut self, text: TextBlock, element_type: ElementType) {
         let alignment = self.theme.alignment(&element_type);
         self.push_aligned_text(text, alignment);
     }
 
-    fn push_aligned_text(&mut self, text: Text, alignment: Alignment) {
-        let mut texts: Vec<WeightedText> = Vec::new();
-        for mut chunk in text.chunks {
+    fn push_aligned_text(&mut self, mut block: TextBlock, alignment: Alignment) {
+        for chunk in &mut block.0 {
             if chunk.style.is_code() {
                 chunk.style.colors = self.theme.inline_code.colors.clone();
             }
-            texts.push(chunk.into());
         }
-        if !texts.is_empty() {
-            self.chunk_operations
-                .push(RenderOperation::RenderText { line: WeightedLine::from(texts), alignment: alignment.clone() });
+        if !block.0.is_empty() {
+            self.chunk_operations.push(RenderOperation::RenderText {
+                line: WeightedTextBlock::from(block),
+                alignment: alignment.clone(),
+            });
         }
     }
 
@@ -645,8 +645,7 @@ impl<'a> PresentationBuilder<'a> {
 
         let chunks = mem::take(&mut self.slide_chunks);
         let slide = SlideBuilder::default().chunks(chunks).footer(footer).build();
-        self.index_builder
-            .add_title(self.slide_state.title.take().unwrap_or_else(|| StyledText::from("<no title>").into()));
+        self.index_builder.add_title(self.slide_state.title.take().unwrap_or_else(|| Text::from("<no title>").into()));
         self.slides.push(slide);
 
         self.push_slide_prelude();
@@ -677,7 +676,7 @@ impl<'a> PresentationBuilder<'a> {
         self.push_text(flattened_header, ElementType::Table);
         self.push_line_break();
 
-        let mut separator = Text { chunks: Vec::new() };
+        let mut separator = TextBlock(Vec::new());
         for (index, width) in widths.iter().enumerate() {
             let mut contents = String::new();
             let mut margin = 1;
@@ -689,7 +688,7 @@ impl<'a> PresentationBuilder<'a> {
                 }
             }
             contents.extend(iter::repeat("─").take(*width + margin));
-            separator.chunks.push(StyledText::from(contents));
+            separator.0.push(Text::from(contents));
         }
 
         self.push_text(separator, ElementType::Table);
@@ -702,19 +701,19 @@ impl<'a> PresentationBuilder<'a> {
         }
     }
 
-    fn prepare_table_row(row: TableRow, widths: &[usize]) -> Text {
-        let mut flattened_row = Text { chunks: Vec::new() };
+    fn prepare_table_row(row: TableRow, widths: &[usize]) -> TextBlock {
+        let mut flattened_row = TextBlock(Vec::new());
         for (column, text) in row.0.into_iter().enumerate() {
             if column > 0 {
-                flattened_row.chunks.push(StyledText::from(" │ "));
+                flattened_row.0.push(Text::from(" │ "));
             }
             let text_length = text.width();
-            flattened_row.chunks.extend(text.chunks.into_iter());
+            flattened_row.0.extend(text.0.into_iter());
 
             let cell_width = widths[column];
             if text_length < cell_width {
                 let padding = " ".repeat(cell_width - text_length);
-                flattened_row.chunks.push(StyledText::from(padding));
+                flattened_row.0.push(Text::from(padding));
             }
         }
         flattened_row
@@ -729,7 +728,7 @@ struct SlideState {
     last_element: LastElement,
     incremental_lists: Option<bool>,
     layout: LayoutState,
-    title: Option<Text>,
+    title: Option<TextBlock>,
 }
 
 #[derive(Debug, Default)]
@@ -958,7 +957,7 @@ mod test {
         for operation in operations {
             match operation {
                 RenderOperation::RenderText { line, .. } => {
-                    let texts: Vec<_> = line.iter_texts().map(|text| text.text.text.clone()).collect();
+                    let texts: Vec<_> = line.iter_texts().map(|text| text.text().content.clone()).collect();
                     current_line.push_str(&texts.join(""));
                 }
                 RenderOperation::RenderLineBreak if !current_line.is_empty() => {
@@ -982,9 +981,9 @@ mod test {
     fn prelude_appears_once() {
         let elements = vec![
             MarkdownElement::FrontMatter("author: bob".to_string()),
-            MarkdownElement::Heading { text: Text::from("hello"), level: 1 },
+            MarkdownElement::Heading { text: TextBlock::from("hello"), level: 1 },
             build_end_slide(),
-            MarkdownElement::Heading { text: Text::from("bye"), level: 1 },
+            MarkdownElement::Heading { text: TextBlock::from("bye"), level: 1 },
         ];
         let presentation = build_presentation(elements);
         for (index, slide) in presentation.iter_slides().into_iter().enumerate() {
@@ -1001,9 +1000,9 @@ mod test {
     fn slides_start_with_one_newline() {
         let elements = vec![
             MarkdownElement::FrontMatter("author: bob".to_string()),
-            MarkdownElement::Heading { text: Text::from("hello"), level: 1 },
+            MarkdownElement::Heading { text: TextBlock::from("hello"), level: 1 },
             build_end_slide(),
-            MarkdownElement::Heading { text: Text::from("bye"), level: 1 },
+            MarkdownElement::Heading { text: TextBlock::from("bye"), level: 1 },
         ];
         let presentation = build_presentation(elements);
         assert_eq!(presentation.iter_slides().count(), 3);
@@ -1022,8 +1021,8 @@ mod test {
     #[test]
     fn table() {
         let elements = vec![MarkdownElement::Table(Table {
-            header: TableRow(vec![Text::from("key"), Text::from("value"), Text::from("other")]),
-            rows: vec![TableRow(vec![Text::from("potato"), Text::from("bar"), Text::from("yes")])],
+            header: TableRow(vec![TextBlock::from("key"), TextBlock::from("value"), TextBlock::from("other")]),
+            rows: vec![TableRow(vec![TextBlock::from("potato"), TextBlock::from("bar"), TextBlock::from("yes")])],
         })];
         let slides = build_presentation(elements).into_slides();
         let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());

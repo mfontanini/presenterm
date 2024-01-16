@@ -1,9 +1,6 @@
 use super::{engine::RenderEngine, media::GraphicsMode, terminal::Terminal};
 use crate::{
-    markdown::{
-        elements::StyledText,
-        text::{WeightedLine, WeightedText},
-    },
+    markdown::{elements::Text, text::WeightedTextBlock},
     presentation::{Presentation, RenderOperation},
     render::properties::WindowSize,
     style::{Color, Colors, TextStyle},
@@ -43,10 +40,7 @@ where
     /// Render an error.
     pub(crate) fn render_error(&mut self, message: &str) -> RenderResult {
         let dimensions = WindowSize::current(self.font_size_fallback)?;
-        let heading = vec![
-            WeightedText::from(StyledText::new("Error loading presentation", TextStyle::default().bold())),
-            WeightedText::from(": "),
-        ];
+        let heading = vec![Text::new("Error loading presentation", TextStyle::default().bold()), Text::from(": ")];
 
         let alignment = Alignment::Center { minimum_size: 0, minimum_margin: Margin::Percent(8) };
         let mut operations = vec![
@@ -56,13 +50,13 @@ where
                 background: Some(Color::new(0, 0, 0)),
             }),
             RenderOperation::JumpToVerticalCenter,
-            RenderOperation::RenderText { line: WeightedLine::from(heading), alignment: alignment.clone() },
+            RenderOperation::RenderText { line: WeightedTextBlock::from(heading), alignment: alignment.clone() },
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
         ];
         for line in message.lines() {
-            let error = vec![WeightedText::from(line)];
-            let op = RenderOperation::RenderText { line: WeightedLine::from(error), alignment: alignment.clone() };
+            let error = vec![Text::from(line)];
+            let op = RenderOperation::RenderText { line: WeightedTextBlock::from(error), alignment: alignment.clone() };
             operations.extend([op, RenderOperation::RenderLineBreak]);
         }
         let engine = self.create_engine(dimensions);

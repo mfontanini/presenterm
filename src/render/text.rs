@@ -1,6 +1,6 @@
 use super::terminal::Terminal;
 use crate::{
-    markdown::text::WeightedLine,
+    markdown::text::WeightedTextBlock,
     render::{
         draw::{RenderError, RenderResult},
         layout::{Layout, Positioning},
@@ -16,7 +16,7 @@ const MINIMUM_LINE_LENGTH: u16 = 10;
 ///
 /// This deals with splitting words and doing word wrapping based on the given positioning.
 pub(crate) struct TextDrawer<'a> {
-    line: &'a WeightedLine,
+    line: &'a WeightedTextBlock,
     positioning: Positioning,
     default_colors: &'a Colors,
 }
@@ -24,7 +24,7 @@ pub(crate) struct TextDrawer<'a> {
 impl<'a> TextDrawer<'a> {
     pub(crate) fn new(
         layout: &Layout,
-        line: &'a WeightedLine,
+        line: &'a WeightedTextBlock,
         dimensions: &WindowSize,
         default_colors: &'a Colors,
     ) -> Result<Self, RenderError> {

@@ -1,14 +1,15 @@
-use super::elements::StyledText;
+use super::elements::{Text, TextBlock};
 use crate::style::TextStyle;
+use std::mem;
 use unicode_width::UnicodeWidthChar;
 
-/// A weighted line of text.
+/// A weighted block of text.
 ///
 /// The weight of a character is its given by its width in unicode.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct WeightedLine(Vec<WeightedText>);
+pub(crate) struct WeightedTextBlock(Vec<WeightedText>);
 
-impl WeightedLine {
+impl WeightedTextBlock {
     /// Split this line into chunks of at most `max_length` width.
     pub(crate) fn split(&self, max_length: usize) -> SplitTextIter {
         SplitTextIter::new(&self.0, max_length)
@@ -26,13 +27,33 @@ impl WeightedLine {
     }
 }
 
-impl From<Vec<WeightedText>> for WeightedLine {
-    fn from(texts: Vec<WeightedText>) -> Self {
-        Self(texts)
+impl From<TextBlock> for WeightedTextBlock {
+    fn from(block: TextBlock) -> Self {
+        block.0.into()
     }
 }
 
-impl From<String> for WeightedLine {
+impl From<Vec<Text>> for WeightedTextBlock {
+    fn from(mut texts: Vec<Text>) -> Self {
+        let mut output = Vec::new();
+        let mut index = 0;
+        // Compact chunks so any consecutive chunk with the same style is merged into the same block.
+        while index < texts.len() {
+            let mut target = mem::replace(&mut texts[index], Text::from(""));
+            let mut current = index + 1;
+            while current < texts.len() && texts[current].style == target.style {
+                let current_content = mem::take(&mut texts[current].content);
+                target.content.push_str(&current_content);
+                current += 1;
+            }
+            output.push(target.into());
+            index = current;
+        }
+        Self(output)
+    }
+}
+
+impl From<String> for WeightedTextBlock {
     fn from(text: String) -> Self {
         let texts = vec![WeightedText::from(text)];
         Self(texts)
@@ -48,32 +69,37 @@ struct CharAccumulator {
 /// A piece of weighted text.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct WeightedText {
-    pub(crate) text: StyledText,
+    text: Text,
     accumulators: Vec<CharAccumulator>,
 }
 
 impl WeightedText {
     fn to_ref(&self) -> WeightedTextRef {
-        WeightedTextRef { text: &self.text.text, accumulators: &self.accumulators, style: self.text.style.clone() }
+        WeightedTextRef { text: &self.text.content, accumulators: &self.accumulators, style: self.text.style.clone() }
     }
 
     pub(crate) fn width(&self) -> usize {
         self.accumulators.last().map(|a| a.width).unwrap_or(0)
     }
+
+    #[cfg(test)]
+    pub(crate) fn text(&self) -> &Text {
+        &self.text
+    }
 }
 
 impl<S: Into<String>> From<S> for WeightedText {
     fn from(text: S) -> Self {
-        Self::from(StyledText::from(text.into()))
+        Self::from(Text::from(text.into()))
     }
 }
 
-impl From<StyledText> for WeightedText {
-    fn from(text: StyledText) -> Self {
+impl From<Text> for WeightedText {
+    fn from(text: Text) -> Self {
         let mut accumulators = Vec::new();
         let mut width = 0;
         let mut bytes = 0;
-        for c in text.text.chars() {
+        for c in text.content.chars() {
             accumulators.push(CharAccumulator { width, bytes });
             width += c.width().unwrap_or(0);
             bytes += c.len_utf8();
@@ -198,6 +224,7 @@ impl<'a> WeightedTextRef<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use rstest::rstest;
 
     fn join_lines<'a>(lines: impl Iterator<Item = Vec<WeightedTextRef<'a>>>) -> Vec<String> {
         lines.map(|l| l.iter().map(|weighted| weighted.text).collect::<Vec<_>>().join(" ")).collect()
@@ -277,7 +304,7 @@ mod test {
 
     #[test]
     fn split_at_full_length() {
-        let text = WeightedLine(vec![WeightedText::from("hello world")]);
+        let text = WeightedTextBlock(vec![WeightedText::from("hello world")]);
         let lines = join_lines(text.split(11));
         let expected = vec!["hello world"];
         assert_eq!(lines, expected);
@@ -285,7 +312,7 @@ mod test {
 
     #[test]
     fn no_split_necessary() {
-        let text = WeightedLine(vec![WeightedText::from("short"), WeightedText::from("text")]);
+        let text = WeightedTextBlock(vec![WeightedText::from("short"), WeightedText::from("text")]);
         let lines = join_lines(text.split(50));
         let expected = vec!["short text"];
         assert_eq!(lines, expected);
@@ -293,7 +320,7 @@ mod test {
 
     #[test]
     fn split_lines_single() {
-        let text = WeightedLine(vec![WeightedText::from("this is a slightly long line")]);
+        let text = WeightedTextBlock(vec![WeightedText::from("this is a slightly long line")]);
         let lines = join_lines(text.split(6));
         let expected = vec!["this", "is a", "slight", "ly", "long", "line"];
         assert_eq!(lines, expected);
@@ -301,7 +328,7 @@ mod test {
 
     #[test]
     fn split_lines_multi() {
-        let text = WeightedLine(vec![
+        let text = WeightedTextBlock(vec![
             WeightedText::from("this is a slightly long line"),
             WeightedText::from("another chunk"),
             WeightedText::from("yet some other piece"),
@@ -313,7 +340,7 @@ mod test {
 
     #[test]
     fn long_splits() {
-        let text = WeightedLine(vec![
+        let text = WeightedTextBlock(vec![
             WeightedText::from("this is a slightly long line"),
             WeightedText::from("another chunk"),
             WeightedText::from("yet some other piece"),
@@ -325,7 +352,7 @@ mod test {
 
     #[test]
     fn prefixed_by_whitespace() {
-        let text = WeightedLine(vec![WeightedText::from("   * bullet")]);
+        let text = WeightedTextBlock(vec![WeightedText::from("   * bullet")]);
         let lines = join_lines(text.split(50));
         let expected = vec!["   * bullet"];
         assert_eq!(lines, expected);
@@ -333,7 +360,7 @@ mod test {
 
     #[test]
     fn utf8_character() {
-        let text = WeightedLine(vec![WeightedText::from("• A")]);
+        let text = WeightedTextBlock(vec![WeightedText::from("• A")]);
         let lines = join_lines(text.split(50));
         let expected = vec!["• A"];
         assert_eq!(lines, expected);
@@ -342,7 +369,7 @@ mod test {
     #[test]
     fn many_utf8_characters() {
         let content = "█████ ██";
-        let text = WeightedLine(vec![WeightedText::from(content)]);
+        let text = WeightedTextBlock(vec![WeightedText::from(content)]);
         let lines = join_lines(text.split(3));
         let expected = vec!["███", "██", "██"];
         assert_eq!(lines, expected);
@@ -351,7 +378,7 @@ mod test {
     #[test]
     fn no_whitespaces_ascii() {
         let content = "X".repeat(10);
-        let text = WeightedLine(vec![WeightedText::from(content)]);
+        let text = WeightedTextBlock(vec![WeightedText::from(content)]);
         let lines = join_lines(text.split(3));
         let expected = vec!["XXX", "XXX", "XXX", "X"];
         assert_eq!(lines, expected);
@@ -360,7 +387,7 @@ mod test {
     #[test]
     fn no_whitespaces_utf8() {
         let content = "─".repeat(10);
-        let text = WeightedLine(vec![WeightedText::from(content)]);
+        let text = WeightedTextBlock(vec![WeightedText::from(content)]);
         let lines = join_lines(text.split(3));
         let expected = vec!["───", "───", "───", "─"];
         assert_eq!(lines, expected);
@@ -369,10 +396,21 @@ mod test {
     #[test]
     fn wide_characters() {
         let content = "Ｈｅｌｌｏ ｗｏｒｌｄ";
-        let text = WeightedLine(vec![WeightedText::from(content)]);
+        let text = WeightedTextBlock(vec![WeightedText::from(content)]);
         let lines = join_lines(text.split(10));
         // Each word is 10 characters long
         let expected = vec!["Ｈｅｌｌｏ", "ｗｏｒｌｄ"];
         assert_eq!(lines, expected);
+    }
+
+    #[rstest]
+    #[case::single(&["hello".into()], 1)]
+    #[case::two(&["hello".into(), " world".into()], 1)]
+    #[case::three(&["hello".into(), " ".into(), "world".into()], 1)]
+    #[case::split(&["hello".into(), Text::new(" ", TextStyle::default().bold()), "world".into()], 3)]
+    #[case::split_merged(&["hello".into(), Text::new(" ", TextStyle::default().bold()), Text::new("w", TextStyle::default().bold()), "orld".into()], 3)]
+    fn compaction(#[case] texts: &[Text], #[case] expected: usize) {
+        let block = WeightedTextBlock::from(texts.to_vec());
+        assert_eq!(block.0.len(), expected);
     }
 }

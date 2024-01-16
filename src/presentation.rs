@@ -1,6 +1,6 @@
 use crate::{
     custom::OptionsConfig,
-    markdown::text::WeightedLine,
+    markdown::text::WeightedTextBlock,
     render::{media::Image, properties::WindowSize},
     style::Colors,
     theme::{Alignment, Margin, PresentationTheme},
@@ -441,7 +441,7 @@ pub(crate) enum RenderOperation {
     JumpToBottomRow { index: u16 },
 
     /// Render text.
-    RenderText { line: WeightedLine, alignment: Alignment },
+    RenderText { line: WeightedTextBlock, alignment: Alignment },
 
     /// Render a line break.
     RenderLineBreak,
