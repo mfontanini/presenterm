@@ -29,7 +29,7 @@ impl WeightedTextBlock {
 
 impl From<TextBlock> for WeightedTextBlock {
     fn from(block: TextBlock) -> Self {
-        block.chunks.into()
+        block.0.into()
     }
 }
 

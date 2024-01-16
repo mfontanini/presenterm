@@ -191,14 +191,14 @@ impl<'a> MarkdownParser<'a> {
         let mut chunks = Vec::new();
         for inline in inlines {
             match inline {
-                Inline::Text(text) => chunks.extend(text.chunks),
+                Inline::Text(text) => chunks.extend(text.0),
                 other => {
                     return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.kind() }
                         .with_sourcepos(node.data.borrow().sourcepos));
                 }
             };
         }
-        Ok(TextBlock { chunks })
+        Ok(TextBlock(chunks))
     }
 
     fn parse_list(root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
@@ -306,7 +306,7 @@ impl InlinesParser {
     fn store_pending_text(&mut self) {
         let chunks = mem::take(&mut self.pending_text);
         if !chunks.is_empty() {
-            self.inlines.push(Inline::Text(TextBlock { chunks }));
+            self.inlines.push(Inline::Text(TextBlock(chunks)));
         }
     }
 
@@ -517,7 +517,7 @@ boop
             Text::new("strikethrough", TextStyle::default().strikethrough()),
         ];
 
-        let expected_elements = &[ParagraphElement::Text(TextBlock { chunks: expected_chunks })];
+        let expected_elements = &[ParagraphElement::Text(TextBlock(expected_chunks))];
         assert_eq!(elements, expected_elements);
     }
 
@@ -527,7 +527,7 @@ boop
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks = vec![Text::from("my "), Text::new("https://example.com", TextStyle::default().link())];
 
-        let expected_elements = &[ParagraphElement::Text(TextBlock { chunks: expected_chunks })];
+        let expected_elements = &[ParagraphElement::Text(TextBlock(expected_chunks))];
         assert_eq!(elements, expected_elements);
     }
 
@@ -558,7 +558,7 @@ Title
         );
         let MarkdownElement::SetexHeading { text } = parsed else { panic!("not a slide title: {parsed:?}") };
         let expected_chunks = [Text::from("Title")];
-        assert_eq!(text.chunks, expected_chunks);
+        assert_eq!(text.0, expected_chunks);
     }
 
     #[test]
@@ -568,7 +568,7 @@ Title
         let expected_chunks = vec![Text::from("Title "), Text::new("with bold", TextStyle::default().bold())];
 
         assert_eq!(level, 1);
-        assert_eq!(text.chunks, expected_chunks);
+        assert_eq!(text.0, expected_chunks);
     }
 
     #[test]
@@ -609,7 +609,7 @@ another",
 
         let expected_chunks = &[Text::from("some text"), Text::from(" "), Text::from("with line breaks")];
         let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };
-        assert_eq!(text.chunks, expected_chunks);
+        assert_eq!(text.0, expected_chunks);
         assert!(matches!(&elements[1], ParagraphElement::LineBreak));
         assert!(matches!(&elements[2], ParagraphElement::Text(_)));
     }
@@ -651,7 +651,7 @@ echo hi mom
         assert_eq!(elements.len(), 1);
 
         let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };
-        assert_eq!(text.chunks, expected_chunks);
+        assert_eq!(text.0, expected_chunks);
     }
 
     #[test]

@@ -421,7 +421,7 @@ impl<'a> PresentationBuilder<'a> {
         if let Some(prefix) = &style.prefix {
             let mut prefix = prefix.clone();
             prefix.push(' ');
-            text.chunks.insert(0, Text::from(prefix));
+            text.0.insert(0, Text::from(prefix));
         }
         let text_style = TextStyle::default().bold().colors(style.colors.clone());
         text.apply_style(&text_style);
@@ -549,12 +549,12 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_aligned_text(&mut self, mut block: TextBlock, alignment: Alignment) {
-        for chunk in &mut block.chunks {
+        for chunk in &mut block.0 {
             if chunk.style.is_code() {
                 chunk.style.colors = self.theme.inline_code.colors.clone();
             }
         }
-        if !block.chunks.is_empty() {
+        if !block.0.is_empty() {
             self.chunk_operations.push(RenderOperation::RenderText {
                 line: WeightedTextBlock::from(block),
                 alignment: alignment.clone(),
@@ -676,7 +676,7 @@ impl<'a> PresentationBuilder<'a> {
         self.push_text(flattened_header, ElementType::Table);
         self.push_line_break();
 
-        let mut separator = TextBlock { chunks: Vec::new() };
+        let mut separator = TextBlock(Vec::new());
         for (index, width) in widths.iter().enumerate() {
             let mut contents = String::new();
             let mut margin = 1;
@@ -688,7 +688,7 @@ impl<'a> PresentationBuilder<'a> {
                 }
             }
             contents.extend(iter::repeat("─").take(*width + margin));
-            separator.chunks.push(Text::from(contents));
+            separator.0.push(Text::from(contents));
         }
 
         self.push_text(separator, ElementType::Table);
@@ -702,18 +702,18 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn prepare_table_row(row: TableRow, widths: &[usize]) -> TextBlock {
-        let mut flattened_row = TextBlock { chunks: Vec::new() };
+        let mut flattened_row = TextBlock(Vec::new());
         for (column, text) in row.0.into_iter().enumerate() {
             if column > 0 {
-                flattened_row.chunks.push(Text::from(" │ "));
+                flattened_row.0.push(Text::from(" │ "));
             }
             let text_length = text.width();
-            flattened_row.chunks.extend(text.chunks.into_iter());
+            flattened_row.0.extend(text.0.into_iter());
 
             let cell_width = widths[column];
             if text_length < cell_width {
                 let padding = " ".repeat(cell_width - text_length);
-                flattened_row.chunks.push(Text::from(padding));
+                flattened_row.0.push(Text::from(padding));
             }
         }
         flattened_row

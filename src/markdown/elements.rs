@@ -94,20 +94,17 @@ pub(crate) enum ParagraphElement {
 ///
 /// Text is represented as a series of chunks, each with their own formatting.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct TextBlock {
-    /// The chunks that make up this text.
-    pub(crate) chunks: Vec<Text>,
-}
+pub(crate) struct TextBlock(pub(crate) Vec<Text>);
 
 impl TextBlock {
     /// Get the total width for this text.
     pub(crate) fn width(&self) -> usize {
-        self.chunks.iter().map(|text| text.content.width()).sum()
+        self.0.iter().map(|text| text.content.width()).sum()
     }
 
     /// Applies the given style to this text.
     pub(crate) fn apply_style(&mut self, style: &TextStyle) {
-        for text in &mut self.chunks {
+        for text in &mut self.0 {
             text.style.merge(style);
         }
     }
@@ -115,7 +112,7 @@ impl TextBlock {
 
 impl<T: Into<Text>> From<T> for TextBlock {
     fn from(text: T) -> Self {
-        Self { chunks: vec![text.into()] }
+        Self(vec![text.into()])
     }
 }
 

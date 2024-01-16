@@ -28,7 +28,7 @@ impl IndexBuilder {
         let padder = NumberPadder::new(self.titles.len());
         for (index, mut title) in self.titles.into_iter().enumerate() {
             let index = padder.pad_right(index + 1);
-            title.chunks.insert(0, format!("{index}: ").into());
+            title.0.insert(0, format!("{index}: ").into());
             builder.content.push(title);
         }
         let base_color = theme.modals.colors.merge(&theme.default_style.colors);
@@ -124,7 +124,7 @@ impl ModalBuilder {
         prefix.extend(Border::Separator.render_line(content_width));
         let mut content = Vec::new();
         for title in self.content {
-            content.push(Self::build_line(title.chunks, content_width));
+            content.push(Self::build_line(title.0, content_width));
         }
         let suffix = Border::Bottom.render_line(content_width).into_iter().collect();
         ModalContent { prefix, content, suffix, content_width }
