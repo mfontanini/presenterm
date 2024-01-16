@@ -1,9 +1,9 @@
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use comrak::Arena;
 use presenterm::{
-    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, LoadThemeError, MarkdownParser, MediaRender,
-    PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter, PresenterOptions,
-    Resources, Themes, TypstRender,
+    run_demo, CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, LoadThemeError, MarkdownParser,
+    MediaRender, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter,
+    PresenterOptions, Resources, Themes, TypstRender,
 };
 use std::{
     env,
@@ -40,6 +40,10 @@ struct Cli {
     /// The theme to use.
     #[clap(short, long)]
     theme: Option<String>,
+
+    /// Grabs demo from repo and presents it.
+    #[clap(long, conflicts_with = "target")]
+    demo: bool,
 
     /// Display acknowledgements.
     #[clap(long, group = "target")]
@@ -166,10 +170,17 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     // Pre-load this so we don't flicker on the first displayed image.
     MediaRender::detect_terminal_protocol();
 
-    let path = cli.path.unwrap_or_else(|| {
-        eprintln!("Error: No path specified.");
-        std::process::exit(1);
-    });
+    let path = if cli.demo {
+        let temp_dir = Path::new("/tmp/presenterm-demo");
+        run_demo(temp_dir)?;
+        temp_dir.join("demo.md").to_path_buf()
+    } else {
+        cli.path.unwrap_or_else(|| {
+            eprintln!("Error: No path specified.");
+            std::process::exit(1);
+        })
+    };
+
     let resources_path = path.parent().unwrap_or(Path::new("/"));
     let resources = Resources::new(resources_path);
     let typst = TypstRender::new(config.typst.ppi);

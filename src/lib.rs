@@ -12,6 +12,7 @@ pub(crate) mod presentation;
 pub(crate) mod presenter;
 pub(crate) mod processing;
 pub(crate) mod render;
+pub(crate) mod request;
 pub(crate) mod resource;
 pub(crate) mod style;
 pub(crate) mod theme;
@@ -29,6 +30,7 @@ pub use crate::{
         highlighting::{CodeHighlighter, HighlightThemeSet},
         media::{GraphicsMode, MediaRender},
     },
+    request::run_demo,
     resource::Resources,
     theme::{LoadThemeError, PresentationTheme, PresentationThemeSet},
     typst::TypstRender,

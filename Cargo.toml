@@ -29,6 +29,7 @@ tempfile = "3.9"
 thiserror = "1"
 unicode-width = "0.1"
 viuer = "0.7"
+reqwest = { version = "0.11.23", default-features = false, features = ["rustls-tls", "blocking"] }
 
 [dependencies.syntect]
 version = "5.1"
