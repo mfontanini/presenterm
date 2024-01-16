@@ -139,10 +139,9 @@ fn load_default_theme(config: &Config, themes: &Themes, cli: &Cli) -> Presentati
     let default_theme_name =
         cli.theme.as_ref().or(config.defaults.theme.as_ref()).map(|s| s.as_str()).unwrap_or(DEFAULT_THEME);
     let Some(default_theme) = themes.presentation.load_by_name(default_theme_name) else {
-        let mut cmd = Cli::command();
         let valid_themes = themes.presentation.theme_names().join(", ");
         let error_message = format!("invalid theme name, valid themes are: {valid_themes}");
-        cmd.error(ErrorKind::InvalidValue, error_message).exit();
+        Cli::command().error(ErrorKind::InvalidValue, error_message).exit();
     };
     default_theme
 }
@@ -167,8 +166,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     MediaRender::detect_terminal_protocol();
 
     let path = cli.path.unwrap_or_else(|| {
-        eprintln!("Error: No path specified.");
-        std::process::exit(1);
+        Cli::command().error(ErrorKind::MissingRequiredArgument, "no path specified").exit();
     });
     let resources_path = path.parent().unwrap_or(Path::new("/"));
     let resources = Resources::new(resources_path);
@@ -191,8 +189,9 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         let graphics_mode = match cli.image_protocol.map(GraphicsMode::try_from) {
             Some(Ok(mode)) => mode,
             Some(Err(_)) => {
-                let mut cmd = Cli::command();
-                cmd.error(ErrorKind::InvalidValue, "sixel support was not enabled during compilation").exit();
+                Cli::command()
+                    .error(ErrorKind::InvalidValue, "sixel support was not enabled during compilation")
+                    .exit();
             }
             None => GraphicsMode::default(),
         };
