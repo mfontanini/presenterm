@@ -1,9 +1,6 @@
 use super::{engine::RenderEngine, media::GraphicsMode, terminal::Terminal};
 use crate::{
-    markdown::{
-        elements::Text,
-        text::{WeightedText, WeightedTextBlock},
-    },
+    markdown::{elements::Text, text::WeightedTextBlock},
     presentation::{Presentation, RenderOperation},
     render::properties::WindowSize,
     style::{Color, Colors, TextStyle},
@@ -43,10 +40,7 @@ where
     /// Render an error.
     pub(crate) fn render_error(&mut self, message: &str) -> RenderResult {
         let dimensions = WindowSize::current(self.font_size_fallback)?;
-        let heading = vec![
-            WeightedText::from(Text::new("Error loading presentation", TextStyle::default().bold())),
-            WeightedText::from(": "),
-        ];
+        let heading = vec![Text::new("Error loading presentation", TextStyle::default().bold()), Text::from(": ")];
 
         let alignment = Alignment::Center { minimum_size: 0, minimum_margin: Margin::Percent(8) };
         let mut operations = vec![
@@ -61,7 +55,7 @@ where
             RenderOperation::RenderLineBreak,
         ];
         for line in message.lines() {
-            let error = vec![WeightedText::from(line)];
+            let error = vec![Text::from(line)];
             let op = RenderOperation::RenderText { line: WeightedTextBlock::from(error), alignment: alignment.clone() };
             operations.extend([op, RenderOperation::RenderLineBreak]);
         }

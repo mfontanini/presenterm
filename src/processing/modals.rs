@@ -1,7 +1,7 @@
 use crate::{
     markdown::{
         elements::{Text, TextBlock},
-        text::{WeightedText, WeightedTextBlock},
+        text::WeightedTextBlock,
     },
     presentation::{AsRenderOperations, MarginProperties, PresentationState, RenderOperation},
     processing::padding::NumberPadder,
@@ -11,6 +11,7 @@ use crate::{
     PresentationTheme,
 };
 use std::{iter, rc::Rc};
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Default)]
 pub(crate) struct IndexBuilder {
@@ -115,7 +116,7 @@ impl ModalBuilder {
         prefix.extend(Border::Top.render_line(content_width));
         prefix.extend([
             RenderOperation::RenderText {
-                line: Self::build_line([Text::from(heading)], content_width).build(),
+                line: Self::build_line(vec![Text::from(heading)], content_width).build(),
                 alignment: Default::default(),
             },
             RenderOperation::RenderLineBreak,
@@ -138,20 +139,16 @@ impl ModalBuilder {
         output
     }
 
-    fn build_line<C>(text_chunks: C, content_width: u16) -> ContentRow
-    where
-        C: IntoIterator<Item = Text>,
-    {
+    fn build_line(text_chunks: Vec<Text>, content_width: u16) -> ContentRow {
         let (opening, closing) = Border::Regular.edges();
-        let prefix = WeightedText::from(format!("{opening}  "));
-        let content: Vec<_> = text_chunks.into_iter().map(WeightedText::from).collect();
-        let total_width = content.iter().map(|c| c.width()).sum::<usize>() + prefix.width();
+        let prefix = Text::from(format!("{opening}  "));
+        let content = text_chunks;
+        let total_width = content.iter().map(|c| c.content.width()).sum::<usize>() + prefix.content.width();
         let missing = content_width as usize - 1 - total_width;
 
         let mut suffix = " ".repeat(missing);
         suffix.push(closing);
-        let suffix = WeightedText::from(suffix);
-        ContentRow { prefix, content, suffix }
+        ContentRow { prefix, content, suffix: suffix.into() }
     }
 }
 
@@ -164,15 +161,15 @@ struct ModalContent {
 
 #[derive(Clone, Debug)]
 struct ContentRow {
-    prefix: WeightedText,
-    content: Vec<WeightedText>,
-    suffix: WeightedText,
+    prefix: Text,
+    content: Vec<Text>,
+    suffix: Text,
 }
 
 impl ContentRow {
     fn with_style(mut self, style: TextStyle) -> ContentRow {
         for chunk in &mut self.content {
-            chunk.style_mut().merge(&style);
+            chunk.style.merge(&style);
         }
         self
     }
@@ -198,7 +195,7 @@ impl Border {
         let mut line = String::from(opening);
         line.push_str(&"─".repeat(content_length.saturating_sub(2) as usize));
         line.push(closing);
-        let horizontal_border = WeightedTextBlock::from(vec![WeightedText::from(line)]);
+        let horizontal_border = WeightedTextBlock::from(vec![Text::from(line)]);
         [
             RenderOperation::RenderText { line: horizontal_border.clone(), alignment: Default::default() },
             RenderOperation::RenderLineBreak,

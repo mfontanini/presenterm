@@ -5,7 +5,7 @@ use crate::{
             Code, CodeLanguage, Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement,
             SourcePosition, Table, TableRow, Text, TextBlock,
         },
-        text::{WeightedText, WeightedTextBlock},
+        text::WeightedTextBlock,
     },
     presentation::{
         ChunkMutator, MarginProperties, PreformattedLine, Presentation, PresentationMetadata, PresentationState,
@@ -548,17 +548,15 @@ impl<'a> PresentationBuilder<'a> {
         self.push_aligned_text(text, alignment);
     }
 
-    fn push_aligned_text(&mut self, text: TextBlock, alignment: Alignment) {
-        let mut texts: Vec<WeightedText> = Vec::new();
-        for mut chunk in text.chunks {
+    fn push_aligned_text(&mut self, mut block: TextBlock, alignment: Alignment) {
+        for chunk in &mut block.chunks {
             if chunk.style.is_code() {
                 chunk.style.colors = self.theme.inline_code.colors.clone();
             }
-            texts.push(chunk.into());
         }
-        if !texts.is_empty() {
+        if !block.chunks.is_empty() {
             self.chunk_operations.push(RenderOperation::RenderText {
-                line: WeightedTextBlock::from(texts),
+                line: WeightedTextBlock::from(block),
                 alignment: alignment.clone(),
             });
         }

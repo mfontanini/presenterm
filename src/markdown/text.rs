@@ -1,5 +1,6 @@
-use super::elements::Text;
+use super::elements::{Text, TextBlock};
 use crate::style::TextStyle;
+use std::mem;
 use unicode_width::UnicodeWidthChar;
 
 /// A weighted block of text.
@@ -26,9 +27,29 @@ impl WeightedTextBlock {
     }
 }
 
-impl From<Vec<WeightedText>> for WeightedTextBlock {
-    fn from(texts: Vec<WeightedText>) -> Self {
-        Self(texts)
+impl From<TextBlock> for WeightedTextBlock {
+    fn from(block: TextBlock) -> Self {
+        block.chunks.into()
+    }
+}
+
+impl From<Vec<Text>> for WeightedTextBlock {
+    fn from(mut texts: Vec<Text>) -> Self {
+        let mut output = Vec::new();
+        let mut index = 0;
+        // Compact chunks so any consecutive chunk with the same style is merged into the same block.
+        while index < texts.len() {
+            let mut target = mem::replace(&mut texts[index], Text::from(""));
+            let mut current = index + 1;
+            while current < texts.len() && texts[current].style == target.style {
+                let current_content = mem::take(&mut texts[current].content);
+                target.content.push_str(&current_content);
+                current += 1;
+            }
+            output.push(target.into());
+            index = current;
+        }
+        Self(output)
     }
 }
 
@@ -64,10 +85,6 @@ impl WeightedText {
     #[cfg(test)]
     pub(crate) fn text(&self) -> &Text {
         &self.text
-    }
-
-    pub(crate) fn style_mut(&mut self) -> &mut TextStyle {
-        &mut self.text.style
     }
 }
 
@@ -207,6 +224,7 @@ impl<'a> WeightedTextRef<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use rstest::rstest;
 
     fn join_lines<'a>(lines: impl Iterator<Item = Vec<WeightedTextRef<'a>>>) -> Vec<String> {
         lines.map(|l| l.iter().map(|weighted| weighted.text).collect::<Vec<_>>().join(" ")).collect()
@@ -383,5 +401,16 @@ mod test {
         // Each word is 10 characters long
         let expected = vec!["Ｈｅｌｌｏ", "ｗｏｒｌｄ"];
         assert_eq!(lines, expected);
+    }
+
+    #[rstest]
+    #[case::single(&["hello".into()], 1)]
+    #[case::two(&["hello".into(), " world".into()], 1)]
+    #[case::three(&["hello".into(), " ".into(), "world".into()], 1)]
+    #[case::split(&["hello".into(), Text::new(" ", TextStyle::default().bold()), "world".into()], 3)]
+    #[case::split_merged(&["hello".into(), Text::new(" ", TextStyle::default().bold()), Text::new("w", TextStyle::default().bold()), "orld".into()], 3)]
+    fn compaction(#[case] texts: &[Text], #[case] expected: usize) {
+        let block = WeightedTextBlock::from(texts.to_vec());
+        assert_eq!(block.0.len(), expected);
     }
 }
