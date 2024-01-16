@@ -7,7 +7,7 @@ use super::{
     text::TextDrawer,
 };
 use crate::{
-    markdown::text::WeightedLine,
+    markdown::text::WeightedTextBlock,
     presentation::{AsRenderOperations, MarginProperties, PreformattedLine, RenderOnDemand, RenderOperation},
     render::{layout::Positioning, properties::WindowSize},
     style::Colors,
@@ -140,7 +140,7 @@ where
         Ok(())
     }
 
-    fn render_text(&mut self, text: &WeightedLine, alignment: &Alignment) -> RenderResult {
+    fn render_text(&mut self, text: &WeightedTextBlock, alignment: &Alignment) -> RenderResult {
         let layout = self.build_layout(alignment.clone());
         let text_drawer = TextDrawer::new(&layout, text, self.current_dimensions(), &self.colors)?;
         text_drawer.draw(self.terminal)

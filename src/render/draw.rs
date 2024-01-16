@@ -1,8 +1,8 @@
 use super::{engine::RenderEngine, media::GraphicsMode, terminal::Terminal};
 use crate::{
     markdown::{
-        elements::StyledText,
-        text::{WeightedLine, WeightedText},
+        elements::Text,
+        text::{WeightedText, WeightedTextBlock},
     },
     presentation::{Presentation, RenderOperation},
     render::properties::WindowSize,
@@ -44,7 +44,7 @@ where
     pub(crate) fn render_error(&mut self, message: &str) -> RenderResult {
         let dimensions = WindowSize::current(self.font_size_fallback)?;
         let heading = vec![
-            WeightedText::from(StyledText::new("Error loading presentation", TextStyle::default().bold())),
+            WeightedText::from(Text::new("Error loading presentation", TextStyle::default().bold())),
             WeightedText::from(": "),
         ];
 
@@ -56,13 +56,13 @@ where
                 background: Some(Color::new(0, 0, 0)),
             }),
             RenderOperation::JumpToVerticalCenter,
-            RenderOperation::RenderText { line: WeightedLine::from(heading), alignment: alignment.clone() },
+            RenderOperation::RenderText { line: WeightedTextBlock::from(heading), alignment: alignment.clone() },
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
         ];
         for line in message.lines() {
             let error = vec![WeightedText::from(line)];
-            let op = RenderOperation::RenderText { line: WeightedLine::from(error), alignment: alignment.clone() };
+            let op = RenderOperation::RenderText { line: WeightedTextBlock::from(error), alignment: alignment.clone() };
             operations.extend([op, RenderOperation::RenderLineBreak]);
         }
         let engine = self.create_engine(dimensions);

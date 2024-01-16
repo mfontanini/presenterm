@@ -13,10 +13,10 @@ pub(crate) enum MarkdownElement {
     FrontMatter(String),
 
     /// A setex heading.
-    SetexHeading { text: Text },
+    SetexHeading { text: TextBlock },
 
     /// A normal heading.
-    Heading { level: u8, text: Text },
+    Heading { level: u8, text: TextBlock },
 
     /// A paragraph, composed of text and line breaks.
     Paragraph(Vec<ParagraphElement>),
@@ -84,25 +84,25 @@ impl From<comrak::nodes::LineColumn> for LineColumn {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum ParagraphElement {
     /// A block of text.
-    Text(Text),
+    Text(TextBlock),
 
     /// A line break.
     LineBreak,
 }
 
-/// A piece of styled text.
+/// A block of text.
 ///
 /// Text is represented as a series of chunks, each with their own formatting.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Text {
+pub(crate) struct TextBlock {
     /// The chunks that make up this text.
-    pub(crate) chunks: Vec<StyledText>,
+    pub(crate) chunks: Vec<Text>,
 }
 
-impl Text {
+impl TextBlock {
     /// Get the total width for this text.
     pub(crate) fn width(&self) -> usize {
-        self.chunks.iter().map(|text| text.text.width()).sum()
+        self.chunks.iter().map(|text| text.content.width()).sum()
     }
 
     /// Applies the given style to this text.
@@ -113,7 +113,7 @@ impl Text {
     }
 }
 
-impl<T: Into<StyledText>> From<T> for Text {
+impl<T: Into<Text>> From<T> for TextBlock {
     fn from(text: T) -> Self {
         Self { chunks: vec![text.into()] }
     }
@@ -123,27 +123,27 @@ impl<T: Into<StyledText>> From<T> for Text {
 ///
 /// This is the most granular text representation: a `String` and a style.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct StyledText {
-    pub(crate) text: String,
+pub(crate) struct Text {
+    pub(crate) content: String,
     pub(crate) style: TextStyle,
 }
 
-impl StyledText {
+impl Text {
     /// Construct a new styled text.
-    pub(crate) fn new<S: Into<String>>(text: S, style: TextStyle) -> Self {
-        Self { text: text.into(), style }
+    pub(crate) fn new<S: Into<String>>(content: S, style: TextStyle) -> Self {
+        Self { content: content.into(), style }
     }
 }
 
-impl From<String> for StyledText {
+impl From<String> for Text {
     fn from(text: String) -> Self {
-        Self { text, style: TextStyle::default() }
+        Self { content: text, style: TextStyle::default() }
     }
 }
 
-impl From<&str> for StyledText {
+impl From<&str> for Text {
     fn from(text: &str) -> Self {
-        Self { text: text.into(), style: TextStyle::default() }
+        Self { content: text.into(), style: TextStyle::default() }
     }
 }
 
@@ -156,7 +156,7 @@ pub(crate) struct ListItem {
     pub(crate) depth: u8,
 
     /// The contents of this list item.
-    pub(crate) contents: Text,
+    pub(crate) contents: TextBlock,
 
     /// The type of list item.
     pub(crate) item_type: ListItemType,
@@ -322,7 +322,7 @@ impl Table {
     /// Iterates all the text entries in a column.
     ///
     /// This includes the header.
-    pub(crate) fn iter_column(&self, column: usize) -> impl Iterator<Item = &Text> {
+    pub(crate) fn iter_column(&self, column: usize) -> impl Iterator<Item = &TextBlock> {
         let header_element = &self.header.0[column];
         let row_elements = self.rows.iter().map(move |row| &row.0[column]);
         iter::once(header_element).chain(row_elements)
@@ -331,4 +331,4 @@ impl Table {
 
 /// A table row.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct TableRow(pub(crate) Vec<Text>);
+pub(crate) struct TableRow(pub(crate) Vec<TextBlock>);

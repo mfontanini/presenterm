@@ -1,5 +1,5 @@
 use crate::{
-    markdown::{elements::StyledText, text::WeightedText},
+    markdown::{elements::Text, text::WeightedText},
     presentation::{AsRenderOperations, RenderOperation},
     render::properties::WindowSize,
     style::{Colors, TextStyle},
@@ -33,7 +33,7 @@ impl FooterGenerator {
             .replace("{current_slide}", current_slide)
             .replace("{total_slides}", &context.total_slides.to_string())
             .replace("{author}", &context.author);
-        let text = WeightedText::from(StyledText::new(contents, TextStyle::default().colors(colors)));
+        let text = WeightedText::from(Text::new(contents, TextStyle::default().colors(colors)));
         RenderOperation::RenderText { line: vec![text].into(), alignment }
     }
 }
@@ -71,7 +71,7 @@ impl AsRenderOperations for FooterGenerator {
                 let progress_ratio = (self.current_slide + 1) as f64 / context.total_slides as f64;
                 let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
                 let bar = character.repeat(columns_ratio as usize);
-                let bar = vec![WeightedText::from(StyledText::new(bar, TextStyle::default().colors(colors.clone())))];
+                let bar = vec![WeightedText::from(Text::new(bar, TextStyle::default().colors(colors.clone())))];
                 vec![
                     RenderOperation::JumpToBottomRow { index: 0 },
                     RenderOperation::RenderText {

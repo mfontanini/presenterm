@@ -1,7 +1,7 @@
 use crate::{
     markdown::{
-        elements::{StyledText, Text},
-        text::{WeightedLine, WeightedText},
+        elements::{Text, TextBlock},
+        text::{WeightedText, WeightedTextBlock},
     },
     presentation::{AsRenderOperations, MarginProperties, PresentationState, RenderOperation},
     processing::padding::NumberPadder,
@@ -14,11 +14,11 @@ use std::{iter, rc::Rc};
 
 #[derive(Default)]
 pub(crate) struct IndexBuilder {
-    titles: Vec<Text>,
+    titles: Vec<TextBlock>,
 }
 
 impl IndexBuilder {
-    pub(crate) fn add_title(&mut self, title: Text) {
+    pub(crate) fn add_title(&mut self, title: TextBlock) {
         self.titles.push(title);
     }
 
@@ -94,7 +94,7 @@ impl AsRenderOperations for IndexDrawer {
 
 struct ModalBuilder {
     heading: String,
-    content: Vec<Text>,
+    content: Vec<TextBlock>,
 }
 
 impl ModalBuilder {
@@ -103,7 +103,7 @@ impl ModalBuilder {
     }
 
     fn build(self, colors: Colors) -> ModalContent {
-        let longest_line = self.content.iter().map(Text::width).max().unwrap_or(0) as u16;
+        let longest_line = self.content.iter().map(TextBlock::width).max().unwrap_or(0) as u16;
         let longest_line = longest_line.max(self.heading.len() as u16);
         // Ensure we have a minimum width so it doesn't look too narrow.
         let longest_line = longest_line.max(12);
@@ -115,7 +115,7 @@ impl ModalBuilder {
         prefix.extend(Border::Top.render_line(content_width));
         prefix.extend([
             RenderOperation::RenderText {
-                line: Self::build_line([StyledText::from(heading)], content_width).build(),
+                line: Self::build_line([Text::from(heading)], content_width).build(),
                 alignment: Default::default(),
             },
             RenderOperation::RenderLineBreak,
@@ -140,7 +140,7 @@ impl ModalBuilder {
 
     fn build_line<C>(text_chunks: C, content_width: u16) -> ContentRow
     where
-        C: IntoIterator<Item = StyledText>,
+        C: IntoIterator<Item = Text>,
     {
         let (opening, closing) = Border::Regular.edges();
         let prefix = WeightedText::from(format!("{opening}  "));
@@ -172,16 +172,16 @@ struct ContentRow {
 impl ContentRow {
     fn with_style(mut self, style: TextStyle) -> ContentRow {
         for chunk in &mut self.content {
-            chunk.text.style.merge(&style);
+            chunk.style_mut().merge(&style);
         }
         self
     }
 
-    fn build(self) -> WeightedLine {
+    fn build(self) -> WeightedTextBlock {
         let mut chunks = self.content;
         chunks.insert(0, self.prefix);
         chunks.push(self.suffix);
-        WeightedLine::from(chunks)
+        WeightedTextBlock::from(chunks)
     }
 }
 
@@ -198,7 +198,7 @@ impl Border {
         let mut line = String::from(opening);
         line.push_str(&"─".repeat(content_length.saturating_sub(2) as usize));
         line.push(closing);
-        let horizontal_border = WeightedLine::from(vec![WeightedText::from(line)]);
+        let horizontal_border = WeightedTextBlock::from(vec![WeightedText::from(line)]);
         [
             RenderOperation::RenderText { line: horizontal_border.clone(), alignment: Default::default() },
             RenderOperation::RenderLineBreak,
