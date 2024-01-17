@@ -27,6 +27,16 @@ impl<W: io::Write> Terminal<W> {
         Ok(Self { writer, cursor_row: 0 })
     }
 
+    pub(crate) fn begin_update(&mut self) -> io::Result<()> {
+        self.writer.queue(terminal::BeginSynchronizedUpdate)?;
+        Ok(())
+    }
+
+    pub(crate) fn end_update(&mut self) -> io::Result<()> {
+        self.writer.queue(terminal::EndSynchronizedUpdate)?;
+        Ok(())
+    }
+
     pub(crate) fn move_to(&mut self, column: u16, row: u16) -> io::Result<()> {
         self.writer.queue(cursor::MoveTo(column, row))?;
         self.cursor_row = row;
