@@ -20,7 +20,10 @@ impl PresentationFileWatcher {
 
     /// Checker whether this file has modifications.
     pub(crate) fn has_modifications(&mut self) -> io::Result<bool> {
-        let metadata = fs::metadata(&self.path)?;
+        let Ok(metadata) = fs::metadata(&self.path) else {
+            // If the file no longer exists, it's technically changed since last time.
+            return Ok(true);
+        };
         let modified_time = metadata.modified()?;
         if modified_time > self.last_modification {
             self.last_modification = modified_time;
