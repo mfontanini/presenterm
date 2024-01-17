@@ -85,11 +85,11 @@ fn default_typst_ppi() -> u32 {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBindingsConfig {
-    #[serde(default = "default_next_slide_bindings")]
-    pub(crate) next_slide: Vec<KeyBinding>,
+    #[serde(default = "default_next_bindings")]
+    pub(crate) next: Vec<KeyBinding>,
 
-    #[serde(default = "default_previous_slide_bindings")]
-    pub(crate) previous_slide: Vec<KeyBinding>,
+    #[serde(default = "default_previous_bindings")]
+    pub(crate) previous: Vec<KeyBinding>,
 
     #[serde(default = "default_first_slide_bindings")]
     pub(crate) first_slide: Vec<KeyBinding>,
@@ -122,8 +122,8 @@ pub struct KeyBindingsConfig {
 impl Default for KeyBindingsConfig {
     fn default() -> Self {
         Self {
-            next_slide: default_next_slide_bindings(),
-            previous_slide: default_previous_slide_bindings(),
+            next: default_next_bindings(),
+            previous: default_previous_bindings(),
             first_slide: default_first_slide_bindings(),
             last_slide: default_last_slide_bindings(),
             go_to_slide: default_go_to_slide_bindings(),
@@ -145,11 +145,11 @@ fn make_keybindings<const N: usize>(raw_bindings: [&str; N]) -> Vec<KeyBinding> 
     bindings
 }
 
-fn default_next_slide_bindings() -> Vec<KeyBinding> {
+fn default_next_bindings() -> Vec<KeyBinding> {
     make_keybindings(["l", "j", "<right>", "<page_down>", "<down>", " "])
 }
 
-fn default_previous_slide_bindings() -> Vec<KeyBinding> {
+fn default_previous_bindings() -> Vec<KeyBinding> {
     make_keybindings(["h", "k", "<left>", "<page_up>", "<up>"])
 }
 

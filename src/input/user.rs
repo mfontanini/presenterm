@@ -74,8 +74,8 @@ impl CommandKeyBindings {
         use CommandDiscriminants::*;
         let command = match discriminant {
             Redraw => Command::Redraw,
-            NextSlide => Command::NextSlide,
-            PreviousSlide => Command::PreviousSlide,
+            Next => Command::Next,
+            Previous => Command::Previous,
             FirstSlide => Command::FirstSlide,
             LastSlide => Command::LastSlide,
             GoToSlide => {
@@ -123,8 +123,8 @@ impl TryFrom<KeyBindingsConfig> for CommandKeyBindings {
             return Err(KeyBindingsValidationError::Invalid("go_to_slide", "<number> matcher required"));
         }
         let bindings: Vec<_> = iter::empty()
-            .chain(zip(CommandDiscriminants::NextSlide, config.next_slide))
-            .chain(zip(CommandDiscriminants::PreviousSlide, config.previous_slide))
+            .chain(zip(CommandDiscriminants::Next, config.next))
+            .chain(zip(CommandDiscriminants::Previous, config.previous))
             .chain(zip(CommandDiscriminants::FirstSlide, config.first_slide))
             .chain(zip(CommandDiscriminants::LastSlide, config.last_slide))
             .chain(zip(CommandDiscriminants::GoToSlide, config.go_to_slide))
