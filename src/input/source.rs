@@ -47,11 +47,11 @@ pub(crate) enum Command {
     /// This can happen on terminal resize.
     Redraw,
 
-    /// Go to the next slide.
-    NextSlide,
+    /// Move forward in the presentation.
+    Next,
 
-    /// Go to the previous slide.
-    PreviousSlide,
+    /// Move backwards in the presentation.
+    Previous,
 
     /// Go to the first slide.
     FirstSlide,

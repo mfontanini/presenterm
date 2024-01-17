@@ -59,8 +59,8 @@ impl Presentation {
         self.state.current_slide_index()
     }
 
-    /// Jump to the next slide.
-    pub(crate) fn jump_next_slide(&mut self) -> bool {
+    /// Jump forwards.
+    pub(crate) fn jump_next(&mut self) -> bool {
         let current_slide = self.current_slide_mut();
         if current_slide.move_next() {
             return true;
@@ -76,8 +76,8 @@ impl Presentation {
         }
     }
 
-    /// Jump to the previous slide.
-    pub(crate) fn jump_previous_slide(&mut self) -> bool {
+    /// Jump backwards.
+    pub(crate) fn jump_previous(&mut self) -> bool {
         let current_slide = self.current_slide_mut();
         if current_slide.move_previous() {
             return true;
@@ -557,8 +557,8 @@ mod test {
             match self {
                 First => presentation.jump_first_slide(),
                 Last => presentation.jump_last_slide(),
-                Next => presentation.jump_next_slide(),
-                Previous => presentation.jump_previous_slide(),
+                Next => presentation.jump_next(),
+                Previous => presentation.jump_previous(),
                 Specific(index) => presentation.go_to_slide(*index),
             };
         }

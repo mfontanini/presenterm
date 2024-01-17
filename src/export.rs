@@ -112,7 +112,7 @@ impl<'a> Exporter<'a> {
         let mut next_slide = |commands: &mut Vec<CaptureCommand>| {
             commands.push(CaptureCommand::SendKeys { keys: "l" });
             commands.push(CaptureCommand::WaitForChange);
-            presentation.jump_next_slide();
+            presentation.jump_next();
         };
         for chunks in slide_chunks {
             for _ in 0..chunks - 1 {

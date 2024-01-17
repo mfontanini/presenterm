@@ -90,8 +90,8 @@ impl KeyBindingsModalBuilder {
     pub(crate) fn build(theme: &PresentationTheme, config: &KeyBindingsConfig) -> Vec<RenderOperation> {
         let mut builder = ModalBuilder::new("Key bindings");
         builder.content.extend([
-            Self::build_line("Next slide", &config.next_slide),
-            Self::build_line("Previous slide", &config.previous_slide),
+            Self::build_line("Next", &config.next),
+            Self::build_line("Previous", &config.previous),
             Self::build_line("First slide", &config.first_slide),
             Self::build_line("Last slide", &config.last_slide),
             Self::build_line("Go to slide", &config.go_to_slide),
