@@ -1,5 +1,5 @@
 use crate::{
-    custom::OptionsConfig,
+    custom::{KeyBindingsConfig, OptionsConfig},
     markdown::{
         elements::{
             Code, CodeLanguage, Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement,
@@ -8,8 +8,8 @@ use crate::{
         text::WeightedTextBlock,
     },
     presentation::{
-        ChunkMutator, MarginProperties, PreformattedLine, Presentation, PresentationMetadata, PresentationState,
-        PresentationThemeMetadata, RenderOperation, Slide, SlideBuilder, SlideChunk,
+        ChunkMutator, MarginProperties, Modals, PreformattedLine, Presentation, PresentationMetadata,
+        PresentationState, PresentationThemeMetadata, RenderOperation, Slide, SlideBuilder, SlideChunk,
     },
     processing::{
         code::{CodePreparer, HighlightContext, HighlightMutator, HighlightedLine},
@@ -32,6 +32,8 @@ use crate::{
 use serde::Deserialize;
 use std::{borrow::Cow, cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
+
+use super::modals::KeyBindingsModalBuilder;
 
 // TODO: move to a theme config.
 static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
@@ -93,6 +95,7 @@ pub(crate) struct PresentationBuilder<'a> {
     footer_context: Rc<RefCell<FooterContext>>,
     themes: &'a Themes,
     index_builder: IndexBuilder,
+    bindings_config: KeyBindingsConfig,
     options: PresentationBuilderOptions,
 }
 
@@ -104,6 +107,7 @@ impl<'a> PresentationBuilder<'a> {
         resources: &'a mut Resources,
         typst: &'a mut TypstRender,
         themes: &'a Themes,
+        bindings_config: KeyBindingsConfig,
         options: PresentationBuilderOptions,
     ) -> Self {
         Self {
@@ -119,6 +123,7 @@ impl<'a> PresentationBuilder<'a> {
             footer_context: Default::default(),
             themes,
             index_builder: Default::default(),
+            bindings_config,
             options,
         }
     }
@@ -155,8 +160,10 @@ impl<'a> PresentationBuilder<'a> {
 
         // TODO consider a separate color palette
         let presentation_state = PresentationState::default();
-        let index = self.index_builder.build(&self.theme, presentation_state.clone());
-        let presentation = Presentation::new(self.slides, index, presentation_state);
+        let slide_index = self.index_builder.build(&self.theme, presentation_state.clone());
+        let bindings = KeyBindingsModalBuilder::build(&self.theme, &self.bindings_config);
+        let modals = Modals { slide_index, bindings };
+        let presentation = Presentation::new(self.slides, modals, presentation_state);
         Ok(presentation)
     }
 
@@ -909,7 +916,9 @@ mod test {
         let mut resources = Resources::new("/tmp");
         let mut typst = TypstRender::default();
         let themes = Themes::default();
-        let builder = PresentationBuilder::new(highlighter, &theme, &mut resources, &mut typst, &themes, options);
+        let bindings = KeyBindingsConfig::default();
+        let builder =
+            PresentationBuilder::new(highlighter, &theme, &mut resources, &mut typst, &themes, bindings, options);
         builder.build(elements)
     }
 

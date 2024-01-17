@@ -100,20 +100,23 @@ pub struct KeyBindingsConfig {
     #[serde(default = "default_go_to_slide_bindings")]
     pub(crate) go_to_slide: Vec<KeyBinding>,
 
-    #[serde(default = "default_render_widgets_bindings")]
-    pub(crate) render_widgets: Vec<KeyBinding>,
+    #[serde(default = "default_execute_code_bindings")]
+    pub(crate) execute_code: Vec<KeyBinding>,
 
-    #[serde(default = "default_hard_reload_bindings")]
-    pub(crate) hard_reload: Vec<KeyBinding>,
+    #[serde(default = "default_reload_bindings")]
+    pub(crate) reload: Vec<KeyBinding>,
 
     #[serde(default = "default_toggle_index_bindings")]
     pub(crate) toggle_slide_index: Vec<KeyBinding>,
 
-    #[serde(default = "default_exit_bindings")]
-    pub(crate) exit: Vec<KeyBinding>,
+    #[serde(default = "default_toggle_bindings_modal_bindings")]
+    pub(crate) toggle_bindings: Vec<KeyBinding>,
 
     #[serde(default = "default_close_modal_bindings")]
     pub(crate) close_modal: Vec<KeyBinding>,
+
+    #[serde(default = "default_exit_bindings")]
+    pub(crate) exit: Vec<KeyBinding>,
 }
 
 impl Default for KeyBindingsConfig {
@@ -124,11 +127,12 @@ impl Default for KeyBindingsConfig {
             first_slide: default_first_slide_bindings(),
             last_slide: default_last_slide_bindings(),
             go_to_slide: default_go_to_slide_bindings(),
-            render_widgets: default_render_widgets_bindings(),
-            hard_reload: default_hard_reload_bindings(),
+            execute_code: default_execute_code_bindings(),
+            reload: default_reload_bindings(),
             toggle_slide_index: default_toggle_index_bindings(),
-            exit: default_exit_bindings(),
+            toggle_bindings: default_toggle_bindings_modal_bindings(),
             close_modal: default_close_modal_bindings(),
+            exit: default_exit_bindings(),
         }
     }
 }
@@ -161,11 +165,11 @@ fn default_go_to_slide_bindings() -> Vec<KeyBinding> {
     make_keybindings(["<number>G"])
 }
 
-fn default_render_widgets_bindings() -> Vec<KeyBinding> {
+fn default_execute_code_bindings() -> Vec<KeyBinding> {
     make_keybindings(["<c-e>"])
 }
 
-fn default_hard_reload_bindings() -> Vec<KeyBinding> {
+fn default_reload_bindings() -> Vec<KeyBinding> {
     make_keybindings(["<c-r>"])
 }
 
@@ -173,12 +177,16 @@ fn default_toggle_index_bindings() -> Vec<KeyBinding> {
     make_keybindings(["<c-p>"])
 }
 
-fn default_exit_bindings() -> Vec<KeyBinding> {
-    make_keybindings(["<c-c>"])
+fn default_toggle_bindings_modal_bindings() -> Vec<KeyBinding> {
+    make_keybindings(["?"])
 }
 
 fn default_close_modal_bindings() -> Vec<KeyBinding> {
     make_keybindings(["<esc>"])
+}
+
+fn default_exit_bindings() -> Vec<KeyBinding> {
+    make_keybindings(["<c-c>"])
 }
 
 #[cfg(test)]

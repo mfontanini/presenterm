@@ -1,4 +1,5 @@
 use crate::{
+    custom::KeyBindingsConfig,
     diff::PresentationDiffer,
     export::ImageReplacer,
     input::source::{Command, CommandSource},
@@ -27,6 +28,7 @@ pub struct PresenterOptions {
     pub graphics_mode: GraphicsMode,
     pub builder_options: PresentationBuilderOptions,
     pub font_size_fallback: Option<u8>,
+    pub bindings: KeyBindingsConfig,
 }
 
 /// A slideshow presenter.
@@ -71,7 +73,7 @@ impl<'a> Presenter<'a> {
 
     /// Run a presentation.
     pub fn present(mut self, path: &Path) -> Result<(), PresentationError> {
-        self.state = PresenterState::Presenting(Presentation::new(vec![], vec![], Default::default()));
+        self.state = PresenterState::Presenting(Presentation::from(vec![]));
         self.try_reload(path);
 
         let graphics_mode = match self.options.mode {
@@ -126,6 +128,10 @@ impl<'a> Presenter<'a> {
                 drawer.render_slide(presentation)?;
                 drawer.render_slide_index(presentation)
             }
+            PresenterState::KeyBindings(presentation) => {
+                drawer.render_slide(presentation)?;
+                drawer.render_key_bindings(presentation)
+            }
             PresenterState::Failure { error, .. } => drawer.render_error(error),
             PresenterState::Empty => panic!("cannot render without state"),
         };
@@ -152,7 +158,9 @@ impl<'a> Presenter<'a> {
 
         // Now apply the commands that require a presentation.
         let presentation = match &mut self.state {
-            PresenterState::Presenting(presentation) | PresenterState::SlideIndex(presentation) => presentation,
+            PresenterState::Presenting(presentation)
+            | PresenterState::SlideIndex(presentation)
+            | PresenterState::KeyBindings(presentation) => presentation,
             _ => {
                 return CommandSideEffect::None;
             }
@@ -174,6 +182,10 @@ impl<'a> Presenter<'a> {
             }
             Command::ToggleSlideIndex => {
                 self.toggle_slide_index();
+                true
+            }
+            Command::ToggleKeyBindingsConfig => {
+                self.toggle_key_bindings();
                 true
             }
             Command::CloseModal => {
@@ -223,6 +235,7 @@ impl<'a> Presenter<'a> {
             &mut self.resources,
             &mut self.typst,
             &self.themes,
+            self.options.bindings.clone(),
             self.options.builder_options.clone(),
         )
         .build(elements)?;
@@ -236,8 +249,21 @@ impl<'a> Presenter<'a> {
     fn toggle_slide_index(&mut self) {
         let state = mem::take(&mut self.state);
         match state {
-            PresenterState::Presenting(presentation) => self.state = PresenterState::SlideIndex(presentation),
+            PresenterState::Presenting(presentation) | PresenterState::KeyBindings(presentation) => {
+                self.state = PresenterState::SlideIndex(presentation)
+            }
             PresenterState::SlideIndex(presentation) => self.state = PresenterState::Presenting(presentation),
+            other => self.state = other,
+        }
+    }
+
+    fn toggle_key_bindings(&mut self) {
+        let state = mem::take(&mut self.state);
+        match state {
+            PresenterState::Presenting(presentation) | PresenterState::SlideIndex(presentation) => {
+                self.state = PresenterState::KeyBindings(presentation)
+            }
+            PresenterState::KeyBindings(presentation) => self.state = PresenterState::Presenting(presentation),
             other => self.state = other,
         }
     }
@@ -257,6 +283,7 @@ enum PresenterState {
     Empty,
     Presenting(Presentation),
     SlideIndex(Presentation),
+    KeyBindings(Presentation),
     Failure {
         error: String,
         presentation: Presentation,
@@ -266,27 +293,30 @@ enum PresenterState {
 impl PresenterState {
     fn presentation(&self) -> &Presentation {
         match self {
-            Self::Presenting(presentation) | Self::SlideIndex(presentation) | Self::Failure { presentation, .. } => {
-                presentation
-            }
+            Self::Presenting(presentation)
+            | Self::SlideIndex(presentation)
+            | Self::KeyBindings(presentation)
+            | Self::Failure { presentation, .. } => presentation,
             Self::Empty => panic!("state is empty"),
         }
     }
 
     fn presentation_mut(&mut self) -> &mut Presentation {
         match self {
-            Self::Presenting(presentation) | Self::SlideIndex(presentation) | Self::Failure { presentation, .. } => {
-                presentation
-            }
+            Self::Presenting(presentation)
+            | Self::SlideIndex(presentation)
+            | Self::KeyBindings(presentation)
+            | Self::Failure { presentation, .. } => presentation,
             Self::Empty => panic!("state is empty"),
         }
     }
 
     fn into_presentation(self) -> Presentation {
         match self {
-            Self::Presenting(presentation) | Self::SlideIndex(presentation) | Self::Failure { presentation, .. } => {
-                presentation
-            }
+            Self::Presenting(presentation)
+            | Self::SlideIndex(presentation)
+            | Self::KeyBindings(presentation)
+            | Self::Failure { presentation, .. } => presentation,
             Self::Empty => panic!("state is empty"),
         }
     }

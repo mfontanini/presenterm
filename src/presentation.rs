@@ -8,18 +8,24 @@ use crate::{
 use serde::Deserialize;
 use std::{cell::RefCell, fmt::Debug, ops::Deref, rc::Rc};
 
+#[derive(Debug)]
+pub(crate) struct Modals {
+    pub(crate) slide_index: Vec<RenderOperation>,
+    pub(crate) bindings: Vec<RenderOperation>,
+}
+
 /// A presentation.
 #[derive(Debug)]
 pub(crate) struct Presentation {
     slides: Vec<Slide>,
-    slide_index: Vec<RenderOperation>,
+    modals: Modals,
     state: PresentationState,
 }
 
 impl Presentation {
     /// Construct a new presentation.
-    pub(crate) fn new(slides: Vec<Slide>, slide_index: Vec<RenderOperation>, state: PresentationState) -> Self {
-        Self { slides, slide_index, state }
+    pub(crate) fn new(slides: Vec<Slide>, modals: Modals, state: PresentationState) -> Self {
+        Self { slides, modals, state }
     }
 
     /// Iterate the slides in this presentation.
@@ -28,8 +34,13 @@ impl Presentation {
     }
 
     /// Iterate the operations that render the slide index.
-    pub(crate) fn iter_index_operations(&self) -> impl Iterator<Item = &RenderOperation> {
-        self.slide_index.iter()
+    pub(crate) fn iter_slide_index_operations(&self) -> impl Iterator<Item = &RenderOperation> {
+        self.modals.slide_index.iter()
+    }
+
+    /// Iterate the operations that render the key bindings modal.
+    pub(crate) fn iter_bindings_operations(&self) -> impl Iterator<Item = &RenderOperation> {
+        self.modals.bindings.iter()
     }
 
     /// Consume this presentation and return its slides.
@@ -163,7 +174,8 @@ impl Presentation {
 
 impl From<Vec<Slide>> for Presentation {
     fn from(slides: Vec<Slide>) -> Self {
-        Self::new(slides, vec![], Default::default())
+        let modals = Modals { slide_index: vec![], bindings: vec![] };
+        Self::new(slides, modals, Default::default())
     }
 }
 

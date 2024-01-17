@@ -185,7 +185,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", serde_json::to_string_pretty(&meta)?);
         }
     } else {
-        let commands = CommandSource::new(&path, config.bindings)?;
+        let commands = CommandSource::new(&path, config.bindings.clone())?;
         let graphics_mode = match cli.image_protocol.map(GraphicsMode::try_from) {
             Some(Ok(mode)) => mode,
             Some(Err(_)) => {
@@ -200,6 +200,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             mode,
             graphics_mode,
             font_size_fallback: config.defaults.terminal_font_size,
+            bindings: config.bindings,
         };
         let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, options);
         presenter.present(&path)?;
