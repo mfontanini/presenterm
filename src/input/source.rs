@@ -79,6 +79,9 @@ pub(crate) enum Command {
     /// Toggle the slide index view.
     ToggleSlideIndex,
 
+    /// Toggle the key bindings config view.
+    ToggleKeyBindingsConfig,
+
     /// Hide the currently open modal, if any.
     CloseModal,
 }

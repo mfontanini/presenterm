@@ -91,6 +91,7 @@ impl CommandKeyBindings {
             Reload => Command::Reload,
             HardReload => Command::HardReload,
             ToggleSlideIndex => Command::ToggleSlideIndex,
+            ToggleKeyBindingsConfig => Command::ToggleKeyBindingsConfig,
             CloseModal => Command::CloseModal,
         };
         InputAction::Emit(command)
@@ -128,9 +129,10 @@ impl TryFrom<KeyBindingsConfig> for CommandKeyBindings {
             .chain(zip(CommandDiscriminants::LastSlide, config.last_slide))
             .chain(zip(CommandDiscriminants::GoToSlide, config.go_to_slide))
             .chain(zip(CommandDiscriminants::Exit, config.exit))
-            .chain(zip(CommandDiscriminants::HardReload, config.hard_reload))
+            .chain(zip(CommandDiscriminants::HardReload, config.reload))
             .chain(zip(CommandDiscriminants::ToggleSlideIndex, config.toggle_slide_index))
-            .chain(zip(CommandDiscriminants::RenderWidgets, config.render_widgets))
+            .chain(zip(CommandDiscriminants::ToggleKeyBindingsConfig, config.toggle_bindings))
+            .chain(zip(CommandDiscriminants::RenderWidgets, config.execute_code))
             .chain(zip(CommandDiscriminants::CloseModal, config.close_modal))
             .collect();
         Self::validate_conflicts(bindings.iter().map(|binding| &binding.0))?;
@@ -345,6 +347,7 @@ impl fmt::Display for KeyMatcher {
                     write!(f, "<c-")?;
                 }
                 match combo.key {
+                    KeyCode::Char(' ') => write!(f, "' '")?,
                     KeyCode::Char(c) => write!(f, "{}", c)?,
                     other => write!(f, "<{other:?}>")?,
                 };

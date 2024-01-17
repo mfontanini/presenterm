@@ -1,4 +1,6 @@
 use crate::{
+    custom::KeyBindingsConfig,
+    input::user::KeyBinding,
     markdown::{
         elements::{Text, TextBlock},
         text::WeightedTextBlock,
@@ -49,17 +51,6 @@ struct IndexDrawer {
     selection_style: TextStyle,
 }
 
-impl IndexDrawer {
-    fn initialize_layout(&self, dimensions: &WindowSize, visible_titles: usize) -> Vec<RenderOperation> {
-        let margin = dimensions.columns.saturating_sub(self.content_width) / 2;
-        let properties = MarginProperties { horizontal_margin: Margin::Fixed(margin), bottom_slide_margin: 0 };
-        // However many we see + 3 for the title and 1 at the bottom.
-        let content_height = (visible_titles + 4) as u16;
-        let target_row = dimensions.rows.saturating_sub(content_height) / 2;
-        vec![RenderOperation::ApplyMargin(properties), RenderOperation::JumpToRow { index: target_row }]
-    }
-}
-
 impl AsRenderOperations for IndexDrawer {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let current_slide_index = self.state.current_slide_index();
@@ -73,7 +64,7 @@ impl AsRenderOperations for IndexDrawer {
             false => (0, self.rows.len()),
         };
         let visible_rows = self.rows.iter().enumerate().skip(skip).take(take);
-        let mut operations = self.initialize_layout(dimensions, take);
+        let mut operations = vec![CenterModalContent::new(self.content_width, take).into()];
         operations.extend(self.prefix.iter().cloned());
         for (index, row) in visible_rows {
             let mut row = row.clone();
@@ -90,6 +81,44 @@ impl AsRenderOperations for IndexDrawer {
     fn diffable_content(&self) -> Option<&str> {
         // The index is just a view over the underlying data so it won't change in isolation.
         None
+    }
+}
+
+pub(crate) struct KeyBindingsModalBuilder;
+
+impl KeyBindingsModalBuilder {
+    pub(crate) fn build(theme: &PresentationTheme, config: &KeyBindingsConfig) -> Vec<RenderOperation> {
+        let mut builder = ModalBuilder::new("Key bindings");
+        builder.content.extend([
+            Self::build_line("Next slide", &config.next_slide),
+            Self::build_line("Previous slide", &config.previous_slide),
+            Self::build_line("First slide", &config.first_slide),
+            Self::build_line("Last slide", &config.last_slide),
+            Self::build_line("Go to slide", &config.go_to_slide),
+            Self::build_line("Execute code", &config.execute_code),
+            Self::build_line("Reload", &config.reload),
+            Self::build_line("Toggle slide index", &config.toggle_slide_index),
+            Self::build_line("Close modal", &config.close_modal),
+            Self::build_line("Exit", &config.exit),
+        ]);
+        let lines = builder.content.len();
+        let colors = theme.default_style.colors.clone().merge(&theme.modals.colors);
+        let content = builder.build(colors);
+        let content_width = content.content_width;
+        let mut operations = content.into_operations();
+        operations.insert(0, CenterModalContent::new(content_width, lines).into());
+        operations
+    }
+
+    fn build_line(label: &str, bindings: &[KeyBinding]) -> TextBlock {
+        let mut text = vec![Text::new(label, TextStyle::default().bold()), ": ".into()];
+        for (index, binding) in bindings.iter().enumerate() {
+            if index > 0 {
+                text.push(", ".into());
+            }
+            text.push(Text::new(binding.to_string(), TextStyle::default().italics()));
+        }
+        TextBlock(text)
     }
 }
 
@@ -159,6 +188,20 @@ struct ModalContent {
     content_width: u16,
 }
 
+impl ModalContent {
+    fn into_operations(self) -> Vec<RenderOperation> {
+        let mut operations = self.prefix;
+        operations.extend(self.content.into_iter().flat_map(|c| {
+            [
+                RenderOperation::RenderText { line: c.build(), alignment: Default::default() },
+                RenderOperation::RenderLineBreak,
+            ]
+        }));
+        operations.extend(self.suffix);
+        operations
+    }
+}
+
 #[derive(Clone, Debug)]
 struct ContentRow {
     prefix: Text,
@@ -209,5 +252,38 @@ impl Border {
             Self::Separator => ('├', '┤'),
             Self::Bottom => ('└', '┘'),
         }
+    }
+}
+
+#[derive(Debug)]
+struct CenterModalContent {
+    content_width: u16,
+    content_height: usize,
+}
+
+impl CenterModalContent {
+    fn new(content_width: u16, content_height: usize) -> Self {
+        Self { content_width, content_height }
+    }
+}
+
+impl AsRenderOperations for CenterModalContent {
+    fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
+        let margin = dimensions.columns.saturating_sub(self.content_width) / 2;
+        let properties = MarginProperties { horizontal_margin: Margin::Fixed(margin), bottom_slide_margin: 0 };
+        // However many we see + 3 for the title and 1 at the bottom.
+        let content_height = (self.content_height + 4) as u16;
+        let target_row = dimensions.rows.saturating_sub(content_height) / 2;
+        vec![RenderOperation::ApplyMargin(properties), RenderOperation::JumpToRow { index: target_row }]
+    }
+
+    fn diffable_content(&self) -> Option<&str> {
+        None
+    }
+}
+
+impl From<CenterModalContent> for RenderOperation {
+    fn from(op: CenterModalContent) -> Self {
+        Self::RenderDynamic(Rc::new(op))
     }
 }

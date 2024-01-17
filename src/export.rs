@@ -1,4 +1,5 @@
 use crate::{
+    custom::KeyBindingsConfig,
     markdown::parse::ParseError,
     presentation::{Presentation, RenderOperation},
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
@@ -81,6 +82,7 @@ impl<'a> Exporter<'a> {
             &mut self.resources,
             &mut self.typst,
             &self.themes,
+            KeyBindingsConfig::default(),
             self.options.clone(),
         )
         .build(elements)?;

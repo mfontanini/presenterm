@@ -67,7 +67,14 @@ where
     pub(crate) fn render_slide_index(&mut self, presentation: &Presentation) -> RenderResult {
         let dimensions = WindowSize::current(self.font_size_fallback)?;
         let engine = self.create_engine(dimensions);
-        engine.render(presentation.iter_index_operations())?;
+        engine.render(presentation.iter_slide_index_operations())?;
+        Ok(())
+    }
+
+    pub(crate) fn render_key_bindings(&mut self, presentation: &Presentation) -> RenderResult {
+        let dimensions = WindowSize::current(self.font_size_fallback)?;
+        let engine = self.create_engine(dimensions);
+        engine.render(presentation.iter_bindings_operations())?;
         Ok(())
     }
 
