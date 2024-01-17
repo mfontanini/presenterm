@@ -50,9 +50,11 @@ where
     }
 
     pub(crate) fn render<'b>(mut self, operations: impl Iterator<Item = &'b RenderOperation>) -> RenderResult {
+        self.terminal.begin_update()?;
         for operation in operations {
             self.render_one(operation)?;
         }
+        self.terminal.end_update()?;
         self.terminal.flush()?;
         Ok(())
     }
