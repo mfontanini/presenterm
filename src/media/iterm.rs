@@ -1,7 +1,7 @@
 use super::printer::{PrintImage, PrintImageError, PrintOptions, RegisterImageError, ResourceProperties};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use image::{codecs::png::PngEncoder, GenericImageView, ImageEncoder};
-use std::{fs, path::Path};
+use std::{env, fs, path::Path};
 
 pub(crate) struct ItermResource {
     dimensions: (u32, u32),
@@ -23,8 +23,23 @@ impl ResourceProperties for ItermResource {
     }
 }
 
-#[derive(Default)]
-pub struct ItermPrinter;
+pub struct ItermPrinter {
+    // Whether this is iterm2. Otherwise it can be a terminal that _supports_ the iterm2 protocol.
+    is_iterm: bool,
+}
+
+impl Default for ItermPrinter {
+    fn default() -> Self {
+        for key in ["TERM_PROGRAM", "LC_TERMINAL"] {
+            if let Ok(value) = env::var(key) {
+                if value.contains("iTerm") {
+                    return Self { is_iterm: true };
+                }
+            }
+        }
+        Self { is_iterm: false }
+    }
+}
 
 impl PrintImage for ItermPrinter {
     type Resource = ItermResource;
@@ -55,6 +70,11 @@ impl PrintImage for ItermPrinter {
             writer,
             "\x1b]1337;File=size={size};width={columns};height={rows};inline=1;preserveAspectRatio=1:{contents}\x07"
         )?;
+        // iterm2 really respects what we say and leaves no space, whereas wezterm does leave an
+        // extra line here.
+        if self.is_iterm {
+            writeln!(writer)?;
+        }
         Ok(())
     }
 }
