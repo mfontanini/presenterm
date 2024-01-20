@@ -1,15 +1,18 @@
 use crate::{
     custom::KeyBindingsConfig,
     markdown::parse::ParseError,
+    media::{
+        image::{Image, ImageSource},
+        printer::{ImageResource, ResourceProperties},
+    },
     presentation::{Presentation, RenderOperation},
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
-    render::media::{Image, ImageSource},
     tools::{ExecutionError, ThirdPartyTools},
     typst::TypstRender,
     CodeHighlighter, MarkdownParser, PresentationTheme, Resources,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
-use image::{codecs::png::PngEncoder, DynamicImage, GenericImageView, ImageEncoder, ImageError};
+use image::{codecs::png::PngEncoder, DynamicImage, ImageEncoder, ImageError};
 use semver::Version;
 use serde::Serialize;
 use std::{
@@ -138,11 +141,14 @@ impl<'a> Exporter<'a> {
                 ImageSource::Generated => {
                     let mut buffer = Vec::new();
                     let dimensions = image.original.dimensions();
+                    let ImageResource::Viuer(resource) = image.original.resource.as_ref() else {
+                        panic!("not in viuer mode")
+                    };
                     PngEncoder::new(&mut buffer).write_image(
-                        image.original.as_bytes(),
+                        resource.as_bytes(),
                         dimensions.0,
                         dimensions.1,
-                        image.original.color(),
+                        resource.color(),
                     )?;
                     let contents = Some(STANDARD.encode(buffer));
                     ImageMetadata { path: None, color: image.color, contents }
@@ -260,7 +266,8 @@ impl ImageReplacer {
             pixel.0 = rgb_color;
         }
         self.images.push(ReplacedImage { original: image, color });
-        Image::new(replacement)
+
+        Image::new(ImageResource::Viuer(replacement.into()), ImageSource::Generated)
     }
 
     fn allocate_color(&mut self) -> u32 {
@@ -290,7 +297,7 @@ mod test {
         let arena = Arena::new();
         let parser = MarkdownParser::new(&arena);
         let theme = PresentationThemeSet::default().load_by_name("dark").unwrap();
-        let resources = Resources::new("examples");
+        let resources = Resources::new("examples", Default::default());
         let typst = TypstRender::default();
         let themes = Themes::default();
         let options = PresentationBuilderOptions { allow_mutations: false, ..Default::default() };

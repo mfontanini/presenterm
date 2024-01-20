@@ -1,12 +1,13 @@
-use super::{engine::RenderEngine, media::GraphicsMode, terminal::Terminal};
+use super::{engine::RenderEngine, terminal::Terminal};
 use crate::{
     markdown::{elements::Text, text::WeightedTextBlock},
+    media::printer::{ImagePrinter, PrintImageError},
     presentation::{Presentation, RenderOperation},
     render::properties::WindowSize,
     style::{Color, Colors, TextStyle},
     theme::{Alignment, Margin},
 };
-use std::io;
+use std::{io, rc::Rc};
 
 /// The result of a render operation.
 pub(crate) type RenderResult = Result<(), RenderError>;
@@ -14,7 +15,6 @@ pub(crate) type RenderResult = Result<(), RenderError>;
 /// Allows drawing elements in the terminal.
 pub(crate) struct TerminalDrawer<W: io::Write> {
     terminal: Terminal<W>,
-    graphics_mode: GraphicsMode,
     font_size_fallback: Option<u8>,
 }
 
@@ -23,9 +23,9 @@ where
     W: io::Write,
 {
     /// Construct a drawer over a [std::io::Write].
-    pub(crate) fn new(handle: W, graphics_mode: GraphicsMode, font_size_fallback: Option<u8>) -> io::Result<Self> {
-        let terminal = Terminal::new(handle)?;
-        Ok(Self { terminal, graphics_mode, font_size_fallback })
+    pub(crate) fn new(handle: W, image_printer: Rc<ImagePrinter>, font_size_fallback: Option<u8>) -> io::Result<Self> {
+        let terminal = Terminal::new(handle, image_printer)?;
+        Ok(Self { terminal, font_size_fallback })
     }
 
     /// Render a slide.
@@ -79,7 +79,7 @@ where
     }
 
     fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<W> {
-        RenderEngine::new(&mut self.terminal, dimensions, self.graphics_mode.clone())
+        RenderEngine::new(&mut self.terminal, dimensions)
     }
 }
 
@@ -100,6 +100,9 @@ pub enum RenderError {
 
     #[error("tried to pop default screen")]
     PopDefaultScreen,
+
+    #[error("printing image: {0}")]
+    PrintImage(#[from] PrintImageError),
 
     #[error(transparent)]
     Other(Box<dyn std::error::Error>),

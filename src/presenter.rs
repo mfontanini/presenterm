@@ -4,12 +4,12 @@ use crate::{
     export::ImageReplacer,
     input::source::{Command, CommandSource},
     markdown::parse::{MarkdownParser, ParseError},
+    media::printer::ImagePrinter,
     presentation::Presentation,
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     render::{
         draw::{RenderError, RenderResult, TerminalDrawer},
         highlighting::CodeHighlighter,
-        media::GraphicsMode,
     },
     resource::Resources,
     theme::PresentationTheme,
@@ -21,11 +21,11 @@ use std::{
     io::{self, Stdout},
     mem,
     path::Path,
+    rc::Rc,
 };
 
 pub struct PresenterOptions {
     pub mode: PresentMode,
-    pub graphics_mode: GraphicsMode,
     pub builder_options: PresentationBuilderOptions,
     pub font_size_fallback: Option<u8>,
     pub bindings: KeyBindingsConfig,
@@ -42,6 +42,7 @@ pub struct Presenter<'a> {
     typst: TypstRender,
     state: PresenterState,
     slides_with_pending_widgets: HashSet<usize>,
+    image_printer: Rc<ImagePrinter>,
     themes: Themes,
     options: PresenterOptions,
 }
@@ -56,6 +57,7 @@ impl<'a> Presenter<'a> {
         resources: Resources,
         typst: TypstRender,
         themes: Themes,
+        image_printer: Rc<ImagePrinter>,
         options: PresenterOptions,
     ) -> Self {
         Self {
@@ -66,6 +68,7 @@ impl<'a> Presenter<'a> {
             typst,
             state: PresenterState::Empty,
             slides_with_pending_widgets: HashSet::new(),
+            image_printer,
             themes,
             options,
         }
@@ -76,11 +79,8 @@ impl<'a> Presenter<'a> {
         self.state = PresenterState::Presenting(Presentation::from(vec![]));
         self.try_reload(path);
 
-        let graphics_mode = match self.options.mode {
-            PresentMode::Export => GraphicsMode::AsciiBlocks,
-            _ => self.options.graphics_mode.clone(),
-        };
-        let mut drawer = TerminalDrawer::new(io::stdout(), graphics_mode, self.options.font_size_fallback)?;
+        let mut drawer =
+            TerminalDrawer::new(io::stdout(), self.image_printer.clone(), self.options.font_size_fallback)?;
         loop {
             self.render(&mut drawer)?;
             self.update_widgets(&mut drawer)?;

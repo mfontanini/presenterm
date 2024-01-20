@@ -1,13 +1,18 @@
 use crate::{
-    render::media::{Image, ImageSource, InvalidImage},
+    media::{
+        image::{Image, ImageSource},
+        printer::{PrintImage, RegisterImageError},
+    },
     style::Color,
     theme::TypstStyle,
     tools::{ExecutionError, ThirdPartyTools},
+    ImagePrinter,
 };
 use std::{
     fs,
     io::{self},
     path::Path,
+    rc::Rc,
 };
 use tempfile::tempdir;
 
@@ -17,11 +22,12 @@ const DEFAULT_VERTICAL_MARGIN: u16 = 7;
 
 pub struct TypstRender {
     ppi: String,
+    printer: Rc<ImagePrinter>,
 }
 
 impl TypstRender {
-    pub fn new(ppi: u32) -> Self {
-        Self { ppi: ppi.to_string() }
+    pub fn new(ppi: u32, printer: Rc<ImagePrinter>) -> Self {
+        Self { ppi: ppi.to_string(), printer }
     }
 
     pub(crate) fn render_typst(&self, input: &str, style: &TypstStyle) -> Result<Image, TypstRenderError> {
@@ -57,7 +63,9 @@ impl TypstRender {
         .run()?;
 
         let png_contents = fs::read(&output_path)?;
-        let image = Image::decode(&png_contents, ImageSource::Generated)?;
+        let image = image::load_from_memory(&png_contents)?;
+        let resource = self.printer.register_image(image)?;
+        let image = Image::new(resource, ImageSource::Generated);
         Ok(image)
     }
 
@@ -86,7 +94,7 @@ impl TypstRender {
 
 impl Default for TypstRender {
     fn default() -> Self {
-        Self::new(DEFAULT_PPI)
+        Self::new(DEFAULT_PPI, Default::default())
     }
 }
 
@@ -98,8 +106,11 @@ pub enum TypstRenderError {
     #[error("io: {0}")]
     Io(#[from] io::Error),
 
-    #[error("invalid output image: {0}")]
-    InvalidImage(#[from] InvalidImage),
+    #[error("invalid image: {0}")]
+    InvalidImage(#[from] image::ImageError),
+
+    #[error("invalid image: {0}")]
+    RegisterImage(#[from] RegisterImageError),
 
     #[error("unsupported color '{0}', only RGB is supported")]
     UnsupportedColor(String),

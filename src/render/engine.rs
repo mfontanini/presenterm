@@ -1,13 +1,17 @@
 use super::{
     draw::{RenderError, RenderResult},
     layout::Layout,
-    media::{GraphicsMode, Image, MediaRender},
     properties::CursorPosition,
     terminal::Terminal,
     text::TextDrawer,
 };
 use crate::{
     markdown::text::WeightedTextBlock,
+    media::{
+        image::Image,
+        printer::{PrintOptions, ResourceProperties},
+        scale::scale_image,
+    },
     presentation::{AsRenderOperations, MarginProperties, PreformattedLine, RenderOnDemand, RenderOperation},
     render::{layout::Positioning, properties::WindowSize},
     style::Colors,
@@ -24,29 +28,17 @@ where
     colors: Colors,
     max_modified_row: u16,
     layout: LayoutState,
-    graphics_mode: GraphicsMode,
 }
 
 impl<'a, W> RenderEngine<'a, W>
 where
     W: io::Write,
 {
-    pub(crate) fn new(
-        terminal: &'a mut Terminal<W>,
-        window_dimensions: WindowSize,
-        graphics_mode: GraphicsMode,
-    ) -> Self {
+    pub(crate) fn new(terminal: &'a mut Terminal<W>, window_dimensions: WindowSize) -> Self {
         let max_modified_row = terminal.cursor_row;
         let current_rect = WindowRect { dimensions: window_dimensions, start_column: 0 };
         let window_rects = vec![current_rect.clone()];
-        Self {
-            terminal,
-            window_rects,
-            colors: Default::default(),
-            max_modified_row,
-            layout: Default::default(),
-            graphics_mode,
-        }
+        Self { terminal, window_rects, colors: Default::default(), max_modified_row, layout: Default::default() }
     }
 
     pub(crate) fn render<'b>(mut self, operations: impl Iterator<Item = &'b RenderOperation>) -> RenderResult {
@@ -154,12 +146,15 @@ where
     }
 
     fn render_image(&mut self, image: &Image) -> RenderResult {
-        let position = CursorPosition { row: self.terminal.cursor_row, column: self.current_rect().start_column };
-        let (_, height) = MediaRender::new(self.graphics_mode.clone())
-            .draw_image(image, position, self.current_dimensions())
-            .map_err(|e| RenderError::Other(Box::new(e)))?;
-        let row = self.terminal.cursor_row + height as u16;
-        self.terminal.sync_cursor_row(row)?;
+        let mut position = CursorPosition { row: self.terminal.cursor_row, column: self.current_rect().start_column };
+
+        let (width, height) = image.dimensions();
+        let scale = scale_image(self.current_dimensions(), width, height, &position);
+
+        position.column = scale.start_column;
+        let options = PrintOptions { columns: scale.columns, rows: scale.rows, cursor_position: position };
+        self.terminal.move_to_column(scale.start_column)?;
+        self.terminal.print_image(image, &options)?;
         Ok(())
     }
 

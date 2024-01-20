@@ -7,6 +7,7 @@ use crate::{
         },
         text::WeightedTextBlock,
     },
+    media::image::Image,
     presentation::{
         ChunkMutator, MarginProperties, Modals, PreformattedLine, Presentation, PresentationMetadata,
         PresentationState, PresentationThemeMetadata, RenderOperation, Slide, SlideBuilder, SlideChunk,
@@ -18,10 +19,7 @@ use crate::{
         modals::IndexBuilder,
         separator::RenderSeparator,
     },
-    render::{
-        highlighting::{CodeHighlighter, HighlightThemeSet},
-        media::Image,
-    },
+    render::highlighting::{CodeHighlighter, HighlightThemeSet},
     resource::{LoadImageError, Resources},
     style::TextStyle,
     theme::{
@@ -913,7 +911,7 @@ mod test {
     ) -> Result<Presentation, BuildError> {
         let highlighter = CodeHighlighter::default();
         let theme = PresentationTheme::default();
-        let mut resources = Resources::new("/tmp");
+        let mut resources = Resources::new("/tmp", Default::default());
         let mut typst = TypstRender::default();
         let themes = Themes::default();
         let bindings = KeyBindingsConfig::default();
