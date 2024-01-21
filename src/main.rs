@@ -1,13 +1,14 @@
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use comrak::Arena;
 use presenterm::{
-    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, LoadThemeError, MarkdownParser, MediaRender,
-    PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter, PresenterOptions,
-    Resources, Themes, TypstRender,
+    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, KittyMode, LoadThemeError,
+    MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter,
+    PresenterOptions, Resources, Themes, TypstRender,
 };
 use std::{
     env,
     path::{Path, PathBuf},
+    rc::Rc,
 };
 
 const DEFAULT_THEME: &str = "dark";
@@ -53,7 +54,8 @@ struct Cli {
 #[derive(Clone, Debug, ValueEnum)]
 enum ImageProtocol {
     Iterm2,
-    Kitty,
+    KittyLocal,
+    KittyRemote,
     Sixel,
     AsciiBlocks,
 }
@@ -64,7 +66,8 @@ impl TryFrom<ImageProtocol> for GraphicsMode {
     fn try_from(protocol: ImageProtocol) -> Result<Self, Self::Error> {
         let mode = match protocol {
             ImageProtocol::Iterm2 => GraphicsMode::Iterm2,
-            ImageProtocol::Kitty => GraphicsMode::Kitty,
+            ImageProtocol::KittyLocal => GraphicsMode::Kitty(KittyMode::Local),
+            ImageProtocol::KittyRemote => GraphicsMode::Kitty(KittyMode::Remote),
             ImageProtocol::AsciiBlocks => GraphicsMode::AsciiBlocks,
             #[cfg(feature = "sixel")]
             ImageProtocol::Sixel => GraphicsMode::Sixel,
@@ -162,17 +165,18 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         display_acknowledgements();
         return Ok(());
     }
-    // Pre-load this so we don't flicker on the first displayed image.
-    MediaRender::detect_terminal_protocol();
+    // Pre-load this so we don't flicker on the first displayed image when using viuer.
+    GraphicsMode::detect_graphics_protocol();
 
     let path = cli.path.unwrap_or_else(|| {
         Cli::command().error(ErrorKind::MissingRequiredArgument, "no path specified").exit();
     });
     let resources_path = path.parent().unwrap_or(Path::new("/"));
-    let resources = Resources::new(resources_path);
-    let typst = TypstRender::new(config.typst.ppi);
     let options = make_builder_options(&config, &mode, force_default_theme);
     if cli.export_pdf || cli.generate_pdf_metadata {
+        let printer = Rc::new(ImagePrinter::new(GraphicsMode::AsciiBlocks)?);
+        let resources = Resources::new(resources_path, printer.clone());
+        let typst = TypstRender::new(config.typst.ppi, printer.clone());
         let mut exporter = Exporter::new(parser, &default_theme, resources, typst, themes, options);
         let mut args = Vec::new();
         if let Some(theme) = cli.theme.as_ref() {
@@ -187,7 +191,13 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     } else {
         let commands = CommandSource::new(&path, config.bindings.clone())?;
         let graphics_mode = match cli.image_protocol.map(GraphicsMode::try_from) {
-            Some(Ok(mode)) => mode,
+            Some(Ok(mode)) => {
+                if mode.is_supported() {
+                    mode
+                } else {
+                    GraphicsMode::default()
+                }
+            }
             Some(Err(_)) => {
                 Cli::command()
                     .error(ErrorKind::InvalidValue, "sixel support was not enabled during compilation")
@@ -195,14 +205,19 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             }
             None => GraphicsMode::default(),
         };
+        let printer = match mode {
+            PresentMode::Export => Rc::new(ImagePrinter::new(GraphicsMode::AsciiBlocks)?),
+            _ => Rc::new(ImagePrinter::new(graphics_mode)?),
+        };
         let options = PresenterOptions {
             builder_options: options,
             mode,
-            graphics_mode,
             font_size_fallback: config.defaults.terminal_font_size,
             bindings: config.bindings,
         };
-        let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, options);
+        let resources = Resources::new(resources_path, printer.clone());
+        let typst = TypstRender::new(config.typst.ppi, printer.clone());
+        let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, printer, options);
         presenter.present(&path)?;
     }
     Ok(())

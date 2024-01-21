@@ -1,11 +1,17 @@
-use crate::style::Colors;
+use crate::{
+    media::{
+        image::Image,
+        printer::{ImagePrinter, PrintImage, PrintImageError, PrintOptions},
+    },
+    style::Colors,
+};
 use crossterm::{
     cursor,
     style::{self, StyledContent},
     terminal::{self},
     QueueableCommand,
 };
-use std::io;
+use std::{io, rc::Rc};
 
 /// A wrapper over the terminal write handle.
 pub(crate) struct Terminal<W>
@@ -13,18 +19,19 @@ where
     W: io::Write,
 {
     writer: W,
+    image_printer: Rc<ImagePrinter>,
     pub(crate) cursor_row: u16,
 }
 
 impl<W: io::Write> Terminal<W> {
-    pub(crate) fn new(mut writer: W) -> io::Result<Self> {
+    pub(crate) fn new(mut writer: W, image_printer: Rc<ImagePrinter>) -> io::Result<Self> {
         terminal::enable_raw_mode()?;
         if should_hide_cursor() {
             writer.queue(cursor::Hide)?;
         }
         writer.queue(terminal::EnterAlternateScreen)?;
 
-        Ok(Self { writer, cursor_row: 0 })
+        Ok(Self { writer, image_printer, cursor_row: 0 })
     }
 
     pub(crate) fn begin_update(&mut self) -> io::Result<()> {
@@ -96,6 +103,12 @@ impl<W: io::Write> Terminal<W> {
     pub(crate) fn sync_cursor_row(&mut self, position: u16) -> io::Result<()> {
         self.cursor_row = position;
         self.writer.queue(cursor::MoveToRow(position))?;
+        Ok(())
+    }
+
+    pub(crate) fn print_image(&mut self, image: &Image, options: &PrintOptions) -> Result<(), PrintImageError> {
+        self.image_printer.print(&image.resource, options, &mut self.writer)?;
+        self.cursor_row += options.rows;
         Ok(())
     }
 }

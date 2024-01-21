@@ -1,7 +1,8 @@
 use crate::{
     custom::OptionsConfig,
     markdown::text::WeightedTextBlock,
-    render::{media::Image, properties::WindowSize},
+    media::image::Image,
+    render::properties::WindowSize,
     style::Colors,
     theme::{Alignment, Margin, PresentationTheme},
 };

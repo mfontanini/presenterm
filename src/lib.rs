@@ -8,6 +8,7 @@ pub(crate) mod execute;
 pub(crate) mod export;
 pub(crate) mod input;
 pub(crate) mod markdown;
+pub(crate) mod media;
 pub(crate) mod presentation;
 pub(crate) mod presenter;
 pub(crate) mod processing;
@@ -23,12 +24,10 @@ pub use crate::{
     export::{ExportError, Exporter},
     input::source::CommandSource,
     markdown::parse::MarkdownParser,
+    media::{graphics::GraphicsMode, kitty::KittyMode, printer::ImagePrinter},
     presenter::{PresentMode, Presenter, PresenterOptions},
     processing::builder::{PresentationBuilderOptions, Themes},
-    render::{
-        highlighting::{CodeHighlighter, HighlightThemeSet},
-        media::{GraphicsMode, MediaRender},
-    },
+    render::highlighting::{CodeHighlighter, HighlightThemeSet},
     resource::Resources,
     theme::{LoadThemeError, PresentationTheme, PresentationThemeSet},
     typst::TypstRender,
