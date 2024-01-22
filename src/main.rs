@@ -1,9 +1,9 @@
 use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use comrak::Arena;
 use presenterm::{
-    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, KittyMode, LoadThemeError,
-    MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter,
-    PresenterOptions, Resources, Themes, TypstRender,
+    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageRegistry, KittyMode,
+    LoadThemeError, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet,
+    Presenter, PresenterOptions, Resources, Themes, TypstRender,
 };
 use std::{
     env,
@@ -135,6 +135,7 @@ fn make_builder_options(config: &Config, mode: &PresentMode, force_default_theme
         incremental_lists: config.options.incremental_lists.unwrap_or_default(),
         force_default_theme,
         end_slide_shorthand: config.options.end_slide_shorthand.unwrap_or_default(),
+        print_modal_background: false,
     }
 }
 
@@ -149,7 +150,29 @@ fn load_default_theme(config: &Config, themes: &Themes, cli: &Cli) -> Presentati
     default_theme
 }
 
-fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
+fn select_graphics_mode(cli: &Cli) -> GraphicsMode {
+    if cli.export || cli.export_pdf || cli.generate_pdf_metadata {
+        GraphicsMode::AsciiBlocks
+    } else {
+        match cli.image_protocol.clone().map(GraphicsMode::try_from) {
+            Some(Ok(mode)) => {
+                if mode.is_supported() {
+                    mode
+                } else {
+                    GraphicsMode::default()
+                }
+            }
+            Some(Err(_)) => {
+                Cli::command()
+                    .error(ErrorKind::InvalidValue, "sixel support was not enabled during compilation")
+                    .exit();
+            }
+            None => GraphicsMode::default(),
+        }
+    }
+}
+
+fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let (config, themes) = load_customizations()?;
 
     let default_theme = load_default_theme(&config, &themes, &cli);
@@ -168,15 +191,17 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     // Pre-load this so we don't flicker on the first displayed image when using viuer.
     GraphicsMode::detect_graphics_protocol();
 
-    let path = cli.path.unwrap_or_else(|| {
+    let path = cli.path.take().unwrap_or_else(|| {
         Cli::command().error(ErrorKind::MissingRequiredArgument, "no path specified").exit();
     });
     let resources_path = path.parent().unwrap_or(Path::new("/"));
-    let options = make_builder_options(&config, &mode, force_default_theme);
+    let mut options = make_builder_options(&config, &mode, force_default_theme);
+    let graphics_mode = select_graphics_mode(&cli);
+    let printer = Rc::new(ImagePrinter::new(graphics_mode.clone())?);
+    let registry = ImageRegistry(printer.clone());
+    let resources = Resources::new(resources_path, registry.clone());
+    let typst = TypstRender::new(config.typst.ppi, registry);
     if cli.export_pdf || cli.generate_pdf_metadata {
-        let printer = Rc::new(ImagePrinter::new(GraphicsMode::AsciiBlocks)?);
-        let resources = Resources::new(resources_path, printer.clone());
-        let typst = TypstRender::new(config.typst.ppi, printer.clone());
         let mut exporter = Exporter::new(parser, &default_theme, resources, typst, themes, options);
         let mut args = Vec::new();
         if let Some(theme) = cli.theme.as_ref() {
@@ -190,33 +215,14 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         let commands = CommandSource::new(&path, config.bindings.clone())?;
-        let graphics_mode = match cli.image_protocol.map(GraphicsMode::try_from) {
-            Some(Ok(mode)) => {
-                if mode.is_supported() {
-                    mode
-                } else {
-                    GraphicsMode::default()
-                }
-            }
-            Some(Err(_)) => {
-                Cli::command()
-                    .error(ErrorKind::InvalidValue, "sixel support was not enabled during compilation")
-                    .exit();
-            }
-            None => GraphicsMode::default(),
-        };
-        let printer = match mode {
-            PresentMode::Export => Rc::new(ImagePrinter::new(GraphicsMode::AsciiBlocks)?),
-            _ => Rc::new(ImagePrinter::new(graphics_mode)?),
-        };
+        options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty(_));
+
         let options = PresenterOptions {
             builder_options: options,
             mode,
             font_size_fallback: config.defaults.terminal_font_size,
             bindings: config.bindings,
         };
-        let resources = Resources::new(resources_path, printer.clone());
-        let typst = TypstRender::new(config.typst.ppi, printer.clone());
         let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, printer, options);
         presenter.present(&path)?;
     }

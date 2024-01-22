@@ -54,6 +54,14 @@ enum KittyBuffer {
     Memory(Vec<u8>),
 }
 
+impl Drop for KittyBuffer {
+    fn drop(&mut self) {
+        if let Self::Filesystem(path) = self {
+            let _ = fs::remove_file(path);
+        }
+    }
+}
+
 struct GifFrame<T> {
     delay: Delay,
     buffer: T,
@@ -123,6 +131,7 @@ impl KittyPrinter {
             ControlOption::Height(dimensions.1),
             ControlOption::Columns(print_options.columns),
             ControlOption::Rows(print_options.rows),
+            ControlOption::ZIndex(print_options.z_index),
         ];
 
         match &buffer {
@@ -151,6 +160,7 @@ impl KittyPrinter {
                 ControlOption::ImageId(image_id),
                 ControlOption::Width(dimensions.0),
                 ControlOption::Height(dimensions.1),
+                ControlOption::ZIndex(print_options.z_index),
             ];
             if frame_id == 0 {
                 options.extend([
@@ -343,6 +353,7 @@ enum ControlOption {
     AnimationState(u32),
     Loops(u32),
     Quiet(u32),
+    ZIndex(i32),
 }
 
 impl fmt::Display for ControlOption {
@@ -364,6 +375,7 @@ impl fmt::Display for ControlOption {
             AnimationState(state) => write!(f, "s={state}"),
             Loops(count) => write!(f, "v={count}"),
             Quiet(option) => write!(f, "q={option}"),
+            ZIndex(index) => write!(f, "z={index}"),
         }
     }
 }

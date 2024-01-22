@@ -12,7 +12,10 @@ use crate::{
         printer::{PrintOptions, ResourceProperties},
         scale::scale_image,
     },
-    presentation::{AsRenderOperations, MarginProperties, PreformattedLine, RenderOnDemand, RenderOperation},
+    presentation::{
+        AsRenderOperations, ImageProperties, ImageSize, MarginProperties, PreformattedLine, RenderOnDemand,
+        RenderOperation,
+    },
     render::{layout::Positioning, properties::WindowSize},
     style::Colors,
     theme::Alignment,
@@ -62,7 +65,7 @@ where
             RenderOperation::JumpToBottomRow { index } => self.jump_to_bottom(*index),
             RenderOperation::RenderText { line, alignment } => self.render_text(line, alignment),
             RenderOperation::RenderLineBreak => self.render_line_break(),
-            RenderOperation::RenderImage(image) => self.render_image(image),
+            RenderOperation::RenderImage(image, properties) => self.render_image(image, properties),
             RenderOperation::RenderPreformattedLine(operation) => self.render_preformatted_line(operation),
             RenderOperation::RenderDynamic(generator) => self.render_dynamic(generator.as_ref()),
             RenderOperation::RenderOnDemand(generator) => self.render_on_demand(generator.as_ref()),
@@ -145,16 +148,24 @@ where
         Ok(())
     }
 
-    fn render_image(&mut self, image: &Image) -> RenderResult {
-        let mut position = CursorPosition { row: self.terminal.cursor_row, column: self.current_rect().start_column };
+    fn render_image(&mut self, image: &Image, properties: &ImageProperties) -> RenderResult {
+        let starting_position =
+            CursorPosition { row: self.terminal.cursor_row, column: self.current_rect().start_column };
 
         let (width, height) = image.dimensions();
-        let scale = scale_image(self.current_dimensions(), width, height, &position);
+        let (cursor_position, columns, rows) = match properties.size {
+            ImageSize::Scaled => {
+                let scale = scale_image(self.current_dimensions(), width, height, &starting_position);
+                (CursorPosition { row: starting_position.row, column: scale.start_column }, scale.columns, scale.rows)
+            }
+            ImageSize::Specific(columns, rows) => (starting_position.clone(), columns, rows),
+        };
 
-        position.column = scale.start_column;
-        let options = PrintOptions { columns: scale.columns, rows: scale.rows, cursor_position: position };
-        self.terminal.move_to_column(scale.start_column)?;
+        let options = PrintOptions { columns, rows, cursor_position, z_index: properties.z_index };
         self.terminal.print_image(image, &options)?;
+        if properties.restore_cursor {
+            self.terminal.move_to(starting_position.column, starting_position.row)?;
+        }
         Ok(())
     }
 

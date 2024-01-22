@@ -1,16 +1,11 @@
 use crate::{
-    media::{
-        image::{Image, ImageSource},
-        printer::{PrintImage, RegisterImageError},
-    },
+    media::{image::Image, printer::RegisterImageError, register::ImageRegistry},
     theme::{LoadThemeError, PresentationTheme},
-    ImagePrinter,
 };
 use std::{
     collections::HashMap,
     io,
     path::{Path, PathBuf},
-    rc::Rc,
 };
 
 /// Manages resources pulled from the filesystem such as images.
@@ -21,15 +16,15 @@ pub struct Resources {
     base_path: PathBuf,
     images: HashMap<PathBuf, Image>,
     themes: HashMap<PathBuf, PresentationTheme>,
-    printer: Rc<ImagePrinter>,
+    image_registry: ImageRegistry,
 }
 
 impl Resources {
     /// Construct a new resource manager over the provided based path.
     ///
     /// Any relative paths will be assumed to be relative to the given base.
-    pub fn new<P: Into<PathBuf>>(base_path: P, printer: Rc<ImagePrinter>) -> Self {
-        Self { base_path: base_path.into(), images: Default::default(), themes: Default::default(), printer }
+    pub fn new<P: Into<PathBuf>>(base_path: P, image_registry: ImageRegistry) -> Self {
+        Self { base_path: base_path.into(), images: Default::default(), themes: Default::default(), image_registry }
     }
 
     /// Get the image at the given path.
@@ -39,8 +34,7 @@ impl Resources {
             return Ok(image.clone());
         }
 
-        let resource = self.printer.register_resource(&path)?;
-        let image = Image::new(resource, ImageSource::Filesystem(path.clone()));
+        let image = self.image_registry.register_resource(path.clone())?;
         self.images.insert(path, image.clone());
         Ok(image)
     }

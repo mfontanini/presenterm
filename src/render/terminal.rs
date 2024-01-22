@@ -107,6 +107,7 @@ impl<W: io::Write> Terminal<W> {
     }
 
     pub(crate) fn print_image(&mut self, image: &Image, options: &PrintOptions) -> Result<(), PrintImageError> {
+        self.move_to_column(options.cursor_position.column)?;
         self.image_printer.print(&image.resource, options, &mut self.writer)?;
         self.cursor_row += options.rows;
         Ok(())

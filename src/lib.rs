@@ -24,7 +24,7 @@ pub use crate::{
     export::{ExportError, Exporter},
     input::source::CommandSource,
     markdown::parse::MarkdownParser,
-    media::{graphics::GraphicsMode, kitty::KittyMode, printer::ImagePrinter},
+    media::{graphics::GraphicsMode, kitty::KittyMode, printer::ImagePrinter, register::ImageRegistry},
     presenter::{PresentMode, Presenter, PresenterOptions},
     processing::builder::{PresentationBuilderOptions, Themes},
     render::highlighting::{CodeHighlighter, HighlightThemeSet},

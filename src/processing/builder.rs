@@ -7,9 +7,9 @@ use crate::{
         },
         text::WeightedTextBlock,
     },
-    media::image::Image,
+    media::{image::Image, printer::RegisterImageError, register::ImageRegistry},
     presentation::{
-        ChunkMutator, MarginProperties, Modals, PreformattedLine, Presentation, PresentationMetadata,
+        ChunkMutator, ImageProperties, MarginProperties, Modals, PreformattedLine, Presentation, PresentationMetadata,
         PresentationState, PresentationThemeMetadata, RenderOperation, Slide, SlideBuilder, SlideChunk,
     },
     processing::{
@@ -21,12 +21,13 @@ use crate::{
     },
     render::highlighting::{CodeHighlighter, HighlightThemeSet},
     resource::{LoadImageError, Resources},
-    style::TextStyle,
+    style::{Color, TextStyle},
     theme::{
         Alignment, AuthorPositioning, ElementType, LoadThemeError, Margin, PresentationTheme, PresentationThemeSet,
     },
     typst::{TypstRender, TypstRenderError},
 };
+use image::DynamicImage;
 use serde::Deserialize;
 use std::{borrow::Cow, cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
@@ -35,6 +36,7 @@ use super::modals::KeyBindingsModalBuilder;
 
 // TODO: move to a theme config.
 static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
+static DEFAULT_Z_INDEX: i32 = -2;
 
 #[derive(Default)]
 pub struct Themes {
@@ -50,6 +52,7 @@ pub struct PresentationBuilderOptions {
     pub incremental_lists: bool,
     pub force_default_theme: bool,
     pub end_slide_shorthand: bool,
+    pub print_modal_background: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -72,6 +75,7 @@ impl Default for PresentationBuilderOptions {
             incremental_lists: false,
             force_default_theme: false,
             end_slide_shorthand: false,
+            print_modal_background: false,
         }
     }
 }
@@ -93,18 +97,21 @@ pub(crate) struct PresentationBuilder<'a> {
     footer_context: Rc<RefCell<FooterContext>>,
     themes: &'a Themes,
     index_builder: IndexBuilder,
+    image_registry: ImageRegistry,
     bindings_config: KeyBindingsConfig,
     options: PresentationBuilderOptions,
 }
 
 impl<'a> PresentationBuilder<'a> {
     /// Construct a new builder.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         default_highlighter: CodeHighlighter,
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
         typst: &'a mut TypstRender,
         themes: &'a Themes,
+        image_registry: ImageRegistry,
         bindings_config: KeyBindingsConfig,
         options: PresentationBuilderOptions,
     ) -> Self {
@@ -121,6 +128,7 @@ impl<'a> PresentationBuilder<'a> {
             footer_context: Default::default(),
             themes,
             index_builder: Default::default(),
+            image_registry,
             bindings_config,
             options,
         }
@@ -156,13 +164,40 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.footer_context.borrow_mut().total_slides = self.slides.len();
 
-        // TODO consider a separate color palette
+        let mut bindings_modal_builder = KeyBindingsModalBuilder::default();
+        if self.options.print_modal_background {
+            let background = self.build_modal_background()?;
+            self.index_builder.set_background(background.clone());
+            bindings_modal_builder.set_background(background);
+        };
+
         let presentation_state = PresentationState::default();
         let slide_index = self.index_builder.build(&self.theme, presentation_state.clone());
-        let bindings = KeyBindingsModalBuilder::build(&self.theme, &self.bindings_config);
+        let bindings = bindings_modal_builder.build(&self.theme, &self.bindings_config);
         let modals = Modals { slide_index, bindings };
         let presentation = Presentation::new(self.slides, modals, presentation_state);
         Ok(presentation)
+    }
+
+    fn build_modal_background(&self) -> Result<Image, RegisterImageError> {
+        let color = self
+            .theme
+            .modals
+            .colors
+            .background
+            .as_ref()
+            .or(self.theme.default_style.colors.background.as_ref())
+            .and_then(Color::as_rgb);
+        // If we don't have an rgb color (or we don't have a color at all), we default to a semi
+        // transparent dark background.
+        let rgba = match color {
+            Some((r, g, b)) => [r, g, b, 230],
+            None => [0, 0, 0, 128],
+        };
+        let mut image = DynamicImage::new_rgba8(1, 1);
+        image.as_mut_rgba8().unwrap().get_pixel_mut(0, 0).0 = rgba;
+        let image = self.image_registry.register_image(image)?;
+        Ok(image)
     }
 
     fn validate_last_operation(&mut self) -> Result<(), BuildError> {
@@ -465,7 +500,8 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_image(&mut self, image: Image) {
-        self.chunk_operations.push(RenderOperation::RenderImage(image));
+        let properties = ImageProperties { z_index: DEFAULT_Z_INDEX, size: Default::default(), restore_cursor: false };
+        self.chunk_operations.push(RenderOperation::RenderImage(image, properties));
         self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
     }
 
@@ -765,6 +801,9 @@ pub enum BuildError {
     #[error("loading image: {0}")]
     LoadImage(#[from] LoadImageError),
 
+    #[error("registering image: {0}")]
+    RegisterImage(#[from] RegisterImageError),
+
     #[error("invalid presentation metadata: {0}")]
     InvalidMetadata(String),
 
@@ -915,8 +954,16 @@ mod test {
         let mut typst = TypstRender::default();
         let themes = Themes::default();
         let bindings = KeyBindingsConfig::default();
-        let builder =
-            PresentationBuilder::new(highlighter, &theme, &mut resources, &mut typst, &themes, bindings, options);
+        let builder = PresentationBuilder::new(
+            highlighter,
+            &theme,
+            &mut resources,
+            &mut typst,
+            &themes,
+            Default::default(),
+            bindings,
+            options,
+        );
         builder.build(elements)
     }
 
@@ -951,7 +998,7 @@ mod test {
             | PopMargin => false,
             RenderText { .. }
             | RenderLineBreak
-            | RenderImage(_)
+            | RenderImage(_, _)
             | RenderPreformattedLine(_)
             | RenderDynamic(_)
             | RenderOnDemand(_) => true,

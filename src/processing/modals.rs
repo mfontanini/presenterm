@@ -5,7 +5,10 @@ use crate::{
         elements::{Text, TextBlock},
         text::WeightedTextBlock,
     },
-    presentation::{AsRenderOperations, MarginProperties, PresentationState, RenderOperation},
+    media::image::Image,
+    presentation::{
+        AsRenderOperations, ImageProperties, ImageSize, MarginProperties, PresentationState, RenderOperation,
+    },
     processing::padding::NumberPadder,
     render::properties::WindowSize,
     style::{Colors, TextStyle},
@@ -15,14 +18,21 @@ use crate::{
 use std::{iter, rc::Rc};
 use unicode_width::UnicodeWidthStr;
 
+static MODAL_Z_INDEX: i32 = -1;
+
 #[derive(Default)]
 pub(crate) struct IndexBuilder {
     titles: Vec<TextBlock>,
+    background: Option<Image>,
 }
 
 impl IndexBuilder {
     pub(crate) fn add_title(&mut self, title: TextBlock) {
         self.titles.push(title);
+    }
+
+    pub(crate) fn set_background(&mut self, background: Image) {
+        self.background = Some(background);
     }
 
     pub(crate) fn build(self, theme: &PresentationTheme, state: PresentationState) -> Vec<RenderOperation> {
@@ -36,7 +46,15 @@ impl IndexBuilder {
         let base_color = theme.modals.colors.merge(&theme.default_style.colors);
         let selection_style = TextStyle::default().colors(theme.modals.selection_colors.clone()).bold();
         let ModalContent { prefix, content, suffix, content_width } = builder.build(base_color);
-        let drawer = IndexDrawer { prefix, rows: content, suffix, state, content_width, selection_style };
+        let drawer = IndexDrawer {
+            prefix,
+            rows: content,
+            suffix,
+            state,
+            content_width,
+            selection_style,
+            background: self.background,
+        };
         vec![RenderOperation::RenderDynamic(Rc::new(drawer))]
     }
 }
@@ -49,6 +67,7 @@ struct IndexDrawer {
     content_width: u16,
     state: PresentationState,
     selection_style: TextStyle,
+    background: Option<Image>,
 }
 
 impl AsRenderOperations for IndexDrawer {
@@ -64,7 +83,7 @@ impl AsRenderOperations for IndexDrawer {
             false => (0, self.rows.len()),
         };
         let visible_rows = self.rows.iter().enumerate().skip(skip).take(take);
-        let mut operations = vec![CenterModalContent::new(self.content_width, take).into()];
+        let mut operations = vec![CenterModalContent::new(self.content_width, take, self.background.clone()).into()];
         operations.extend(self.prefix.iter().cloned());
         for (index, row) in visible_rows {
             let mut row = row.clone();
@@ -84,10 +103,17 @@ impl AsRenderOperations for IndexDrawer {
     }
 }
 
-pub(crate) struct KeyBindingsModalBuilder;
+#[derive(Default)]
+pub(crate) struct KeyBindingsModalBuilder {
+    background: Option<Image>,
+}
 
 impl KeyBindingsModalBuilder {
-    pub(crate) fn build(theme: &PresentationTheme, config: &KeyBindingsConfig) -> Vec<RenderOperation> {
+    pub(crate) fn set_background(&mut self, background: Image) {
+        self.background = Some(background);
+    }
+
+    pub(crate) fn build(self, theme: &PresentationTheme, config: &KeyBindingsConfig) -> Vec<RenderOperation> {
         let mut builder = ModalBuilder::new("Key bindings");
         builder.content.extend([
             Self::build_line("Next", &config.next),
@@ -106,7 +132,7 @@ impl KeyBindingsModalBuilder {
         let content = builder.build(colors);
         let content_width = content.content_width;
         let mut operations = content.into_operations();
-        operations.insert(0, CenterModalContent::new(content_width, lines).into());
+        operations.insert(0, CenterModalContent::new(content_width, lines, self.background).into());
         operations
     }
 
@@ -259,11 +285,12 @@ impl Border {
 struct CenterModalContent {
     content_width: u16,
     content_height: usize,
+    background: Option<Image>,
 }
 
 impl CenterModalContent {
-    fn new(content_width: u16, content_height: usize) -> Self {
-        Self { content_width, content_height }
+    fn new(content_width: u16, content_height: usize, background: Option<Image>) -> Self {
+        Self { content_width, content_height, background }
     }
 }
 
@@ -274,7 +301,18 @@ impl AsRenderOperations for CenterModalContent {
         // However many we see + 3 for the title and 1 at the bottom.
         let content_height = (self.content_height + 4) as u16;
         let target_row = dimensions.rows.saturating_sub(content_height) / 2;
-        vec![RenderOperation::ApplyMargin(properties), RenderOperation::JumpToRow { index: target_row }]
+
+        let mut operations =
+            vec![RenderOperation::ApplyMargin(properties), RenderOperation::JumpToRow { index: target_row }];
+        if let Some(image) = &self.background {
+            let properties = ImageProperties {
+                z_index: MODAL_Z_INDEX,
+                size: ImageSize::Specific(self.content_width, content_height),
+                restore_cursor: true,
+            };
+            operations.push(RenderOperation::RenderImage(image.clone(), properties));
+        }
+        operations
     }
 
     fn diffable_content(&self) -> Option<&str> {
