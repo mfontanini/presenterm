@@ -110,8 +110,11 @@ impl<'a> MarkdownParser<'a> {
         // Remote leading and trailing delimiters before parsing. This is quite poopy but hey, it
         // works.
         let contents = contents.strip_prefix("---\n").unwrap_or(contents);
+        let contents = contents.strip_prefix("---\r\n").unwrap_or(contents);
         let contents = contents.strip_suffix("---\n").unwrap_or(contents);
+        let contents = contents.strip_suffix("---\r\n").unwrap_or(contents);
         let contents = contents.strip_suffix("---\n\n").unwrap_or(contents);
+        let contents = contents.strip_suffix("---\r\n\r\n").unwrap_or(contents);
         Ok(MarkdownElement::FrontMatter(contents.into()))
     }
 
@@ -469,6 +472,8 @@ impl Identifier for NodeValue {
 
 #[cfg(test)]
 mod test {
+    use rstest::rstest;
+
     use super::*;
     use crate::markdown::elements::CodeLanguage;
     use std::path::Path;
@@ -763,5 +768,17 @@ mom
         let MarkdownElement::Comment { source_position, .. } = &parsed[1] else { panic!("not a comment") };
         assert_eq!(source_position.start.line, 5);
         assert_eq!(source_position.start.column, 1);
+    }
+
+    #[rstest]
+    #[case::lf("\n")]
+    #[case::crlf("\r\n")]
+    fn front_matter_newlines(#[case] nl: &str) {
+        let input = format!("---{nl}hi{nl}mom{nl}---{nl}");
+        let parsed = parse_single(&input);
+        let MarkdownElement::FrontMatter(contents) = &parsed else { panic!("not a front matter") };
+
+        let expected = format!("hi{nl}mom{nl}");
+        assert_eq!(contents, &expected);
     }
 }
