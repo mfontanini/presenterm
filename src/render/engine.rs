@@ -165,6 +165,8 @@ where
         self.terminal.print_image(image, &options)?;
         if properties.restore_cursor {
             self.terminal.move_to(starting_position.column, starting_position.row)?;
+        } else {
+            self.terminal.move_to_column(starting_position.row + height as u16)?;
         }
         Ok(())
     }
