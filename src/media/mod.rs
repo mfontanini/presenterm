@@ -1,3 +1,4 @@
+pub(crate) mod emulator;
 pub(crate) mod graphics;
 pub(crate) mod image;
 mod iterm;

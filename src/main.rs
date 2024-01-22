@@ -3,7 +3,7 @@ use comrak::Arena;
 use presenterm::{
     CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageRegistry, KittyMode,
     LoadThemeError, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet,
-    Presenter, PresenterOptions, Resources, Themes, TypstRender,
+    Presenter, PresenterOptions, Resources, TerminalEmulator, Themes, TypstRender,
 };
 use std::{
     env,
@@ -46,13 +46,15 @@ struct Cli {
     #[clap(long, group = "target")]
     acknowledgements: bool,
 
-    /// The preferred image protocol.
-    #[clap(long)]
-    image_protocol: Option<ImageProtocol>,
+    /// The image protocol to use.
+    #[clap(long, default_value = "auto")]
+    image_protocol: ImageProtocol,
 }
 
-#[derive(Clone, Debug, ValueEnum)]
+#[derive(Clone, Debug, ValueEnum, Default)]
 enum ImageProtocol {
+    #[default]
+    Auto,
     Iterm2,
     KittyLocal,
     KittyRemote,
@@ -60,11 +62,15 @@ enum ImageProtocol {
     AsciiBlocks,
 }
 
-impl TryFrom<ImageProtocol> for GraphicsMode {
+impl TryFrom<&ImageProtocol> for GraphicsMode {
     type Error = SixelUnsupported;
 
-    fn try_from(protocol: ImageProtocol) -> Result<Self, Self::Error> {
+    fn try_from(protocol: &ImageProtocol) -> Result<Self, Self::Error> {
         let mode = match protocol {
+            ImageProtocol::Auto => {
+                let emulator = TerminalEmulator::detect();
+                emulator.preferred_protocol()
+            }
             ImageProtocol::Iterm2 => GraphicsMode::Iterm2,
             ImageProtocol::KittyLocal => GraphicsMode::Kitty(KittyMode::Local),
             ImageProtocol::KittyRemote => GraphicsMode::Kitty(KittyMode::Remote),
@@ -154,20 +160,11 @@ fn select_graphics_mode(cli: &Cli) -> GraphicsMode {
     if cli.export || cli.export_pdf || cli.generate_pdf_metadata {
         GraphicsMode::AsciiBlocks
     } else {
-        match cli.image_protocol.clone().map(GraphicsMode::try_from) {
-            Some(Ok(mode)) => {
-                if mode.is_supported() {
-                    mode
-                } else {
-                    GraphicsMode::default()
-                }
+        match GraphicsMode::try_from(&cli.image_protocol) {
+            Ok(mode) => mode,
+            Err(_) => {
+                Cli::command().error(ErrorKind::InvalidValue, "sixel support was not enabled during compilation").exit()
             }
-            Some(Err(_)) => {
-                Cli::command()
-                    .error(ErrorKind::InvalidValue, "sixel support was not enabled during compilation")
-                    .exit();
-            }
-            None => GraphicsMode::default(),
         }
     }
 }

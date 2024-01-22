@@ -1,15 +1,16 @@
 use super::printer::{PrintImage, PrintImageError, PrintOptions, RegisterImageError, ResourceProperties};
 use base64::{engine::general_purpose::STANDARD, Engine};
+use console::{Key, Term};
 use image::{codecs::gif::GifDecoder, io::Reader, AnimationDecoder, Delay, DynamicImage, EncodableLayout, RgbaImage};
 use rand::Rng;
 use std::{
     fmt,
     fs::{self, File},
-    io::{self, BufReader},
+    io::{self, BufReader, Write},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU32, Ordering},
 };
-use tempfile::{tempdir, TempDir};
+use tempfile::{tempdir, NamedTempFile, TempDir};
 
 enum GenericResource<B> {
     Image(B),
@@ -132,6 +133,7 @@ impl KittyPrinter {
             ControlOption::Columns(print_options.columns),
             ControlOption::Rows(print_options.rows),
             ControlOption::ZIndex(print_options.z_index),
+            ControlOption::Quiet(2),
         ];
 
         match &buffer {
@@ -161,6 +163,7 @@ impl KittyPrinter {
                 ControlOption::Width(dimensions.0),
                 ControlOption::Height(dimensions.1),
                 ControlOption::ZIndex(print_options.z_index),
+                ControlOption::Quiet(2),
             ];
             if frame_id == 0 {
                 options.extend([
@@ -204,6 +207,7 @@ impl KittyPrinter {
             ControlOption::FrameId(1),
             ControlOption::AnimationState(3),
             ControlOption::Loops(1),
+            ControlOption::Quiet(2),
         ];
         let command = ControlCommand(options, "");
         write!(writer, "{command}")?;
@@ -325,8 +329,7 @@ struct ControlCommand<'a, D>(&'a [ControlOption], D);
 impl<'a, D: fmt::Display> fmt::Display for ControlCommand<'a, D> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "\x1b_G")?;
-        let options = self.0.iter().chain([&ControlOption::Quiet(2)]);
-        for (index, option) in options.enumerate() {
+        for (index, option) in self.0.iter().enumerate() {
             if index > 0 {
                 write!(f, ",")?;
             }
@@ -417,6 +420,7 @@ enum Action {
     Animate,
     TransmitAndDisplay,
     TransmitFrame,
+    Query,
 }
 
 impl fmt::Display for Action {
@@ -426,7 +430,45 @@ impl fmt::Display for Action {
             Animate => 'a',
             TransmitAndDisplay => 'T',
             TransmitFrame => 'f',
+            Query => 'q',
         };
         write!(f, "{value}")
     }
+}
+
+pub(crate) fn local_mode_supported() -> io::Result<bool> {
+    let mut file = NamedTempFile::new()?;
+    let image = DynamicImage::new_rgba8(1, 1);
+    file.write_all(image.into_rgba8().as_raw().as_bytes())?;
+    file.flush()?;
+    let Some(path) = file.path().as_os_str().to_str() else {
+        return Ok(false);
+    };
+    let encoded_path = STANDARD.encode(path);
+
+    let options = &[
+        ControlOption::Format(ImageFormat::Rgba),
+        ControlOption::Action(Action::Query),
+        ControlOption::Medium(TransmissionMedium::LocalFile),
+        ControlOption::ImageId(rand::random()),
+        ControlOption::Width(1),
+        ControlOption::Height(1),
+    ];
+    let mut writer = io::stdout();
+    let command = ControlCommand(options, encoded_path);
+    write!(writer, "{command}")?;
+    writer.flush()?;
+
+    let term = Term::stdout();
+    let mut response = String::new();
+    while let Ok(key) = term.read_key() {
+        match key {
+            Key::Unknown => break,
+            Key::UnknownEscSeq(seq) if seq == ['\\'] => break,
+            Key::Char(c) => response.push(c),
+            _ => continue,
+        }
+    }
+
+    Ok(response.ends_with(";OK"))
 }
