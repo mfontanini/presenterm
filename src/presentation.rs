@@ -460,7 +460,7 @@ pub(crate) enum RenderOperation {
     RenderLineBreak,
 
     /// Render an image.
-    RenderImage(Image),
+    RenderImage(Image, ImageProperties),
 
     /// Render a preformatted line.
     ///
@@ -497,6 +497,22 @@ pub(crate) enum RenderOperation {
 
     /// Pop an `ApplyMargin` operation.
     PopMargin,
+}
+
+/// The properties of an image being rendered.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ImageProperties {
+    pub(crate) z_index: i32,
+    pub(crate) size: ImageSize,
+    pub(crate) restore_cursor: bool,
+}
+
+/// The size used when printing an image.
+#[derive(Clone, Debug, Default)]
+pub(crate) enum ImageSize {
+    #[default]
+    Scaled,
+    Specific(u16, u16),
 }
 
 /// Slide properties, set on initialization.

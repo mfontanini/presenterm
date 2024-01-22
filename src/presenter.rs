@@ -4,7 +4,7 @@ use crate::{
     export::ImageReplacer,
     input::source::{Command, CommandSource},
     markdown::parse::{MarkdownParser, ParseError},
-    media::printer::ImagePrinter,
+    media::{printer::ImagePrinter, register::ImageRegistry},
     presentation::Presentation,
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     render::{
@@ -235,6 +235,7 @@ impl<'a> Presenter<'a> {
             &mut self.resources,
             &mut self.typst,
             &self.themes,
+            ImageRegistry(self.image_printer.clone()),
             self.options.bindings.clone(),
             self.options.builder_options.clone(),
         )

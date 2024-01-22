@@ -85,6 +85,7 @@ impl<'a> Exporter<'a> {
             &mut self.resources,
             &mut self.typst,
             &self.themes,
+            Default::default(),
             KeyBindingsConfig::default(),
             self.options.clone(),
         )
@@ -245,11 +246,11 @@ pub(crate) struct ImageReplacer {
 impl ImageReplacer {
     pub(crate) fn replace_presentation_images(&mut self, presentation: &mut Presentation) {
         let callback = |operation: &mut RenderOperation| {
-            let RenderOperation::RenderImage(image) = operation else {
+            let RenderOperation::RenderImage(image, properties) = operation else {
                 return;
             };
             let replacement = self.replace_image(image.clone());
-            *operation = RenderOperation::RenderImage(replacement);
+            *operation = RenderOperation::RenderImage(replacement, properties.clone());
         };
 
         presentation.mutate_operations(callback);

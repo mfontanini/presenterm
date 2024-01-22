@@ -1,18 +1,14 @@
 use crate::{
-    media::{
-        image::{Image, ImageSource},
-        printer::{PrintImage, RegisterImageError},
-    },
+    media::{image::Image, printer::RegisterImageError},
     style::Color,
     theme::TypstStyle,
     tools::{ExecutionError, ThirdPartyTools},
-    ImagePrinter,
+    ImageRegistry,
 };
 use std::{
     fs,
     io::{self},
     path::Path,
-    rc::Rc,
 };
 use tempfile::tempdir;
 
@@ -22,12 +18,12 @@ const DEFAULT_VERTICAL_MARGIN: u16 = 7;
 
 pub struct TypstRender {
     ppi: String,
-    printer: Rc<ImagePrinter>,
+    image_registry: ImageRegistry,
 }
 
 impl TypstRender {
-    pub fn new(ppi: u32, printer: Rc<ImagePrinter>) -> Self {
-        Self { ppi: ppi.to_string(), printer }
+    pub fn new(ppi: u32, image_registry: ImageRegistry) -> Self {
+        Self { ppi: ppi.to_string(), image_registry }
     }
 
     pub(crate) fn render_typst(&self, input: &str, style: &TypstStyle) -> Result<Image, TypstRenderError> {
@@ -64,8 +60,7 @@ impl TypstRender {
 
         let png_contents = fs::read(&output_path)?;
         let image = image::load_from_memory(&png_contents)?;
-        let resource = self.printer.register_image(image)?;
-        let image = Image::new(resource, ImageSource::Generated);
+        let image = self.image_registry.register_image(image)?;
         Ok(image)
     }
 

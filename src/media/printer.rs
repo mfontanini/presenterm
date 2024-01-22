@@ -31,6 +31,7 @@ pub(crate) struct PrintOptions {
     pub(crate) columns: u16,
     pub(crate) rows: u16,
     pub(crate) cursor_position: CursorPosition,
+    pub(crate) z_index: i32,
 }
 
 pub(crate) enum ImageResource {
