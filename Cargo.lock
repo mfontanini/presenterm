@@ -254,6 +254,7 @@ dependencies = [
  "encode_unicode",
  "lazy_static",
  "libc",
+ "unicode-width",
  "windows-sys 0.52.0",
 ]
 
@@ -904,6 +905,7 @@ dependencies = [
  "bincode",
  "clap",
  "comrak",
+ "console",
  "crossterm",
  "flate2",
  "hex",
