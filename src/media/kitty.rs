@@ -54,6 +54,14 @@ enum KittyBuffer {
     Memory(Vec<u8>),
 }
 
+impl Drop for KittyBuffer {
+    fn drop(&mut self) {
+        if let Self::Filesystem(path) = self {
+            let _ = fs::remove_file(path);
+        }
+    }
+}
+
 struct GifFrame<T> {
     delay: Delay,
     buffer: T,
