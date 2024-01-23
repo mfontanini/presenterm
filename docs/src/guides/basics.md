@@ -3,6 +3,16 @@
 This guide teaches you how to use _presenterm_. At this point you should have already installed _presenterm_, otherwise 
 visit the [installation](/docs/install.md) guide to get started.
 
+## Quick start
+
+Download the example presentation and run it using:
+
+```shell
+git clone https://github.com/mfontanini/presenterm.git
+cd presenterm
+presenterm examples/demo.md
+```
+
 ## Presentations
 
 A presentation in _presenterm_ is a single markdown file. Every slide in the presentation file is delimited by a line 
