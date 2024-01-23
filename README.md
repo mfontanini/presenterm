@@ -34,11 +34,11 @@ For other alternative ways to install it, follow the [installation guide][guide-
 * Support for an [introduction slide][guide-intro-slide] that displays the presentation title and your name.
 * Support for [slide titles][guide-slide-titles].
 * Support for [shell code execution][guide-code-execute].
-* Support for [generating PDF files][pdf-export] from presentations to share with other people.
+* Support for [generating PDF files][guide-pdf-export] from presentations to share with other people.
 * Support for [pauses][guide-pauses] in between each slide so that it progressively renders for a more interactive 
   presentation.
 * Automatically reload your presentation every time it changes for a fast development loop.
-* [Terminal colored themes][guide-builtin-thems] that use your terminal's color scheme. This means if your terminal uses 
+* [Terminal colored themes][guide-builtin-themes] that use your terminal's color scheme. This means if your terminal uses 
   transparent backgrounds or images as background, those will be implicitly set as the background of your presentation.
 
 See the [introduction page][guide-basics] to learn more.
