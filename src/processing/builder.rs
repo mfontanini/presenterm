@@ -356,6 +356,12 @@ impl<'a> PresentationBuilder<'a> {
         match comment {
             CommentCommand::Pause => self.process_pause(),
             CommentCommand::EndSlide => self.terminate_slide(),
+            CommentCommand::NewLine => self.push_line_break(),
+            CommentCommand::NewLines(count) => {
+                for _ in 0..count {
+                    self.push_line_break();
+                }
+            }
             CommentCommand::JumpToMiddle => self.chunk_operations.push(RenderOperation::JumpToVerticalCenter),
             CommentCommand::InitColumnLayout(columns) => {
                 Self::validate_column_layout(&columns)?;
@@ -842,6 +848,10 @@ pub enum BuildError {
 enum CommentCommand {
     Pause,
     EndSlide,
+    #[serde(alias = "newline")]
+    NewLine,
+    #[serde(alias = "newlines")]
+    NewLines(u32),
     #[serde(rename = "column_layout")]
     InitColumnLayout(Vec<u8>),
     Column(usize),
@@ -1143,6 +1153,10 @@ mod test {
     #[case::column("column: 1", CommentCommand::Column(1))]
     #[case::reset_layout("reset_layout", CommentCommand::ResetLayout)]
     #[case::incremental_lists("incremental_lists: true", CommentCommand::IncrementalLists(true))]
+    #[case::incremental_lists("new_lines: 2", CommentCommand::NewLines(2))]
+    #[case::incremental_lists("newlines: 2", CommentCommand::NewLines(2))]
+    #[case::incremental_lists("new_line", CommentCommand::NewLine)]
+    #[case::incremental_lists("newline", CommentCommand::NewLine)]
     fn command_formatting(#[case] input: &str, #[case] expected: CommentCommand) {
         let parsed: CommentCommand = input.parse().expect("deserialization failed");
         assert_eq!(parsed, expected);
