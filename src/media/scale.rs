@@ -28,6 +28,7 @@ pub(crate) fn scale_image(
     // Don't go too far wide.
     let width_in_columns = width_in_columns.min(column_margin);
     let height_in_rows = (width_in_columns as f64 * aspect_ratio / 2.0) as u16;
+    let height_in_rows = height_in_rows.max(1);
 
     // Draw it in the middle
     let start_column = dimensions.columns / 2 - (width_in_columns / 2) as u16;

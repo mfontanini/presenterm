@@ -501,8 +501,10 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_image(&mut self, image: Image) {
         let properties = ImageProperties { z_index: DEFAULT_Z_INDEX, size: Default::default(), restore_cursor: false };
-        self.chunk_operations.push(RenderOperation::RenderImage(image, properties));
-        self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
+        self.chunk_operations.extend([
+            RenderOperation::RenderImage(image, properties),
+            RenderOperation::SetColors(self.theme.default_style.colors.clone()),
+        ]);
     }
 
     fn push_list(&mut self, list: Vec<ListItem>) {

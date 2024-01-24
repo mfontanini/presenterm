@@ -27,6 +27,7 @@ pub(crate) trait ResourceProperties {
     fn dimensions(&self) -> (u32, u32);
 }
 
+#[derive(Debug)]
 pub(crate) struct PrintOptions {
     pub(crate) columns: u16,
     pub(crate) rows: u16,
@@ -65,7 +66,7 @@ impl Default for ImagePrinter {
 impl ImagePrinter {
     pub fn new(mode: GraphicsMode) -> io::Result<Self> {
         let printer = match mode {
-            GraphicsMode::Kitty(mode) => Self::new_kitty(mode)?,
+            GraphicsMode::Kitty { mode, inside_tmux } => Self::new_kitty(mode, inside_tmux)?,
             GraphicsMode::Iterm2 => Self::new_iterm(),
             GraphicsMode::AsciiBlocks => Self::new_ascii(),
             #[cfg(feature = "sixel")]
@@ -74,8 +75,8 @@ impl ImagePrinter {
         Ok(printer)
     }
 
-    fn new_kitty(mode: KittyMode) -> io::Result<Self> {
-        Ok(Self::Kitty(KittyPrinter::new(mode)?))
+    fn new_kitty(mode: KittyMode, inside_tmux: bool) -> io::Result<Self> {
+        Ok(Self::Kitty(KittyPrinter::new(mode, inside_tmux)?))
     }
 
     fn new_iterm() -> Self {

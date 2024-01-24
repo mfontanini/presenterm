@@ -72,8 +72,12 @@ impl TryFrom<&ImageProtocol> for GraphicsMode {
                 emulator.preferred_protocol()
             }
             ImageProtocol::Iterm2 => GraphicsMode::Iterm2,
-            ImageProtocol::KittyLocal => GraphicsMode::Kitty(KittyMode::Local),
-            ImageProtocol::KittyRemote => GraphicsMode::Kitty(KittyMode::Remote),
+            ImageProtocol::KittyLocal => {
+                GraphicsMode::Kitty { mode: KittyMode::Local, inside_tmux: TerminalEmulator::is_inside_tmux() }
+            }
+            ImageProtocol::KittyRemote => {
+                GraphicsMode::Kitty { mode: KittyMode::Remote, inside_tmux: TerminalEmulator::is_inside_tmux() }
+            }
             ImageProtocol::AsciiBlocks => GraphicsMode::AsciiBlocks,
             #[cfg(feature = "sixel")]
             ImageProtocol::Sixel => GraphicsMode::Sixel,
@@ -212,7 +216,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         let commands = CommandSource::new(&path, config.bindings.clone())?;
-        options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty(_));
+        options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty { .. });
 
         let options = PresenterOptions {
             builder_options: options,
