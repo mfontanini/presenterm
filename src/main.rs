@@ -189,8 +189,10 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         display_acknowledgements();
         return Ok(());
     }
-    // Pre-load this so we don't flicker on the first displayed image when using viuer.
-    GraphicsMode::detect_graphics_protocol();
+    if !cli.generate_pdf_metadata {
+        // Pre-load this so we don't flicker on the first displayed image when using viuer.
+        GraphicsMode::detect_graphics_protocol();
+    }
 
     let path = cli.path.take().unwrap_or_else(|| {
         Cli::command().error(ErrorKind::MissingRequiredArgument, "no path specified").exit();
