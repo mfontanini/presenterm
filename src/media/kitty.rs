@@ -1,6 +1,8 @@
 use super::printer::{PrintImage, PrintImageError, PrintOptions, RegisterImageError, ResourceProperties};
+use crate::style::Color;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use console::{Key, Term};
+use crossterm::{cursor::MoveToColumn, style::SetForegroundColor, QueueableCommand};
 use image::{codecs::gif::GifDecoder, io::Reader, AnimationDecoder, Delay, DynamicImage, EncodableLayout, RgbaImage};
 use rand::Rng;
 use std::{
@@ -9,8 +11,34 @@ use std::{
     io::{self, BufReader, Write},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU32, Ordering},
+    u8,
 };
 use tempfile::{tempdir, NamedTempFile, TempDir};
+
+const IMAGE_PLACEHOLDER: &str = "\u{10EEEE}";
+const DIACRITICS: &[u32] = &[
+    0x305, 0x30d, 0x30e, 0x310, 0x312, 0x33d, 0x33e, 0x33f, 0x346, 0x34a, 0x34b, 0x34c, 0x350, 0x351, 0x352, 0x357,
+    0x35b, 0x363, 0x364, 0x365, 0x366, 0x367, 0x368, 0x369, 0x36a, 0x36b, 0x36c, 0x36d, 0x36e, 0x36f, 0x483, 0x484,
+    0x485, 0x486, 0x487, 0x592, 0x593, 0x594, 0x595, 0x597, 0x598, 0x599, 0x59c, 0x59d, 0x59e, 0x59f, 0x5a0, 0x5a1,
+    0x5a8, 0x5a9, 0x5ab, 0x5ac, 0x5af, 0x5c4, 0x610, 0x611, 0x612, 0x613, 0x614, 0x615, 0x616, 0x617, 0x657, 0x658,
+    0x659, 0x65a, 0x65b, 0x65d, 0x65e, 0x6d6, 0x6d7, 0x6d8, 0x6d9, 0x6da, 0x6db, 0x6dc, 0x6df, 0x6e0, 0x6e1, 0x6e2,
+    0x6e4, 0x6e7, 0x6e8, 0x6eb, 0x6ec, 0x730, 0x732, 0x733, 0x735, 0x736, 0x73a, 0x73d, 0x73f, 0x740, 0x741, 0x743,
+    0x745, 0x747, 0x749, 0x74a, 0x7eb, 0x7ec, 0x7ed, 0x7ee, 0x7ef, 0x7f0, 0x7f1, 0x7f3, 0x816, 0x817, 0x818, 0x819,
+    0x81b, 0x81c, 0x81d, 0x81e, 0x81f, 0x820, 0x821, 0x822, 0x823, 0x825, 0x826, 0x827, 0x829, 0x82a, 0x82b, 0x82c,
+    0x82d, 0x951, 0x953, 0x954, 0xf82, 0xf83, 0xf86, 0xf87, 0x135d, 0x135e, 0x135f, 0x17dd, 0x193a, 0x1a17, 0x1a75,
+    0x1a76, 0x1a77, 0x1a78, 0x1a79, 0x1a7a, 0x1a7b, 0x1a7c, 0x1b6b, 0x1b6d, 0x1b6e, 0x1b6f, 0x1b70, 0x1b71, 0x1b72,
+    0x1b73, 0x1cd0, 0x1cd1, 0x1cd2, 0x1cda, 0x1cdb, 0x1ce0, 0x1dc0, 0x1dc1, 0x1dc3, 0x1dc4, 0x1dc5, 0x1dc6, 0x1dc7,
+    0x1dc8, 0x1dc9, 0x1dcb, 0x1dcc, 0x1dd1, 0x1dd2, 0x1dd3, 0x1dd4, 0x1dd5, 0x1dd6, 0x1dd7, 0x1dd8, 0x1dd9, 0x1dda,
+    0x1ddb, 0x1ddc, 0x1ddd, 0x1dde, 0x1ddf, 0x1de0, 0x1de1, 0x1de2, 0x1de3, 0x1de4, 0x1de5, 0x1de6, 0x1dfe, 0x20d0,
+    0x20d1, 0x20d4, 0x20d5, 0x20d6, 0x20d7, 0x20db, 0x20dc, 0x20e1, 0x20e7, 0x20e9, 0x20f0, 0x2cef, 0x2cf0, 0x2cf1,
+    0x2de0, 0x2de1, 0x2de2, 0x2de3, 0x2de4, 0x2de5, 0x2de6, 0x2de7, 0x2de8, 0x2de9, 0x2dea, 0x2deb, 0x2dec, 0x2ded,
+    0x2dee, 0x2def, 0x2df0, 0x2df1, 0x2df2, 0x2df3, 0x2df4, 0x2df5, 0x2df6, 0x2df7, 0x2df8, 0x2df9, 0x2dfa, 0x2dfb,
+    0x2dfc, 0x2dfd, 0x2dfe, 0x2dff, 0xa66f, 0xa67c, 0xa67d, 0xa6f0, 0xa6f1, 0xa8e0, 0xa8e1, 0xa8e2, 0xa8e3, 0xa8e4,
+    0xa8e5, 0xa8e6, 0xa8e7, 0xa8e8, 0xa8e9, 0xa8ea, 0xa8eb, 0xa8ec, 0xa8ed, 0xa8ee, 0xa8ef, 0xa8f0, 0xa8f1, 0xaab0,
+    0xaab2, 0xaab3, 0xaab7, 0xaab8, 0xaabe, 0xaabf, 0xaac1, 0xfe20, 0xfe21, 0xfe22, 0xfe23, 0xfe24, 0xfe25, 0xfe26,
+    0x10a0f, 0x10a38, 0x1d185, 0x1d186, 0x1d187, 0x1d188, 0x1d189, 0x1d1aa, 0x1d1ab, 0x1d1ac, 0x1d1ad, 0x1d242,
+    0x1d243, 0x1d244,
+];
 
 enum GenericResource<B> {
     Image(B),
@@ -70,14 +98,15 @@ struct GifFrame<T> {
 
 pub struct KittyPrinter {
     mode: KittyMode,
+    tmux: bool,
     base_directory: TempDir,
     next: AtomicU32,
 }
 
 impl KittyPrinter {
-    pub(crate) fn new(mode: KittyMode) -> io::Result<Self> {
+    pub(crate) fn new(mode: KittyMode, tmux: bool) -> io::Result<Self> {
         let base_directory = tempdir()?;
-        Ok(Self { mode, base_directory, next: Default::default() })
+        Ok(Self { mode, tmux, base_directory, next: Default::default() })
     }
 
     fn allocate_tempfile(&self) -> PathBuf {
@@ -115,6 +144,10 @@ impl KittyPrinter {
         }
     }
 
+    fn generate_image_id() -> u32 {
+        rand::thread_rng().gen_range(1..u32::MAX)
+    }
+
     fn print_image<W>(
         &self,
         dimensions: (u32, u32),
@@ -125,7 +158,7 @@ impl KittyPrinter {
     where
         W: io::Write,
     {
-        let options = vec![
+        let mut options = vec![
             ControlOption::Format(ImageFormat::Rgba),
             ControlOption::Action(Action::TransmitAndDisplay),
             ControlOption::Width(dimensions.0),
@@ -135,11 +168,21 @@ impl KittyPrinter {
             ControlOption::ZIndex(print_options.z_index),
             ControlOption::Quiet(2),
         ];
+        let mut image_id = 0;
+        if self.tmux {
+            image_id = Self::generate_image_id();
+            options.extend([ControlOption::UnicodePlaceholder, ControlOption::ImageId(image_id)]);
+        }
 
         match &buffer {
-            KittyBuffer::Filesystem(path) => Self::print_local(options, path, writer),
-            KittyBuffer::Memory(buffer) => Self::print_remote(options, buffer, writer, false),
+            KittyBuffer::Filesystem(path) => self.print_local(options, path, writer)?,
+            KittyBuffer::Memory(buffer) => self.print_remote(options, buffer, writer, false)?,
+        };
+        if self.tmux {
+            self.print_unicode_placeholders(writer, print_options, image_id)?;
         }
+
+        Ok(())
     }
 
     fn print_gif<W>(
@@ -152,10 +195,10 @@ impl KittyPrinter {
     where
         W: io::Write,
     {
-        let image_id = rand::thread_rng().gen();
+        let image_id = Self::generate_image_id();
         for (frame_id, frame) in frames.iter().enumerate() {
             let (num, denom) = frame.delay.numer_denom_ms();
-            // default to 100ms in case somehow the denomiator is 0
+            // default to 100ms in case somehow the denominator is 0
             let delay = num.checked_div(denom).unwrap_or(100);
             let mut options = vec![
                 ControlOption::Format(ImageFormat::Rgba),
@@ -171,14 +214,17 @@ impl KittyPrinter {
                     ControlOption::Columns(print_options.columns),
                     ControlOption::Rows(print_options.rows),
                 ]);
+                if self.tmux {
+                    options.push(ControlOption::UnicodePlaceholder);
+                }
             } else {
                 options.extend([ControlOption::Action(Action::TransmitFrame), ControlOption::Delay(delay)]);
             }
 
             let is_frame = frame_id > 0;
             match &frame.buffer {
-                KittyBuffer::Filesystem(path) => Self::print_local(options, path, writer)?,
-                KittyBuffer::Memory(buffer) => Self::print_remote(options, buffer, writer, is_frame)?,
+                KittyBuffer::Filesystem(path) => self.print_local(options, path, writer)?,
+                KittyBuffer::Memory(buffer) => self.print_remote(options, buffer, writer, is_frame)?,
             };
 
             if frame_id == 0 {
@@ -188,7 +234,7 @@ impl KittyPrinter {
                     ControlOption::FrameId(1),
                     ControlOption::Loops(1),
                 ];
-                let command = ControlCommand(options, "");
+                let command = self.make_command(options, "");
                 write!(writer, "{command}")?;
             } else if frame_id == 1 {
                 let options = &[
@@ -197,9 +243,12 @@ impl KittyPrinter {
                     ControlOption::FrameId(1),
                     ControlOption::AnimationState(2),
                 ];
-                let command = ControlCommand(options, "");
+                let command = self.make_command(options, "");
                 write!(writer, "{command}")?;
             }
+        }
+        if self.tmux {
+            self.print_unicode_placeholders(writer, print_options, image_id)?;
         }
         let options = &[
             ControlOption::Action(Action::Animate),
@@ -209,12 +258,21 @@ impl KittyPrinter {
             ControlOption::Loops(1),
             ControlOption::Quiet(2),
         ];
-        let command = ControlCommand(options, "");
+        let command = self.make_command(options, "");
         write!(writer, "{command}")?;
         Ok(())
     }
 
-    fn print_local<W>(mut options: Vec<ControlOption>, path: &Path, writer: &mut W) -> Result<(), PrintImageError>
+    fn make_command<'a, P>(&self, options: &'a [ControlOption], payload: P) -> ControlCommand<'a, P> {
+        ControlCommand { options, payload, tmux: self.tmux }
+    }
+
+    fn print_local<W>(
+        &self,
+        mut options: Vec<ControlOption>,
+        path: &Path,
+        writer: &mut W,
+    ) -> Result<(), PrintImageError>
     where
         W: io::Write,
     {
@@ -224,12 +282,13 @@ impl KittyPrinter {
         let encoded_path = STANDARD.encode(path);
         options.push(ControlOption::Medium(TransmissionMedium::LocalFile));
 
-        let command = ControlCommand(&options, &encoded_path);
+        let command = self.make_command(&options, &encoded_path);
         write!(writer, "{command}")?;
         Ok(())
     }
 
     fn print_remote<W>(
+        &self,
         mut options: Vec<ControlOption>,
         frame: &[u8],
         writer: &mut W,
@@ -252,13 +311,40 @@ impl KittyPrinter {
             options.push(ControlOption::MoreData(more));
 
             let payload = &payload[start..end];
-            let command = ControlCommand(&options, payload);
+            let command = self.make_command(&options, payload);
             write!(writer, "{command}")?;
 
             options.clear();
             if is_frame {
                 options.push(ControlOption::Action(Action::TransmitFrame));
             }
+        }
+        Ok(())
+    }
+
+    fn print_unicode_placeholders<W: Write>(
+        &self,
+        writer: &mut W,
+        options: &PrintOptions,
+        image_id: u32,
+    ) -> Result<(), PrintImageError> {
+        let color = Color::new((image_id >> 16) as u8, (image_id >> 8) as u8, image_id as u8);
+        writer.queue(SetForegroundColor(color.into()))?;
+        if options.rows.max(options.columns) >= DIACRITICS.len() as u16 {
+            return Err(PrintImageError::other("image is too large to fit in tmux"));
+        }
+
+        let last_byte = char::from_u32(DIACRITICS[(image_id >> 24) as usize]).unwrap();
+        for row in 0..options.rows {
+            let row_diacritic = char::from_u32(DIACRITICS[row as usize]).unwrap();
+            for column in 0..options.columns {
+                let column_diacritic = char::from_u32(DIACRITICS[column as usize]).unwrap();
+                write!(writer, "{IMAGE_PLACEHOLDER}{row_diacritic}{column_diacritic}{last_byte}")?;
+            }
+            if row != options.rows - 1 {
+                writeln!(writer)?;
+            }
+            writer.queue(MoveToColumn(options.cursor_position.column))?;
         }
         Ok(())
     }
@@ -324,18 +410,30 @@ pub enum KittyMode {
     Remote,
 }
 
-struct ControlCommand<'a, D>(&'a [ControlOption], D);
+struct ControlCommand<'a, D> {
+    options: &'a [ControlOption],
+    payload: D,
+    tmux: bool,
+}
 
 impl<'a, D: fmt::Display> fmt::Display for ControlCommand<'a, D> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.tmux {
+            write!(f, "\x1bPtmux;\x1b")?;
+        }
         write!(f, "\x1b_G")?;
-        for (index, option) in self.0.iter().enumerate() {
+        for (index, option) in self.options.iter().enumerate() {
             if index > 0 {
                 write!(f, ",")?;
             }
             write!(f, "{option}")?;
         }
-        write!(f, ";{}\x1b\\", &self.1)?;
+        write!(f, ";{}", &self.payload)?;
+        if self.tmux {
+            write!(f, "\x1b\x1b\\\x1b\\")?;
+        } else {
+            write!(f, "\x1b\\")?;
+        }
         Ok(())
     }
 }
@@ -357,6 +455,7 @@ enum ControlOption {
     Loops(u32),
     Quiet(u32),
     ZIndex(i32),
+    UnicodePlaceholder,
 }
 
 impl fmt::Display for ControlOption {
@@ -379,6 +478,7 @@ impl fmt::Display for ControlOption {
             Loops(count) => write!(f, "v={count}"),
             Quiet(option) => write!(f, "q={option}"),
             ZIndex(index) => write!(f, "z={index}"),
+            UnicodePlaceholder => write!(f, "U=1"),
         }
     }
 }
@@ -436,7 +536,7 @@ impl fmt::Display for Action {
     }
 }
 
-pub(crate) fn local_mode_supported() -> io::Result<bool> {
+pub(crate) fn local_mode_supported(inside_tmux: bool) -> io::Result<bool> {
     let mut file = NamedTempFile::new()?;
     let image = DynamicImage::new_rgba8(1, 1);
     file.write_all(image.into_rgba8().as_raw().as_bytes())?;
@@ -455,7 +555,7 @@ pub(crate) fn local_mode_supported() -> io::Result<bool> {
         ControlOption::Height(1),
     ];
     let mut writer = io::stdout();
-    let command = ControlCommand(options, encoded_path);
+    let command = ControlCommand { options, payload: encoded_path, tmux: inside_tmux };
     write!(writer, "{command}")?;
     writer.flush()?;
 

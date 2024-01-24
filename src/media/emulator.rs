@@ -1,8 +1,8 @@
+use super::kitty::local_mode_supported;
 use crate::{GraphicsMode, KittyMode};
 use std::env;
 
-use super::kitty::local_mode_supported;
-
+#[derive(Debug)]
 pub enum TerminalEmulator {
     Kitty,
     Iterm2,
@@ -12,6 +12,10 @@ pub enum TerminalEmulator {
 }
 
 impl TerminalEmulator {
+    pub fn is_inside_tmux() -> bool {
+        env::var("TERM_PROGRAM").ok().as_deref() == Some("tmux")
+    }
+
     pub fn detect() -> Self {
         if Self::is_kitty() {
             Self::Kitty
@@ -27,10 +31,11 @@ impl TerminalEmulator {
     }
 
     pub fn preferred_protocol(&self) -> GraphicsMode {
+        let inside_tmux = Self::is_inside_tmux();
         let modes = [
             GraphicsMode::Iterm2,
-            GraphicsMode::Kitty(KittyMode::Local),
-            GraphicsMode::Kitty(KittyMode::Remote),
+            GraphicsMode::Kitty { mode: KittyMode::Local, inside_tmux },
+            GraphicsMode::Kitty { mode: KittyMode::Remote, inside_tmux },
             #[cfg(feature = "sixel")]
             GraphicsMode::Sixel,
             GraphicsMode::AsciiBlocks,
@@ -45,8 +50,8 @@ impl TerminalEmulator {
 
     fn supports_graphics_mode(&self, mode: &GraphicsMode) -> bool {
         match (mode, self) {
-            (GraphicsMode::Kitty(mode), Self::Kitty | Self::WezTerm) => match mode {
-                KittyMode::Local => local_mode_supported().unwrap_or_default(),
+            (GraphicsMode::Kitty { mode, inside_tmux }, Self::Kitty | Self::WezTerm) => match mode {
+                KittyMode::Local => local_mode_supported(*inside_tmux).unwrap_or_default(),
                 KittyMode::Remote => true,
             },
             (GraphicsMode::Iterm2, Self::Iterm2 | Self::WezTerm | Self::Mintty) => true,
