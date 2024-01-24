@@ -41,12 +41,23 @@ pub enum ConfigLoadError {
     Invalid(#[from] serde_yaml::Error),
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DefaultsConfig {
     pub theme: Option<String>,
 
-    pub terminal_font_size: Option<u8>,
+    #[serde(default = "default_font_size")]
+    pub terminal_font_size: u8,
+}
+
+impl Default for DefaultsConfig {
+    fn default() -> Self {
+        Self { theme: Default::default(), terminal_font_size: default_font_size() }
+    }
+}
+
+fn default_font_size() -> u8 {
+    16
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

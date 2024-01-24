@@ -1,3 +1,4 @@
+mod ascii;
 pub(crate) mod emulator;
 pub(crate) mod graphics;
 pub(crate) mod image;
@@ -6,4 +7,5 @@ pub(crate) mod kitty;
 pub(crate) mod printer;
 pub(crate) mod register;
 pub(crate) mod scale;
-mod viuer;
+#[cfg(feature = "sixel")]
+pub(crate) mod sixel;

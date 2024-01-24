@@ -27,7 +27,7 @@ use std::{
 pub struct PresenterOptions {
     pub mode: PresentMode,
     pub builder_options: PresentationBuilderOptions,
-    pub font_size_fallback: Option<u8>,
+    pub font_size_fallback: u8,
     pub bindings: KeyBindingsConfig,
 }
 

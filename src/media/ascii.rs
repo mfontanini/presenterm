@@ -2,22 +2,22 @@ use super::printer::{PrintImage, PrintImageError, PrintOptions, RegisterImageErr
 use image::{DynamicImage, GenericImageView};
 use std::{fs, ops::Deref};
 
-pub(crate) struct ViuerResource(DynamicImage);
+pub(crate) struct AsciiResource(DynamicImage);
 
-impl ResourceProperties for ViuerResource {
+impl ResourceProperties for AsciiResource {
     fn dimensions(&self) -> (u32, u32) {
         self.0.dimensions()
     }
 }
 
-impl From<DynamicImage> for ViuerResource {
+impl From<DynamicImage> for AsciiResource {
     fn from(image: DynamicImage) -> Self {
         let image = image.into_rgba8();
         Self(image.into())
     }
 }
 
-impl Deref for ViuerResource {
+impl Deref for AsciiResource {
     type Target = DynamicImage;
 
     fn deref(&self) -> &Self::Target {
@@ -25,38 +25,20 @@ impl Deref for ViuerResource {
     }
 }
 
-#[cfg(feature = "sixel")]
 #[derive(Default)]
-pub(crate) enum SixelSupport {
-    Enabled,
-    #[default]
-    Disabled,
-}
+pub struct AsciiPrinter;
 
-#[derive(Default)]
-pub struct ViuerPrinter {
-    #[cfg(feature = "sixel")]
-    sixel: SixelSupport,
-}
-
-impl ViuerPrinter {
-    #[cfg(feature = "sixel")]
-    pub(crate) fn new(sixel: SixelSupport) -> Self {
-        Self { sixel }
-    }
-}
-
-impl PrintImage for ViuerPrinter {
-    type Resource = ViuerResource;
+impl PrintImage for AsciiPrinter {
+    type Resource = AsciiResource;
 
     fn register_image(&self, image: image::DynamicImage) -> Result<Self::Resource, RegisterImageError> {
-        Ok(ViuerResource(image))
+        Ok(AsciiResource(image))
     }
 
     fn register_resource<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Self::Resource, RegisterImageError> {
         let contents = fs::read(path)?;
         let image = image::load_from_memory(&contents)?;
-        Ok(ViuerResource(image))
+        Ok(AsciiResource(image))
     }
 
     fn print<W>(&self, image: &Self::Resource, options: &PrintOptions, _writer: &mut W) -> Result<(), PrintImageError>
@@ -70,8 +52,6 @@ impl PrintImage for ViuerPrinter {
             use_iterm: false,
             x: options.cursor_position.column,
             y: options.cursor_position.row as i16,
-            #[cfg(feature = "sixel")]
-            use_sixel: matches!(self.sixel, SixelSupport::Enabled),
             ..Default::default()
         };
         viuer::print(&image.0, &config)?;

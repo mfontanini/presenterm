@@ -8,7 +8,12 @@ pub enum TerminalEmulator {
     Iterm2,
     WezTerm,
     Mintty,
+    Foot,
+    Yaft,
+    Mlterm,
     Unknown,
+    St,
+    Xterm,
 }
 
 impl TerminalEmulator {
@@ -17,7 +22,8 @@ impl TerminalEmulator {
     }
 
     pub fn detect() -> Self {
-        if Self::is_kitty() {
+        let term = env::var("TERM").unwrap_or_default();
+        if Self::is_kitty(&term) {
             Self::Kitty
         } else if Self::is_iterm2() {
             Self::Iterm2
@@ -25,6 +31,16 @@ impl TerminalEmulator {
             Self::WezTerm
         } else if Self::is_mintty() {
             Self::Mintty
+        } else if Self::is_foot(&term) {
+            Self::Foot
+        } else if Self::is_mlterm(&term) {
+            Self::Mlterm
+        } else if Self::is_yaft(&term) {
+            Self::Yaft
+        } else if Self::is_st(&term) {
+            Self::St
+        } else if Self::is_xterm(&term) {
+            Self::Xterm
         } else {
             Self::Unknown
         }
@@ -57,16 +73,35 @@ impl TerminalEmulator {
             (GraphicsMode::Iterm2, Self::Iterm2 | Self::WezTerm | Self::Mintty) => true,
             (GraphicsMode::AsciiBlocks, _) => true,
             #[cfg(feature = "sixel")]
-            (GraphicsMode::Sixel, _) => viuer::is_sixel_supported(),
+            (GraphicsMode::Sixel, Self::Foot | Self::Yaft | Self::Mlterm) => true,
+            #[cfg(feature = "sixel")]
+            (GraphicsMode::Sixel, Self::St | Self::Xterm) => supports_sixel().unwrap_or_default(),
             _ => false,
         }
     }
 
-    fn is_kitty() -> bool {
-        let Ok(term) = env::var("TERM") else {
-            return false;
-        };
+    fn is_kitty(term: &str) -> bool {
         term.contains("kitty")
+    }
+
+    fn is_foot(term: &str) -> bool {
+        term == "foot" || term == "foot-extra"
+    }
+
+    fn is_mlterm(term: &str) -> bool {
+        term == "mlterm"
+    }
+
+    fn is_yaft(term: &str) -> bool {
+        term == "yaft-256color"
+    }
+
+    fn is_st(term: &str) -> bool {
+        term == "st-256color"
+    }
+
+    fn is_xterm(term: &str) -> bool {
+        term == "xterm" || term == "xterm-256color"
     }
 
     fn is_iterm2() -> bool {
@@ -84,4 +119,26 @@ impl TerminalEmulator {
     fn load_term_program() -> Option<String> {
         env::var("TERM_PROGRAM").ok()
     }
+}
+
+#[cfg(feature = "sixel")]
+fn supports_sixel() -> std::io::Result<bool> {
+    use console::{Key, Term};
+    use std::io::Write;
+
+    let mut term = Term::stdout();
+
+    write!(&mut term, "\x1b[c")?;
+    term.flush()?;
+
+    let mut response = String::new();
+    while let Ok(key) = term.read_key() {
+        if let Key::Char(c) = key {
+            response.push(c);
+            if c == 'c' {
+                break;
+            }
+        }
+    }
+    Ok(response.contains(";4;") || response.contains(";4c"))
 }
