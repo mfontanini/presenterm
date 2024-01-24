@@ -20,14 +20,11 @@ pub(crate) mod tools;
 pub(crate) mod typst;
 
 pub use crate::{
-    custom::Config,
+    custom::{Config, ImageProtocol},
     export::{ExportError, Exporter},
     input::source::CommandSource,
     markdown::parse::MarkdownParser,
-    media::{
-        emulator::TerminalEmulator, graphics::GraphicsMode, kitty::KittyMode, printer::ImagePrinter,
-        register::ImageRegistry,
-    },
+    media::{graphics::GraphicsMode, printer::ImagePrinter, register::ImageRegistry},
     presenter::{PresentMode, Presenter, PresenterOptions},
     processing::builder::{PresentationBuilderOptions, Themes},
     render::highlighting::{CodeHighlighter, HighlightThemeSet},

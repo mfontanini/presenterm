@@ -1,7 +1,11 @@
+use crate::{
+    input::user::KeyBinding,
+    media::{emulator::TerminalEmulator, kitty::KittyMode},
+    GraphicsMode,
+};
+use clap::ValueEnum;
 use serde::Deserialize;
 use std::{fs, io, path::Path};
-
-use crate::input::user::KeyBinding;
 
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -48,11 +52,14 @@ pub struct DefaultsConfig {
 
     #[serde(default = "default_font_size")]
     pub terminal_font_size: u8,
+
+    #[serde(default)]
+    pub image_protocol: ImageProtocol,
 }
 
 impl Default for DefaultsConfig {
     fn default() -> Self {
-        Self { theme: Default::default(), terminal_font_size: default_font_size() }
+        Self { theme: Default::default(), terminal_font_size: default_font_size(), image_protocol: Default::default() }
     }
 }
 
@@ -91,6 +98,46 @@ impl Default for TypstConfig {
 
 fn default_typst_ppi() -> u32 {
     300
+}
+
+#[derive(Clone, Debug, Default, Deserialize, ValueEnum)]
+#[serde(rename_all = "kebab-case")]
+pub enum ImageProtocol {
+    #[default]
+    Auto,
+    Iterm2,
+    KittyLocal,
+    KittyRemote,
+    Sixel,
+    AsciiBlocks,
+}
+
+pub struct SixelUnsupported;
+
+impl TryFrom<&ImageProtocol> for GraphicsMode {
+    type Error = SixelUnsupported;
+
+    fn try_from(protocol: &ImageProtocol) -> Result<Self, Self::Error> {
+        let mode = match protocol {
+            ImageProtocol::Auto => {
+                let emulator = TerminalEmulator::detect();
+                emulator.preferred_protocol()
+            }
+            ImageProtocol::Iterm2 => GraphicsMode::Iterm2,
+            ImageProtocol::KittyLocal => {
+                GraphicsMode::Kitty { mode: KittyMode::Local, inside_tmux: TerminalEmulator::is_inside_tmux() }
+            }
+            ImageProtocol::KittyRemote => {
+                GraphicsMode::Kitty { mode: KittyMode::Remote, inside_tmux: TerminalEmulator::is_inside_tmux() }
+            }
+            ImageProtocol::AsciiBlocks => GraphicsMode::AsciiBlocks,
+            #[cfg(feature = "sixel")]
+            ImageProtocol::Sixel => GraphicsMode::Sixel,
+            #[cfg(not(feature = "sixel"))]
+            ImageProtocol::Sixel => return Err(SixelUnsupported),
+        };
+        Ok(mode)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
