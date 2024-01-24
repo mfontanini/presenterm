@@ -15,7 +15,7 @@ pub(crate) type RenderResult = Result<(), RenderError>;
 /// Allows drawing elements in the terminal.
 pub(crate) struct TerminalDrawer<W: io::Write> {
     terminal: Terminal<W>,
-    font_size_fallback: Option<u8>,
+    font_size_fallback: u8,
 }
 
 impl<W> TerminalDrawer<W>
@@ -23,7 +23,7 @@ where
     W: io::Write,
 {
     /// Construct a drawer over a [std::io::Write].
-    pub(crate) fn new(handle: W, image_printer: Rc<ImagePrinter>, font_size_fallback: Option<u8>) -> io::Result<Self> {
+    pub(crate) fn new(handle: W, image_printer: Rc<ImagePrinter>, font_size_fallback: u8) -> io::Result<Self> {
         let terminal = Terminal::new(handle, image_printer)?;
         Ok(Self { terminal, font_size_fallback })
     }

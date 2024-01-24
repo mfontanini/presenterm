@@ -1,8 +1,6 @@
 use crossterm::terminal;
 use std::io::{self, ErrorKind};
 
-const DEFAULT_FONT_SIZE_FALLBACK: u8 = 16;
-
 /// The size of the terminal window.
 ///
 /// This is the same as [crossterm::terminal::window_size] except with some added functionality,
@@ -17,7 +15,7 @@ pub(crate) struct WindowSize {
 
 impl WindowSize {
     /// Get the current window size.
-    pub(crate) fn current(font_size_fallback: Option<u8>) -> io::Result<Self> {
+    pub(crate) fn current(font_size_fallback: u8) -> io::Result<Self> {
         let mut size: Self = match terminal::window_size() {
             Ok(size) => size.into(),
             Err(e) if e.kind() == ErrorKind::Unsupported => {
@@ -27,7 +25,7 @@ impl WindowSize {
             }
             Err(e) => return Err(e),
         };
-        let font_size_fallback = font_size_fallback.unwrap_or(DEFAULT_FONT_SIZE_FALLBACK) as u16;
+        let font_size_fallback = font_size_fallback as u16;
         if size.width == 0 {
             size.width = size.columns * font_size_fallback;
         }

@@ -1,11 +1,10 @@
-use crate::render::properties::CursorPosition;
-
 use super::{
+    ascii::{AsciiPrinter, AsciiResource},
     graphics::GraphicsMode,
     iterm::{ItermPrinter, ItermResource},
     kitty::{KittyMode, KittyPrinter, KittyResource},
-    viuer::{ViuerPrinter, ViuerResource},
 };
+use crate::render::properties::CursorPosition;
 use image::{DynamicImage, ImageError};
 use std::{borrow::Cow, io, path::Path};
 
@@ -38,7 +37,9 @@ pub(crate) struct PrintOptions {
 pub(crate) enum ImageResource {
     Kitty(KittyResource),
     Iterm(ItermResource),
-    Viuer(ViuerResource),
+    Ascii(AsciiResource),
+    #[cfg(feature = "sixel")]
+    Sixel(super::sixel::SixelResource),
 }
 
 impl ResourceProperties for ImageResource {
@@ -46,7 +47,9 @@ impl ResourceProperties for ImageResource {
         match self {
             Self::Kitty(resource) => resource.dimensions(),
             Self::Iterm(resource) => resource.dimensions(),
-            Self::Viuer(resource) => resource.dimensions(),
+            Self::Ascii(resource) => resource.dimensions(),
+            #[cfg(feature = "sixel")]
+            Self::Sixel(resource) => resource.dimensions(),
         }
     }
 }
@@ -54,7 +57,9 @@ impl ResourceProperties for ImageResource {
 pub enum ImagePrinter {
     Kitty(KittyPrinter),
     Iterm(ItermPrinter),
-    Viuer(ViuerPrinter),
+    Ascii(AsciiPrinter),
+    #[cfg(feature = "sixel")]
+    Sixel(super::sixel::SixelPrinter),
 }
 
 impl Default for ImagePrinter {
@@ -64,13 +69,13 @@ impl Default for ImagePrinter {
 }
 
 impl ImagePrinter {
-    pub fn new(mode: GraphicsMode) -> io::Result<Self> {
+    pub fn new(mode: GraphicsMode, #[allow(unused_variables)] font_size: u8) -> Result<Self, CreatePrinterError> {
         let printer = match mode {
             GraphicsMode::Kitty { mode, inside_tmux } => Self::new_kitty(mode, inside_tmux)?,
             GraphicsMode::Iterm2 => Self::new_iterm(),
             GraphicsMode::AsciiBlocks => Self::new_ascii(),
             #[cfg(feature = "sixel")]
-            GraphicsMode::Sixel => Self::new_sixel(),
+            GraphicsMode::Sixel => Self::new_sixel(font_size)?,
         };
         Ok(printer)
     }
@@ -84,12 +89,12 @@ impl ImagePrinter {
     }
 
     fn new_ascii() -> Self {
-        Self::Viuer(ViuerPrinter::default())
+        Self::Ascii(AsciiPrinter)
     }
 
     #[cfg(feature = "sixel")]
-    fn new_sixel() -> Self {
-        Self::Viuer(ViuerPrinter::new(super::viuer::SixelSupport::Enabled))
+    fn new_sixel(font_size: u8) -> Result<Self, CreatePrinterError> {
+        Ok(Self::Sixel(super::sixel::SixelPrinter::new(font_size)?))
     }
 }
 
@@ -100,7 +105,9 @@ impl PrintImage for ImagePrinter {
         let resource = match self {
             Self::Kitty(printer) => ImageResource::Kitty(printer.register_image(image)?),
             Self::Iterm(printer) => ImageResource::Iterm(printer.register_image(image)?),
-            Self::Viuer(printer) => ImageResource::Viuer(printer.register_image(image)?),
+            Self::Ascii(printer) => ImageResource::Ascii(printer.register_image(image)?),
+            #[cfg(feature = "sixel")]
+            Self::Sixel(printer) => ImageResource::Sixel(printer.register_image(image)?),
         };
         Ok(resource)
     }
@@ -109,7 +116,9 @@ impl PrintImage for ImagePrinter {
         let resource = match self {
             Self::Kitty(printer) => ImageResource::Kitty(printer.register_resource(path)?),
             Self::Iterm(printer) => ImageResource::Iterm(printer.register_resource(path)?),
-            Self::Viuer(printer) => ImageResource::Viuer(printer.register_resource(path)?),
+            Self::Ascii(printer) => ImageResource::Ascii(printer.register_resource(path)?),
+            #[cfg(feature = "sixel")]
+            Self::Sixel(printer) => ImageResource::Sixel(printer.register_resource(path)?),
         };
         Ok(resource)
     }
@@ -121,10 +130,21 @@ impl PrintImage for ImagePrinter {
         match (self, image) {
             (Self::Kitty(printer), ImageResource::Kitty(image)) => printer.print(image, options, writer),
             (Self::Iterm(printer), ImageResource::Iterm(image)) => printer.print(image, options, writer),
-            (Self::Viuer(printer), ImageResource::Viuer(image)) => printer.print(image, options, writer),
+            (Self::Ascii(printer), ImageResource::Ascii(image)) => printer.print(image, options, writer),
+            #[cfg(feature = "sixel")]
+            (Self::Sixel(printer), ImageResource::Sixel(image)) => printer.print(image, options, writer),
             _ => Err(PrintImageError::Unsupported),
         }
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CreatePrinterError {
+    #[error("io: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("unexpected: {0}")]
+    Other(String),
 }
 
 #[derive(Debug, thiserror::Error)]

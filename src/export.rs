@@ -142,7 +142,7 @@ impl<'a> Exporter<'a> {
                 ImageSource::Generated => {
                     let mut buffer = Vec::new();
                     let dimensions = image.original.dimensions();
-                    let ImageResource::Viuer(resource) = image.original.resource.as_ref() else {
+                    let ImageResource::Ascii(resource) = image.original.resource.as_ref() else {
                         panic!("not in viuer mode")
                     };
                     PngEncoder::new(&mut buffer).write_image(
@@ -268,7 +268,7 @@ impl ImageReplacer {
         }
         self.images.push(ReplacedImage { original: image, color });
 
-        Image::new(ImageResource::Viuer(replacement.into()), ImageSource::Generated)
+        Image::new(ImageResource::Ascii(replacement.into()), ImageSource::Generated)
     }
 
     fn allocate_color(&mut self) -> u32 {
