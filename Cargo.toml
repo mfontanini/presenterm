@@ -43,8 +43,7 @@ rstest = { version = "0.18", default-features = false }
 
 [features]
 default = []
-# TODO viuer
-sixel = ["viuer/sixel", "sixel-rs"]
+sixel = ["sixel-rs"]
 
 [profile.dev]
 opt-level = 0

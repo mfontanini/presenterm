@@ -50,8 +50,6 @@ impl PrintImage for AsciiPrinter {
             height: Some(options.rows as u32),
             use_kitty: false,
             use_iterm: false,
-            #[cfg(feature = "sixel")]
-            use_sixel: false,
             x: options.cursor_position.column,
             y: options.cursor_position.row as i16,
             ..Default::default()

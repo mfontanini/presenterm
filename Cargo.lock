@@ -1514,7 +1514,6 @@ dependencies = [
  "crossterm",
  "image",
  "lazy_static",
- "sixel-rs",
  "tempfile",
  "termcolor",
 ]
