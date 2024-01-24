@@ -68,7 +68,7 @@ impl PrintImage for ItermPrinter {
         let contents = &image.base64_contents;
         write!(
             writer,
-            "\x1b]1337;File=size={size};width={columns};height={rows};inline=1;preserveAspectRatio=1:{contents}\x07"
+            "\x1b]1337;File=size={size};width={columns};height={rows};inline=1;preserveAspectRatio=0:{contents}\x07"
         )?;
         // iterm2 really respects what we say and leaves no space, whereas wezterm does leave an
         // extra line here.
