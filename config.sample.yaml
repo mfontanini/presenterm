@@ -1,0 +1,60 @@
+defaults:
+  # override the terminal font size when in windows or when using sixel.
+  terminal_font_size: 16
+
+  # the theme to use by default in every presentation unless overridden.
+  theme: dark 
+
+  # the image protocol to use.
+  image_protocol: kitty-local
+
+typst:
+  # the pixels per inch when rendering latex/typst formulas.
+  ppi: 300
+
+options:
+  # whether slides are automatically terminated when a slide title is found.
+  implicit_slide_ends: false
+
+  # the prefix to use for commands.
+  command_prefix: ""
+
+  # show all lists incrementally, by implicitly adding pauses in between elements.
+  incremental_lists: false
+
+  # whether to treat a thematic break as a slide end.
+  end_slide_shorthand: false
+
+bindings:
+  # the keys that cause the presentation to move forwards.
+  next: ["l", "j", "<right>", "<page_down>", "<down>", " "]
+
+  # the keys that cause the presentation to move backwards.
+  previous: ["h", "k", "<left>", "<page_up>", "<up>"]
+
+  # the key binding to jump to the first slide.
+  first_slide: ["gg"]
+
+  # the key binding to jump to the last slide.
+  last_slide: ["G"]
+
+  # the key binding to jump to a specific slide.
+  go_to_slide: ["<number>G"]
+
+  # the key binding to execute a piece of shell code.
+  execute_code: ["<c-e>"]
+
+  # the key binding to reload the presentation.
+  reload: ["<c-r>"]
+
+  # the key binding to toggle the slide index modal.
+  toggle_slide_index: ["<c-p>"] 
+
+  # the key binding to toggle the key bindings modal.
+  toggle_bindings: ["?"] 
+
+  # the key binding to close the currently open modal.
+  close_modal: ["<esc>"]
+
+  # the key binding to close the application.
+  exit: ["<c-c>"]
