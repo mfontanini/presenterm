@@ -1,5 +1,5 @@
 use super::kitty::local_mode_supported;
-use crate::{GraphicsMode, KittyMode};
+use crate::{media::kitty::KittyMode, GraphicsMode};
 use std::env;
 
 #[derive(Debug)]

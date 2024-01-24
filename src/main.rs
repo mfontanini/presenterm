@@ -1,9 +1,9 @@
-use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
+use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use presenterm::{
-    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageRegistry, KittyMode,
+    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
     LoadThemeError, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet,
-    Presenter, PresenterOptions, Resources, TerminalEmulator, Themes, TypstRender,
+    Presenter, PresenterOptions, Resources, Themes, TypstRender,
 };
 use std::{
     env,
@@ -47,48 +47,9 @@ struct Cli {
     acknowledgements: bool,
 
     /// The image protocol to use.
-    #[clap(long, default_value = "auto")]
-    image_protocol: ImageProtocol,
+    #[clap(long)]
+    image_protocol: Option<ImageProtocol>,
 }
-
-#[derive(Clone, Debug, ValueEnum, Default)]
-enum ImageProtocol {
-    #[default]
-    Auto,
-    Iterm2,
-    KittyLocal,
-    KittyRemote,
-    Sixel,
-    AsciiBlocks,
-}
-
-impl TryFrom<&ImageProtocol> for GraphicsMode {
-    type Error = SixelUnsupported;
-
-    fn try_from(protocol: &ImageProtocol) -> Result<Self, Self::Error> {
-        let mode = match protocol {
-            ImageProtocol::Auto => {
-                let emulator = TerminalEmulator::detect();
-                emulator.preferred_protocol()
-            }
-            ImageProtocol::Iterm2 => GraphicsMode::Iterm2,
-            ImageProtocol::KittyLocal => {
-                GraphicsMode::Kitty { mode: KittyMode::Local, inside_tmux: TerminalEmulator::is_inside_tmux() }
-            }
-            ImageProtocol::KittyRemote => {
-                GraphicsMode::Kitty { mode: KittyMode::Remote, inside_tmux: TerminalEmulator::is_inside_tmux() }
-            }
-            ImageProtocol::AsciiBlocks => GraphicsMode::AsciiBlocks,
-            #[cfg(feature = "sixel")]
-            ImageProtocol::Sixel => GraphicsMode::Sixel,
-            #[cfg(not(feature = "sixel"))]
-            ImageProtocol::Sixel => return Err(SixelUnsupported),
-        };
-        Ok(mode)
-    }
-}
-
-struct SixelUnsupported;
 
 fn create_splash() -> String {
     let crate_version = env!("CARGO_PKG_VERSION");
@@ -160,11 +121,12 @@ fn load_default_theme(config: &Config, themes: &Themes, cli: &Cli) -> Presentati
     default_theme
 }
 
-fn select_graphics_mode(cli: &Cli) -> GraphicsMode {
+fn select_graphics_mode(cli: &Cli, config: &Config) -> GraphicsMode {
     if cli.export || cli.export_pdf || cli.generate_pdf_metadata {
         GraphicsMode::AsciiBlocks
     } else {
-        match GraphicsMode::try_from(&cli.image_protocol) {
+        let protocol = cli.image_protocol.as_ref().unwrap_or(&config.defaults.image_protocol);
+        match GraphicsMode::try_from(protocol) {
             Ok(mode) => mode,
             Err(_) => {
                 Cli::command().error(ErrorKind::InvalidValue, "sixel support was not enabled during compilation").exit()
@@ -195,7 +157,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     });
     let resources_path = path.parent().unwrap_or(Path::new("/"));
     let mut options = make_builder_options(&config, &mode, force_default_theme);
-    let graphics_mode = select_graphics_mode(&cli);
+    let graphics_mode = select_graphics_mode(&cli, &config);
     let printer = Rc::new(ImagePrinter::new(graphics_mode.clone(), config.defaults.terminal_font_size)?);
     let registry = ImageRegistry(printer.clone());
     let resources = Resources::new(resources_path, registry.clone());
