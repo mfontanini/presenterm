@@ -18,7 +18,7 @@ jobs:
         uses: dtolnay/rust-toolchain@1.74.0
 
       - name: Run cargo check
-        run: cargo test
+        run: cargo check --features sixel
 
   test:
     name: Tests
