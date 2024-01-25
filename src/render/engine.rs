@@ -149,19 +149,26 @@ where
     }
 
     fn render_image(&mut self, image: &Image, properties: &ImageProperties) -> RenderResult {
-        let starting_position =
-            CursorPosition { row: self.terminal.cursor_row, column: self.current_rect().start_column };
+        let rect = self.current_rect();
+        let starting_position = CursorPosition { row: self.terminal.cursor_row, column: rect.start_column };
 
         let (width, height) = image.dimensions();
         let (cursor_position, columns, rows) = match properties.size {
             ImageSize::Scaled => {
-                let scale = scale_image(self.current_dimensions(), width, height, &starting_position);
+                let scale = scale_image(&rect.dimensions, width, height, &starting_position);
                 (CursorPosition { row: starting_position.row, column: scale.start_column }, scale.columns, scale.rows)
             }
             ImageSize::Specific(columns, rows) => (starting_position.clone(), columns, rows),
         };
 
-        let options = PrintOptions { columns, rows, cursor_position, z_index: properties.z_index };
+        let options = PrintOptions {
+            columns,
+            rows,
+            cursor_position,
+            z_index: properties.z_index,
+            column_width: rect.dimensions.pixels_per_column() as u16,
+            row_height: rect.dimensions.pixels_per_row() as u16,
+        };
         self.terminal.print_image(image, &options)?;
         if properties.restore_cursor {
             self.terminal.move_to(starting_position.column, starting_position.row)?;

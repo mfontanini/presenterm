@@ -19,17 +19,16 @@ impl ResourceProperties for SixelResource {
 
 pub struct SixelPrinter {
     encoder: Encoder,
-    font_size: u32,
 }
 
 impl SixelPrinter {
-    pub(crate) fn new(font_size: u8) -> Result<Self, CreatePrinterError> {
+    pub(crate) fn new() -> Result<Self, CreatePrinterError> {
         let encoder =
             Encoder::new().map_err(|e| CreatePrinterError::Other(format!("creating sixel encoder: {e:?}")))?;
         encoder
             .set_encode_policy(EncodePolicy::Fast)
             .map_err(|e| CreatePrinterError::Other(format!("setting encoder policy: {e:?}")))?;
-        Ok(Self { encoder, font_size: font_size.into() })
+        Ok(Self { encoder })
     }
 }
 
@@ -54,9 +53,9 @@ impl PrintImage for SixelPrinter {
         writer.flush()?;
 
         // This check was taken from viuer: it seems to be a bug in xterm
-        let width = (self.font_size * options.columns as u32).min(1000);
-        let height = self.font_size * 2 * options.rows as u32;
-        let image = image.0.resize_exact(width, height, FilterType::Triangle);
+        let width = (options.column_width * options.columns).min(1000);
+        let height = options.row_height * options.rows;
+        let image = image.0.resize_exact(width as u32, height as u32, FilterType::Triangle);
         let bytes = image.into_rgba8().into_raw();
 
         let frame = QuickFrameBuilder::new()

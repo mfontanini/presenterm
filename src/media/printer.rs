@@ -32,6 +32,11 @@ pub(crate) struct PrintOptions {
     pub(crate) rows: u16,
     pub(crate) cursor_position: CursorPosition,
     pub(crate) z_index: i32,
+    // Width/height in pixels.
+    #[allow(dead_code)]
+    pub(crate) column_width: u16,
+    #[allow(dead_code)]
+    pub(crate) row_height: u16,
 }
 
 pub(crate) enum ImageResource {
@@ -69,13 +74,13 @@ impl Default for ImagePrinter {
 }
 
 impl ImagePrinter {
-    pub fn new(mode: GraphicsMode, #[allow(unused_variables)] font_size: u8) -> Result<Self, CreatePrinterError> {
+    pub fn new(mode: GraphicsMode) -> Result<Self, CreatePrinterError> {
         let printer = match mode {
             GraphicsMode::Kitty { mode, inside_tmux } => Self::new_kitty(mode, inside_tmux)?,
             GraphicsMode::Iterm2 => Self::new_iterm(),
             GraphicsMode::AsciiBlocks => Self::new_ascii(),
             #[cfg(feature = "sixel")]
-            GraphicsMode::Sixel => Self::new_sixel(font_size)?,
+            GraphicsMode::Sixel => Self::new_sixel()?,
         };
         Ok(printer)
     }
@@ -93,8 +98,8 @@ impl ImagePrinter {
     }
 
     #[cfg(feature = "sixel")]
-    fn new_sixel(font_size: u8) -> Result<Self, CreatePrinterError> {
-        Ok(Self::Sixel(super::sixel::SixelPrinter::new(font_size)?))
+    fn new_sixel() -> Result<Self, CreatePrinterError> {
+        Ok(Self::Sixel(super::sixel::SixelPrinter::new()?))
     }
 }
 
