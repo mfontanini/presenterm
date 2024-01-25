@@ -158,7 +158,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let resources_path = path.parent().unwrap_or(Path::new("/"));
     let mut options = make_builder_options(&config, &mode, force_default_theme);
     let graphics_mode = select_graphics_mode(&cli, &config);
-    let printer = Rc::new(ImagePrinter::new(graphics_mode.clone(), config.defaults.terminal_font_size)?);
+    let printer = Rc::new(ImagePrinter::new(graphics_mode.clone())?);
     let registry = ImageRegistry(printer.clone());
     let resources = Resources::new(resources_path, registry.clone());
     let typst = TypstRender::new(config.typst.ppi, registry);
