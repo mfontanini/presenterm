@@ -1,7 +1,7 @@
 ## Themes
 
-Themes are defined in the form of yaml files. A few built-in themes are defined in the [themes](/themes) directory, but 
-others can be created and referenced directly in every presentation.
+Themes are defined in the form of yaml files. A few built-in themes are defined in the [themes][builtin-themes] 
+directory, but others can be created and referenced directly in every presentation.
 
 ### Setting themes
 
@@ -61,7 +61,7 @@ This lets you:
 ## Built-in themes
 
 A few built-in themes are bundled with the application binary, meaning you don't need to have any external files 
-available to use them. These are packed as part of the [build process](/build.rs) as a binary blob and are decoded on 
+available to use them. These are packed as part of the [build process][build-rs] as a binary blob and are decoded on 
 demand only when used.
 
 Currently, the following themes are supported:
@@ -81,8 +81,8 @@ parameter, use it in the `theme.name` property in a presentation's front matter,
 
 ## Theme definition
 
-This section goes through the structure of the theme files. Have a look at some of the [existing themes](/themes) to 
-have an idea of how to structure themes. 
+This section goes through the structure of the theme files. Have a look at some of the [existing themes][builtin-themes] 
+to have an idea of how to structure themes. 
 
 ### Root elements
 
@@ -316,3 +316,7 @@ For block quotes you can specify a string to use as a prefix in every line of qu
 block_quote:
   prefix: "▍ "
 ```
+
+<!-- links -->
+[builtin-themes]: https://github.com/mfontanini/presenterm/tree/master/themes
+[build-rs]: https://github.com/mfontanini/presenterm/blob/master/build.rs

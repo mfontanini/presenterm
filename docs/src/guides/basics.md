@@ -1,11 +1,11 @@
 ## Introduction
 
 This guide teaches you how to use _presenterm_. At this point you should have already installed _presenterm_, otherwise 
-visit the [installation](/docs/install.md) guide to get started.
+visit the [installation](installation.html) guide to get started.
 
-## Quick start
+### Quick start
 
-Download the example presentation and run it using:
+Download the demo presentation and run it using:
 
 ```shell
 git clone https://github.com/mfontanini/presenterm.git
@@ -57,7 +57,12 @@ Things you should know when using image tags in your presentation's markdown are
   preserving the aspect ratio.
 * If your terminal does not support any of the graphics protocol above, images will be rendered using ascii blocks. It 
   ain't great but it's something!
-* Image rendering is currently not supported on Windows.
+
+#### Protocol detection
+
+By default the image protocol to be used will be automatically detected. In cases where this detection fails (e.g. when 
+running inside `tmux`), you can set it manually via the `--image-protocol` parameter or by setting it in the [config 
+file](configuration.html#preferred-image-protocol).
 
 ## Extensions
 
@@ -89,8 +94,8 @@ Hello
 ===
 ~~~
 
-> Note: see the [themes](/docs/themes.md) section on how to customize the looks of slide titles and any other element in 
-> a presentation.
+> Note: see the [themes](themes.html) section on how to customize the looks of slide titles and any other element in a 
+> presentation.
 
 ### Pauses
 
@@ -111,9 +116,68 @@ While other applications use a thematic break (`---`) to mark the end of a slide
 <!-- end_slide -->
 ```
 
-This makes the end of a slide more explicit and easy to spot while you're editing your presentation.
+This makes the end of a slide more explicit and easy to spot while you're editing your presentation. See the 
+[configuration](/docs/config.md#implicit_slide_ends) if you want to customize this behavior.
 
-See the [configuration](/docs/config.md#implicit_slide_ends) if you want to customize this behavior.
+If you really would prefer to use thematic breaks (`---`) to delimit slides, you can do that by enabling the 
+[`end_slide_shorthand`](configuration.html#end_slide_shorthand) options.
+
+### Jumping to the vertical center
+
+The command `jump_to_vertical_center` lets you jump to the middle of the page vertically. This is useful in combination 
+with slide titles to create separator slides:
+
+```markdown
+blablabla
+
+<!-- end_slide -->
+
+<!-- jump_to_middle -->
+
+Farming potatoes
+===
+
+<!-- end_slide -->
+```
+
+This will create a slide with the text "Farming potatoes" in the center, rendered using the slide title style.
+
+### Explicit new lines
+
+The `newline`/`new_line` and `newlines`/`new_lines` commands allow you to explicitly create new lines. Because markdown 
+ignores multiple line breaks in a row, this is useful to create some spacing where necessary:
+
+```markdown
+hi
+
+<!-- new_lines: 10 -->
+
+mom
+
+<!-- new_line -->
+
+bye
+```
+
+### Incremental lists
+
+Using `<!-- pause -->` in between each bullet point a list is a bit tedious so instead you can use the 
+`incremental_lists` command to tell _presenterm_ that **until the end of the current slide** you want each individual 
+bullet point to appear only after you move to the next slide:
+
+```markdown
+<!-- incremental_lists: true -->
+
+* this
+* appears
+* one after
+* the other
+
+<!-- incremental_lists: false -->
+
+* this appears
+* all at once
+```
 
 ## Key bindings
 
@@ -126,4 +190,27 @@ Besides this:
 * Jumping to the last slide: `G`.
 * Jumping to a specific slide: `<slide-number>G`.
 * Exit the presentation: `<ctrl>c`.
-* Refresh images: `<ctrl>r`.
+
+### Configuring key bindings
+
+If you don't like the default key bindings, you can configure them in `~/.config/presenterm/config.yaml`. See the 
+[configuration page](configuration.html#key-bindings) for more information.
+
+
+## Modals
+
+_presenterm_ currently has 2 modals that can provide some information while running the application. Modals can be 
+toggled using some key combination and can be hidden using the escape key by default, but these can be configured via 
+the [configuration file key bindings](configuration.html#key-bindings).
+
+### Slide index modal
+
+This modal can be toggled by default using `control+p` and lets you see an index that contains a row for every slide in 
+the presentation, including its title and slide index. This allows you to find a slide you're trying to jump to 
+quicklier rather than scanning through each of them.
+
+[![asciicast](https://asciinema.org/a/1VgRxVIEyLrMmq6OZ3oKx4PGi.svg)](https://asciinema.org/a/1VgRxVIEyLrMmq6OZ3oKx4PGi)
+
+### Key bindings modal
+
+The key bindings modal displays the key bindings for each of the supported actions.
