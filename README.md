@@ -1,22 +1,15 @@
 presenterm
----
+===
 
-A terminal based slideshow tool.
-
----
-
-_presenterm_ lets you create presentations in markdown format and render them in your terminal.
+**_presenterm_ lets you create presentations in markdown format and render them in your terminal.**
 
 This is how the [demo presentation](examples/demo.md) looks like:
 
 ![](/docs/src/assets/demo.gif)
 
-# Installation
+# Documentation
 
-The recommended way to install _presenterm_ is to download the latest pre-built version for your system from the 
-[releases](https://github.com/mfontanini/presenterm/releases) page.
-
-For other alternative ways to install it, follow the [installation guide][guide-installation].
+Visit the [documentation][guide-introduction] to get started.
 
 # Features
 
@@ -79,10 +72,6 @@ In order to do this, annotate the code block with `+exec` (e.g. `bash +exec`). *
 
 See more details on this [here][guide-code-execute].
 
-# Docs
-
-Some docs on how to configure _presenterm_ and how it works internally can be found [here][guide-introduction].
-
 # Acknowledgements
 
 This tool is heavily inspired by:
@@ -94,7 +83,6 @@ This tool is heavily inspired by:
 Support for code highlighting on many languages is thanks to [bat](https://github.com/sharkdp/bat), which contains a 
 custom set of syntaxes that extend [syntect](https://github.com/trishume/syntect)'s default set of supported languages. 
 Run `presenterm --acknowledgements` to get a full list of all the licenses for the binary files being pulled in.
-
 
 <!-- links -->
 [guide-introduction]: https://mfontanini.github.io/presenterm/
