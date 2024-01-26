@@ -75,7 +75,7 @@ jobs:
         id: read_release_notes
         shell: bash
         run: |
-          r=$(./scripts/parse-changelog.sh ${{ env.RELEASE_VERSION }})
+          r=$(./scripts/parse-changelog.sh v${{ env.RELEASE_VERSION }})
           r="${r//'%'/'%25'}"
           r="${r//$'\n'/'%0A'}"
           r="${r//$'\r'/'%0D'}"
