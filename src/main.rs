@@ -49,6 +49,10 @@ struct Cli {
     /// The image protocol to use.
     #[clap(long)]
     image_protocol: Option<ImageProtocol>,
+
+    /// The path to the configuration file.
+    #[clap(short, long)]
+    config_file: Option<String>,
 }
 
 fn create_splash() -> String {
@@ -65,14 +69,14 @@ fn create_splash() -> String {
     )
 }
 
-fn load_customizations() -> Result<(Config, Themes), Box<dyn std::error::Error>> {
+fn load_customizations(config_file_path: Option<PathBuf>) -> Result<(Config, Themes), Box<dyn std::error::Error>> {
     let Ok(home_path) = env::var("HOME") else {
         return Ok(Default::default());
     };
     let home_path = PathBuf::from(home_path);
     let configs_path = home_path.join(".config/presenterm");
     let themes = load_themes(&configs_path)?;
-    let config_file_path = configs_path.join("config.yaml");
+    let config_file_path = config_file_path.unwrap_or_else(|| configs_path.join("config.yaml"));
     let config = Config::load(&config_file_path)?;
     Ok((config, themes))
 }
@@ -136,7 +140,7 @@ fn select_graphics_mode(cli: &Cli, config: &Config) -> GraphicsMode {
 }
 
 fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
-    let (config, themes) = load_customizations()?;
+    let (config, themes) = load_customizations(cli.config_file.clone().map(PathBuf::from))?;
 
     let default_theme = load_default_theme(&config, &themes, &cli);
     let force_default_theme = cli.theme.is_some();
@@ -167,6 +171,9 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         let mut args = Vec::new();
         if let Some(theme) = cli.theme.as_ref() {
             args.extend(["--theme", theme]);
+        }
+        if let Some(path) = cli.config_file.as_ref() {
+            args.extend(["--config-file", &path]);
         }
         if cli.export_pdf {
             exporter.export_pdf(&path, &args)?;
