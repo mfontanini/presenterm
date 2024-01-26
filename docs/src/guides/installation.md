@@ -56,14 +56,14 @@ For more information see
 
 presenterm is also available in the aur. You can use any AUR helper to install.
 
-#### Building from git  
-> ***recommended for upstream updates***
+#### Building from git (recommended)
 
-```bash
+```shell
 paru/yay -S presenterm-git
 ```
 
 #### Binary release
-```bash
+
+```shell
 paru/yay -S presenterm-bin
 ```

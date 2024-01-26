@@ -135,4 +135,4 @@ is loaded. The languages that currently support this are _LaTeX_ and _typst_ whe
 transformed into an image, allowing you to define formulas as text in your presentation. This can be done by using the 
 `+render` attribute on a code block.
 
-See the [LaTeX and typst docs](/docs/latex.md) for more information.
+See the [LaTeX and typst docs](latex.html) for more information.

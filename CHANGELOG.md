@@ -1,3 +1,43 @@
+# v0.5.0 - 2024-01-26
+
+## New features
+
+* Support images on Windows (#120).
+* Support animated gifs on kitty terminal (#157 #161).
+* Support images on tmux running in kitty terminal (#166).
+* Improve sixel support (#169 #172).
+* Use synchronized updates to remove flickering when switching slides (#156).
+* Add newlines command (#167).
+* Detect image protocol instead of relying on viuer (#160).
+* Turn documentation into mdbook (#141 #147) - thanks @pwnwriter.
+* Allow using thematic breaks to end slides (#138).
+* Allow specifying the preferred image protocol via `--image-protocol` / config file (#136 #170).
+* Add slide index modal (#128 #139 #133 #158).
+* Allow defining custom keybindings in config file (#132 #155).
+* Add key bindings modal (#152).
+* Prioritize CLI args `--theme` over anything else (#116).
+* Allow enabling automatic list pauses (#106 #109 #110).
+* Allow passing in config file path via CLI arg (#174).
+
+## Fixes
+
+* Shrink columns layout dimensions correctly when shrinking left (#113).
+* Explicitly set execution output foreground color in built-in themes (#122).
+* Detect sixel early and fallback to ascii blocks properly (#135).
+* Exit with a clap error on missing path (#150).
+* Don't blow up if presentation file temporarily disappears (#154).
+* Parse front matter properly in presence of \r\n (#162).
+* Don't preload graphics mode when generating pdf metadata (#168).
+* Ignore key release events (#119).
+
+## Improvements
+
+* Validate that config file contains the right attributes (#107).
+* Display first presentation load error as any other (#118).
+* Add hashes for windows artifacts (#126).
+* Remove arch packaging files (#111).
+* Lower CPU and memory usage when displaying images (#157).
+
 # v0.4.1 - 2023-12-22
 
 ## New features

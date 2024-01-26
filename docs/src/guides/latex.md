@@ -1,8 +1,8 @@
 ## LaTeX and typst
 
-`latex` and `typst` code blocks can be marked with the `+render` attribute (see [highlighting](/docs/highlightingi.md)) 
-to have them rendered into images when the presentation is loaded. This allows you to define formulas in text rather 
-than having to define them somewhere else, transform them into an image, and them embed it.
+`latex` and `typst` code blocks can be marked with the `+render` attribute (see [highlighting](code-highlight.html)) to 
+have them rendered into images when the presentation is loaded. This allows you to define formulas in text rather than 
+having to define them somewhere else, transform them into an image, and them embed it.
 
 ### Dependencies
 
