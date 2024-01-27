@@ -27,6 +27,8 @@ text (**bold**, _italics_, ~strikethrough~, `inline code`, etc), code blocks, bl
 
 ### Images
 
+![](../assets/demo-image.png)
+
 Images are supported and will render in your terminal as long as it supports either the [iterm2 image 
 protocol](https://iterm2.com/documentation-images.html), the [kitty graphics 
 protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/), or [sixel](https://saitoha.github.io/libsixel/). Some of 
@@ -214,3 +216,12 @@ quicklier rather than scanning through each of them.
 ### Key bindings modal
 
 The key bindings modal displays the key bindings for each of the supported actions.
+
+## Hot reload
+
+Unless you run in presentation mode by passing in the `--present` parameter, _presenterm_ will automatically reload your 
+presentation file every time you save it. _presenterm_ will also automatically detect which specific slide was modified 
+and jump to it so you don't have to be jumping back and forth between the source markdown and the presentation to see 
+how the changes look like.
+
+[![asciicast](https://asciinema.org/a/bu9ITs8KhaQK5OdDWnPwUYKu3.svg)](https://asciinema.org/a/bu9ITs8KhaQK5OdDWnPwUYKu3)
