@@ -143,7 +143,7 @@ impl<'a> Exporter<'a> {
                     let mut buffer = Vec::new();
                     let dimensions = image.original.dimensions();
                     let ImageResource::Ascii(resource) = image.original.resource.as_ref() else {
-                        panic!("not in viuer mode")
+                        panic!("not in ascii mode")
                     };
                     PngEncoder::new(&mut buffer).write_image(
                         resource.as_bytes(),

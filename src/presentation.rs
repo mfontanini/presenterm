@@ -3,7 +3,7 @@ use crate::{
     markdown::text::WeightedTextBlock,
     media::image::Image,
     render::properties::WindowSize,
-    style::Colors,
+    style::{Color, Colors},
     theme::{Alignment, Margin, PresentationTheme},
 };
 use serde::Deserialize;
@@ -500,11 +500,12 @@ pub(crate) enum RenderOperation {
 }
 
 /// The properties of an image being rendered.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub(crate) struct ImageProperties {
     pub(crate) z_index: i32,
     pub(crate) size: ImageSize,
     pub(crate) restore_cursor: bool,
+    pub(crate) background_color: Option<Color>,
 }
 
 /// The size used when printing an image.

@@ -309,6 +309,7 @@ impl AsRenderOperations for CenterModalContent {
                 z_index: MODAL_Z_INDEX,
                 size: ImageSize::Specific(self.content_width, content_height),
                 restore_cursor: true,
+                background_color: None,
             };
             operations.push(RenderOperation::RenderImage(image.clone(), properties));
         }
