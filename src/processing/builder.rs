@@ -506,7 +506,12 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_image(&mut self, image: Image) {
-        let properties = ImageProperties { z_index: DEFAULT_Z_INDEX, size: Default::default(), restore_cursor: false };
+        let properties = ImageProperties {
+            z_index: DEFAULT_Z_INDEX,
+            size: Default::default(),
+            restore_cursor: false,
+            background_color: self.theme.default_style.colors.background,
+        };
         self.chunk_operations.extend([
             RenderOperation::RenderImage(image, properties),
             RenderOperation::SetColors(self.theme.default_style.colors.clone()),

@@ -168,6 +168,7 @@ where
             z_index: properties.z_index,
             column_width: rect.dimensions.pixels_per_column() as u16,
             row_height: rect.dimensions.pixels_per_row() as u16,
+            background_color: properties.background_color,
         };
         self.terminal.print_image(image, &options)?;
         if properties.restore_cursor {

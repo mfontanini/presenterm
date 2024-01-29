@@ -4,7 +4,7 @@ use super::{
     iterm::{ItermPrinter, ItermResource},
     kitty::{KittyMode, KittyPrinter, KittyResource},
 };
-use crate::render::properties::CursorPosition;
+use crate::{render::properties::CursorPosition, style::Color};
 use image::{DynamicImage, ImageError};
 use std::{borrow::Cow, io, path::Path};
 
@@ -32,6 +32,7 @@ pub(crate) struct PrintOptions {
     pub(crate) rows: u16,
     pub(crate) cursor_position: CursorPosition,
     pub(crate) z_index: i32,
+    pub(crate) background_color: Option<Color>,
     // Width/height in pixels.
     #[allow(dead_code)]
     pub(crate) column_width: u16,
@@ -162,9 +163,6 @@ pub enum PrintImageError {
 
     #[error("image decoding: {0}")]
     Image(#[from] ImageError),
-
-    #[error("viuer: {0}")]
-    Viuer(#[from] viuer::ViuError),
 
     #[error("other: {0}")]
     Other(Cow<'static, str>),
