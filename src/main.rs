@@ -1,5 +1,6 @@
 use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
+use directories::ProjectDirs;
 use presenterm::{
     CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
     LoadThemeError, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet,
@@ -70,12 +71,11 @@ fn create_splash() -> String {
 }
 
 fn load_customizations(config_file_path: Option<PathBuf>) -> Result<(Config, Themes), Box<dyn std::error::Error>> {
-    let Ok(home_path) = env::var("HOME") else {
+    let Some(project_dirs) = ProjectDirs::from_path("presenterm".into()) else {
         return Ok(Default::default());
     };
-    let home_path = PathBuf::from(home_path);
-    let configs_path = home_path.join(".config/presenterm");
-    let themes = load_themes(&configs_path)?;
+    let configs_path = project_dirs.config_dir();
+    let themes = load_themes(configs_path)?;
     let config_file_path = config_file_path.unwrap_or_else(|| configs_path.join("config.yaml"));
     let config = Config::load(&config_file_path)?;
     Ok((config, themes))
