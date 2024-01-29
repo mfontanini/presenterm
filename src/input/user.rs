@@ -24,15 +24,14 @@ impl UserInput {
     pub(crate) fn next_command(&mut self) -> io::Result<Option<Command>> {
         let mut events = mem::take(&mut self.events);
         let (command, events) = match read()? {
+            // Ignore release events
+            Event::Key(event) if event.kind == KeyEventKind::Release => (None, events),
             Event::Key(event) => {
-                if event.kind == KeyEventKind::Release {
-                    return Ok(None);
-                }
                 events.push(event);
                 self.match_events(events)
             }
             Event::Resize(..) => (Some(Command::Redraw), events),
-            _ => (None, mem::take(&mut self.events)),
+            _ => (None, vec![]),
         };
         self.events = events;
         Ok(command)
