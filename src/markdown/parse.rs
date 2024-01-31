@@ -30,6 +30,7 @@ impl Default for ParserOptions {
         options.extension.front_matter_delimiter = Some("---".into());
         options.extension.table = true;
         options.extension.strikethrough = true;
+        options.extension.multiline_block_quotes = true;
         Self(options)
     }
 }
@@ -100,7 +101,7 @@ impl<'a> MarkdownParser<'a> {
             NodeValue::CodeBlock(block) => Self::parse_code_block(block, data.sourcepos)?,
             NodeValue::ThematicBreak => MarkdownElement::ThematicBreak,
             NodeValue::HtmlBlock(block) => Self::parse_html_block(block, data.sourcepos)?,
-            NodeValue::BlockQuote => Self::parse_block_quote(node)?,
+            NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => Self::parse_block_quote(node)?,
             other => return Err(ParseErrorKind::UnsupportedElement(other.identifier()).with_sourcepos(data.sourcepos)),
         };
         Ok(vec![element])
@@ -466,6 +467,7 @@ impl Identifier for NodeValue {
             NodeValue::Link(_) => "link",
             NodeValue::Image(_) => "image",
             NodeValue::FootnoteReference(_) => "footnote reference",
+            NodeValue::MultilineBlockQuote(_) => "multiline block quote",
         }
     }
 }
@@ -711,6 +713,27 @@ echo hi mom
 > * a
 > * b
 ",
+        );
+        let MarkdownElement::BlockQuote(lines) = parsed else { panic!("not a block quote: {parsed:?}") };
+        assert_eq!(lines.len(), 5);
+        assert_eq!(lines[0], "bar");
+        assert_eq!(lines[1], "foo");
+        assert_eq!(lines[2], "");
+        assert_eq!(lines[3], "* a");
+        assert_eq!(lines[4], "* b");
+    }
+
+    #[test]
+    fn multiline_block_quote() {
+        let parsed = parse_single(
+            r"
+>>>
+bar
+foo
+
+* a
+* b
+>>>",
         );
         let MarkdownElement::BlockQuote(lines) = parsed else { panic!("not a block quote: {parsed:?}") };
         assert_eq!(lines.len(), 5);
