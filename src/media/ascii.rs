@@ -4,7 +4,7 @@ use crossterm::{
     style::{Color, Stylize},
     QueueableCommand,
 };
-use image::{imageops::FilterType, DynamicImage, GenericImageView, Rgba};
+use image::{imageops::FilterType, DynamicImage, GenericImageView, Pixel, Rgba};
 use itertools::Itertools;
 use std::{fs, ops::Deref};
 
@@ -38,9 +38,26 @@ impl Deref for AsciiResource {
 pub struct AsciiPrinter;
 
 impl AsciiPrinter {
-    fn pixel_color(pixel: &Rgba<u8>) -> Option<Color> {
+    fn pixel_color(pixel: &Rgba<u8>, background: Option<Color>) -> Option<Color> {
         let [r, g, b, alpha] = pixel.0;
-        if alpha == 0 { None } else { Some(Color::Rgb { r, g, b }) }
+        if alpha == 0 {
+            None
+        } else if alpha < 255 {
+            // For alpha > 0 && < 255, we blend it with the background color (if any). This helps
+            // smooth the image's borders.
+            let mut pixel = *pixel;
+            match background {
+                Some(Color::Rgb { r, g, b }) => {
+                    pixel.blend(&Rgba([r, g, b, 255 - alpha]));
+                    Some(Color::Rgb { r: pixel[0], g: pixel[1], b: pixel[2] })
+                }
+                // For transparent backgrounds, we can't really know whether we should blend it
+                // towards light or dark.
+                None | Some(_) => Some(Color::Rgb { r, g, b }),
+            }
+        } else {
+            Some(Color::Rgb { r, g, b })
+        }
     }
 }
 
@@ -81,8 +98,9 @@ impl PrintImage for AsciiPrinter {
                 // Get pixel colors for both of these. At this point the special case for the odd
                 // number of rows disappears as we treat a transparent pixel and a non-existent
                 // one the same: they're simply transparent.
-                let top = Self::pixel_color(top_pixel);
-                let bottom = bottom_pixel.and_then(Self::pixel_color);
+                let background = options.background_color.map(Color::from);
+                let top = Self::pixel_color(top_pixel, background);
+                let bottom = bottom_pixel.and_then(|c| Self::pixel_color(c, background));
                 match (top, bottom) {
                     (Some(top), Some(bottom)) => {
                         write!(writer, "{}", TOP_CHAR.with(top).on(bottom))?;
