@@ -494,6 +494,7 @@ impl<'a> PresentationBuilder<'a> {
     fn process_thematic_break(&mut self) {
         if self.options.end_slide_shorthand {
             self.terminate_slide();
+            self.slide_state.ignore_element_line_break = true;
         } else {
             self.chunk_operations.extend([RenderSeparator::default().into(), RenderOperation::RenderLineBreak]);
         }
@@ -1343,9 +1344,14 @@ mod test {
         let elements = vec![
             MarkdownElement::Paragraph(vec![]),
             MarkdownElement::ThematicBreak,
-            MarkdownElement::Paragraph(vec![]),
+            MarkdownElement::Paragraph(vec![ParagraphElement::Text("hi".into())]),
         ];
         let presentation = build_presentation_with_options(elements, options);
         assert_eq!(presentation.iter_slides().count(), 2);
+
+        let second = presentation.iter_slides().skip(1).next().unwrap();
+        let before_text = second.iter_operations().take_while(|e| !matches!(e, RenderOperation::RenderText { .. }));
+        let break_count = before_text.filter(|e| matches!(e, RenderOperation::RenderLineBreak)).count();
+        assert_eq!(break_count, 1);
     }
 }
