@@ -17,13 +17,19 @@ cargo install presenterm
 
 ### Latest unreleased version
 
-To run the latest unreleased version clone the repo, then run:
+To install from the latest source code run:
 
 ```shell
-cargo build --release
+cargo install --git https://github.com/mfontanini/presenterm
 ```
 
-The output binary will be in `./target/release/presenterm`.
+### macOS
+
+Install the latest version in macOS via [brew](https://formulae.brew.sh/formula/presenterm) by running:
+
+```shell
+brew install presenterm
+```
 
 ### Nix
 
