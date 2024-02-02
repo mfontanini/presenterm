@@ -59,9 +59,9 @@ Now all the markdown you write will be placed on the first column until you eith
 The following example puts all of this together by defining 2 columns, one with some code and bullet points, another one 
 with an image, and some extra text at the bottom that's not tied to any columns.
 
-```markdown
+~~~markdown
 Layout example
----
+==============
 
 <!-- column_layout: [2, 1] -->
 
@@ -69,11 +69,11 @@ Layout example
 
 This is some code I like:
 
-\```rust
+```rust
 fn potato() -> u32 {
     42
 }
-\```
+```
 
 Things I like about it:
 1. Potato
@@ -89,7 +89,7 @@ _Picture by Alexis Bailey / CC BY-NC 4.0_
 <!-- reset_layout -->
 
 Because we just reset the layout, this text is now below both of the columns.
-```
+~~~
 
 This would render the following way:
 

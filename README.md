@@ -1,5 +1,15 @@
-presenterm
+presenterm [![crates-badge]][crates-package] [![brew-badge]][brew-package] [![nix-badge]][nix-package] 
+[![arch-badge]][arch-package]
 ===
+
+[brew-badge]: https://img.shields.io/homebrew/v/presenterm
+[brew-package]: https://formulae.brew.sh/formula/presenterm
+[nix-badge]: https://img.shields.io/badge/Packaged_for-Nix-5277C3.svg?logo=nixos&labelColor=73C3D5
+[nix-package]: https://search.nixos.org/packages?size=1&show=presenterm
+[crates-badge]: https://img.shields.io/crates/v/presenterm
+[crates-package]: https://crates.io/crates/presenterm
+[arch-badge]: https://img.shields.io/aur/version/presenterm-bin
+[arch-package]: https://aur.archlinux.org/packages/presenterm-bin 
 
 **_presenterm_ lets you create presentations in markdown format and render them in your terminal.**
 
@@ -29,21 +39,22 @@ Visit the [documentation][guide-introduction] to get started.
 * [Custom key bindings][guide-key-bindings].
 * [Automatically reload your presentation][guide-hot-reload] every time it changes for a fast development loop.
 
-See the [introduction page][guide-basics] to learn more.
+See the [introduction page][guide-introduction] to learn more.
 
 # Acknowledgements
 
 This tool is heavily inspired by:
 
 * [slides](https://github.com/maaslalani/slides/)
-* [lookatme](https://github.com/d0c-s4vage/lookatme).
-* [sli.dev](https://sli.dev/).
+* [lookatme](https://github.com/d0c-s4vage/lookatme)
+* [sli.dev](https://sli.dev/)
 
-Support for code highlighting on many languages is thanks to [bat](https://github.com/sharkdp/bat), which contains a 
-custom set of syntaxes that extend [syntect](https://github.com/trishume/syntect)'s default set of supported languages. 
-Run `presenterm --acknowledgements` to get a full list of all the licenses for the binary files being pulled in.
+Support for code highlighting on many languages is thanks to [bat][bat], which contains a custom set of syntaxes that 
+extend [syntect][syntect]'s default set of supported languages. Run `presenterm --acknowledgements` to get a full list 
+of all the licenses for the binary files being pulled in.
 
 <!-- links -->
+
 [guide-introduction]: https://mfontanini.github.io/presenterm/
 [guide-installation]: https://mfontanini.github.io/presenterm/guides/installation.html
 [guide-basics]: https://mfontanini.github.io/presenterm/guides/basics.html
@@ -60,5 +71,7 @@ Run `presenterm --acknowledgements` to get a full list of all the licenses for t
 [guide-latex]: https://mfontanini.github.io/presenterm/guides/latex.html
 [guide-pdf-export]: https://mfontanini.github.io/presenterm/guides/pdf-export.html
 [guide-key-bindings]: https://mfontanini.github.io/presenterm/guides/configuration.html#key-bindings
-[guide-hot-reload]: https://mfontanini.github.io/presenterm/guides/basics.html#hot-reload 
+[guide-hot-reload]: https://mfontanini.github.io/presenterm/guides/basics.html#hot-reload
+[bat]: https://github.com/sharkdp/bat
+[syntect]: https://github.com/trishume/syntect
 

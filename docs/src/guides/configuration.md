@@ -25,15 +25,16 @@ title, then you're implying that the previous slide ended. For example, the foll
 ---
 options:
   implicit_slide_ends: true
+
 ---
 
 Tasty vegetables
----
+================
 
 * Potato
 
 Awful vegetables
----
+================
 
 * Lettuce
 ```
@@ -42,14 +43,14 @@ Is equivalent to this "vanilla" one that doesn't use implicit slide ends.
 
 ```markdown
 Tasty vegetables
----
+================
 
 * Potato
 
 <!-- end_slide -->
 
 Awful vegetables
----
+================
 
 * Lettuce
 ```
@@ -63,6 +64,7 @@ use `<!-- end_slide -->` but any thematic break will also be considered a slide 
 ---
 options:
   end_slide_shorthand: true
+
 ---
 
 this is a slide
@@ -93,12 +95,13 @@ For example:
 ---
 options:
   command_prefix: "cmd:"
+
 ---
 
 <!-- remember to say "potato here" -->
 
 Tasty vegetables
----
+================
 
 * Potato
 
@@ -119,6 +122,7 @@ option:
 ---
 options:
   incremental_lists: true
+
 ---
 
 * pauses
