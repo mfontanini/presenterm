@@ -71,15 +71,15 @@ jobs:
               > presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.tar.gz.sha512
           fi
 
-      # - name: Parse release notes
-      #   id: read_release_notes
-      #   shell: bash
-      #   run: |
-      #     r=$(./scripts/parse-changelog.sh v${{ env.RELEASE_VERSION }})
-      #     r="${r//'%'/'%25'}"
-      #     r="${r//$'\n'/'%0A'}"
-      #     r="${r//$'\r'/'%0D'}"
-      #     echo "RELEASE_NOTES=$r" >> $GITHUB_OUTPUT
+      - name: Parse release notes
+        id: read_release_notes
+        shell: bash
+        run: |
+          r=$(./scripts/parse-changelog.sh v${{ env.RELEASE_VERSION }})
+          r="${r//'%'/'%25'}"
+          r="${r//$'\n'/'%0A'}"
+          r="${r//$'\r'/'%0D'}"
+          echo "RELEASE_NOTES=$r" >> $GITHUB_OUTPUT
 
       - name: Upload the release
         uses: svenstaro/upload-release-action@v2
@@ -89,8 +89,8 @@ jobs:
           file_glob: true
           overwrite: true
           tag: ${{ github.ref }}
-          # body: |
-          #   ${{ steps.read_release_notes.outputs.RELEASE_NOTES }}
+          body: |
+            ${{ steps.read_release_notes.outputs.RELEASE_NOTES }}
 
   publish-crates-io:
     name: Publish on crates.io
