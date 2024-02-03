@@ -313,6 +313,14 @@ impl KeyMatcher {
             Ok((KeyCode::Down, input))
         } else if let Some(input) = Self::try_match_input(input, &["<Esc>", "<esc>"]) {
             Ok((KeyCode::Esc, input))
+        } else if let Some(input) = Self::try_match_input(input, &["<Tab>", "<tab>"]) {
+            Ok((KeyCode::Tab, input))
+        } else if let Some(input) = Self::try_match_input(input, &["<Backspace>", "<backspace>"]) {
+            Ok((KeyCode::Backspace, input))
+        } else if let Some(input) = Self::try_match_input(input, &["<F", "<f"]) {
+            let (number, rest) = input.split_once('>').ok_or(KeyBindingParseError::InvalidControlSequence)?;
+            let number: u8 = number.parse().map_err(|_| KeyBindingParseError::InvalidControlSequence)?;
+            if number > 12 { Err(KeyBindingParseError::InvalidControlSequence) } else { Ok((KeyCode::F(number), rest)) }
         } else {
             let next = input.chars().next().ok_or(KeyBindingParseError::NoInput)?;
             // don't allow these as they create ambiguity
@@ -456,6 +464,12 @@ mod test {
     #[case::down2("<down>", vec![KeyMatcher::Key(KeyCode::Down.into())])]
     #[case::esc1("<Esc>", vec![KeyMatcher::Key(KeyCode::Esc.into())])]
     #[case::esc2("<esc>", vec![KeyMatcher::Key(KeyCode::Esc.into())])]
+    #[case::f1("<f1>", vec![KeyMatcher::Key(KeyCode::F(1).into())])]
+    #[case::f12("<f12>", vec![KeyMatcher::Key(KeyCode::F(12).into())])]
+    #[case::backspace1("<Backspace>", vec![KeyMatcher::Key(KeyCode::Backspace.into())])]
+    #[case::backspace2("<backspace>", vec![KeyMatcher::Key(KeyCode::Backspace.into())])]
+    #[case::tab1("<Tab>", vec![KeyMatcher::Key(KeyCode::Tab.into())])]
+    #[case::tab2("<tab>", vec![KeyMatcher::Key(KeyCode::Tab.into())])]
     fn parse_key_binding(#[case] pattern: &str, #[case] matchers: Vec<KeyMatcher>) {
         let binding = KeyBinding::from_str(pattern).expect("failed to parse");
         let expected = KeyBinding(matchers);
@@ -467,6 +481,8 @@ mod test {
     #[case::invalid_char("🚀")]
     #[case::too_many_numbers("<number><number>")]
     #[case::control_sequence("<C-w")]
+    #[case::f10("<f13>")]
+    #[case::unfinished_f("<f1")]
     fn invalid_key_bindings(#[case] input: &str) {
         let result = KeyBinding::from_str(input);
         assert!(result.is_err(), "not an error");
