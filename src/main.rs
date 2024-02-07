@@ -111,6 +111,7 @@ fn make_builder_options(config: &Config, mode: &PresentMode, force_default_theme
         force_default_theme,
         end_slide_shorthand: config.options.end_slide_shorthand.unwrap_or_default(),
         print_modal_background: false,
+        strict_front_matter_parsing: config.options.strict_front_matter_parsing.unwrap_or(true),
     }
 }
 

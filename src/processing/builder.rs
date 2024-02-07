@@ -53,6 +53,7 @@ pub struct PresentationBuilderOptions {
     pub force_default_theme: bool,
     pub end_slide_shorthand: bool,
     pub print_modal_background: bool,
+    pub strict_front_matter_parsing: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -60,6 +61,8 @@ impl PresentationBuilderOptions {
         self.implicit_slide_ends = options.implicit_slide_ends.unwrap_or(self.implicit_slide_ends);
         self.incremental_lists = options.incremental_lists.unwrap_or(self.incremental_lists);
         self.end_slide_shorthand = options.end_slide_shorthand.unwrap_or(self.end_slide_shorthand);
+        self.strict_front_matter_parsing =
+            options.strict_front_matter_parsing.unwrap_or(self.strict_front_matter_parsing);
         if let Some(prefix) = options.command_prefix {
             self.command_prefix = prefix;
         }
@@ -76,6 +79,7 @@ impl Default for PresentationBuilderOptions {
             force_default_theme: false,
             end_slide_shorthand: false,
             print_modal_background: false,
+            strict_front_matter_parsing: true,
         }
     }
 }
@@ -252,8 +256,11 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_front_matter(&mut self, contents: &str) -> Result<(), BuildError> {
-        let mut metadata: PresentationMetadata =
-            serde_yaml::from_str(contents).map_err(|e| BuildError::InvalidMetadata(e.to_string()))?;
+        let metadata = match self.options.strict_front_matter_parsing {
+            true => serde_yaml::from_str::<StrictPresentationMetadata>(contents).map(PresentationMetadata::from),
+            false => serde_yaml::from_str::<PresentationMetadata>(contents),
+        };
+        let mut metadata = metadata.map_err(|e| BuildError::InvalidMetadata(e.to_string()))?;
 
         if let Some(options) = metadata.options.take() {
             self.options.merge(options);
@@ -942,6 +949,32 @@ struct IndexedListItem {
     item: ListItem,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StrictPresentationMetadata {
+    #[serde(default)]
+    title: Option<String>,
+
+    #[serde(default)]
+    sub_title: Option<String>,
+
+    #[serde(default)]
+    author: Option<String>,
+
+    #[serde(default)]
+    theme: PresentationThemeMetadata,
+
+    #[serde(default)]
+    options: Option<OptionsConfig>,
+}
+
+impl From<StrictPresentationMetadata> for PresentationMetadata {
+    fn from(strict: StrictPresentationMetadata) -> Self {
+        let StrictPresentationMetadata { title, sub_title, author, theme, options } = strict;
+        Self { title, sub_title, author, theme, options }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1353,5 +1386,13 @@ mod test {
         let before_text = second.iter_operations().take_while(|e| !matches!(e, RenderOperation::RenderText { .. }));
         let break_count = before_text.filter(|e| matches!(e, RenderOperation::RenderLineBreak)).count();
         assert_eq!(break_count, 1);
+    }
+
+    #[test]
+    fn parse_front_matter_strict() {
+        let options = PresentationBuilderOptions { strict_front_matter_parsing: false, ..Default::default() };
+        let elements = vec![MarkdownElement::FrontMatter("potato: yes".into())];
+        let result = try_build_presentation_with_options(elements, options);
+        assert!(result.is_ok());
     }
 }
