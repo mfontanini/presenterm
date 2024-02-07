@@ -81,6 +81,9 @@ pub struct OptionsConfig {
 
     /// Whether to treat a thematic break as a slide end.
     pub end_slide_shorthand: Option<bool>,
+
+    /// Whether to be strict about parsing the presentation's front matter.
+    pub strict_front_matter_parsing: Option<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
