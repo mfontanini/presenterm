@@ -75,9 +75,10 @@ Currently, the following themes are supported:
 
 ## Loading custom themes
 
-On startup, _presenterm_ will look into the `~/.config/presenterm/themes` directory and will load any `.yaml` file as a 
-theme and make it available as if it was a built-in theme. This means you can use it as an argument to the `--theme` 
-parameter, use it in the `theme.name` property in a presentation's front matter, etc.
+On startup, _presenterm_ will look into the `themes` directory under the [configuration directory](configuration.html) 
+(e.g. `~/.config/presenterm/themes` in Linux) and will load any `.yaml` file as a theme and make it available as if it 
+was a built-in theme. This means you can use it as an argument to the `--theme` parameter, use it in the `theme.name` 
+property in a presentation's front matter, etc.
 
 ## Theme definition
 
@@ -305,8 +306,9 @@ code:
 
 #### Custom highlighting themes
 
-Besides the built-in highlighting themes, you can drop any `.tmTheme` theme in 
-`~/.config/presenterm/themes/highlighting` and they will be loaded automatically when _presenterm_ starts.
+Besides the built-in highlighting themes, you can drop any `.tmTheme` theme in the `themes/highlighting` directory under 
+your [configuration directory](configuration.html) (e.g. `~/.config/presenterm/themes/highlighting` in Linux) and they 
+will be loaded automatically when _presenterm_ starts.
 
 ### Block quotes
 

@@ -1,6 +1,6 @@
 ## Installation
 
-_presenterm_ works on linux, macOS, and Windows and can be installed in different ways:
+_presenterm_ works on Linux, macOS, and Windows and can be installed in different ways:
 
 ### Pre-built binaries (recommended)
 
