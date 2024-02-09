@@ -3,7 +3,7 @@
 set -e
 
 script_dir=$(dirname "$0")
-root_dir=$(realpath "${script_dir}/../")
+root_dir="${script_dir}/../"
 
 if [ $# -ne 1 ]; then
     echo "Usage: $0 <version>"
@@ -20,7 +20,7 @@ fi
 
 releases=$(grep -e "^# " -n "$changelog")
 version_line=$(echo "$releases" | grep "$version" | cut -d : -f 1)
-next_line=$(echo "$releases" | grep -v "$version" -m 1 | cut -d : -f 1)
+next_line=$(echo "$releases" | grep "$version" -A 1 -m 1 | tail -n 1 | cut -d : -f 1)
 let next_line=("$next_line" - 1)
 
 sed -n "${version_line},${next_line}p" "$changelog"
