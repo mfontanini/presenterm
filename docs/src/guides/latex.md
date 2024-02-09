@@ -28,7 +28,7 @@ generated on the fly will have a fixed size. Configuring the PPI used during the
 higher the PPI, the larger the generated images will be.
 
 Because as opposed to most configurations this is a very environment-specific config, the PPI parameter is not part of 
-the theme definition but is instead has to be set in _presenterm_'s config file in `~/.config/presenterm/config.yaml`:
+the theme definition but is instead has to be set in [_presenterm_'s config file](configuration.html):
 
 ```yaml
 typst:

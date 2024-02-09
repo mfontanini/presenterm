@@ -1,8 +1,15 @@
 ## Configuration
 
-_presenterm_ currently supports a limited number of configuration parameters that let you customize its behavior. The 
-configuration file is looked up at `$HOME/.config/presenterm/config.yaml` and is not created automatically so you will 
-need to do so if you want to customize any behavior.
+_presenterm_ allows you to customize its behavior via a configuration file. This file is stored, along with all of your 
+custom themes, in the following directories:
+
+* `~/.config/presenterm/` in Linux.
+* `~/Library/Application Support/presenterm/` in macOS.
+* `~/AppData/Roaming/presenterm/config/` in Windows.
+
+The configuration file will be looked up automatically in the directories above under the name `config.yaml`. e.g. on 
+Linux you should create it under `~/.config/presenterm/config.yaml`. You can also specify a custom path to this file 
+when running _presenterm_ via the `--config-path` parameter.
 
 A [sample configuration file](https://github.com/mfontanini/presenterm/blob/master/config.sample.yaml) is provided in 
 the repository that you can use as a base.
@@ -21,11 +28,10 @@ The supported configuration options are currently the following:
 This option removes the need to use `<!-- end_slide -->` in between slides and instead assumes that if you use a slide 
 title, then you're implying that the previous slide ended. For example, the following presentation:
 
-```markdown
+```
 ---
 options:
   implicit_slide_ends: true
-
 ---
 
 Tasty vegetables
@@ -60,11 +66,10 @@ Awful vegetables
 This option allows using thematic breaks (`---`) as a delimiter between slides. When enabling this option, you can still 
 use `<!-- end_slide -->` but any thematic break will also be considered a slide terminator.
 
-```markdown
+```
 ---
 options:
   end_slide_shorthand: true
-
 ---
 
 this is a slide
@@ -91,11 +96,10 @@ considered a command.
 
 For example:
 
-```markdown
+```
 ---
 options:
   command_prefix: "cmd:"
-
 ---
 
 <!-- remember to say "potato here" -->
@@ -118,11 +122,10 @@ because it does.
 If you'd like all bullet points in all lists to show up with pauses in between you can enable the `incremental_lists` 
 option:
 
-```markdown
+```
 ---
 options:
   incremental_lists: true
-
 ---
 
 * pauses
@@ -132,6 +135,20 @@ options:
 
 Keep in mind if you only want specific bullet points to show up with pauses in between, you can use the 
 [`incremental_lists` comment command](basics.html#incremental-lists).
+
+### strict_front_matter_parsing
+
+This option tells _presenterm_ you don't care about extra parameters in presentation's front matter. This can be useful 
+if you're trying to load a presentation made for another tool. The following presentation would only be successfully 
+loaded if you set `strict_front_matter_parsing` to `false` in your configuration file:
+
+```markdown
+---
+potato: 42
+---
+
+# Hi
+```
 
 ## Defaults
 

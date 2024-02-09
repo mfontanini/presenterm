@@ -195,9 +195,8 @@ Besides this:
 
 ### Configuring key bindings
 
-If you don't like the default key bindings, you can configure them in `~/.config/presenterm/config.yaml`. See the 
-[configuration page](configuration.html#key-bindings) for more information.
-
+If you don't like the default key bindings, you can override them in the [configuration 
+file](configuration.html#key-bindings).
 
 ## Modals
 
