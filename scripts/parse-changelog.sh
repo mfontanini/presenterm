@@ -23,4 +23,4 @@ version_line=$(echo "$releases" | grep "$version" | cut -d : -f 1)
 next_line=$(echo "$releases" | grep "$version" -A 1 -m 1 | tail -n 1 | cut -d : -f 1)
 let next_line=("$next_line" - 1)
 
-sed -n "${version_line},${next_line}p" "$changelog"
+sed -n "${version_line},${next_line}p" "$changelog" | tail -n +3
