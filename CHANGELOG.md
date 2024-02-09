@@ -1,3 +1,25 @@
+# v0.6.0 - 2024-02-09
+
+## Breaking changes
+
+* The default configuration file and custom themes paths have been changed in Windows and macOS to be compliant to where 
+  those platforms store these types of files. See the [configuration 
+  guide](https://mfontanini.github.io/presenterm/guides/configuration.html) to learn more.
+
+## New features
+
+* Add `f` keys, tab, and backspace as possible bindings (#188).
+* Add support for multiline block quotes (#184).
+* Use theme color as background on ascii-blocks mode images (#182).
+* Blend ascii-blocks image semi-transparent borders (#185).
+* Respect Windows/macOS config paths for configuration (#181).
+* Allow making front matter strict parsing optional (#190).
+
+## Fixes
+
+* Don't add an extra line after an end slide shorthand (#187).
+* Don't clear input state on key release event (#183).
+
 # v0.5.0 - 2024-01-26
 
 ## New features
