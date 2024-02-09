@@ -376,6 +376,7 @@ pub(crate) trait ChunkMutator: Debug {
     fn mutate_previous(&self) -> bool;
     fn reset_mutations(&self);
     fn apply_all_mutations(&self);
+    #[allow(dead_code)]
     fn mutations(&self) -> (usize, usize);
 }
 
