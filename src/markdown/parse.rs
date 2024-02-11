@@ -132,6 +132,9 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn parse_block_quote(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
+        // This renders the contents of this block quote AST as commonmark, given we otherwise
+        // would need to either do this outselves or pull the raw block contents off of the
+        // original raw string and that also isn't great.
         let mut buffer = BufWriter::new(Vec::new());
         let mut options = ParserOptions::default().0;
         options.render.list_style = ListStyleType::Star;
@@ -145,7 +148,14 @@ impl<'a> MarkdownParser<'a> {
                 Some(index) => line[index + 1..].trim(),
                 None => line,
             };
-            lines.push(line.to_string());
+            let mut line = line.to_string();
+            // `format_commonmark` escapes these symbols so we un-escape them.
+            for escape in &["\\*", "\\!", "\\[", "\\]", "\\#", "\\`", "\\<", "\\>"] {
+                if line.contains(escape) {
+                    line = line.replace(escape, &escape[1..]);
+                }
+            }
+            lines.push(line);
         }
         Ok(MarkdownElement::BlockQuote(lines))
     }
@@ -706,17 +716,17 @@ echo hi mom
     #[test]
     fn block_quote() {
         let parsed = parse_single(
-            r"
-> bar
+            r#"
+> bar!@#$%^&*()[]'"{}-=`~,.<>/?
 > foo
 > 
 > * a
 > * b
-",
+"#,
         );
         let MarkdownElement::BlockQuote(lines) = parsed else { panic!("not a block quote: {parsed:?}") };
         assert_eq!(lines.len(), 5);
-        assert_eq!(lines[0], "bar");
+        assert_eq!(lines[0], "bar!@#$%^&*()[]'\"{}-=`~,.<>/?");
         assert_eq!(lines[1], "foo");
         assert_eq!(lines[2], "");
         assert_eq!(lines[3], "* a");
