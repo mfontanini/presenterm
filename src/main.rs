@@ -71,11 +71,16 @@ fn create_splash() -> String {
 }
 
 fn load_customizations(config_file_path: Option<PathBuf>) -> Result<(Config, Themes), Box<dyn std::error::Error>> {
-    let Some(project_dirs) = ProjectDirs::from_path("presenterm".into()) else {
-        return Ok(Default::default());
+    let configs_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
+        Ok(path) => Path::new(&path).join("presenterm"),
+        Err(_) => {
+            let Some(project_dirs) = ProjectDirs::from("", "", "presenterm") else {
+                return Ok(Default::default());
+            };
+            project_dirs.config_dir().into()
+        }
     };
-    let configs_path = project_dirs.config_dir();
-    let themes = load_themes(configs_path)?;
+    let themes = load_themes(&configs_path)?;
     let config_file_path = config_file_path.unwrap_or_else(|| configs_path.join("config.yaml"));
     let config = Config::load(&config_file_path)?;
     Ok((config, themes))
