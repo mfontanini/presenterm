@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  pull_request:
+
+jobs:
+  changelog:
+    name: Parse release notes
+    runs-on: ubuntu-latest
+    outputs:
+      notes: ${{ steps.parse.outputs.notes }}
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Parse release notes
+        id: parse
+        shell: bash
+        run: |
+          r=$(./scripts/parse-changelog.sh v0.6.1)
+          r="${r//'%'/'%25'}"
+          r="${r//$'\n'/'%0A'}"
+          r="${r//$'\r'/'%0D'}"
+          echo "notes=$r" >> "$GITHUB_OUTPUT"
+
+  publish-github:
+    name: Publish on GitHub
+    runs-on: ${{ matrix.config.OS }}
+    needs: changelog
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { OS: ubuntu-latest, TARGET: "x86_64-unknown-linux-gnu" }
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Potato
+        shell: bash
+        env:
+          RELEASE_NOTES: ${{ needs.changelog.outputs.notes }}
+        run: echo "$RELEASE_NOTES"
