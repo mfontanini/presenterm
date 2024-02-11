@@ -174,7 +174,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             args.extend(["--theme", theme]);
         }
         if let Some(path) = cli.config_file.as_ref() {
-            args.extend(["--config-file", &path]);
+            args.extend(["--config-file", path]);
         }
         if cli.export_pdf {
             exporter.export_pdf(&path, &args)?;
