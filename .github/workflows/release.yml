@@ -6,9 +6,31 @@ on:
       - "v*.*.*"
 
 jobs:
+  changelog:
+    name: Parse changelog
+    runs-on: ubuntu-latest
+    outputs:
+      notes: ${{ steps.parse.outputs.notes }}
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Parse release notes
+        id: parse
+        shell: bash
+        run: |
+          release_version=v${GITHUB_REF:11}
+          r=$(./scripts/parse-changelog.sh "${release_version}")
+          r="${r//'%'/'%25'}"
+          r="${r//$'\n'/'%0A'}"
+          r="${r//$'\r'/'%0D'}"
+          echo "notes=$r" >> "$GITHUB_OUTPUT"
+  
+
   publish-github:
     name: Publish on GitHub
     runs-on: ${{ matrix.config.OS }}
+    needs: changelog
     strategy:
       fail-fast: false
       matrix:
@@ -71,16 +93,6 @@ jobs:
               > presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.tar.gz.sha512
           fi
 
-      - name: Parse release notes
-        id: read_release_notes
-        shell: bash
-        run: |
-          r=$(./scripts/parse-changelog.sh v${{ env.RELEASE_VERSION }})
-          r="${r//'%'/'%25'}"
-          r="${r//$'\n'/'%0A'}"
-          r="${r//$'\r'/'%0D'}"
-          echo "RELEASE_NOTES=$r" >> $GITHUB_OUTPUT
-
       - name: Upload the release
         uses: svenstaro/upload-release-action@v2
         with:
@@ -91,7 +103,7 @@ jobs:
           release_name: v${{ env.RELEASE_VERSION }}
           tag: ${{ github.ref }}
           body: |
-            ${{ steps.read_release_notes.outputs.RELEASE_NOTES }}
+            ${{ needs.changelog.outputs.notes }}
 
   publish-crates-io:
     name: Publish on crates.io
