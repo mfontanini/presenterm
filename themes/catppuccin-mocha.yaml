@@ -1,0 +1,93 @@
+default:
+  margin:
+    percent: 8
+  colors:
+    foreground: "cdd6f4"
+    background: "1e1e2e"
+
+slide_title:
+  alignment: center
+  padding_bottom: 1
+  padding_top: 1
+  colors:
+    foreground: "f9e2af"
+
+code:
+  alignment: center
+  minimum_size: 50
+  minimum_margin:
+    percent: 8
+  theme_name: base16-eighties.dark
+  padding:
+    horizontal: 2
+    vertical: 1
+
+execution_output:
+  colors:
+    foreground: "cdd6f4"
+    background: "313244"
+
+inline_code:
+  colors:
+    foreground: "a6e3a1"
+
+intro_slide:
+  title:
+    alignment: center
+    colors:
+      foreground: "a6e3a1"
+  subtitle:
+    alignment: center
+    colors:
+      foreground: "74c7ec"
+  author:
+    alignment: center
+    colors:
+      foreground: "bac2de"
+    positioning: page_bottom
+
+headings:
+  h1:
+    prefix: "██"
+    colors:
+      foreground: "94e2d5"
+  h2:
+    prefix: "▓▓▓"
+    colors:
+      foreground: "cba6f7"
+  h3:
+    prefix: "▒▒▒▒"
+    colors:
+      foreground: "89b4fa"
+  h4:
+    prefix: "░░░░░"
+    colors:
+      foreground: "f38ba8"
+  h5:
+    prefix: "░░░░░░"
+    colors:
+      foreground: "a6e3a1"
+  h6:
+    prefix: "░░░░░░░"
+    colors:
+      foreground: "fab387"
+
+block_quote:
+  prefix: "▍ "
+  colors:
+    foreground: "cdd6f4"
+    background: "313244"
+
+typst:
+  colors:
+    foreground: "cdd6f4"
+    background: "313244"
+
+footer:
+  style: progress_bar
+  colors:
+    foreground: "89b4fa"
+
+modals:
+  selection_colors:
+    foreground: "74c7ec"
