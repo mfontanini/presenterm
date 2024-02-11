@@ -3,6 +3,7 @@
 _presenterm_ allows you to customize its behavior via a configuration file. This file is stored, along with all of your 
 custom themes, in the following directories:
 
+* `$XDG_CONFIG_HOME/presenterm/` if that environment variable is defined, otherwise:
 * `~/.config/presenterm/` in Linux.
 * `~/Library/Application Support/presenterm/` in macOS.
 * `~/AppData/Roaming/presenterm/config/` in Windows.
