@@ -1,3 +1,10 @@
+# v0.6.1 - 2024-02-11
+
+## Fixes
+
+* Don't escape symbols in block quotes (#195).
+* Respect `XDG_CONFIG_HOME` when loading configuration files and custom themes (#193).
+
 # v0.6.0 - 2024-02-09
 
 ## Breaking changes
