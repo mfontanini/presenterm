@@ -1,4 +1,4 @@
-name: mdBook build and deploy
+name: Deploy docs
 
 on:
   push:
