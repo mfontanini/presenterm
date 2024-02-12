@@ -163,6 +163,18 @@ pub(crate) struct SlideTitleStyle {
     /// The colors to be used.
     #[serde(default)]
     pub(crate) colors: Colors,
+
+    /// Whether to use bold font for slide titles.
+    #[serde(default)]
+    pub(crate) bold: bool,
+
+    /// Whether to use italics font for slide titles.
+    #[serde(default)]
+    pub(crate) italics: bool,
+
+    /// Whether to use underlined font for slide titles.
+    #[serde(default)]
+    pub(crate) underlined: bool,
 }
 
 /// The style for all headings.

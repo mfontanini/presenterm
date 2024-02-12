@@ -11,6 +11,7 @@ slide_title:
   padding_top: 1
   colors:
     foreground: yellow
+  bold: true
 
 code:
   alignment: center

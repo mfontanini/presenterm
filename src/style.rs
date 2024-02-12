@@ -16,33 +16,33 @@ pub(crate) struct TextStyle {
 
 impl TextStyle {
     /// Add bold to this style.
-    pub(crate) fn bold(mut self) -> Self {
-        self.flags |= TextFormatFlags::Bold as u8;
-        self
+    pub(crate) fn bold(self) -> Self {
+        self.add_flag(TextFormatFlags::Bold)
     }
 
     /// Add italics to this style.
-    pub(crate) fn italics(mut self) -> Self {
-        self.flags |= TextFormatFlags::Italics as u8;
-        self
+    pub(crate) fn italics(self) -> Self {
+        self.add_flag(TextFormatFlags::Italics)
     }
 
     /// Indicate this text is a piece of inline code.
-    pub(crate) fn code(mut self) -> Self {
-        self.flags |= TextFormatFlags::Code as u8;
-        self
+    pub(crate) fn code(self) -> Self {
+        self.add_flag(TextFormatFlags::Code)
     }
 
     /// Add strikethrough to this style.
-    pub(crate) fn strikethrough(mut self) -> Self {
-        self.flags |= TextFormatFlags::Strikethrough as u8;
-        self
+    pub(crate) fn strikethrough(self) -> Self {
+        self.add_flag(TextFormatFlags::Strikethrough)
+    }
+
+    /// Add underline to this style.
+    pub(crate) fn underlined(self) -> Self {
+        self.add_flag(TextFormatFlags::Underlined)
     }
 
     /// Indicate this is a link.
-    pub(crate) fn link(mut self) -> Self {
-        self.flags |= TextFormatFlags::Link as u8;
-        self
+    pub(crate) fn link(self) -> Self {
+        self.italics().underlined()
     }
 
     /// Set the colors for this text style.
@@ -53,27 +53,27 @@ impl TextStyle {
 
     /// Check whether this text style is bold.
     pub(crate) fn is_bold(&self) -> bool {
-        self.flags & TextFormatFlags::Bold as u8 != 0
+        self.has_flag(TextFormatFlags::Bold)
     }
 
     /// Check whether this text style has italics.
     pub(crate) fn is_italics(&self) -> bool {
-        self.flags & TextFormatFlags::Italics as u8 != 0
+        self.has_flag(TextFormatFlags::Italics)
     }
 
     /// Check whether this text is code.
     pub(crate) fn is_code(&self) -> bool {
-        self.flags & TextFormatFlags::Code as u8 != 0
+        self.has_flag(TextFormatFlags::Code)
     }
 
     /// Check whether this text style is strikethrough.
     pub(crate) fn is_strikethrough(&self) -> bool {
-        self.flags & TextFormatFlags::Strikethrough as u8 != 0
+        self.has_flag(TextFormatFlags::Strikethrough)
     }
 
-    /// Check whether this text is a link.
-    pub(crate) fn is_link(&self) -> bool {
-        self.flags & TextFormatFlags::Link as u8 != 0
+    /// Check whether this text style is underlined.
+    pub(crate) fn is_underlined(&self) -> bool {
+        self.has_flag(TextFormatFlags::Underlined)
     }
 
     /// Merge this style with another one.
@@ -96,8 +96,8 @@ impl TextStyle {
         if self.is_strikethrough() {
             styled = styled.crossed_out();
         }
-        if self.is_link() {
-            styled = styled.italic().underlined();
+        if self.is_underlined() {
+            styled = styled.underlined();
         }
         if let Some(color) = self.colors.background {
             styled = styled.on(color.into());
@@ -107,6 +107,15 @@ impl TextStyle {
         }
         styled
     }
+
+    fn add_flag(mut self, flag: TextFormatFlags) -> Self {
+        self.flags |= flag as u8;
+        self
+    }
+
+    fn has_flag(&self, flag: TextFormatFlags) -> bool {
+        self.flags & flag as u8 != 0
+    }
 }
 
 #[derive(Debug)]
@@ -115,7 +124,7 @@ enum TextFormatFlags {
     Italics = 2,
     Code = 4,
     Strikethrough = 8,
-    Link = 16,
+    Underlined = 16,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, SerializeDisplay, DeserializeFromStr)]
