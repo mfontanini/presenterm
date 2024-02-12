@@ -73,3 +73,11 @@ paru/yay -S presenterm-git
 ```shell
 paru/yay -S presenterm-bin
 ```
+
+### Windows
+
+Install the latest version in Scoop via [Scoop](https://scoop.sh/#/apps?q=presenterm&id=a462290f824b50f180afbaa6d8c7c1e6e0952e3a) by running:
+
+```powershell
+scoop install presenterm
+```
