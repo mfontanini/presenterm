@@ -1,5 +1,5 @@
 presenterm [![crates-badge]][crates-package] [![brew-badge]][brew-package] [![nix-badge]][nix-package] 
-[![arch-badge]][arch-package]
+[![arch-badge]][arch-package] [![scoop-badge]][scoop-package]
 ===
 
 [brew-badge]: https://img.shields.io/homebrew/v/presenterm
@@ -9,7 +9,9 @@ presenterm [![crates-badge]][crates-package] [![brew-badge]][brew-package] [![ni
 [crates-badge]: https://img.shields.io/crates/v/presenterm
 [crates-package]: https://crates.io/crates/presenterm
 [arch-badge]: https://img.shields.io/aur/version/presenterm-bin
-[arch-package]: https://aur.archlinux.org/packages/presenterm-bin 
+[arch-package]: https://aur.archlinux.org/packages/presenterm-bin
+[scoop-badge]: https://img.shields.io/scoop/v/presenterm
+[scoop-package]: https://scoop.sh/#/apps?q=presenterm&id=a462290f824b50f180afbaa6d8c7c1e6e0952e3a
 
 **_presenterm_ lets you create presentations in markdown format and render them in your terminal.**
 
