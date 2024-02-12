@@ -443,7 +443,17 @@ impl<'a> PresentationBuilder<'a> {
         }
 
         let style = self.theme.slide_title.clone();
-        text.apply_style(&TextStyle::default().bold().colors(style.colors.clone()));
+        let mut text_style = TextStyle::default().colors(style.colors.clone());
+        if style.bold {
+            text_style = text_style.bold();
+        }
+        if style.italics {
+            text_style = text_style.italics();
+        }
+        if style.underlined {
+            text_style = text_style.underlined();
+        }
+        text.apply_style(&text_style);
 
         for _ in 0..style.padding_top.unwrap_or(0) {
             self.push_line_break();
