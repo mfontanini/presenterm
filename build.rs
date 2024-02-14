@@ -14,8 +14,9 @@ fn main() -> io::Result<()> {
     output_file.write_all(b"use once_cell::sync::Lazy;\n")?;
     output_file
         .write_all(b"static THEMES: Lazy<HashMap<&'static str, &'static [u8]>> = Lazy::new(|| HashMap::from([\n")?;
-    for theme_file in fs::read_dir("themes")? {
-        let theme_file = theme_file?;
+    let mut paths = fs::read_dir("themes")?.collect::<io::Result<Vec<_>>>()?;
+    paths.sort_by_key(|e| e.path());
+    for theme_file in paths {
         let metadata = theme_file.metadata()?;
         if !metadata.is_file() {
             panic!("found non file in themes directory");
