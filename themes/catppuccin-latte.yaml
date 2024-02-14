@@ -1,0 +1,94 @@
+default:
+  margin:
+    percent: 8
+  colors:
+    foreground: "4c4f69"
+    background: "eff1f5"
+
+slide_title:
+  alignment: center
+  padding_bottom: 1
+  padding_top: 1
+  colors:
+    foreground: "df8e1d"
+  bold: true
+
+code:
+  alignment: center
+  minimum_size: 50
+  minimum_margin:
+    percent: 8
+  theme_name: GitHub
+  padding:
+    horizontal: 2
+    vertical: 1
+
+execution_output:
+  colors:
+    foreground: "4c4f69"
+    background: "ccd0da"
+
+inline_code:
+  colors:
+    foreground: "40a02b"
+
+intro_slide:
+  title:
+    alignment: center
+    colors:
+      foreground: "40a02b"
+  subtitle:
+    alignment: center
+    colors:
+      foreground: "209fb5"
+  author:
+    alignment: center
+    colors:
+      foreground: "5c5f77"
+    positioning: page_bottom
+
+headings:
+  h1:
+    prefix: "██"
+    colors:
+      foreground: "179299"
+  h2:
+    prefix: "▓▓▓"
+    colors:
+      foreground: "8839ef"
+  h3:
+    prefix: "▒▒▒▒"
+    colors:
+      background: "1e66f5"
+  h4:
+    prefix: "░░░░░"
+    colors:
+      foreground: "d20f39"
+  h5:
+    prefix: "░░░░░░"
+    colors:
+      foreground: "40a02b"
+  h6:
+    prefix: "░░░░░░░"
+    colors:
+      foreground: "fe640b"
+
+block_quote:
+  prefix: "▍ "
+  colors:
+    foreground: "4c4f69"
+    background: "ccd0da"
+
+typst:
+  colors:
+    foreground: "4c4f69"
+    background: "ccd0da"
+
+footer:
+  style: progress_bar
+  colors:
+    background: "1e66f5"
+
+modals:
+  selection_colors:
+    foreground: "209fb5"
