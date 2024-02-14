@@ -1,19 +1,21 @@
 use super::kitty::local_mode_supported;
 use crate::{media::kitty::KittyMode, GraphicsMode};
 use std::env;
+use strum::IntoEnumIterator;
 
-#[derive(Debug)]
+#[derive(Debug, strum::EnumIter)]
 pub enum TerminalEmulator {
     Kitty,
     Iterm2,
     WezTerm,
     Mintty,
+    Konsole,
     Foot,
     Yaft,
     Mlterm,
-    Unknown,
     St,
     Xterm,
+    Unknown,
 }
 
 impl TerminalEmulator {
@@ -23,27 +25,13 @@ impl TerminalEmulator {
 
     pub fn detect() -> Self {
         let term = env::var("TERM").unwrap_or_default();
-        if Self::is_kitty(&term) {
-            Self::Kitty
-        } else if Self::is_iterm2() {
-            Self::Iterm2
-        } else if Self::is_wezterm() {
-            Self::WezTerm
-        } else if Self::is_mintty() {
-            Self::Mintty
-        } else if Self::is_foot(&term) {
-            Self::Foot
-        } else if Self::is_mlterm(&term) {
-            Self::Mlterm
-        } else if Self::is_yaft(&term) {
-            Self::Yaft
-        } else if Self::is_st(&term) {
-            Self::St
-        } else if Self::is_xterm(&term) {
-            Self::Xterm
-        } else {
-            Self::Unknown
+        let term_program = env::var("TERM_PROGRAM").unwrap_or_default();
+        for emulator in Self::iter() {
+            if emulator.is_detected(&term, &term_program) {
+                return emulator;
+            }
         }
+        TerminalEmulator::Unknown
     }
 
     pub fn preferred_protocol(&self) -> GraphicsMode {
@@ -64,13 +52,29 @@ impl TerminalEmulator {
         unreachable!("ascii blocks is always supported")
     }
 
+    fn is_detected(&self, term: &str, term_program: &str) -> bool {
+        match self {
+            TerminalEmulator::Kitty => term.contains("kitty"),
+            TerminalEmulator::Iterm2 => term_program.contains("iTerm"),
+            TerminalEmulator::WezTerm => term_program.contains("WezTerm"),
+            TerminalEmulator::Mintty => term_program.contains("mintty"),
+            TerminalEmulator::Konsole => env::var("KONSOLE_VERSION").is_ok(),
+            TerminalEmulator::Foot => ["foot", "foot-extra"].contains(&term),
+            TerminalEmulator::Yaft => term == "yaft-256color",
+            TerminalEmulator::Mlterm => term == "mlterm",
+            TerminalEmulator::St => term == "st-256color",
+            TerminalEmulator::Xterm => ["xterm", "xterm-256color"].contains(&term),
+            TerminalEmulator::Unknown => true,
+        }
+    }
+
     fn supports_graphics_mode(&self, mode: &GraphicsMode) -> bool {
         match (mode, self) {
             (GraphicsMode::Kitty { mode, inside_tmux }, Self::Kitty | Self::WezTerm) => match mode {
                 KittyMode::Local => local_mode_supported(*inside_tmux).unwrap_or_default(),
                 KittyMode::Remote => true,
             },
-            (GraphicsMode::Iterm2, Self::Iterm2 | Self::WezTerm | Self::Mintty) => true,
+            (GraphicsMode::Iterm2, Self::Iterm2 | Self::WezTerm | Self::Mintty | Self::Konsole) => true,
             (GraphicsMode::AsciiBlocks, _) => true,
             #[cfg(feature = "sixel")]
             (GraphicsMode::Sixel, Self::Foot | Self::Yaft | Self::Mlterm) => true,
@@ -78,46 +82,6 @@ impl TerminalEmulator {
             (GraphicsMode::Sixel, Self::St | Self::Xterm) => supports_sixel().unwrap_or_default(),
             _ => false,
         }
-    }
-
-    fn is_kitty(term: &str) -> bool {
-        term.contains("kitty")
-    }
-
-    fn is_foot(term: &str) -> bool {
-        term == "foot" || term == "foot-extra"
-    }
-
-    fn is_mlterm(term: &str) -> bool {
-        term == "mlterm"
-    }
-
-    fn is_yaft(term: &str) -> bool {
-        term == "yaft-256color"
-    }
-
-    fn is_st(term: &str) -> bool {
-        term == "st-256color"
-    }
-
-    fn is_xterm(term: &str) -> bool {
-        term == "xterm" || term == "xterm-256color"
-    }
-
-    fn is_iterm2() -> bool {
-        Self::load_term_program().map(|term| term.contains("iTerm")).unwrap_or_default()
-    }
-
-    fn is_wezterm() -> bool {
-        Self::load_term_program().as_deref() == Some("WezTerm")
-    }
-
-    fn is_mintty() -> bool {
-        Self::load_term_program().map(|term| term.contains("mintty")).unwrap_or_default()
-    }
-
-    fn load_term_program() -> Option<String> {
-        env::var("TERM_PROGRAM").ok()
     }
 }
 
