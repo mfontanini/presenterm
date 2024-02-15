@@ -1,12 +1,12 @@
 use crate::style::Colors;
 use serde::{Deserialize, Serialize};
-use std::{fs, io, path::Path};
+use std::{collections::BTreeMap, fs, io, path::Path};
 
 include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 
 #[derive(Default)]
 pub struct PresentationThemeSet {
-    custom_themes: HashMap<String, PresentationTheme>,
+    custom_themes: BTreeMap<String, PresentationTheme>,
 }
 
 impl PresentationThemeSet {
