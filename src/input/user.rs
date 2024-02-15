@@ -5,13 +5,13 @@ use serde_with::DeserializeFromStr;
 use std::{fmt, io, iter, mem, str::FromStr, time::Duration};
 
 /// A user input handler.
-pub(crate) struct UserInput {
+pub struct UserInput {
     bindings: CommandKeyBindings,
     events: Vec<KeyEvent>,
 }
 
 impl UserInput {
-    pub(crate) fn new(bindings: CommandKeyBindings) -> Self {
+    pub fn new(bindings: CommandKeyBindings) -> Self {
         Self { bindings, events: Vec::new() }
     }
 
