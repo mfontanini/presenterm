@@ -1,7 +1,8 @@
 ## presenterm
 
-[presenterm][github] is a terminal-based tool that allows you to create presentations in
-Markdown format and render them in your terminal.
+[presenterm][github] lets you create presentations in markdown format and run them from your terminal, with support for 
+image and animated gif support, highly customizable themes, code highlighting, exporting presentations into PDF format, 
+and plenty of other features.
 
 ### Demo
 
