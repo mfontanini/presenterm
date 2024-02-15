@@ -59,7 +59,7 @@ headings:
   h3:
     prefix: "▒▒▒▒"
     colors:
-      background: "8caaee"
+      foreground: "8caaee"
   h4:
     prefix: "░░░░░"
     colors:
