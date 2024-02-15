@@ -4,10 +4,10 @@ use directories::ProjectDirs;
 use presenterm::{
     CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
     LoadThemeError, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet,
-    Presenter, PresenterOptions, Resources, Themes, TypstRender,
+    Presenter, PresenterOptions, Resources, Themes, ThemesDemo, TypstRender,
 };
 use std::{
-    env,
+    env, io,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -42,6 +42,10 @@ struct Cli {
     /// The theme to use.
     #[clap(short, long)]
     theme: Option<String>,
+
+    /// List all supported themes.
+    #[clap(long)]
+    list_themes: bool,
 
     /// Display acknowledgements.
     #[clap(long, group = "target")]
@@ -159,6 +163,11 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let parser = MarkdownParser::new(&arena);
     if cli.acknowledgements {
         display_acknowledgements();
+        return Ok(());
+    } else if cli.list_themes {
+        let bindings = config.bindings.try_into()?;
+        let demo = ThemesDemo::new(themes, bindings, io::stdout())?;
+        demo.run()?;
         return Ok(());
     }
 

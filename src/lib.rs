@@ -3,6 +3,7 @@
 //! This is not meant to be used as a crate!
 
 pub(crate) mod custom;
+pub(crate) mod demo;
 pub(crate) mod diff;
 pub(crate) mod execute;
 pub(crate) mod export;
@@ -21,6 +22,7 @@ pub(crate) mod typst;
 
 pub use crate::{
     custom::{Config, ImageProtocol},
+    demo::ThemesDemo,
     export::{ExportError, Exporter},
     input::source::CommandSource,
     markdown::parse::MarkdownParser,

@@ -7,10 +7,7 @@ use crate::{
     media::{printer::ImagePrinter, register::ImageRegistry},
     presentation::Presentation,
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
-    render::{
-        draw::{RenderError, RenderResult, TerminalDrawer},
-        highlighting::CodeHighlighter,
-    },
+    render::draw::{RenderError, RenderResult, TerminalDrawer},
     resource::Resources,
     theme::PresentationTheme,
     typst::TypstRender,
@@ -230,7 +227,6 @@ impl<'a> Presenter<'a> {
         let elements = self.parser.parse(&content)?;
         let export_mode = matches!(self.options.mode, PresentMode::Export);
         let mut presentation = PresentationBuilder::new(
-            CodeHighlighter::default(),
             self.default_theme,
             &mut self.resources,
             &mut self.typst,

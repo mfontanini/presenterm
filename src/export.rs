@@ -9,7 +9,7 @@ use crate::{
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     tools::{ExecutionError, ThirdPartyTools},
     typst::TypstRender,
-    CodeHighlighter, MarkdownParser, PresentationTheme, Resources,
+    MarkdownParser, PresentationTheme, Resources,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
 use image::{codecs::png::PngEncoder, DynamicImage, ImageEncoder, ImageError};
@@ -80,7 +80,6 @@ impl<'a> Exporter<'a> {
         let elements = self.parser.parse(content)?;
         let path = path.canonicalize().expect("canonicalize");
         let mut presentation = PresentationBuilder::new(
-            CodeHighlighter::default(),
             self.default_theme,
             &mut self.resources,
             &mut self.typst,

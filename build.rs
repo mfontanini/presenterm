@@ -10,10 +10,9 @@ fn main() -> io::Result<()> {
     let out_dir = env::var("OUT_DIR").unwrap();
     let output_path = format!("{out_dir}/themes.rs");
     let mut output_file = BufWriter::new(File::create(output_path)?);
-    output_file.write_all(b"use std::collections::HashMap;\n")?;
+    output_file.write_all(b"use std::collections::BTreeMap as Map;\n")?;
     output_file.write_all(b"use once_cell::sync::Lazy;\n")?;
-    output_file
-        .write_all(b"static THEMES: Lazy<HashMap<&'static str, &'static [u8]>> = Lazy::new(|| HashMap::from([\n")?;
+    output_file.write_all(b"static THEMES: Lazy<Map<&'static str, &'static [u8]>> = Lazy::new(|| Map::from([\n")?;
     let mut paths = fs::read_dir("themes")?.collect::<io::Result<Vec<_>>>()?;
     paths.sort_by_key(|e| e.path());
     for theme_file in paths {

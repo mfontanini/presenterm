@@ -110,7 +110,6 @@ impl<'a> PresentationBuilder<'a> {
     /// Construct a new builder.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
-        default_highlighter: CodeHighlighter,
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
         typst: &'a mut TypstRender,
@@ -124,7 +123,7 @@ impl<'a> PresentationBuilder<'a> {
             chunk_operations: Vec::new(),
             chunk_mutators: Vec::new(),
             slides: Vec::new(),
-            highlighter: default_highlighter,
+            highlighter: CodeHighlighter::default(),
             theme: Cow::Borrowed(default_theme),
             resources,
             typst,
@@ -1009,14 +1008,12 @@ mod test {
         elements: Vec<MarkdownElement>,
         options: PresentationBuilderOptions,
     ) -> Result<Presentation, BuildError> {
-        let highlighter = CodeHighlighter::default();
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp", Default::default());
         let mut typst = TypstRender::default();
         let themes = Themes::default();
         let bindings = KeyBindingsConfig::default();
         let builder = PresentationBuilder::new(
-            highlighter,
             &theme,
             &mut resources,
             &mut typst,
