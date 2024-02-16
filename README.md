@@ -1,11 +1,8 @@
-# presenterm
-
-**Create presentations in markdown format and render them in your terminal.**
+presenterm
+===
 
 [![crates-badge]][crates-package] [![brew-badge]][brew-package] [![nix-badge]][nix-package] 
 [![arch-badge]][arch-package] [![scoop-badge]][scoop-package]
-
----
 
 [brew-badge]: https://img.shields.io/homebrew/v/presenterm
 [brew-package]: https://formulae.brew.sh/formula/presenterm
