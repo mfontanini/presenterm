@@ -7,13 +7,18 @@ use crate::{
     media::{printer::ImagePrinter, register::ImageRegistry},
     presentation::Presentation,
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
-    render::draw::{RenderError, RenderResult, TerminalDrawer},
+    render::{
+        draw::{RenderError, RenderResult, TerminalDrawer},
+        properties::WindowSize,
+        validate::OverflowValidator,
+    },
     resource::Resources,
     theme::PresentationTheme,
     typst::TypstRender,
 };
 use std::{
     collections::HashSet,
+    fmt::Display,
     fs,
     io::{self, Stdout},
     mem,
@@ -26,6 +31,7 @@ pub struct PresenterOptions {
     pub builder_options: PresentationBuilderOptions,
     pub font_size_fallback: u8,
     pub bindings: KeyBindingsConfig,
+    pub validate_overflows: bool,
 }
 
 /// A slideshow presenter.
@@ -152,6 +158,11 @@ impl<'a> Presenter<'a> {
             Command::Exit => return CommandSideEffect::Exit,
             _ => (),
         };
+        if matches!(command, Command::Redraw) {
+            let presentation = mem::take(&mut self.state).into_presentation();
+            self.state = self.validate_overflows(presentation);
+            return CommandSideEffect::Redraw;
+        }
 
         // Now apply the commands that require a presentation.
         let presentation = match &mut self.state {
@@ -163,7 +174,6 @@ impl<'a> Presenter<'a> {
             }
         };
         let needs_redraw = match command {
-            Command::Redraw => true,
             Command::Next => presentation.jump_next(),
             Command::Previous => presentation.jump_previous(),
             Command::FirstSlide => presentation.jump_first_slide(),
@@ -191,7 +201,7 @@ impl<'a> Presenter<'a> {
                 true
             }
             // These are handled above as they don't require the presentation
-            Command::Reload | Command::HardReload | Command::Exit => {
+            Command::Reload | Command::HardReload | Command::Exit | Command::Redraw => {
                 panic!("unreachable commands")
             }
         };
@@ -213,13 +223,28 @@ impl<'a> Presenter<'a> {
                     presentation.go_to_slide(current.current_slide_index());
                     presentation.jump_chunk(current.current_chunk());
                 }
-                self.state = PresenterState::Presenting(presentation)
+                self.state = self.validate_overflows(presentation);
             }
             Err(e) => {
                 let presentation = mem::take(&mut self.state).into_presentation();
-                self.state = PresenterState::Failure { error: e.to_string(), presentation }
+                self.state = PresenterState::failure(e, presentation);
             }
         };
+    }
+
+    fn validate_overflows(&self, presentation: Presentation) -> PresenterState {
+        if self.options.validate_overflows {
+            let dimensions = match WindowSize::current(self.options.font_size_fallback) {
+                Ok(dimensions) => dimensions,
+                Err(e) => return PresenterState::failure(e, presentation),
+            };
+            match OverflowValidator::validate(&presentation, dimensions) {
+                Ok(()) => PresenterState::Presenting(presentation),
+                Err(e) => PresenterState::failure(e, presentation),
+            }
+        } else {
+            PresenterState::Presenting(presentation)
+        }
     }
 
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
@@ -288,6 +313,10 @@ enum PresenterState {
 }
 
 impl PresenterState {
+    pub(crate) fn failure<E: Display>(error: E, presentation: Presentation) -> Self {
+        PresenterState::Failure { error: error.to_string(), presentation }
+    }
+
     fn presentation(&self) -> &Presentation {
         match self {
             Self::Presenting(presentation)

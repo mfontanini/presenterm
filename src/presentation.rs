@@ -423,8 +423,8 @@ pub(crate) struct PresentationThemeMetadata {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PreformattedLine {
     pub(crate) text: String,
-    pub(crate) unformatted_length: usize,
-    pub(crate) block_length: usize,
+    pub(crate) unformatted_length: u16,
+    pub(crate) block_length: u16,
     pub(crate) alignment: Alignment,
 }
 

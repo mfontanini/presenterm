@@ -11,26 +11,24 @@ use crossterm::{
     terminal::{self},
     QueueableCommand,
 };
-use std::{io, rc::Rc};
+use std::{
+    io::{self, Write},
+    rc::Rc,
+};
 
 /// A wrapper over the terminal write handle.
 pub(crate) struct Terminal<W>
 where
-    W: io::Write,
+    W: TerminalWrite,
 {
     writer: W,
     image_printer: Rc<ImagePrinter>,
     pub(crate) cursor_row: u16,
 }
 
-impl<W: io::Write> Terminal<W> {
+impl<W: TerminalWrite> Terminal<W> {
     pub(crate) fn new(mut writer: W, image_printer: Rc<ImagePrinter>) -> io::Result<Self> {
-        terminal::enable_raw_mode()?;
-        if should_hide_cursor() {
-            writer.queue(cursor::Hide)?;
-        }
-        writer.queue(terminal::EnterAlternateScreen)?;
-
+        writer.init()?;
         Ok(Self { writer, image_printer, cursor_row: 0 })
     }
 
@@ -116,15 +114,10 @@ impl<W: io::Write> Terminal<W> {
 
 impl<W> Drop for Terminal<W>
 where
-    W: io::Write,
+    W: TerminalWrite,
 {
     fn drop(&mut self) {
-        let _ = self.writer.queue(terminal::LeaveAlternateScreen);
-        if should_hide_cursor() {
-            let _ = self.writer.queue(cursor::Show);
-        }
-        let _ = self.writer.flush();
-        let _ = terminal::disable_raw_mode();
+        self.writer.deinit();
     }
 }
 
@@ -140,4 +133,29 @@ fn is_windows_based_os() -> bool {
     let is_windows = std::env::consts::OS == "windows";
     let is_wsl = std::env::var("WSL_DISTRO_NAME").is_ok();
     is_windows || is_wsl
+}
+
+pub trait TerminalWrite: io::Write {
+    fn init(&mut self) -> io::Result<()>;
+    fn deinit(&mut self);
+}
+
+impl TerminalWrite for io::Stdout {
+    fn init(&mut self) -> io::Result<()> {
+        terminal::enable_raw_mode()?;
+        if should_hide_cursor() {
+            self.queue(cursor::Hide)?;
+        }
+        self.queue(terminal::EnterAlternateScreen)?;
+        Ok(())
+    }
+
+    fn deinit(&mut self) {
+        let _ = self.queue(terminal::LeaveAlternateScreen);
+        if should_hide_cursor() {
+            let _ = self.queue(cursor::Show);
+        }
+        let _ = self.flush();
+        let _ = terminal::disable_raw_mode();
+    }
 }

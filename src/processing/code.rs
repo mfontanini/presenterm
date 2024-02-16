@@ -112,8 +112,8 @@ impl AsRenderOperations for HighlightedLine {
         vec![
             RenderOperation::RenderPreformattedLine(PreformattedLine {
                 text,
-                unformatted_length: self.width,
-                block_length: context.block_length,
+                unformatted_length: self.width as u16,
+                block_length: context.block_length as u16,
                 alignment: context.alignment.clone(),
             }),
             RenderOperation::RenderLineBreak,

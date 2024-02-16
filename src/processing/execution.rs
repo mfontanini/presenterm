@@ -33,7 +33,7 @@ impl RunCodeOperation {
     }
 
     fn render_line(&self, line: String) -> RenderOperation {
-        let line_len = line.len();
+        let line_len = line.len() as u16;
         RenderOperation::RenderPreformattedLine(PreformattedLine {
             text: line,
             unformatted_length: line_len,

@@ -605,8 +605,8 @@ impl<'a> PresentationBuilder<'a> {
             let line_length = line.width();
             self.chunk_operations.push(RenderOperation::RenderPreformattedLine(PreformattedLine {
                 text: line,
-                unformatted_length: line_length,
-                block_length,
+                unformatted_length: line_length as u16,
+                block_length: block_length as u16,
                 alignment: self.theme.alignment(&ElementType::BlockQuote).clone(),
             }));
             self.push_line_break();

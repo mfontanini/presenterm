@@ -1,4 +1,4 @@
-use super::terminal::Terminal;
+use super::terminal::{Terminal, TerminalWrite};
 use crate::{
     markdown::text::WeightedTextBlock,
     render::{
@@ -8,7 +8,6 @@ use crate::{
     },
     style::{Colors, TextStyle},
 };
-use std::io;
 
 const MINIMUM_LINE_LENGTH: u16 = 10;
 
@@ -43,7 +42,7 @@ impl<'a> TextDrawer<'a> {
     /// This performs word splitting and word wrapping.
     pub(crate) fn draw<W>(self, terminal: &mut Terminal<W>) -> RenderResult
     where
-        W: io::Write,
+        W: TerminalWrite,
     {
         let Positioning { max_line_length, start_column } = self.positioning;
 

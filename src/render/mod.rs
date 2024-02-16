@@ -5,3 +5,4 @@ pub(crate) mod layout;
 pub(crate) mod properties;
 pub(crate) mod terminal;
 pub(crate) mod text;
+pub(crate) mod validate;
