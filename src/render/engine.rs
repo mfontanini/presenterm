@@ -2,7 +2,7 @@ use super::{
     draw::{RenderError, RenderResult},
     layout::Layout,
     properties::CursorPosition,
-    terminal::Terminal,
+    terminal::{Terminal, TerminalWrite},
     text::TextDrawer,
 };
 use crate::{
@@ -20,11 +20,11 @@ use crate::{
     style::Colors,
     theme::Alignment,
 };
-use std::{io, mem};
+use std::mem;
 
 pub(crate) struct RenderEngine<'a, W>
 where
-    W: io::Write,
+    W: TerminalWrite,
 {
     terminal: &'a mut Terminal<W>,
     window_rects: Vec<WindowRect>,
@@ -35,7 +35,7 @@ where
 
 impl<'a, W> RenderEngine<'a, W>
 where
-    W: io::Write,
+    W: TerminalWrite,
 {
     pub(crate) fn new(terminal: &'a mut Terminal<W>, window_dimensions: WindowSize) -> Self {
         let max_modified_row = terminal.cursor_row;

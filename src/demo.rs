@@ -6,7 +6,7 @@ use crate::{
     markdown::elements::MarkdownElement,
     presentation::Presentation,
     processing::builder::{BuildError, PresentationBuilder},
-    render::draw::TerminalDrawer,
+    render::{draw::TerminalDrawer, terminal::TerminalWrite},
     ImageRegistry, MarkdownParser, PresentationBuilderOptions, PresentationTheme, Resources, Themes, TypstRender,
 };
 use std::io;
@@ -36,13 +36,13 @@ fn greet(name: &str) -> String {
 <!-- end_slide -->
 "#;
 
-pub struct ThemesDemo<W: io::Write> {
+pub struct ThemesDemo<W: TerminalWrite> {
     themes: Themes,
     input: UserInput,
     drawer: TerminalDrawer<W>,
 }
 
-impl<W: io::Write> ThemesDemo<W> {
+impl<W: TerminalWrite> ThemesDemo<W> {
     pub fn new(themes: Themes, bindings: CommandKeyBindings, writer: W) -> io::Result<Self> {
         let input = UserInput::new(bindings);
         let drawer = TerminalDrawer::new(writer, Default::default(), 1)?;

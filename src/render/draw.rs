@@ -1,4 +1,7 @@
-use super::{engine::RenderEngine, terminal::Terminal};
+use super::{
+    engine::RenderEngine,
+    terminal::{Terminal, TerminalWrite},
+};
 use crate::{
     markdown::{elements::Text, text::WeightedTextBlock},
     media::printer::{ImagePrinter, PrintImageError},
@@ -13,14 +16,14 @@ use std::{io, rc::Rc};
 pub(crate) type RenderResult = Result<(), RenderError>;
 
 /// Allows drawing elements in the terminal.
-pub(crate) struct TerminalDrawer<W: io::Write> {
+pub(crate) struct TerminalDrawer<W: TerminalWrite> {
     terminal: Terminal<W>,
     font_size_fallback: u8,
 }
 
 impl<W> TerminalDrawer<W>
 where
-    W: io::Write,
+    W: TerminalWrite,
 {
     /// Construct a drawer over a [std::io::Write].
     pub(crate) fn new(handle: W, image_printer: Rc<ImagePrinter>, font_size_fallback: u8) -> io::Result<Self> {
