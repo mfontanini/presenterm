@@ -82,7 +82,8 @@ where
     }
 
     fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<W> {
-        RenderEngine::new(&mut self.terminal, dimensions)
+        let options = Default::default();
+        RenderEngine::new(&mut self.terminal, dimensions, options)
     }
 }
 
@@ -106,6 +107,12 @@ pub enum RenderError {
 
     #[error("printing image: {0}")]
     PrintImage(#[from] PrintImageError),
+
+    #[error("horizontal overflow")]
+    HorizontalOverflow,
+
+    #[error("vertical overflow")]
+    VerticalOverflow,
 
     #[error(transparent)]
     Other(Box<dyn std::error::Error>),

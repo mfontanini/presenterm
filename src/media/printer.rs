@@ -64,6 +64,7 @@ pub enum ImagePrinter {
     Kitty(KittyPrinter),
     Iterm(ItermPrinter),
     Ascii(AsciiPrinter),
+    Null,
     #[cfg(feature = "sixel")]
     Sixel(super::sixel::SixelPrinter),
 }
@@ -112,6 +113,7 @@ impl PrintImage for ImagePrinter {
             Self::Kitty(printer) => ImageResource::Kitty(printer.register_image(image)?),
             Self::Iterm(printer) => ImageResource::Iterm(printer.register_image(image)?),
             Self::Ascii(printer) => ImageResource::Ascii(printer.register_image(image)?),
+            Self::Null => return Err(RegisterImageError::Unsupported),
             #[cfg(feature = "sixel")]
             Self::Sixel(printer) => ImageResource::Sixel(printer.register_image(image)?),
         };
@@ -123,6 +125,7 @@ impl PrintImage for ImagePrinter {
             Self::Kitty(printer) => ImageResource::Kitty(printer.register_resource(path)?),
             Self::Iterm(printer) => ImageResource::Iterm(printer.register_resource(path)?),
             Self::Ascii(printer) => ImageResource::Ascii(printer.register_resource(path)?),
+            Self::Null => return Err(RegisterImageError::Unsupported),
             #[cfg(feature = "sixel")]
             Self::Sixel(printer) => ImageResource::Sixel(printer.register_resource(path)?),
         };
@@ -137,6 +140,7 @@ impl PrintImage for ImagePrinter {
             (Self::Kitty(printer), ImageResource::Kitty(image)) => printer.print(image, options, writer),
             (Self::Iterm(printer), ImageResource::Iterm(image)) => printer.print(image, options, writer),
             (Self::Ascii(printer), ImageResource::Ascii(image)) => printer.print(image, options, writer),
+            (Self::Null, _) => Ok(()),
             #[cfg(feature = "sixel")]
             (Self::Sixel(printer), ImageResource::Sixel(image)) => printer.print(image, options, writer),
             _ => Err(PrintImageError::Unsupported),
@@ -175,6 +179,9 @@ pub enum RegisterImageError {
 
     #[error("image decoding: {0}")]
     Image(#[from] ImageError),
+
+    #[error("printer can't register resources")]
+    Unsupported,
 }
 
 impl PrintImageError {

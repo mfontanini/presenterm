@@ -35,7 +35,7 @@ struct Cli {
     #[clap(long, hide = true)]
     export: bool,
 
-    /// Whether to use presentation mode.
+    /// Use presentation mode.
     #[clap(short, long, default_value_t = false)]
     present: bool,
 
@@ -54,6 +54,10 @@ struct Cli {
     /// The image protocol to use.
     #[clap(long)]
     image_protocol: Option<ImageProtocol>,
+
+    /// Validate that the presentation does not overflow the terminal screen.
+    #[clap(long)]
+    validate_overflows: bool,
 
     /// The path to the configuration file.
     #[clap(short, long)]
@@ -205,6 +209,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             mode,
             font_size_fallback: config.defaults.terminal_font_size,
             bindings: config.bindings,
+            validate_overflows: cli.validate_overflows,
         };
         let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, printer, options);
         presenter.present(&path)?;

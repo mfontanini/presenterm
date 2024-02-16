@@ -22,6 +22,11 @@ use crate::{
 };
 use std::mem;
 
+#[derive(Debug, Default)]
+pub(crate) struct RenderEngineOptions {
+    pub(crate) validate_overflows: bool,
+}
+
 pub(crate) struct RenderEngine<'a, W>
 where
     W: TerminalWrite,
@@ -31,17 +36,29 @@ where
     colors: Colors,
     max_modified_row: u16,
     layout: LayoutState,
+    options: RenderEngineOptions,
 }
 
 impl<'a, W> RenderEngine<'a, W>
 where
     W: TerminalWrite,
 {
-    pub(crate) fn new(terminal: &'a mut Terminal<W>, window_dimensions: WindowSize) -> Self {
+    pub(crate) fn new(
+        terminal: &'a mut Terminal<W>,
+        window_dimensions: WindowSize,
+        options: RenderEngineOptions,
+    ) -> Self {
         let max_modified_row = terminal.cursor_row;
         let current_rect = WindowRect { dimensions: window_dimensions, start_column: 0 };
         let window_rects = vec![current_rect.clone()];
-        Self { terminal, window_rects, colors: Default::default(), max_modified_row, layout: Default::default() }
+        Self {
+            terminal,
+            window_rects,
+            colors: Default::default(),
+            max_modified_row,
+            layout: Default::default(),
+            options,
+        }
     }
 
     pub(crate) fn render<'b>(mut self, operations: impl Iterator<Item = &'b RenderOperation>) -> RenderResult {
@@ -51,6 +68,9 @@ where
         }
         self.terminal.end_update()?;
         self.terminal.flush()?;
+        if self.options.validate_overflows && self.max_modified_row > self.window_rects[0].dimensions.rows {
+            return Err(RenderError::VerticalOverflow);
+        }
         Ok(())
     }
 
@@ -183,20 +203,23 @@ where
         let PreformattedLine { text, unformatted_length, block_length, alignment } = operation;
         let layout = self.build_layout(alignment.clone());
 
-        let Positioning { max_line_length, start_column } =
-            layout.compute(self.current_dimensions(), *block_length as u16);
+        let dimensions = self.current_dimensions();
+        let Positioning { max_line_length, start_column } = layout.compute(dimensions, *block_length);
+        if self.options.validate_overflows && unformatted_length > &max_line_length {
+            return Err(RenderError::HorizontalOverflow);
+        }
+
         self.terminal.move_to_column(start_column)?;
 
-        let until_right_edge = usize::from(max_line_length).saturating_sub(*unformatted_length);
-
         // Pad this code block with spaces so we get a nice little rectangle.
+        let until_right_edge = max_line_length.saturating_sub(*unformatted_length);
         self.terminal.print_line(text)?;
-        self.terminal.print_line(&" ".repeat(until_right_edge))?;
+        self.terminal.print_line(&" ".repeat(until_right_edge as usize))?;
 
         // If this line is longer than the screen, our cursor wrapped around so we need to update
         // the terminal.
-        if *unformatted_length as u16 > max_line_length {
-            let lines_wrapped = *unformatted_length as u16 / max_line_length;
+        if *unformatted_length > max_line_length {
+            let lines_wrapped = *unformatted_length / max_line_length;
             let new_row = self.terminal.cursor_row + lines_wrapped;
             self.terminal.sync_cursor_row(new_row)?;
         }
