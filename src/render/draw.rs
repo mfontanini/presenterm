@@ -47,11 +47,11 @@ where
 
         let alignment = Alignment::Center { minimum_size: 0, minimum_margin: Margin::Percent(8) };
         let mut operations = vec![
-            RenderOperation::ClearScreen,
             RenderOperation::SetColors(Colors {
                 foreground: Some(Color::new(255, 0, 0)),
                 background: Some(Color::new(0, 0, 0)),
             }),
+            RenderOperation::ClearScreen,
             RenderOperation::JumpToVerticalCenter,
             RenderOperation::RenderText { line: WeightedTextBlock::from(heading), alignment: alignment.clone() },
             RenderOperation::RenderLineBreak,
