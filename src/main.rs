@@ -4,7 +4,7 @@ use directories::ProjectDirs;
 use presenterm::{
     CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
     LoadThemeError, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet,
-    Presenter, PresenterOptions, Resources, Themes, ThemesDemo, TypstRender,
+    Presenter, PresenterOptions, Resources, Themes, ThemesDemo, TypstRender, ValidateOverflows,
 };
 use std::{
     env, io,
@@ -153,6 +153,16 @@ fn select_graphics_mode(cli: &Cli, config: &Config) -> GraphicsMode {
     }
 }
 
+fn overflow_validation(mode: &PresentMode, config: &ValidateOverflows) -> bool {
+    match (config, mode) {
+        (ValidateOverflows::Always, _) => true,
+        (ValidateOverflows::Never, _) => false,
+        (ValidateOverflows::WhenPresenting, PresentMode::Presentation) => true,
+        (ValidateOverflows::WhenDeveloping, PresentMode::Development) => true,
+        _ => false,
+    }
+}
+
 fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let (config, themes) = load_customizations(cli.config_file.clone().map(PathBuf::from))?;
 
@@ -178,6 +188,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let path = cli.path.take().unwrap_or_else(|| {
         Cli::command().error(ErrorKind::MissingRequiredArgument, "no path specified").exit();
     });
+    let validate_overflows = overflow_validation(&mode, &config.defaults.validate_overflows) || cli.validate_overflows;
     let resources_path = path.parent().unwrap_or(Path::new("/"));
     let mut options = make_builder_options(&config, &mode, force_default_theme);
     let graphics_mode = select_graphics_mode(&cli, &config);
@@ -209,7 +220,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             mode,
             font_size_fallback: config.defaults.terminal_font_size,
             bindings: config.bindings,
-            validate_overflows: cli.validate_overflows,
+            validate_overflows,
         };
         let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, printer, options);
         presenter.present(&path)?;
