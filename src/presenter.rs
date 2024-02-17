@@ -80,7 +80,7 @@ impl<'a> Presenter<'a> {
     /// Run a presentation.
     pub fn present(mut self, path: &Path) -> Result<(), PresentationError> {
         self.state = PresenterState::Presenting(Presentation::from(vec![]));
-        self.try_reload(path);
+        self.try_reload(path, true);
 
         let mut drawer =
             TerminalDrawer::new(io::stdout(), self.image_printer.clone(), self.options.font_size_fallback)?;
@@ -96,7 +96,7 @@ impl<'a> Presenter<'a> {
                 match self.apply_command(command) {
                     CommandSideEffect::Exit => return Ok(()),
                     CommandSideEffect::Reload => {
-                        self.try_reload(path);
+                        self.try_reload(path, false);
                         break;
                     }
                     CommandSideEffect::Redraw => {
@@ -208,8 +208,8 @@ impl<'a> Presenter<'a> {
         if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
     }
 
-    fn try_reload(&mut self, path: &Path) {
-        if matches!(self.options.mode, PresentMode::Presentation) {
+    fn try_reload(&mut self, path: &Path, force: bool) {
+        if matches!(self.options.mode, PresentMode::Presentation) && !force {
             return;
         }
         self.slides_with_pending_widgets.clear();
