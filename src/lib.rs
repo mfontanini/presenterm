@@ -21,7 +21,7 @@ pub(crate) mod tools;
 pub(crate) mod typst;
 
 pub use crate::{
-    custom::{Config, ImageProtocol},
+    custom::{Config, ImageProtocol, ValidateOverflows},
     demo::ThemesDemo,
     export::{ExportError, Exporter},
     input::source::CommandSource,

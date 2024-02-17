@@ -55,16 +55,34 @@ pub struct DefaultsConfig {
 
     #[serde(default)]
     pub image_protocol: ImageProtocol,
+
+    #[serde(default)]
+    pub validate_overflows: ValidateOverflows,
 }
 
 impl Default for DefaultsConfig {
     fn default() -> Self {
-        Self { theme: Default::default(), terminal_font_size: default_font_size(), image_protocol: Default::default() }
+        Self {
+            theme: Default::default(),
+            terminal_font_size: default_font_size(),
+            image_protocol: Default::default(),
+            validate_overflows: Default::default(),
+        }
     }
 }
 
 fn default_font_size() -> u8 {
     16
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidateOverflows {
+    #[default]
+    Never,
+    Always,
+    WhenPresenting,
+    WhenDeveloping,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
