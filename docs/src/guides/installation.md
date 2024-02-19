@@ -60,18 +60,18 @@ For more information see
 
 ### Arch linux repository (Aur)
 
-presenterm is also available in the aur. You can use any AUR helper to install.
+_presenterm_ is also available in the AUR. You can use any AUR helper to install:
 
-#### Building from git (recommended)
-
-```shell
-paru/yay -S presenterm-git
-```
-
-#### Binary release
+#### Binary release (recommended)
 
 ```shell
 paru/yay -S presenterm-bin
+```
+
+#### Building from git
+
+```shell
+paru/yay -S presenterm-git
 ```
 
 ### Windows
