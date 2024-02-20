@@ -196,7 +196,8 @@ pub(crate) struct StyledTokens<'a> {
 
 impl<'a> StyledTokens<'a> {
     pub(crate) fn apply_style(&self, block_style: &CodeBlockStyle) -> String {
-        let background = block_style.background.then_some(to_ansi_color(self.style.background)).flatten();
+        let has_background = block_style.background.unwrap_or(true);
+        let background = has_background.then_some(to_ansi_color(self.style.background)).flatten();
         let foreground = to_ansi_color(self.style.foreground);
 
         // We do this conversion manually as crossterm will reset the color after styling, and we
