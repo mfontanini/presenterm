@@ -686,9 +686,10 @@ impl<'a> PresentationBuilder<'a> {
         }));
 
         let mut output = Vec::new();
+        let block_style = &self.theme.code;
         for line in lines.into_iter() {
-            let highlighted = line.highlight(&padding_style, &mut code_highlighter);
-            let not_highlighted = line.highlight(&padding_style, &mut empty_highlighter);
+            let highlighted = line.highlight(&padding_style, &mut code_highlighter, block_style);
+            let not_highlighted = line.highlight(&padding_style, &mut empty_highlighter, block_style);
             let width = line.width();
             let line_number = line.line_number;
             let context = context.clone();

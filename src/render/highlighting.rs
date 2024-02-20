@@ -1,4 +1,4 @@
-use crate::markdown::elements::CodeLanguage;
+use crate::{markdown::elements::CodeLanguage, theme::CodeBlockStyle};
 use crossterm::{
     style::{SetBackgroundColor, SetForegroundColor},
     QueueableCommand,
@@ -176,8 +176,8 @@ pub(crate) struct LanguageHighlighter<'a> {
 }
 
 impl<'a> LanguageHighlighter<'a> {
-    pub(crate) fn highlight_line(&mut self, line: &str) -> String {
-        self.style_line(line).map(|s| s.apply_style()).collect()
+    pub(crate) fn highlight_line(&mut self, line: &str, block_style: &CodeBlockStyle) -> String {
+        self.style_line(line).map(|s| s.apply_style(block_style)).collect()
     }
 
     pub(crate) fn style_line<'b>(&mut self, line: &'b str) -> impl Iterator<Item = StyledTokens<'b>> {
@@ -195,8 +195,8 @@ pub(crate) struct StyledTokens<'a> {
 }
 
 impl<'a> StyledTokens<'a> {
-    pub(crate) fn apply_style(&self) -> String {
-        let background = to_ansi_color(self.style.background);
+    pub(crate) fn apply_style(&self, block_style: &CodeBlockStyle) -> String {
+        let background = block_style.background.then_some(to_ansi_color(self.style.background)).flatten();
         let foreground = to_ansi_color(self.style.foreground);
 
         // We do this conversion manually as crossterm will reset the color after styling, and we
