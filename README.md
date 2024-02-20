@@ -17,9 +17,11 @@ presenterm
 
 _presenterm_ lets you create presentations in markdown format and run them from your terminal, with support for image 
 and animated gif support, highly customizable themes, code highlighting, exporting presentations into PDF format, and 
-plenty of other features. This is how the [demo presentation](examples/demo.md) looks like:
+plenty of other features. This is how the [demo presentation](/examples/demo.md) looks like:
 
 ![](/docs/src/assets/demo.gif)
+
+Check the rest of the example presentations in the [examples directory](/examples).
 
 # Documentation
 
