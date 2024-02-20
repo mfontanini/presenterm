@@ -6,7 +6,7 @@ use crate::{
         highlighting::{LanguageHighlighter, StyledTokens},
         properties::WindowSize,
     },
-    theme::Alignment,
+    theme::{Alignment, CodeBlockStyle},
     PresentationTheme,
 };
 use std::{cell::RefCell, rc::Rc};
@@ -74,10 +74,15 @@ impl CodeLine {
         self.prefix.width() + self.code.width() + self.suffix.width()
     }
 
-    pub(crate) fn highlight(&self, padding_style: &Style, code_highlighter: &mut LanguageHighlighter) -> String {
-        let mut output = StyledTokens { style: *padding_style, tokens: &self.prefix }.apply_style();
-        output.push_str(&code_highlighter.highlight_line(&self.code));
-        output.push_str(&StyledTokens { style: *padding_style, tokens: &self.suffix }.apply_style());
+    pub(crate) fn highlight(
+        &self,
+        padding_style: &Style,
+        code_highlighter: &mut LanguageHighlighter,
+        block_style: &CodeBlockStyle,
+    ) -> String {
+        let mut output = StyledTokens { style: *padding_style, tokens: &self.prefix }.apply_style(block_style);
+        output.push_str(&code_highlighter.highlight_line(&self.code, block_style));
+        output.push_str(&StyledTokens { style: *padding_style, tokens: &self.suffix }.apply_style(block_style));
         output
     }
 }

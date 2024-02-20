@@ -394,6 +394,10 @@ pub(crate) struct CodeBlockStyle {
     /// The syntect theme name to use.
     #[serde(default)]
     pub(crate) theme_name: Option<String>,
+
+    /// Whether to use the theme's background color.
+    #[serde(default = "default_true")]
+    pub(crate) background: bool,
 }
 
 /// The style for the output of a code execution block.
@@ -523,6 +527,10 @@ pub enum LoadThemeError {
 
     #[error("duplicate custom theme '{0}'")]
     Duplicate(String),
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[cfg(test)]
