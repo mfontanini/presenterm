@@ -21,7 +21,7 @@ use crate::{
     },
     render::highlighting::{CodeHighlighter, HighlightThemeSet},
     resource::{LoadImageError, Resources},
-    style::{Color, TextStyle},
+    style::{Color, Colors, TextStyle},
     theme::{
         Alignment, AuthorPositioning, ElementType, LoadThemeError, Margin, PresentationTheme, PresentationThemeSet,
     },
@@ -596,19 +596,31 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_block_quote(&mut self, lines: Vec<String>) {
         let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
-        let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0);
+        let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0) as u16;
+        let prefix_color = self.theme.block_quote.colors.prefix.or(self.theme.block_quote.colors.base.foreground);
+        let prefix = Text::new(
+            prefix,
+            TextStyle::default()
+                .colors(Colors { foreground: prefix_color, background: self.theme.block_quote.colors.base.background }),
+        );
+        let alignment = self.theme.alignment(&ElementType::BlockQuote).clone();
+        let style = TextStyle::default().colors(self.theme.block_quote.colors.base.clone());
 
-        self.chunk_operations.push(RenderOperation::SetColors(self.theme.block_quote.colors.clone()));
-        for mut line in lines {
-            line.insert_str(0, &prefix);
-
-            let line_length = line.width();
-            self.chunk_operations.push(RenderOperation::RenderPreformattedLine(PreformattedLine {
-                text: line,
-                unformatted_length: line_length as u16,
-                block_length: block_length as u16,
-                alignment: self.theme.alignment(&ElementType::BlockQuote).clone(),
-            }));
+        for line in lines {
+            let line = TextBlock(vec![prefix.clone(), Text::new(line, style.clone())]);
+            self.chunk_operations.extend([
+                // Print a preformatted empty block so we fill in the line with properly colored
+                // spaces.
+                RenderOperation::SetColors(self.theme.block_quote.colors.base.clone()),
+                RenderOperation::RenderPreformattedLine(PreformattedLine {
+                    text: "".into(),
+                    unformatted_length: 0,
+                    block_length,
+                    alignment: alignment.clone(),
+                }),
+                // Now render our prefix + entire line
+                RenderOperation::RenderText { line: line.into(), alignment: alignment.clone() },
+            ]);
             self.push_line_break();
         }
         self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));

@@ -79,6 +79,7 @@ block_quote:
   colors:
     foreground: "f0f0f0"
     background: "545c7e"
+    prefix: "e0af68"
 
 typst:
   colors:

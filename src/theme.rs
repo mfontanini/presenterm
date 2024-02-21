@@ -1,4 +1,4 @@
-use crate::style::Colors;
+use crate::style::{Color, Colors};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs, io, path::Path};
 
@@ -238,7 +238,18 @@ pub(crate) struct BlockQuoteStyle {
 
     /// The colors to be used.
     #[serde(default)]
-    pub(crate) colors: Colors,
+    pub(crate) colors: BlockQuoteColors,
+}
+
+/// The colors of a block quote.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct BlockQuoteColors {
+    /// The foreground/background colors.
+    #[serde(flatten)]
+    pub(crate) base: Colors,
+
+    /// The color of the vertical bar that prefixes each line in the quote.
+    pub(crate) prefix: Option<Color>,
 }
 
 /// The style for the presentation introduction slide.
