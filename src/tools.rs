@@ -1,9 +1,8 @@
+use itertools::Itertools;
 use std::{
     io::{self, Write},
     process::{Command, Output, Stdio},
 };
-
-use itertools::Itertools;
 
 const MAX_ERROR_LINES: usize = 10;
 
@@ -63,7 +62,11 @@ impl Tool {
         if self.stdin.is_some() {
             self.command.stdin(Stdio::piped());
         }
-        let mut child = self.command.spawn().map_err(|error| Spawn { command: self.command_name, error })?;
+        let mut child = match self.command.spawn() {
+            Ok(child) => child,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Err(SpawnNotFound { command: self.command_name }),
+            Err(error) => return Err(Spawn { command: self.command_name, error }),
+        };
         if let Some(data) = &self.stdin {
             let mut stdin = child.stdin.take().expect("no stdin");
             stdin
@@ -90,6 +93,9 @@ impl Tool {
 pub enum ExecutionError {
     #[error("spawning '{command}' failed: {error}")]
     Spawn { command: &'static str, error: io::Error },
+
+    #[error("spawning '{command}' failed (is '{command}' installed?)")]
+    SpawnNotFound { command: &'static str },
 
     #[error("communicating with '{command}' failed: {error}")]
     Communication { command: &'static str, error: io::Error },
