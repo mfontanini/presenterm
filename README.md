@@ -16,7 +16,7 @@ presenterm
 [scoop-package]: https://scoop.sh/#/apps?q=presenterm&id=a462290f824b50f180afbaa6d8c7c1e6e0952e3a
 
 _presenterm_ lets you create presentations in markdown format and run them from your terminal, with support for image 
-and animated gif support, highly customizable themes, code highlighting, exporting presentations into PDF format, and 
+and animated gifs, highly customizable themes, code highlighting, exporting presentations into PDF format, and 
 plenty of other features. This is how the [demo presentation](/examples/demo.md) looks like:
 
 ![](/docs/src/assets/demo.gif)
