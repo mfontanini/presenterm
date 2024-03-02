@@ -1,3 +1,28 @@
+# v0.7.0 - 2024-03-02
+
+## New features
+
+* Add color to prefix in block quote (#218).
+* Allow having code blocks without background (#215 #216).
+* Allow validating whether presentation overflows terminal (#209 #211).
+* Add parameter to list themes (#207).
+* Add catppuccin themes (#197 #205 #206) - thanks @Mawdac.
+* Detect konsole terminal emulator (#204).
+* Allow customizing slide title style (#201).
+
+## Fixes
+
+* Don't crash in present mode (#210).
+* Set colors properly before displaying an error (#212).
+
+## Improvements
+
+* Suggest a tool is missing when spawning returns ENOTFOUND (#221).
+* Sort input file list (#202) - thanks @bmwiedemann.
+* Add more example presentations (#217).
+* Add Scoop to package managers (#200) - thanks @nagromc.
+* Remove support for uncommon image formats (#208).
+
 # v0.6.1 - 2024-02-11
 
 ## Fixes
