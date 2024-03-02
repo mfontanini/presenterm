@@ -31,8 +31,9 @@ Visit the [documentation][guide-introduction] to get started.
 
 * Define your presentation in a single markdown file.
 * [Images and animated gifs][guide-images] on terminals like _kitty_, _iterm2_, and _wezterm_.
-* [Customized themes][guide-themes] including colors, margins, layout (left/center aligned content), footer for every 
-  slide, etc.
+* [Customizeable themes][guide-themes] including colors, margins, layout (left/center aligned content), footer for every 
+  slide, etc. Several [built-in themes][guide-builtin-themes] can give your presentation the look you want without 
+  having to define your own.
 * Code highlighting for a [wide list of programming languages][guide-code-highlight].
 * [Selective/dynamic][guide-selective-highlight] code highlighting that only highlights portions of code at a time.
 * [Column layouts][guide-layout].
