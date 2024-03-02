@@ -78,6 +78,18 @@ Currently, the following themes are supported:
   means if your terminal background is e.g. transparent, or uses an image, the presentation will inherit that.
 * `terminal-light`: The same as `terminal-dark` but works best if your terminal uses a light color scheme.
 
+### Trying out built-in themes
+
+All built-in themes can be tested by using the `--list-themes` parameter:
+
+```shell
+presenterm --list-themes
+```
+
+This will run a presentation where the same content is rendered using a different theme in each slide:
+
+[![asciicast](https://asciinema.org/a/zeV1QloyrLkfBp6rNltvX7Lle.svg)](https://asciinema.org/a/zeV1QloyrLkfBp6rNltvX7Lle)
+
 ## Loading custom themes
 
 On startup, _presenterm_ will look into the `themes` directory under the [configuration directory](configuration.html) 
