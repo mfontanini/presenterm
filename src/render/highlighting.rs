@@ -145,6 +145,7 @@ impl CodeHighlighter {
             Puppet => "pp",
             Python => "py",
             R => "r",
+            Ruby => "rb",
             Rust => "rs",
             Scala => "scala",
             Shell(_) => "sh",

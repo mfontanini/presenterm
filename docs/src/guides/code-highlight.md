@@ -40,6 +40,7 @@ Code highlighting is supported for the following languages:
 * puppet
 * python
 * R
+* ruby
 * rust
 * scala
 * shell
