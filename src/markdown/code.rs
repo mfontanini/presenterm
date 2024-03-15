@@ -65,6 +65,7 @@ impl CodeBlockParser {
             "puppet" => Puppet,
             "python" => Python,
             "r" => R,
+            "ruby" => Ruby,
             "rust" => Rust,
             "scala" => Scala,
             "shell" => Shell("sh".into()),

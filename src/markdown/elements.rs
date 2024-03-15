@@ -226,6 +226,7 @@ pub(crate) enum CodeLanguage {
     Puppet,
     Python,
     R,
+    Ruby,
     Rust,
     Scala,
     Shell(String),
