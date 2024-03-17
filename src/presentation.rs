@@ -394,6 +394,10 @@ pub(crate) struct PresentationMetadata {
     #[serde(default)]
     pub(crate) author: Option<String>,
 
+    /// The presentation authors.
+    #[serde(default)]
+    pub(crate) authors: Vec<String>,
+
     /// The presentation's theme metadata.
     #[serde(default)]
     pub(crate) theme: PresentationThemeMetadata,

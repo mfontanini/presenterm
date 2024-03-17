@@ -260,13 +260,20 @@ impl<'a> PresentationBuilder<'a> {
             false => serde_yaml::from_str::<PresentationMetadata>(contents),
         };
         let mut metadata = metadata.map_err(|e| BuildError::InvalidMetadata(e.to_string()))?;
+        if metadata.author.is_some() && !metadata.authors.is_empty() {
+            return Err(BuildError::InvalidMetadata("cannot have both 'author' and 'authors'".into()));
+        }
 
         if let Some(options) = metadata.options.take() {
             self.options.merge(options);
         }
         self.footer_context.borrow_mut().author = metadata.author.clone().unwrap_or_default();
         self.set_theme(&metadata.theme)?;
-        if metadata.title.is_some() || metadata.sub_title.is_some() || metadata.author.is_some() {
+        if metadata.title.is_some()
+            || metadata.sub_title.is_some()
+            || metadata.author.is_some()
+            || !metadata.authors.is_empty()
+        {
             self.push_slide_prelude();
             self.push_intro_slide(metadata);
         }
@@ -321,10 +328,12 @@ impl<'a> PresentationBuilder<'a> {
             .sub_title
             .as_ref()
             .map(|text| Text::new(text.clone(), TextStyle::default().colors(styles.subtitle.colors.clone())));
-        let author = metadata
+        let authors: Vec<_> = metadata
             .author
-            .as_ref()
-            .map(|text| Text::new(text.clone(), TextStyle::default().colors(styles.author.colors.clone())));
+            .into_iter()
+            .chain(metadata.authors)
+            .map(|author| Text::new(author, TextStyle::default().colors(styles.author.colors.clone())))
+            .collect();
         self.chunk_operations.push(RenderOperation::JumpToVerticalCenter);
         self.push_text(TextBlock::from(title), ElementType::PresentationTitle);
         self.push_line_break();
@@ -332,7 +341,7 @@ impl<'a> PresentationBuilder<'a> {
             self.push_text(TextBlock::from(text), ElementType::PresentationSubTitle);
             self.push_line_break();
         }
-        if let Some(text) = author {
+        if !authors.is_empty() {
             match self.theme.intro_slide.author.positioning {
                 AuthorPositioning::BelowTitle => {
                     self.push_line_break();
@@ -340,10 +349,13 @@ impl<'a> PresentationBuilder<'a> {
                     self.push_line_break();
                 }
                 AuthorPositioning::PageBottom => {
-                    self.chunk_operations.push(RenderOperation::JumpToBottomRow { index: 0 });
+                    self.chunk_operations.push(RenderOperation::JumpToBottomRow { index: authors.len() as u16 - 1 });
                 }
             };
-            self.push_text(TextBlock::from(text), ElementType::PresentationAuthor);
+            for author in authors {
+                self.push_text(TextBlock::from(author), ElementType::PresentationAuthor);
+                self.push_line_break();
+            }
         }
         self.slide_state.title = Some(TextBlock::from("[Introduction]"));
         self.terminate_slide();
@@ -984,6 +996,9 @@ struct StrictPresentationMetadata {
     author: Option<String>,
 
     #[serde(default)]
+    authors: Vec<String>,
+
+    #[serde(default)]
     theme: PresentationThemeMetadata,
 
     #[serde(default)]
@@ -992,8 +1007,8 @@ struct StrictPresentationMetadata {
 
 impl From<StrictPresentationMetadata> for PresentationMetadata {
     fn from(strict: StrictPresentationMetadata) -> Self {
-        let StrictPresentationMetadata { title, sub_title, author, theme, options } = strict;
-        Self { title, sub_title, author, theme, options }
+        let StrictPresentationMetadata { title, sub_title, author, authors, theme, options } = strict;
+        Self { title, sub_title, author, authors, theme, options }
     }
 }
 
