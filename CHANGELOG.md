@@ -2,33 +2,33 @@
 
 ## New features
 
-* Add color to prefix in block quote (#218).
-* Allow having code blocks without background (#215 #216).
-* Allow validating whether presentation overflows terminal (#209 #211).
-* Add parameter to list themes (#207).
-* Add catppuccin themes (#197 #205 #206) - thanks @Mawdac.
-* Detect konsole terminal emulator (#204).
-* Allow customizing slide title style (#201).
+* Add color to prefix in block quote ([#218](https://github.com/mfontanini/presenterm/issues/218)).
+* Allow having code blocks without background ([#215](https://github.com/mfontanini/presenterm/issues/215) [#216](https://github.com/mfontanini/presenterm/issues/216)).
+* Allow validating whether presentation overflows terminal ([#209](https://github.com/mfontanini/presenterm/issues/209) [#211](https://github.com/mfontanini/presenterm/issues/211)).
+* Add parameter to list themes ([#207](https://github.com/mfontanini/presenterm/issues/207)).
+* Add catppuccin themes ([#197](https://github.com/mfontanini/presenterm/issues/197) [#205](https://github.com/mfontanini/presenterm/issues/205) [#206](https://github.com/mfontanini/presenterm/issues/206)) - thanks @Mawdac.
+* Detect konsole terminal emulator ([#204](https://github.com/mfontanini/presenterm/issues/204)).
+* Allow customizing slide title style ([#201](https://github.com/mfontanini/presenterm/issues/201)).
 
 ## Fixes
 
-* Don't crash in present mode (#210).
-* Set colors properly before displaying an error (#212).
+* Don't crash in present mode ([#210](https://github.com/mfontanini/presenterm/issues/210)).
+* Set colors properly before displaying an error ([#212](https://github.com/mfontanini/presenterm/issues/212)).
 
 ## Improvements
 
-* Suggest a tool is missing when spawning returns ENOTFOUND (#221).
-* Sort input file list (#202) - thanks @bmwiedemann.
-* Add more example presentations (#217).
-* Add Scoop to package managers (#200) - thanks @nagromc.
-* Remove support for uncommon image formats (#208).
+* Suggest a tool is missing when spawning returns ENOTFOUND ([#221](https://github.com/mfontanini/presenterm/issues/221)).
+* Sort input file list ([#202](https://github.com/mfontanini/presenterm/issues/202)) - thanks @bmwiedemann.
+* Add more example presentations ([#217](https://github.com/mfontanini/presenterm/issues/217)).
+* Add Scoop to package managers ([#200](https://github.com/mfontanini/presenterm/issues/200)) - thanks @nagromc.
+* Remove support for uncommon image formats ([#208](https://github.com/mfontanini/presenterm/issues/208)).
 
 # v0.6.1 - 2024-02-11
 
 ## Fixes
 
-* Don't escape symbols in block quotes (#195).
-* Respect `XDG_CONFIG_HOME` when loading configuration files and custom themes (#193).
+* Don't escape symbols in block quotes ([#195](https://github.com/mfontanini/presenterm/issues/195)).
+* Respect `XDG_CONFIG_HOME` when loading configuration files and custom themes ([#193](https://github.com/mfontanini/presenterm/issues/193)).
 
 # v0.6.0 - 2024-02-09
 
@@ -40,116 +40,116 @@
 
 ## New features
 
-* Add `f` keys, tab, and backspace as possible bindings (#188).
-* Add support for multiline block quotes (#184).
-* Use theme color as background on ascii-blocks mode images (#182).
-* Blend ascii-blocks image semi-transparent borders (#185).
-* Respect Windows/macOS config paths for configuration (#181).
-* Allow making front matter strict parsing optional (#190).
+* Add `f` keys, tab, and backspace as possible bindings ([#188](https://github.com/mfontanini/presenterm/issues/188)).
+* Add support for multiline block quotes ([#184](https://github.com/mfontanini/presenterm/issues/184)).
+* Use theme color as background on ascii-blocks mode images ([#182](https://github.com/mfontanini/presenterm/issues/182)).
+* Blend ascii-blocks image semi-transparent borders ([#185](https://github.com/mfontanini/presenterm/issues/185)).
+* Respect Windows/macOS config paths for configuration ([#181](https://github.com/mfontanini/presenterm/issues/181)).
+* Allow making front matter strict parsing optional ([#190](https://github.com/mfontanini/presenterm/issues/190)).
 
 ## Fixes
 
-* Don't add an extra line after an end slide shorthand (#187).
-* Don't clear input state on key release event (#183).
+* Don't add an extra line after an end slide shorthand ([#187](https://github.com/mfontanini/presenterm/issues/187)).
+* Don't clear input state on key release event ([#183](https://github.com/mfontanini/presenterm/issues/183)).
 
 # v0.5.0 - 2024-01-26
 
 ## New features
 
-* Support images on Windows (#120).
-* Support animated gifs on kitty terminal (#157 #161).
-* Support images on tmux running in kitty terminal (#166).
-* Improve sixel support (#169 #172).
-* Use synchronized updates to remove flickering when switching slides (#156).
-* Add newlines command (#167).
-* Detect image protocol instead of relying on viuer (#160).
-* Turn documentation into mdbook (#141 #147) - thanks @pwnwriter.
-* Allow using thematic breaks to end slides (#138).
-* Allow specifying the preferred image protocol via `--image-protocol` / config file (#136 #170).
-* Add slide index modal (#128 #139 #133 #158).
-* Allow defining custom keybindings in config file (#132 #155).
-* Add key bindings modal (#152).
-* Prioritize CLI args `--theme` over anything else (#116).
-* Allow enabling automatic list pauses (#106 #109 #110).
-* Allow passing in config file path via CLI arg (#174).
+* Support images on Windows ([#120](https://github.com/mfontanini/presenterm/issues/120)).
+* Support animated gifs on kitty terminal ([#157](https://github.com/mfontanini/presenterm/issues/157) [#161](https://github.com/mfontanini/presenterm/issues/161)).
+* Support images on tmux running in kitty terminal ([#166](https://github.com/mfontanini/presenterm/issues/166)).
+* Improve sixel support ([#169](https://github.com/mfontanini/presenterm/issues/169) [#172](https://github.com/mfontanini/presenterm/issues/172)).
+* Use synchronized updates to remove flickering when switching slides ([#156](https://github.com/mfontanini/presenterm/issues/156)).
+* Add newlines command ([#167](https://github.com/mfontanini/presenterm/issues/167)).
+* Detect image protocol instead of relying on viuer ([#160](https://github.com/mfontanini/presenterm/issues/160)).
+* Turn documentation into mdbook ([#141](https://github.com/mfontanini/presenterm/issues/141) [#147](https://github.com/mfontanini/presenterm/issues/147)) - thanks @pwnwriter.
+* Allow using thematic breaks to end slides ([#138](https://github.com/mfontanini/presenterm/issues/138)).
+* Allow specifying the preferred image protocol via `--image-protocol` / config file ([#136](https://github.com/mfontanini/presenterm/issues/136) [#170](https://github.com/mfontanini/presenterm/issues/170)).
+* Add slide index modal ([#128](https://github.com/mfontanini/presenterm/issues/128) [#139](https://github.com/mfontanini/presenterm/issues/139) [#133](https://github.com/mfontanini/presenterm/issues/133) [#158](https://github.com/mfontanini/presenterm/issues/158)).
+* Allow defining custom keybindings in config file ([#132](https://github.com/mfontanini/presenterm/issues/132) [#155](https://github.com/mfontanini/presenterm/issues/155)).
+* Add key bindings modal ([#152](https://github.com/mfontanini/presenterm/issues/152)).
+* Prioritize CLI args `--theme` over anything else ([#116](https://github.com/mfontanini/presenterm/issues/116)).
+* Allow enabling automatic list pauses ([#106](https://github.com/mfontanini/presenterm/issues/106) [#109](https://github.com/mfontanini/presenterm/issues/109) [#110](https://github.com/mfontanini/presenterm/issues/110)).
+* Allow passing in config file path via CLI arg ([#174](https://github.com/mfontanini/presenterm/issues/174)).
 
 ## Fixes
 
-* Shrink columns layout dimensions correctly when shrinking left (#113).
-* Explicitly set execution output foreground color in built-in themes (#122).
-* Detect sixel early and fallback to ascii blocks properly (#135).
-* Exit with a clap error on missing path (#150).
-* Don't blow up if presentation file temporarily disappears (#154).
-* Parse front matter properly in presence of \r\n (#162).
-* Don't preload graphics mode when generating pdf metadata (#168).
-* Ignore key release events (#119).
+* Shrink columns layout dimensions correctly when shrinking left ([#113](https://github.com/mfontanini/presenterm/issues/113)).
+* Explicitly set execution output foreground color in built-in themes ([#122](https://github.com/mfontanini/presenterm/issues/122)).
+* Detect sixel early and fallback to ascii blocks properly ([#135](https://github.com/mfontanini/presenterm/issues/135)).
+* Exit with a clap error on missing path ([#150](https://github.com/mfontanini/presenterm/issues/150)).
+* Don't blow up if presentation file temporarily disappears ([#154](https://github.com/mfontanini/presenterm/issues/154)).
+* Parse front matter properly in presence of \r\n ([#162](https://github.com/mfontanini/presenterm/issues/162)).
+* Don't preload graphics mode when generating pdf metadata ([#168](https://github.com/mfontanini/presenterm/issues/168)).
+* Ignore key release events ([#119](https://github.com/mfontanini/presenterm/issues/119)).
 
 ## Improvements
 
-* Validate that config file contains the right attributes (#107).
-* Display first presentation load error as any other (#118).
-* Add hashes for windows artifacts (#126).
-* Remove arch packaging files (#111).
-* Lower CPU and memory usage when displaying images (#157).
+* Validate that config file contains the right attributes ([#107](https://github.com/mfontanini/presenterm/issues/107)).
+* Display first presentation load error as any other ([#118](https://github.com/mfontanini/presenterm/issues/118)).
+* Add hashes for windows artifacts ([#126](https://github.com/mfontanini/presenterm/issues/126)).
+* Remove arch packaging files ([#111](https://github.com/mfontanini/presenterm/issues/111)).
+* Lower CPU and memory usage when displaying images ([#157](https://github.com/mfontanini/presenterm/issues/157)).
 
 # v0.4.1 - 2023-12-22
 
 ## New features
 
-* Cause an error if an unknown field name is found on a theme, config file, or front matter (#102).
+* Cause an error if an unknown field name is found on a theme, config file, or front matter ([#102](https://github.com/mfontanini/presenterm/issues/102)).
 
 ## Fixes
 
 * Explicitly disable kitty/iterm protocols when printing images in export PDF mode as this was causing PDF generation in 
-  macOS to fail (#101).
+  macOS to fail ([#101](https://github.com/mfontanini/presenterm/issues/101)).
 
 # v0.4.0 - 2023-12-16
 
 ## New features
 
-* Add support for all of [bat](https://github.com/sharkdp/bat)'s code highlighting themes (#67).
-* Add `terminal-dark` and `terminal-light` themes that preserve the terminal's colors and background (#68 #69).
+* Add support for all of [bat](https://github.com/sharkdp/bat)'s code highlighting themes ([#67](https://github.com/mfontanini/presenterm/issues/67)).
+* Add `terminal-dark` and `terminal-light` themes that preserve the terminal's colors and background ([#68](https://github.com/mfontanini/presenterm/issues/68) [#69](https://github.com/mfontanini/presenterm/issues/69)).
 * Allow placing themes in `$HOME/.config/presenterm/themes` to make them available automatically as if they were 
-  built-in themes (#73).
-* Allow configuring the default theme in `$HOME/.config/presenterm/config.yaml` (#74).
-* Add support for rendering _LaTeX_ and _typst_ code blocks automatically as images (#75 #76 #79 #81).
-* Add syntax highlighting support for _nix_ and _diff_ (#78 #82).
-* Add comment command to jump into the middle of a slide (#86).
-* Add configuration option to have implicit slide ends (#87 #89).
-* Add configuration option to have custom comment-command prefix (#91).
+  built-in themes ([#73](https://github.com/mfontanini/presenterm/issues/73)).
+* Allow configuring the default theme in `$HOME/.config/presenterm/config.yaml` ([#74](https://github.com/mfontanini/presenterm/issues/74)).
+* Add support for rendering _LaTeX_ and _typst_ code blocks automatically as images ([#75](https://github.com/mfontanini/presenterm/issues/75) [#76](https://github.com/mfontanini/presenterm/issues/76) [#79](https://github.com/mfontanini/presenterm/issues/79) [#81](https://github.com/mfontanini/presenterm/issues/81)).
+* Add syntax highlighting support for _nix_ and _diff_ ([#78](https://github.com/mfontanini/presenterm/issues/78) [#82](https://github.com/mfontanini/presenterm/issues/82)).
+* Add comment command to jump into the middle of a slide ([#86](https://github.com/mfontanini/presenterm/issues/86)).
+* Add configuration option to have implicit slide ends ([#87](https://github.com/mfontanini/presenterm/issues/87) [#89](https://github.com/mfontanini/presenterm/issues/89)).
+* Add configuration option to have custom comment-command prefix ([#91](https://github.com/mfontanini/presenterm/issues/91)).
 
 # v0.3.0 - 2023-11-24
 
 ## New features
 
-* Support more languages in code blocks thanks to [bat](https://github.com/sharkdp/bat)'s syntax sets (#21 #53).
-* Add shell script executable code blocks (#17).
-* Allow exporting presentation to PDF (#43 #60).
-* Pauses no longer create new slides (#18 #25 #34 #42).
-* Allow display code block line numbers (#46).
-* Allow code block selective line highlighting (#48).
-* Allow code block dynamic line highlighting (#49).
-* Support animated gifs when using the iterm2 image protocol (#56).
-* Nix flake packaging (#11 #27).
-* Arch repo packaging (#10).
+* Support more languages in code blocks thanks to [bat](https://github.com/sharkdp/bat)'s syntax sets ([#21](https://github.com/mfontanini/presenterm/issues/21) [#53](https://github.com/mfontanini/presenterm/issues/53)).
+* Add shell script executable code blocks ([#17](https://github.com/mfontanini/presenterm/issues/17)).
+* Allow exporting presentation to PDF ([#43](https://github.com/mfontanini/presenterm/issues/43) [#60](https://github.com/mfontanini/presenterm/issues/60)).
+* Pauses no longer create new slides ([#18](https://github.com/mfontanini/presenterm/issues/18) [#25](https://github.com/mfontanini/presenterm/issues/25) [#34](https://github.com/mfontanini/presenterm/issues/34) [#42](https://github.com/mfontanini/presenterm/issues/42)).
+* Allow display code block line numbers ([#46](https://github.com/mfontanini/presenterm/issues/46)).
+* Allow code block selective line highlighting ([#48](https://github.com/mfontanini/presenterm/issues/48)).
+* Allow code block dynamic line highlighting ([#49](https://github.com/mfontanini/presenterm/issues/49)).
+* Support animated gifs when using the iterm2 image protocol ([#56](https://github.com/mfontanini/presenterm/issues/56)).
+* Nix flake packaging ([#11](https://github.com/mfontanini/presenterm/issues/11) [#27](https://github.com/mfontanini/presenterm/issues/27)).
+* Arch repo packaging ([#10](https://github.com/mfontanini/presenterm/issues/10)).
 * Ignore vim-like code folding tags in comments.
-* Add keybinding to refresh assets in presentation (#38).
-* Template style footer is now one row above bottom (#39).
+* Add keybinding to refresh assets in presentation ([#38](https://github.com/mfontanini/presenterm/issues/38)).
+* Template style footer is now one row above bottom ([#39](https://github.com/mfontanini/presenterm/issues/39)).
 * Add `light` theme.
 
 ## Fixes
 
-* Don't crash on Windows when terminal window size can't be found (#14).
-* Don't reset numbers on ordered lists when using pauses in between (#19).
-* Show proper line number when parsing a comment command fails (#29 #40).
-* Don't reset the default footer when overriding theme in presentation without setting footer (#52).
-* Don't let code blocks/block quotes that don't fit on the screen cause images to overlap with text (#57).
+* Don't crash on Windows when terminal window size can't be found ([#14](https://github.com/mfontanini/presenterm/issues/14)).
+* Don't reset numbers on ordered lists when using pauses in between ([#19](https://github.com/mfontanini/presenterm/issues/19)).
+* Show proper line number when parsing a comment command fails ([#29](https://github.com/mfontanini/presenterm/issues/29) [#40](https://github.com/mfontanini/presenterm/issues/40)).
+* Don't reset the default footer when overriding theme in presentation without setting footer ([#52](https://github.com/mfontanini/presenterm/issues/52)).
+* Don't let code blocks/block quotes that don't fit on the screen cause images to overlap with text ([#57](https://github.com/mfontanini/presenterm/issues/57)).
 
 # v0.2.1 - 2023-10-18
 
 ## New features
 
-* Binary artifacts are now automatically generated when a new release is done (#5) - thanks @pwnwriter.
+* Binary artifacts are now automatically generated when a new release is done ([#5](https://github.com/mfontanini/presenterm/issues/5)) - thanks @pwnwriter.
 
 # v0.2.0 - 2023-10-17
 
@@ -163,7 +163,7 @@
 
 ## Fixes
 
-* Allow using `sh` as language for code block (#3).
+* Allow using `sh` as language for code block ([#3](https://github.com/mfontanini/presenterm/issues/3)).
 * Minimum size for code blocks is now prioritized over minimum margin.
 * Overflowing lines in lists will now correctly be padded to align all text under the same starting column.
 * Running `cargo run` will now rebuild the tool if any of the built-in themes changed.
