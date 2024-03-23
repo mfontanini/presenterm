@@ -229,6 +229,12 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() {
+    let schema = schemars::schema_for!(Config);
+    let mut file = std::fs::File::create("schema.json").unwrap();
+    serde_json::to_writer_pretty(&mut file, &schema).unwrap();
+
+    std::process::exit(0);
+
     let cli = Cli::parse();
     if let Err(e) = run(cli) {
         eprintln!("{e}");
