@@ -22,6 +22,11 @@ options:
   # show all lists incrementally, by implicitly adding pauses in between elements.
   incremental_lists: false
 
+  # this option tells presenterm you don't care about extra parameters in
+  # presentation's front matter. This can be useful if you're trying to load a
+  # presentation made for another tool
+  strict_front_matter_parsing: true
+
   # whether to treat a thematic break as a slide end.
   end_slide_shorthand: false
 
