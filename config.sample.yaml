@@ -1,9 +1,10 @@
+# yaml-language-server: $schema=./schema.json
 defaults:
   # override the terminal font size when in windows or when using sixel.
   terminal_font_size: 16
 
   # the theme to use by default in every presentation unless overridden.
-  theme: dark 
+  theme: dark
 
   # the image protocol to use.
   image_protocol: kitty-local
@@ -53,10 +54,10 @@ bindings:
   reload: ["<c-r>"]
 
   # the key binding to toggle the slide index modal.
-  toggle_slide_index: ["<c-p>"] 
+  toggle_slide_index: ["<c-p>"]
 
   # the key binding to toggle the key bindings modal.
-  toggle_bindings: ["?"] 
+  toggle_bindings: ["?"]
 
   # the key binding to close the currently open modal.
   close_modal: ["<esc>"]
