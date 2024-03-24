@@ -532,7 +532,7 @@ mod test {
     )]
     fn match_number(#[case] pattern: &str, #[case] events: &[KeyEvent]) {
         let binding = KeyBinding::from_str(pattern).expect("failed to parse");
-        let result = binding.match_events(&events);
+        let result = binding.match_events(events);
         let BindingMatch::Full(MatchContext::Number(number)) = result else {
             panic!("unexpected match: {result:?}");
         };

@@ -561,7 +561,7 @@ mod test {
     fn load_custom() {
         let directory = tempdir().expect("creating tempdir");
         let theme = serde_yaml::to_string(&PresentationTheme::default()).unwrap();
-        fs::write(directory.path().join("potato.yaml"), &theme).expect("writing theme");
+        fs::write(directory.path().join("potato.yaml"), theme).expect("writing theme");
 
         let mut themes = PresentationThemeSet::default();
         themes.register_from_directory(directory.path()).expect("loading themes");
