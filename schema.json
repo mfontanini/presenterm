@@ -30,6 +30,9 @@
   "definitions": {
     "DefaultsConfig": {
       "type": "object",
+      "required": [
+        "theme"
+      ],
       "properties": {
         "image_protocol": {
           "description": "The image protocol to use.",
@@ -49,8 +52,18 @@
         "theme": {
           "description": "The theme to use by default in every presentation unless overridden.",
           "type": [
-            "string",
-            "null"
+            "string"
+          ],
+          "enum": [
+            "catppuccin-frappe",
+            "catppuccin-latte",
+            "catppuccin-macchiato",
+            "catppuccin-mocha",
+            "dark",
+            "light",
+            "terminal-dark",
+            "terminal-light",
+            "tokyonight-storm"
           ]
         },
         "validate_overflows": {

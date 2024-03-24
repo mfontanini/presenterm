@@ -4,8 +4,13 @@ use crate::{
     GraphicsMode,
 };
 use clap::ValueEnum;
-use schemars::JsonSchema;
+use schemars::{
+    gen::SchemaGenerator,
+    schema::{Schema, SchemaObject, SingleOrVec},
+    JsonSchema,
+};
 use serde::Deserialize;
+use serde_json::json;
 use std::{fs, io, path::Path};
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
@@ -54,6 +59,7 @@ pub enum ConfigLoadError {
 #[serde(deny_unknown_fields)]
 pub struct DefaultsConfig {
     /// The theme to use by default in every presentation unless overridden.
+    #[schemars(schema_with = "theme_schema")]
     pub theme: Option<String>,
 
     /// Override the terminal font size when in windows or when using sixel.
@@ -68,6 +74,26 @@ pub struct DefaultsConfig {
     /// Validate that the presentation does not overflow the terminal screen.
     #[serde(default)]
     pub validate_overflows: ValidateOverflows,
+}
+
+// allow the theme to be any string, but suggest the valid themes based on the themes
+fn theme_schema(_gen: &mut SchemaGenerator) -> Schema {
+    let mut schema = SchemaObject::default();
+    schema.metadata().description =
+        Some("The theme to use by default in every presentation unless overridden.".to_string());
+    schema.instance_type = Some(SingleOrVec::Vec(vec![schemars::schema::InstanceType::String]));
+    schema.enum_values = Some(vec![
+        json!("catppuccin-frappe"),
+        json!("catppuccin-latte"),
+        json!("catppuccin-macchiato"),
+        json!("catppuccin-mocha"),
+        json!("dark"),
+        json!("light"),
+        json!("terminal-dark"),
+        json!("terminal-light"),
+        json!("tokyonight-storm"),
+    ]);
+    schema.into()
 }
 
 impl Default for DefaultsConfig {
