@@ -1113,7 +1113,7 @@ mod test {
     }
 
     fn extract_slide_text_lines(slide: Slide) -> Vec<String> {
-        let operations: Vec<_> = slide.into_operations().into_iter().filter(|op| is_visible(op)).collect();
+        let operations: Vec<_> = slide.into_operations().into_iter().filter(is_visible).collect();
         extract_text_lines(&operations)
     }
 
@@ -1126,7 +1126,7 @@ mod test {
             MarkdownElement::Heading { text: TextBlock::from("bye"), level: 1 },
         ];
         let presentation = build_presentation(elements);
-        for (index, slide) in presentation.iter_slides().into_iter().enumerate() {
+        for (index, slide) in presentation.iter_slides().enumerate() {
             let clear_screen_count =
                 slide.iter_operations().filter(|op| matches!(op, RenderOperation::ClearScreen)).count();
             let set_colors_count =
@@ -1417,7 +1417,7 @@ mod test {
         let presentation = build_presentation_with_options(elements, options);
         assert_eq!(presentation.iter_slides().count(), 2);
 
-        let second = presentation.iter_slides().skip(1).next().unwrap();
+        let second = presentation.iter_slides().nth(1).unwrap();
         let before_text = second.iter_operations().take_while(|e| !matches!(e, RenderOperation::RenderText { .. }));
         let break_count = before_text.filter(|e| matches!(e, RenderOperation::RenderLineBreak)).count();
         assert_eq!(break_count, 1);
