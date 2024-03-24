@@ -18,7 +18,12 @@
       "$ref": "#/definitions/OptionsConfig"
     },
     "typst": {
-      "$ref": "#/definitions/TypstConfig"
+      "allOf": [
+        {
+          "$ref": "#/definitions/TypstConfig"
+        }
+      ],
+      "minimum": 1.0
     }
   },
   "additionalProperties": false,
@@ -39,7 +44,7 @@
           "default": 16,
           "type": "integer",
           "format": "uint8",
-          "minimum": 0.0
+          "minimum": 1.0
         },
         "theme": {
           "description": "The theme to use by default in every presentation unless overridden.",

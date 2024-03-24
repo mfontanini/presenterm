@@ -16,6 +16,7 @@ pub struct Config {
     pub defaults: DefaultsConfig,
 
     #[serde(default)]
+    #[validate(range(min = 1))]
     pub typst: TypstConfig,
 
     #[serde(default)]
@@ -57,6 +58,7 @@ pub struct DefaultsConfig {
 
     /// Override the terminal font size when in windows or when using sixel.
     #[serde(default = "default_font_size")]
+    #[validate(range(min = 1))]
     pub terminal_font_size: u8,
 
     /// The image protocol to use.
