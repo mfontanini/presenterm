@@ -290,7 +290,7 @@ mod test {
         </dict>
     </array>
 </dict>"#;
-        fs::write(directory.path().join("potato.tmTheme"), &theme).expect("writing theme");
+        fs::write(directory.path().join("potato.tmTheme"), theme).expect("writing theme");
 
         let mut themes = HighlightThemeSet::default();
         themes.register_from_directory(directory.path()).expect("loading themes");

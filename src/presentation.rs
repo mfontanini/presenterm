@@ -257,7 +257,7 @@ impl Slide {
 
     #[cfg(test)]
     pub(crate) fn into_operations(self) -> Vec<RenderOperation> {
-        self.chunks.into_iter().flat_map(|chunk| chunk.operations.into_iter()).chain(self.footer.into_iter()).collect()
+        self.chunks.into_iter().flat_map(|chunk| chunk.operations.into_iter()).chain(self.footer).collect()
     }
 
     fn jump_chunk(&mut self, chunk_index: usize) {
@@ -653,9 +653,9 @@ mod test {
         #[case] expected_chunk: usize,
     ) {
         let mut presentation = Presentation::from(vec![
-            Slide::new(vec![SlideChunk::from(SlideChunk::default()), SlideChunk::default()], vec![]),
-            Slide::new(vec![SlideChunk::from(SlideChunk::default()), SlideChunk::default()], vec![]),
-            Slide::new(vec![SlideChunk::from(SlideChunk::default()), SlideChunk::default()], vec![]),
+            Slide::new(vec![SlideChunk::default(), SlideChunk::default()], vec![]),
+            Slide::new(vec![SlideChunk::default(), SlideChunk::default()], vec![]),
+            Slide::new(vec![SlideChunk::default(), SlideChunk::default()], vec![]),
         ]);
         presentation.go_to_slide(from);
 
@@ -692,18 +692,12 @@ mod test {
         let mut presentation = Presentation::from(vec![
             SlideBuilder::default()
                 .chunks(vec![
-                    SlideChunk::from(SlideChunk::new(
-                        vec![],
-                        vec![Box::new(DummyMutator::new(1)), Box::new(DummyMutator::new(2))],
-                    )),
+                    SlideChunk::new(vec![], vec![Box::new(DummyMutator::new(1)), Box::new(DummyMutator::new(2))]),
                     SlideChunk::default(),
                 ])
                 .build(),
             SlideBuilder::default()
-                .chunks(vec![
-                    SlideChunk::from(SlideChunk::new(vec![], vec![Box::new(DummyMutator::new(2))])),
-                    SlideChunk::default(),
-                ])
+                .chunks(vec![SlideChunk::new(vec![], vec![Box::new(DummyMutator::new(2))]), SlideChunk::default()])
                 .build(),
         ]);
         presentation.go_to_slide(from);
