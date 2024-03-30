@@ -9,8 +9,8 @@ use std::{
     fs,
     io::{self},
     path::Path,
+    env
 };
-use tempfile::tempdir;
 
 const DEFAULT_PPI: u32 = 300;
 const DEFAULT_HORIZONTAL_MARGIN: u16 = 5;
@@ -21,19 +21,25 @@ pub struct TypstRender {
     image_registry: ImageRegistry,
 }
 
+static mut RENDER_COUNTER: u32 = 0;
+
+
 impl TypstRender {
     pub fn new(ppi: u32, image_registry: ImageRegistry) -> Self {
         Self { ppi: ppi.to_string(), image_registry }
     }
 
     pub(crate) fn render_typst(&self, input: &str, style: &TypstStyle) -> Result<Image, TypstRenderError> {
-        let workdir = tempdir()?;
+        let workdir_path = env::current_dir()?;
         let mut typst_input = Self::generate_page_header(style)?;
         typst_input.push_str(input);
 
-        let input_path = workdir.path().join("input.typst");
-        fs::write(&input_path, &typst_input)?;
-        self.render_to_image(workdir.path(), &input_path)
+        unsafe {
+            let input_path = workdir_path.join(format!("input_{RENDER_COUNTER}.typst"));
+            fs::write(&input_path, &typst_input)?;
+            RENDER_COUNTER += 1;
+            self.render_to_image(workdir_path.as_path(), &input_path)
+        }
     }
 
     pub(crate) fn render_latex(&self, input: &str, style: &TypstStyle) -> Result<Image, TypstRenderError> {
