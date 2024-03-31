@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=./schema.json
+# yaml-language-server: $schema=./config-file-schema.json
 defaults:
   # override the terminal font size when in windows or when using sixel.
   terminal_font_size: 16
