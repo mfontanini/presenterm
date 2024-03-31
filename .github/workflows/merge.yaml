@@ -69,5 +69,14 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-      - name: Verify assets
+      - name: Validate assets
         run: ./bat/verify.sh
+
+  json-schemas:
+    name: Validate JSON schemas
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Validate config file schema
+        run: ./scripts/validate-config-file-schema.sh
