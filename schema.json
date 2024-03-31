@@ -1,0 +1,263 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Config",
+  "type": "object",
+  "properties": {
+    "bindings": {
+      "$ref": "#/definitions/KeyBindingsConfig"
+    },
+    "defaults": {
+      "description": "The default configuration for the presentation.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/DefaultsConfig"
+        }
+      ]
+    },
+    "options": {
+      "$ref": "#/definitions/OptionsConfig"
+    },
+    "typst": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/TypstConfig"
+        }
+      ],
+      "minimum": 1.0
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "DefaultsConfig": {
+      "type": "object",
+      "properties": {
+        "image_protocol": {
+          "description": "The image protocol to use.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ImageProtocol"
+            }
+          ]
+        },
+        "terminal_font_size": {
+          "description": "Override the terminal font size when in windows or when using sixel.",
+          "default": 16,
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 1.0
+        },
+        "theme": {
+          "description": "The theme to use by default in every presentation unless overridden.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "validate_overflows": {
+          "description": "Validate that the presentation does not overflow the terminal screen.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ValidateOverflows"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ImageProtocol": {
+      "oneOf": [
+        {
+          "description": "Automatically detect the best image protocol to use.",
+          "type": "string",
+          "enum": [
+            "auto"
+          ]
+        },
+        {
+          "description": "Use the iTerm2 image protocol.",
+          "type": "string",
+          "enum": [
+            "iterm2"
+          ]
+        },
+        {
+          "description": "Use the kitty protocol in \"local\" mode, meaning both presenterm and the terminal run in the same host and can share the filesystem to communicate.",
+          "type": "string",
+          "enum": [
+            "kitty-local"
+          ]
+        },
+        {
+          "description": "Use the kitty protocol in \"remote\" mode, meaning presenterm and the terminal run in different hosts and therefore can only communicate via terminal escape codes.",
+          "type": "string",
+          "enum": [
+            "kitty-remote"
+          ]
+        },
+        {
+          "description": "Use the sixel protocol. Note that this requires compiling presenterm using the --features sixel flag.",
+          "type": "string",
+          "enum": [
+            "sixel"
+          ]
+        },
+        {
+          "description": "The default image protocol to use when no other is specified.",
+          "type": "string",
+          "enum": [
+            "ascii-blocks"
+          ]
+        }
+      ]
+    },
+    "KeyBinding": {
+      "type": "string"
+    },
+    "KeyBindingsConfig": {
+      "type": "object",
+      "properties": {
+        "close_modal": {
+          "description": "The key binding to close the currently open modal.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
+        "execute_code": {
+          "description": "The key binding to execute a piece of shell code.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
+        "exit": {
+          "description": "The key binding to close the application.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
+        "first_slide": {
+          "description": "The key binding to jump to the first slide.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
+        "go_to_slide": {
+          "description": "The key binding to jump to a specific slide.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
+        "last_slide": {
+          "description": "The key binding to jump to the last slide.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
+        "next": {
+          "description": "The keys that cause the presentation to move forwards.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
+        "previous": {
+          "description": "The keys that cause the presentation to move backwards.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
+        "reload": {
+          "description": "The key binding to reload the presentation.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
+        "toggle_bindings": {
+          "description": "The key binding to toggle the key bindings modal.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
+        "toggle_slide_index": {
+          "description": "The key binding to toggle the slide index modal.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "OptionsConfig": {
+      "type": "object",
+      "properties": {
+        "command_prefix": {
+          "description": "The prefix to use for commands.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "end_slide_shorthand": {
+          "description": "Whether to treat a thematic break as a slide end.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "implicit_slide_ends": {
+          "description": "Whether slides are automatically terminated when a slide title is found.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "incremental_lists": {
+          "description": "Show all lists incrementally, by implicitly adding pauses in between elements.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "strict_front_matter_parsing": {
+          "description": "Whether to be strict about parsing the presentation's front matter.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "TypstConfig": {
+      "type": "object",
+      "properties": {
+        "ppi": {
+          "description": "The pixels per inch when rendering latex/typst formulas.",
+          "default": 300,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "ValidateOverflows": {
+      "type": "string",
+      "enum": [
+        "never",
+        "always",
+        "when_presenting",
+        "when_developing"
+      ]
+    }
+  }
+}

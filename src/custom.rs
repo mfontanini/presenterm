@@ -4,16 +4,19 @@ use crate::{
     GraphicsMode,
 };
 use clap::ValueEnum;
+use schemars::JsonSchema;
 use serde::Deserialize;
 use std::{fs, io, path::Path};
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     #[serde(default)]
+    #[doc = "The default configuration for the presentation."]
     pub defaults: DefaultsConfig,
 
     #[serde(default)]
+    #[validate(range(min = 1))]
     pub typst: TypstConfig,
 
     #[serde(default)]
@@ -45,17 +48,22 @@ pub enum ConfigLoadError {
     Invalid(#[from] serde_yaml::Error),
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DefaultsConfig {
+    /// The theme to use by default in every presentation unless overridden.
     pub theme: Option<String>,
 
+    /// Override the terminal font size when in windows or when using sixel.
     #[serde(default = "default_font_size")]
+    #[validate(range(min = 1))]
     pub terminal_font_size: u8,
 
+    /// The image protocol to use.
     #[serde(default)]
     pub image_protocol: ImageProtocol,
 
+    /// Validate that the presentation does not overflow the terminal screen.
     #[serde(default)]
     pub validate_overflows: ValidateOverflows,
 }
@@ -75,7 +83,7 @@ fn default_font_size() -> u8 {
     16
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ValidateOverflows {
     #[default]
@@ -85,7 +93,7 @@ pub enum ValidateOverflows {
     WhenDeveloping,
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct OptionsConfig {
     /// Whether slides are automatically terminated when a slide title is found.
@@ -104,9 +112,10 @@ pub struct OptionsConfig {
     pub strict_front_matter_parsing: Option<bool>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TypstConfig {
+    /// The pixels per inch when rendering latex/typst formulas.
     #[serde(default = "default_typst_ppi")]
     pub ppi: u32,
 }
@@ -121,15 +130,29 @@ fn default_typst_ppi() -> u32 {
     300
 }
 
-#[derive(Clone, Debug, Default, Deserialize, ValueEnum)]
+#[derive(Clone, Debug, Default, Deserialize, ValueEnum, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum ImageProtocol {
+    /// Automatically detect the best image protocol to use.
     #[default]
     Auto,
+
+    /// Use the iTerm2 image protocol.
     Iterm2,
+
+    /// Use the kitty protocol in "local" mode, meaning both presenterm and the terminal run in the
+    /// same host and can share the filesystem to communicate.
     KittyLocal,
+
+    /// Use the kitty protocol in "remote" mode, meaning presenterm and the terminal run in
+    /// different hosts and therefore can only communicate via terminal escape codes.
     KittyRemote,
+
+    /// Use the sixel protocol. Note that this requires compiling presenterm using the --features
+    /// sixel flag.
     Sixel,
+
+    /// The default image protocol to use when no other is specified.
     AsciiBlocks,
 }
 
@@ -161,39 +184,50 @@ impl TryFrom<&ImageProtocol> for GraphicsMode {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBindingsConfig {
+    /// The keys that cause the presentation to move forwards.
     #[serde(default = "default_next_bindings")]
     pub(crate) next: Vec<KeyBinding>,
 
+    /// The keys that cause the presentation to move backwards.
     #[serde(default = "default_previous_bindings")]
     pub(crate) previous: Vec<KeyBinding>,
 
+    /// The key binding to jump to the first slide.
     #[serde(default = "default_first_slide_bindings")]
     pub(crate) first_slide: Vec<KeyBinding>,
 
+    /// The key binding to jump to the last slide.
     #[serde(default = "default_last_slide_bindings")]
     pub(crate) last_slide: Vec<KeyBinding>,
 
+    /// The key binding to jump to a specific slide.
     #[serde(default = "default_go_to_slide_bindings")]
     pub(crate) go_to_slide: Vec<KeyBinding>,
 
+    /// The key binding to execute a piece of shell code.
     #[serde(default = "default_execute_code_bindings")]
     pub(crate) execute_code: Vec<KeyBinding>,
 
+    /// The key binding to reload the presentation.
     #[serde(default = "default_reload_bindings")]
     pub(crate) reload: Vec<KeyBinding>,
 
+    /// The key binding to toggle the slide index modal.
     #[serde(default = "default_toggle_index_bindings")]
     pub(crate) toggle_slide_index: Vec<KeyBinding>,
 
+    /// The key binding to toggle the key bindings modal.
     #[serde(default = "default_toggle_bindings_modal_bindings")]
     pub(crate) toggle_bindings: Vec<KeyBinding>,
 
+    /// The key binding to close the currently open modal.
     #[serde(default = "default_close_modal_bindings")]
     pub(crate) close_modal: Vec<KeyBinding>,
 
+    /// The key binding to close the application.
     #[serde(default = "default_exit_bindings")]
     pub(crate) exit: Vec<KeyBinding>,
 }

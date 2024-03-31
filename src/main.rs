@@ -31,6 +31,10 @@ struct Cli {
     #[clap(long, hide = true)]
     generate_pdf_metadata: bool,
 
+    /// Generate a JSON schema for the configuration file.
+    #[clap(long)]
+    generate_config_file_schema: bool,
+
     /// Run in export mode.
     #[clap(long, hide = true)]
     export: bool,
@@ -164,6 +168,12 @@ fn overflow_validation(mode: &PresentMode, config: &ValidateOverflows) -> bool {
 }
 
 fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
+    if cli.generate_config_file_schema {
+        let schema = schemars::schema_for!(Config);
+        serde_json::to_writer_pretty(io::stdout(), &schema).map_err(|e| format!("failed to write schema: {e}"))?;
+        return Ok(());
+    }
+
     let (config, themes) = load_customizations(cli.config_file.clone().map(PathBuf::from))?;
 
     let default_theme = load_default_theme(&config, &themes, &cli);
