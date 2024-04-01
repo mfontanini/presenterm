@@ -205,7 +205,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let printer = Rc::new(ImagePrinter::new(graphics_mode.clone())?);
     let registry = ImageRegistry(printer.clone());
     let resources = Resources::new(resources_path, registry.clone());
-    let typst = TypstRender::new(config.typst.ppi, registry);
+    let typst = TypstRender::new(config.typst.ppi, registry, resources_path);
     if cli.export_pdf || cli.generate_pdf_metadata {
         let mut exporter = Exporter::new(parser, &default_theme, resources, typst, themes, options);
         let mut args = Vec::new();

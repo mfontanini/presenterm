@@ -5,12 +5,8 @@ use crate::{
     tools::{ExecutionError, ThirdPartyTools},
     ImageRegistry,
 };
-use std::{
-    fs,
-    io::{self},
-    path::Path,
-};
-use tempfile::tempdir;
+use std::{fs, io, path::Path};
+use tempfile::tempdir_in;
 
 const DEFAULT_PPI: u32 = 300;
 const DEFAULT_HORIZONTAL_MARGIN: u16 = 5;
@@ -19,15 +15,21 @@ const DEFAULT_VERTICAL_MARGIN: u16 = 7;
 pub struct TypstRender {
     ppi: String,
     image_registry: ImageRegistry,
+    root_dir: String,
 }
 
 impl TypstRender {
-    pub fn new(ppi: u32, image_registry: ImageRegistry) -> Self {
-        Self { ppi: ppi.to_string(), image_registry }
+    pub fn new(ppi: u32, image_registry: ImageRegistry, root_dir: &Path) -> Self {
+        // typst complains about empty paths so we give it a "." if we don't have one.
+        let root_dir = match root_dir.to_string_lossy().to_string() {
+            path if path.is_empty() => ".".into(),
+            path => path,
+        };
+        Self { ppi: ppi.to_string(), image_registry, root_dir }
     }
 
     pub(crate) fn render_typst(&self, input: &str, style: &TypstStyle) -> Result<Image, TypstRenderError> {
-        let workdir = tempdir()?;
+        let workdir = tempdir_in(&self.root_dir)?;
         let mut typst_input = Self::generate_page_header(style)?;
         typst_input.push_str(input);
 
@@ -51,6 +53,8 @@ impl TypstRender {
             "compile",
             "--format",
             "png",
+            "--root",
+            &self.root_dir,
             "--ppi",
             &self.ppi,
             &path.to_string_lossy(),
@@ -89,7 +93,7 @@ impl TypstRender {
 
 impl Default for TypstRender {
     fn default() -> Self {
-        Self::new(DEFAULT_PPI, Default::default())
+        Self::new(DEFAULT_PPI, Default::default(), Path::new("."))
     }
 }
 
