@@ -266,6 +266,10 @@ pub(crate) struct IntroSlideStyle {
     /// The style of the author line.
     #[serde(default)]
     pub(crate) author: AuthorStyle,
+
+    /// Whether we want a footer in the intro slide.
+    #[serde(default)]
+    pub(crate) footer: Option<bool>,
 }
 
 /// A simple style.

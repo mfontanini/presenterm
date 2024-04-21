@@ -11,7 +11,6 @@ use std::{
     io::{self, BufReader, Write},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU32, Ordering},
-    u8,
 };
 use tempfile::{tempdir, NamedTempFile, TempDir};
 
