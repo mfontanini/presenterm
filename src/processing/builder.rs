@@ -334,6 +334,9 @@ impl<'a> PresentationBuilder<'a> {
             .chain(metadata.authors)
             .map(|author| Text::new(author, TextStyle::default().colors(styles.author.colors.clone())))
             .collect();
+        if styles.footer == Some(false) {
+            self.slide_state.ignore_footer = true;
+        }
         self.chunk_operations.push(RenderOperation::JumpToVerticalCenter);
         self.push_text(TextBlock::from(title), ElementType::PresentationTitle);
         self.push_line_break();
@@ -407,6 +410,9 @@ impl<'a> PresentationBuilder<'a> {
             }
             CommentCommand::IncrementalLists(value) => {
                 self.slide_state.incremental_lists = Some(value);
+            }
+            CommentCommand::NoFooter => {
+                self.slide_state.ignore_footer = true;
             }
         };
         // Don't push line breaks for any comments.
@@ -750,6 +756,9 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn generate_footer(&mut self) -> Vec<RenderOperation> {
+        if self.slide_state.ignore_footer {
+            return Vec::new();
+        }
         let generator = FooterGenerator {
             style: self.theme.footer.clone().unwrap_or_default(),
             current_slide: self.slides.len(),
@@ -819,6 +828,7 @@ impl<'a> PresentationBuilder<'a> {
 #[derive(Debug, Default)]
 struct SlideState {
     ignore_element_line_break: bool,
+    ignore_footer: bool,
     needs_enter_column: bool,
     last_chunk_ended_in_list: bool,
     last_element: LastElement,
@@ -905,6 +915,7 @@ enum CommentCommand {
     ResetLayout,
     JumpToMiddle,
     IncrementalLists(bool),
+    NoFooter,
 }
 
 impl FromStr for CommentCommand {
