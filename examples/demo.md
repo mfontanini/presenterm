@@ -153,6 +153,24 @@ done
 
 <!-- end_slide -->
 
+Shell code execution
+---
+
+Run commands from the presentation and display their output dynamically.
+
+```bash +exec
+#!/bin/bash
+
+python -c """
+for i in range(5):
+    print(f'hi {i}')
+# Rest of your code within the triple quotes
+"""
+```
+
+<!-- end_slide -->
+
+
 Images
 ---
 
