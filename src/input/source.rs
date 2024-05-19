@@ -50,8 +50,14 @@ pub(crate) enum Command {
     /// Move forward in the presentation.
     Next,
 
+    /// Move to the next slide fast.
+    NextFast,
+
     /// Move backwards in the presentation.
     Previous,
+
+    /// Move to the previous slide fast.
+    PreviousFast,
 
     /// Go to the first slide.
     FirstSlide,

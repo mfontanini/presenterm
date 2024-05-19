@@ -66,14 +66,17 @@ impl Presentation {
         if current_slide.move_next() {
             return true;
         }
-        let current_slide_index = self.current_slide_index();
-        if current_slide_index < self.slides.len() - 1 {
-            self.state.set_current_slide_index(current_slide_index + 1);
-            // Going forward we show only the first chunk.
-            self.current_slide_mut().show_first_chunk();
-            true
+        self.jump_next_slide()
+    }
+
+    /// Show all chunks in this slide, or jump to the next if already applied.
+    pub(crate) fn jump_next_fast(&mut self) -> bool {
+        let current_slide = self.current_slide_mut();
+        if current_slide.visible_chunks == current_slide.chunks.len() {
+            self.jump_next_slide()
         } else {
-            false
+            current_slide.show_all_chunks();
+            true
         }
     }
 
@@ -83,14 +86,17 @@ impl Presentation {
         if current_slide.move_previous() {
             return true;
         }
-        let current_slide_index = self.current_slide_index();
-        if current_slide_index > 0 {
-            self.state.set_current_slide_index(current_slide_index - 1);
-            // Going backwards we show all chunks.
-            self.current_slide_mut().show_all_chunks();
+        self.jump_previous_slide()
+    }
+
+    /// Show only the first chunk in this slide or jump to the previous slide if already there.
+    pub(crate) fn jump_previous_fast(&mut self) -> bool {
+        let current_slide = self.current_slide_mut();
+        if current_slide.visible_chunks == current_slide.chunks.len() && current_slide.chunks.len() > 1 {
+            current_slide.show_first_chunk();
             true
         } else {
-            false
+            self.jump_previous_slide()
         }
     }
 
@@ -170,6 +176,30 @@ impl Presentation {
     fn current_slide_mut(&mut self) -> &mut Slide {
         let index = self.current_slide_index();
         &mut self.slides[index]
+    }
+
+    fn jump_next_slide(&mut self) -> bool {
+        let current_slide_index = self.current_slide_index();
+        if current_slide_index < self.slides.len() - 1 {
+            self.state.set_current_slide_index(current_slide_index + 1);
+            // Going forward we show only the first chunk.
+            self.current_slide_mut().show_first_chunk();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn jump_previous_slide(&mut self) -> bool {
+        let current_slide_index = self.current_slide_index();
+        if current_slide_index > 0 {
+            self.state.set_current_slide_index(current_slide_index - 1);
+            // Going backwards we show all chunks.
+            self.current_slide_mut().show_all_chunks();
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -569,7 +599,9 @@ mod test {
         First,
         Last,
         Next,
+        NextFast,
         Previous,
+        PreviousFast,
         Specific(usize),
     }
 
@@ -580,7 +612,9 @@ mod test {
                 First => presentation.jump_first_slide(),
                 Last => presentation.jump_last_slide(),
                 Next => presentation.jump_next(),
+                NextFast => presentation.jump_next_fast(),
                 Previous => presentation.jump_previous(),
+                PreviousFast => presentation.jump_previous_fast(),
                 Specific(index) => presentation.go_to_slide(*index),
             };
         }
@@ -639,9 +673,14 @@ mod test {
     #[rstest]
     #[case::previous_from_first(0, &[Jump::Previous], 0, 0)]
     #[case::next_from_first(0, &[Jump::Next], 0, 1)]
-    #[case::next_next_from_first(0, &[Jump::Next, Jump::Next], 1, 0)]
+    #[case::next_next_from_first(0, &[Jump::Next, Jump::Next], 0, 2)]
+    #[case::next_next_next_from_first(0, &[Jump::Next, Jump::Next, Jump::Next], 1, 0)]
+    #[case::next_fast_from_first(0, &[Jump::NextFast], 0, 2)]
+    #[case::next_fast_twice_from_first(0, &[Jump::NextFast, Jump::NextFast], 1, 0)]
     #[case::last_from_first(0, &[Jump::Last], 2, 0)]
-    #[case::previous_from_second(1, &[Jump::Previous], 0, 1)]
+    #[case::previous_from_second(1, &[Jump::Previous], 0, 2)]
+    #[case::previous_fast_from_second(1, &[Jump::PreviousFast], 0, 2)]
+    #[case::previous_fast_twice_from_second(1, &[Jump::PreviousFast, Jump::PreviousFast], 0, 0)]
     #[case::next_from_second(1, &[Jump::Next], 1, 1)]
     #[case::specific_first_from_second(1, &[Jump::Specific(0)], 0, 0)]
     #[case::specific_last_from_second(1, &[Jump::Specific(2)], 2, 0)]
@@ -653,7 +692,7 @@ mod test {
         #[case] expected_chunk: usize,
     ) {
         let mut presentation = Presentation::from(vec![
-            Slide::new(vec![SlideChunk::default(), SlideChunk::default()], vec![]),
+            Slide::new(vec![SlideChunk::default(), SlideChunk::default(), SlideChunk::default()], vec![]),
             Slide::new(vec![SlideChunk::default(), SlideChunk::default()], vec![]),
             Slide::new(vec![SlideChunk::default(), SlideChunk::default()], vec![]),
         ]);

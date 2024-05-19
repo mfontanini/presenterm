@@ -35,8 +35,14 @@ bindings:
   # the keys that cause the presentation to move forwards.
   next: ["l", "j", "<right>", "<page_down>", "<down>", " "]
 
+  # the keys that cause the presentation to move forwards fast.
+  next_fast: ["n"]
+
   # the keys that cause the presentation to move backwards.
   previous: ["h", "k", "<left>", "<page_up>", "<up>"]
+
+  # the keys that cause the presentation to move backwards fast
+  previous_fast: ["p"]
 
   # the key binding to jump to the first slide.
   first_slide: ["gg"]
