@@ -165,8 +165,22 @@
             "$ref": "#/definitions/KeyBinding"
           }
         },
+        "next_fast": {
+          "description": "The keys that cause the presentation to jump to the next slide \"fast\".\n\n\"fast\" means for slides that contain pauses, we will only jump between the first and last pause rather than going through each individual one.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
         "previous": {
           "description": "The keys that cause the presentation to move backwards.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
+        "previous_fast": {
+          "description": "The keys that cause the presentation to move backwards \"fast\".\n\n\"fast\" means for slides that contain pauses, we will only jump between the first and last pause rather than going through each individual one.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/KeyBinding"

@@ -175,7 +175,9 @@ impl<'a> Presenter<'a> {
         };
         let needs_redraw = match command {
             Command::Next => presentation.jump_next(),
+            Command::NextFast => presentation.jump_next_fast(),
             Command::Previous => presentation.jump_previous(),
+            Command::PreviousFast => presentation.jump_previous_fast(),
             Command::FirstSlide => presentation.jump_first_slide(),
             Command::LastSlide => presentation.jump_last_slide(),
             Command::GoToSlide(number) => presentation.go_to_slide(number.saturating_sub(1) as usize),

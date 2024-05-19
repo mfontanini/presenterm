@@ -191,9 +191,23 @@ pub struct KeyBindingsConfig {
     #[serde(default = "default_next_bindings")]
     pub(crate) next: Vec<KeyBinding>,
 
+    /// The keys that cause the presentation to jump to the next slide "fast".
+    ///
+    /// "fast" means for slides that contain pauses, we will only jump between the first and last
+    /// pause rather than going through each individual one.
+    #[serde(default = "default_next_fast_bindings")]
+    pub(crate) next_fast: Vec<KeyBinding>,
+
     /// The keys that cause the presentation to move backwards.
     #[serde(default = "default_previous_bindings")]
     pub(crate) previous: Vec<KeyBinding>,
+
+    /// The keys that cause the presentation to move backwards "fast".
+    ///
+    /// "fast" means for slides that contain pauses, we will only jump between the first and last
+    /// pause rather than going through each individual one.
+    #[serde(default = "default_previous_fast_bindings")]
+    pub(crate) previous_fast: Vec<KeyBinding>,
 
     /// The key binding to jump to the first slide.
     #[serde(default = "default_first_slide_bindings")]
@@ -236,7 +250,9 @@ impl Default for KeyBindingsConfig {
     fn default() -> Self {
         Self {
             next: default_next_bindings(),
+            next_fast: default_next_fast_bindings(),
             previous: default_previous_bindings(),
+            previous_fast: default_previous_fast_bindings(),
             first_slide: default_first_slide_bindings(),
             last_slide: default_last_slide_bindings(),
             go_to_slide: default_go_to_slide_bindings(),
@@ -262,8 +278,16 @@ fn default_next_bindings() -> Vec<KeyBinding> {
     make_keybindings(["l", "j", "<right>", "<page_down>", "<down>", " "])
 }
 
+fn default_next_fast_bindings() -> Vec<KeyBinding> {
+    make_keybindings(["n"])
+}
+
 fn default_previous_bindings() -> Vec<KeyBinding> {
     make_keybindings(["h", "k", "<left>", "<page_up>", "<up>"])
+}
+
+fn default_previous_fast_bindings() -> Vec<KeyBinding> {
+    make_keybindings(["p"])
 }
 
 fn default_first_slide_bindings() -> Vec<KeyBinding> {
