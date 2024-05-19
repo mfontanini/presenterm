@@ -32,7 +32,10 @@ impl RunCodeOperation {
         Self { code, default_colors, block_colors, inner: Rc::new(RefCell::new(inner)) }
     }
 
-    fn render_line(&self, line: String) -> RenderOperation {
+    fn render_line(&self, mut line: String) -> RenderOperation {
+        if line.contains('\t') {
+            line = line.replace('\t', "    ");
+        }
         let line_len = line.len() as u16;
         RenderOperation::RenderPreformattedLine(PreformattedLine {
             text: line,
