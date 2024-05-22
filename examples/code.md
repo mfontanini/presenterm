@@ -13,6 +13,7 @@ This presentation shows how to:
 
 * Left-align code blocks.
 * Have code blocks without background.
+* Execute code snippets.
 
 ```rust
 pub struct Greeter {
@@ -73,4 +74,33 @@ fn main() {
     let greeting = greeter.greet("Mark");
     println!("{greeting}");
 }
+```
+
+<!-- end_slide -->
+
+Code execution
+===
+
+Run commands from the presentation and display their output dynamically.
+
+```bash +exec
+for i in $(seq 1 5)
+do
+    echo "hi $i"
+    sleep 0.5
+done
+```
+
+<!-- end_slide -->
+
+Code execution - `stderr`
+===
+
+Output from `stderr` will also be shown as output.
+
+```bash +exec
+echo "This is a successful command"
+echo "This message redirects to stderr" >&2
+echo "This is a successful command again"
+man # Missing argument
 ```
