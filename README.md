@@ -10,8 +10,8 @@ presenterm
 [nix-package]: https://search.nixos.org/packages?size=1&show=presenterm
 [crates-badge]: https://img.shields.io/crates/v/presenterm
 [crates-package]: https://crates.io/crates/presenterm
-[arch-badge]: https://img.shields.io/aur/version/presenterm-bin
-[arch-package]: https://aur.archlinux.org/packages/presenterm-bin
+[arch-badge]: https://img.shields.io/archlinux/v/extra/x86_64/presenterm
+[arch-package]: https://archlinux.org/packages/extra/x86_64/presenterm/
 [scoop-badge]: https://img.shields.io/scoop/v/presenterm
 [scoop-package]: https://scoop.sh/#/apps?q=presenterm&id=a462290f824b50f180afbaa6d8c7c1e6e0952e3a
 

@@ -58,11 +58,17 @@ nix run github:mfontanini/presenterm  # to run from github repo
 For more information see 
 [nixpkgs](https://search.nixos.org/packages?channel=unstable&show=presenterm&from=0&size=50&sort=relevance&type=packages&query=presenterm)
 
-### Arch linux repository (Aur)
+### Arch Linux
 
-_presenterm_ is also available in the AUR. You can use any AUR helper to install:
+_presenterm_ is available in the [official repositories](https://archlinux.org/packages/extra/x86_64/presenterm/). You can use [pacman](https://wiki.archlinux.org/title/pacman) to install as follows:
 
-#### Binary release (recommended)
+```shell
+pacman -S presenterm
+```
+
+#### Binary release
+
+Alternatively, you can use any AUR helper to install the upstream binaries:
 
 ```shell
 paru/yay -S presenterm-bin
