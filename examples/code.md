@@ -100,7 +100,10 @@ Output from `stderr` will also be shown as output.
 
 ```bash +exec
 echo "This is a successful command"
+sleep 0.5
 echo "This message redirects to stderr" >&2
+sleep 0.5
 echo "This is a successful command again"
+sleep 0.5
 man # Missing argument
 ```
