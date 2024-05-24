@@ -185,6 +185,18 @@ pub(crate) struct Code {
     pub(crate) attributes: CodeAttributes,
 }
 
+impl Code {
+    const HIDDEN_CODE_LINE_DELIMITER: &'static str = "/// ";
+
+    pub(crate) fn visible_lines(&self) -> impl Iterator<Item = &str> {
+        self.contents.lines().filter(|line| !line.starts_with(Self::HIDDEN_CODE_LINE_DELIMITER))
+    }
+
+    pub(crate) fn executable_contents(&self) -> String {
+        self.contents.replace(Self::HIDDEN_CODE_LINE_DELIMITER, "")
+    }
+}
+
 /// The language of a piece of code.
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, EnumString)]
 pub enum CodeLanguage {

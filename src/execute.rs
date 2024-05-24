@@ -62,11 +62,11 @@ impl CodeExecutor {
         match &code.language {
             CodeLanguage::Shell(interpreter) => {
                 let args: &[&str] = &[];
-                Self::execute_shell(interpreter, code.contents.as_bytes(), args)
+                Self::execute_shell(interpreter, code.executable_contents().as_bytes(), args)
             }
             lang => {
                 let executor = self.executor(lang).ok_or(CodeExecuteError::UnsupportedExecution)?;
-                Self::execute_lang(executor, code.contents.as_bytes())
+                Self::execute_lang(executor, code.executable_contents().as_bytes())
             }
         }
     }
