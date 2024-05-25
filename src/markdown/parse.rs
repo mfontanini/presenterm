@@ -478,6 +478,9 @@ impl Identifier for NodeValue {
             NodeValue::Image(_) => "image",
             NodeValue::FootnoteReference(_) => "footnote reference",
             NodeValue::MultilineBlockQuote(_) => "multiline block quote",
+            NodeValue::Math(_) => "math",
+            NodeValue::Escaped => "escaped",
+            NodeValue::WikiLink(_) => "wiki link",
         }
     }
 }

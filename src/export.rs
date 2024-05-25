@@ -148,7 +148,7 @@ impl<'a> Exporter<'a> {
                         resource.as_bytes(),
                         dimensions.0,
                         dimensions.1,
-                        resource.color(),
+                        resource.color().into(),
                     )?;
                     let contents = Some(STANDARD.encode(buffer));
                     ImageMetadata { path: None, color: image.color, contents }

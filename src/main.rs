@@ -102,7 +102,7 @@ fn load_themes(config_path: &Path) -> Result<Themes, Box<dyn std::error::Error>>
     let themes_path = config_path.join("themes");
 
     let mut highlight_themes = HighlightThemeSet::default();
-    highlight_themes.register_from_directory(&themes_path.join("highlighting"))?;
+    highlight_themes.register_from_directory(themes_path.join("highlighting"))?;
 
     let mut presentation_themes = PresentationThemeSet::default();
     let register_result = presentation_themes.register_from_directory(&themes_path);

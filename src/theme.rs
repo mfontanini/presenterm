@@ -38,7 +38,7 @@ impl PresentationThemeSet {
                 if THEMES.contains_key(theme_name) {
                     return Err(LoadThemeError::Duplicate(theme_name.into()));
                 }
-                let theme = PresentationTheme::from_path(&entry.path())?;
+                let theme = PresentationTheme::from_path(entry.path())?;
                 self.custom_themes.insert(theme_name.into(), theme);
             }
         }
