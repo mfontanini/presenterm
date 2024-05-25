@@ -48,7 +48,7 @@ impl PrintImage for ItermPrinter {
         let dimensions = image.dimensions();
         let mut contents = Vec::new();
         let encoder = PngEncoder::new(&mut contents);
-        encoder.write_image(image.as_bytes(), dimensions.0, dimensions.1, image.color())?;
+        encoder.write_image(image.as_bytes(), dimensions.0, dimensions.1, image.color().into())?;
         Ok(ItermResource::new(contents, dimensions))
     }
 

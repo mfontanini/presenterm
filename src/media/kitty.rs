@@ -351,7 +351,7 @@ impl KittyPrinter {
     fn load_raw_resource(path: &Path) -> Result<RawResource, RegisterImageError> {
         let file = File::open(path)?;
         if path.extension().unwrap_or_default() == "gif" {
-            let decoder = GifDecoder::new(file)?;
+            let decoder = GifDecoder::new(BufReader::new(file))?;
             let mut frames = Vec::new();
             for frame in decoder.into_frames() {
                 let frame = frame?;
