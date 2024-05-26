@@ -2,7 +2,7 @@
 
 use crate::markdown::elements::{Code, CodeLanguage};
 use std::{
-    io::{self, Read, Write},
+    io::{self, BufRead, BufReader, Write},
     process::{self, Stdio},
     sync::{Arc, Mutex},
     thread,
@@ -116,11 +116,13 @@ impl ProcessReader {
         self.state.lock().unwrap().status = status;
     }
 
-    fn process_output(state: Arc<Mutex<ExecutionState>>, mut reader: os_pipe::PipeReader) -> io::Result<()> {
-        let mut output = String::new();
-        reader.read_to_string(&mut output)?;
-        let mut lines: Vec<_> = output.lines().map(String::from).collect();
-        state.lock().unwrap().output.append(&mut lines);
+    fn process_output(state: Arc<Mutex<ExecutionState>>, reader: os_pipe::PipeReader) -> io::Result<()> {
+        let reader = BufReader::new(reader);
+        for line in reader.lines() {
+            let line = line?;
+            // TODO: consider not locking per line...
+            state.lock().unwrap().output.push(line);
+        }
         Ok(())
     }
 }
