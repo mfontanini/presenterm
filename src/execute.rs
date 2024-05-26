@@ -13,9 +13,13 @@ use tempfile::NamedTempFile;
 pub(crate) struct CodeExecuter;
 
 impl CodeExecuter {
+    pub(crate) fn is_execution_supported(&self, language: &CodeLanguage) -> bool {
+        matches!(language, CodeLanguage::Shell(_))
+    }
+
     /// Execute a piece of code.
-    pub(crate) fn execute(code: &Code) -> Result<ExecutionHandle, CodeExecuteError> {
-        if !code.language.supports_execution() {
+    pub(crate) fn execute(&self, code: &Code) -> Result<ExecutionHandle, CodeExecuteError> {
+        if !self.is_execution_supported(&code.language) {
             return Err(CodeExecuteError::UnsupportedExecution);
         }
         if !code.attributes.execute {
@@ -166,7 +170,7 @@ echo 'bye'"
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: true, ..Default::default() },
         };
-        let handle = CodeExecuter::execute(&code).expect("execution failed");
+        let handle = CodeExecuter.execute(&code).expect("execution failed");
         let state = loop {
             let state = handle.state();
             if state.status.is_finished() {
@@ -186,7 +190,7 @@ echo 'bye'"
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: false, ..Default::default() },
         };
-        let result = CodeExecuter::execute(&code);
+        let result = CodeExecuter.execute(&code);
         assert!(result.is_err());
     }
 
@@ -202,7 +206,7 @@ echo 'hello world'
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: true, ..Default::default() },
         };
-        let handle = CodeExecuter::execute(&code).expect("execution failed");
+        let handle = CodeExecuter.execute(&code).expect("execution failed");
         let state = loop {
             let state = handle.state();
             if state.status.is_finished() {

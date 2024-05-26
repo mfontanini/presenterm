@@ -244,10 +244,6 @@ pub(crate) enum CodeLanguage {
 }
 
 impl CodeLanguage {
-    pub(crate) fn supports_execution(&self) -> bool {
-        matches!(self, Self::Shell(_))
-    }
-
     pub(crate) fn supports_auto_render(&self) -> bool {
         matches!(self, Self::Latex | Self::Typst)
     }

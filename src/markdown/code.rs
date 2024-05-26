@@ -16,9 +16,6 @@ impl CodeBlockParser {
     fn parse_block_info(input: &str) -> ParseResult<(CodeLanguage, CodeAttributes)> {
         let (language, input) = Self::parse_language(input);
         let attributes = Self::parse_attributes(input)?;
-        if attributes.execute && !language.supports_execution() {
-            return Err(CodeBlockParseError::UnsupportedAttribute(language, "execution"));
-        }
         if attributes.auto_render && !language.supports_auto_render() {
             return Err(CodeBlockParseError::UnsupportedAttribute(language, "rendering"));
         }

@@ -105,7 +105,7 @@ impl RenderOnDemand for RunCodeOperation {
         if !matches!(inner.state, RenderOnDemandState::NotStarted) {
             return false;
         }
-        match CodeExecuter::execute(&self.code) {
+        match CodeExecuter.execute(&self.code) {
             Ok(handle) => {
                 inner.handle = Some(handle);
                 inner.state = RenderOnDemandState::Rendering;
