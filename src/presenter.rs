@@ -1,20 +1,9 @@
 use crate::{
-    custom::KeyBindingsConfig,
-    diff::PresentationDiffer,
-    export::ImageReplacer,
-    input::source::{Command, CommandSource},
-    markdown::parse::{MarkdownParser, ParseError},
-    media::{printer::ImagePrinter, register::ImageRegistry},
-    presentation::Presentation,
-    processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
-    render::{
+    custom::KeyBindingsConfig, diff::PresentationDiffer, execute::CodeExecuter, export::ImageReplacer, input::source::{Command, CommandSource}, markdown::parse::{MarkdownParser, ParseError}, media::{printer::ImagePrinter, register::ImageRegistry}, presentation::Presentation, processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes}, render::{
         draw::{RenderError, RenderResult, TerminalDrawer},
         properties::WindowSize,
         validate::OverflowValidator,
-    },
-    resource::Resources,
-    theme::PresentationTheme,
-    typst::TypstRender,
+    }, resource::Resources, theme::PresentationTheme, typst::TypstRender
 };
 use std::{
     collections::HashSet,
@@ -43,6 +32,7 @@ pub struct Presenter<'a> {
     parser: MarkdownParser<'a>,
     resources: Resources,
     typst: TypstRender,
+    code_executer: CodeExecuter,
     state: PresenterState,
     slides_with_pending_widgets: HashSet<usize>,
     image_printer: Rc<ImagePrinter>,
@@ -59,6 +49,7 @@ impl<'a> Presenter<'a> {
         parser: MarkdownParser<'a>,
         resources: Resources,
         typst: TypstRender,
+        code_executer: CodeExecuter,
         themes: Themes,
         image_printer: Rc<ImagePrinter>,
         options: PresenterOptions,
@@ -69,6 +60,7 @@ impl<'a> Presenter<'a> {
             parser,
             resources,
             typst,
+            code_executer,
             state: PresenterState::Empty,
             slides_with_pending_widgets: HashSet::new(),
             image_printer,
@@ -257,6 +249,7 @@ impl<'a> Presenter<'a> {
             self.default_theme,
             &mut self.resources,
             &mut self.typst,
+            &self.code_executer,
             &self.themes,
             ImageRegistry(self.image_printer.clone()),
             self.options.bindings.clone(),

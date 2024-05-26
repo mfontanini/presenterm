@@ -2,9 +2,9 @@ use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use directories::ProjectDirs;
 use presenterm::{
-    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
-    LoadThemeError, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet,
-    Presenter, PresenterOptions, Resources, Themes, ThemesDemo, TypstRender, ValidateOverflows,
+    CodeExecuter, CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol,
+    ImageRegistry, LoadThemeError, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme,
+    PresentationThemeSet, Presenter, PresenterOptions, Resources, Themes, ThemesDemo, TypstRender, ValidateOverflows,
 };
 use std::{
     env, io,
@@ -206,6 +206,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let registry = ImageRegistry(printer.clone());
     let resources = Resources::new(resources_path, registry.clone());
     let typst = TypstRender::new(config.typst.ppi, registry, resources_path);
+    let code_executer = CodeExecuter;
     if cli.export_pdf || cli.generate_pdf_metadata {
         let mut exporter = Exporter::new(parser, &default_theme, resources, typst, themes, options);
         let mut args = Vec::new();
@@ -232,7 +233,8 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             bindings: config.bindings,
             validate_overflows,
         };
-        let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, printer, options);
+        let presenter =
+            Presenter::new(&default_theme, commands, parser, resources, typst, code_executer, themes, printer, options);
         presenter.present(&path)?;
     }
     Ok(())

@@ -186,8 +186,8 @@ pub(crate) struct Code {
 }
 
 /// The language of a piece of code.
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter)]
-pub(crate) enum CodeLanguage {
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord)]
+pub enum CodeLanguage {
     Ada,
     Asp,
     Awk,

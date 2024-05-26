@@ -23,6 +23,7 @@ pub(crate) mod typst;
 pub use crate::{
     custom::{Config, ImageProtocol, ValidateOverflows},
     demo::ThemesDemo,
+    execute::CodeExecuter,
     export::{ExportError, Exporter},
     input::source::CommandSource,
     markdown::parse::MarkdownParser,

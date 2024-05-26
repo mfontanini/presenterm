@@ -1,5 +1,6 @@
 use crate::{
     custom::KeyBindingsConfig,
+    execute::CodeExecuter,
     markdown::parse::ParseError,
     media::{
         image::{Image, ImageSource},
@@ -83,6 +84,7 @@ impl<'a> Exporter<'a> {
             self.default_theme,
             &mut self.resources,
             &mut self.typst,
+            &CodeExecuter,
             &self.themes,
             Default::default(),
             KeyBindingsConfig::default(),

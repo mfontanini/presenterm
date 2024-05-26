@@ -2,6 +2,7 @@
 
 use crate::markdown::elements::{Code, CodeLanguage};
 use std::{
+    ffi::OsStr,
     io::{self, BufRead, BufReader, Write},
     process::{self, Stdio},
     sync::{Arc, Mutex},
@@ -9,37 +10,46 @@ use std::{
 };
 use tempfile::NamedTempFile;
 
+include!(concat!(env!("OUT_DIR"), "/executors.rs"));
+
 /// Allows executing code.
-pub(crate) struct CodeExecuter;
+pub struct CodeExecuter;
 
 impl CodeExecuter {
     pub(crate) fn is_execution_supported(&self, language: &CodeLanguage) -> bool {
-        matches!(language, CodeLanguage::Shell(_))
+        if matches!(language, CodeLanguage::Shell(_)) { true } else { EXECUTORS.contains_key(language) }
     }
 
     /// Execute a piece of code.
     pub(crate) fn execute(&self, code: &Code) -> Result<ExecutionHandle, CodeExecuteError> {
-        if !self.is_execution_supported(&code.language) {
-            return Err(CodeExecuteError::UnsupportedExecution);
-        }
         if !code.attributes.execute {
             return Err(CodeExecuteError::NotExecutableCode);
         }
         match &code.language {
-            CodeLanguage::Shell(interpreter) => Self::execute_shell(interpreter, &code.contents),
-            _ => Err(CodeExecuteError::UnsupportedExecution),
+            CodeLanguage::Shell(interpreter) => {
+                let args: &[&str] = &[];
+                Self::execute_shell(interpreter, code.contents.as_bytes(), args)
+            }
+            lang => {
+                let executor = EXECUTORS.get(lang).ok_or(CodeExecuteError::UnsupportedExecution)?;
+                Self::execute_lang(executor, code.contents.as_bytes())
+            }
         }
     }
 
-    fn execute_shell(interpreter: &str, code: &str) -> Result<ExecutionHandle, CodeExecuteError> {
+    fn execute_shell<S>(interpreter: &str, code: &[u8], args: &[S]) -> Result<ExecutionHandle, CodeExecuteError>
+    where
+        S: AsRef<OsStr>,
+    {
         let mut output_file = NamedTempFile::new().map_err(CodeExecuteError::TempFile)?;
-        output_file.write_all(code.as_bytes()).map_err(CodeExecuteError::TempFile)?;
+        output_file.write_all(code).map_err(CodeExecuteError::TempFile)?;
         output_file.flush().map_err(CodeExecuteError::TempFile)?;
         let (reader, writer) = os_pipe::pipe().map_err(CodeExecuteError::Pipe)?;
         let writer_clone = writer.try_clone().map_err(CodeExecuteError::Pipe)?;
         let process_handle = process::Command::new("/usr/bin/env")
             .arg(interpreter)
             .arg(output_file.path())
+            .args(args)
             .stdin(Stdio::null())
             .stdout(writer)
             .stderr(writer_clone)
@@ -48,7 +58,17 @@ impl CodeExecuter {
 
         let state: Arc<Mutex<ExecutionState>> = Default::default();
         let reader_handle = ProcessReader::spawn(process_handle, state.clone(), output_file, reader);
-        let handle = ExecutionHandle { state, reader_handle };
+        let handle = ExecutionHandle { state, reader_handle, program_path: None };
+        Ok(handle)
+    }
+
+    fn execute_lang(executor: &[u8], code: &[u8]) -> Result<ExecutionHandle, CodeExecuteError> {
+        let mut code_file = NamedTempFile::new().map_err(CodeExecuteError::TempFile)?;
+        code_file.write_all(code).map_err(CodeExecuteError::TempFile)?;
+
+        let path = code_file.path();
+        let mut handle = Self::execute_shell("bash", executor, &[path])?;
+        handle.program_path = Some(code_file);
         Ok(handle)
     }
 }
@@ -78,6 +98,7 @@ pub(crate) struct ExecutionHandle {
     state: Arc<Mutex<ExecutionState>>,
     #[allow(dead_code)]
     reader_handle: thread::JoinHandle<()>,
+    program_path: Option<NamedTempFile>,
 }
 
 impl ExecutionHandle {
