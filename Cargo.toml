@@ -33,6 +33,7 @@ tempfile = "3.10"
 console = "0.15.8"
 thiserror = "1"
 unicode-width = "0.1"
+os_pipe = "1.1.5"
 
 [dependencies.syntect]
 version = "5.2"

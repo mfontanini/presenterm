@@ -3,9 +3,9 @@
 use crate::markdown::elements::{Code, CodeLanguage};
 use std::{
     io::{self, BufRead, BufReader, Write},
-    process::{self, ChildStdout, Stdio},
+    process::{self, Stdio},
     sync::{Arc, Mutex},
-    thread::{self},
+    thread,
 };
 use tempfile::NamedTempFile;
 
@@ -31,17 +31,19 @@ impl CodeExecuter {
         let mut output_file = NamedTempFile::new().map_err(CodeExecuteError::TempFile)?;
         output_file.write_all(code.as_bytes()).map_err(CodeExecuteError::TempFile)?;
         output_file.flush().map_err(CodeExecuteError::TempFile)?;
+        let (reader, writer) = os_pipe::pipe().map_err(CodeExecuteError::Pipe)?;
+        let writer_clone = writer.try_clone().map_err(CodeExecuteError::Pipe)?;
         let process_handle = process::Command::new("/usr/bin/env")
             .arg(interpreter)
             .arg(output_file.path())
             .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stdout(writer)
+            .stderr(writer_clone)
             .spawn()
             .map_err(CodeExecuteError::SpawnProcess)?;
 
         let state: Arc<Mutex<ExecutionState>> = Default::default();
-        let reader_handle = ProcessReader::spawn(process_handle, state.clone(), output_file);
+        let reader_handle = ProcessReader::spawn(process_handle, state.clone(), output_file, reader);
         let handle = ExecutionHandle { state, reader_handle };
         Ok(handle)
     }
@@ -61,6 +63,9 @@ pub(crate) enum CodeExecuteError {
 
     #[error("error spawning process: {0}")]
     SpawnProcess(io::Error),
+
+    #[error("error creating pipe: {0}")]
+    Pipe(io::Error),
 }
 
 /// A handle for the execution of a piece of code.
@@ -84,6 +89,7 @@ struct ProcessReader {
     state: Arc<Mutex<ExecutionState>>,
     #[allow(dead_code)]
     file_handle: NamedTempFile,
+    reader: os_pipe::PipeReader,
 }
 
 impl ProcessReader {
@@ -91,15 +97,14 @@ impl ProcessReader {
         handle: process::Child,
         state: Arc<Mutex<ExecutionState>>,
         file_handle: NamedTempFile,
+        reader: os_pipe::PipeReader,
     ) -> thread::JoinHandle<()> {
-        let reader = Self { handle, state, file_handle };
+        let reader = Self { handle, state, file_handle, reader };
         thread::spawn(|| reader.run())
     }
 
     fn run(mut self) {
-        let stdout = self.handle.stdout.take().expect("no stdout");
-        let stdout = BufReader::new(stdout);
-        let _ = Self::process_output(self.state.clone(), stdout);
+        let _ = Self::process_output(self.state.clone(), self.reader);
         let success = match self.handle.wait() {
             Ok(code) => code.success(),
             _ => false,
@@ -111,8 +116,9 @@ impl ProcessReader {
         self.state.lock().unwrap().status = status;
     }
 
-    fn process_output(state: Arc<Mutex<ExecutionState>>, stdout: BufReader<ChildStdout>) -> io::Result<()> {
-        for line in stdout.lines() {
+    fn process_output(state: Arc<Mutex<ExecutionState>>, reader: os_pipe::PipeReader) -> io::Result<()> {
+        let reader = BufReader::new(reader);
+        for line in reader.lines() {
             let line = line?;
             // TODO: consider not locking per line...
             state.lock().unwrap().output.push(line);
@@ -182,5 +188,29 @@ echo 'bye'"
         };
         let result = CodeExecuter::execute(&code);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn shell_code_execution_captures_stderr() {
+        let contents = r"
+echo 'This message redirects to stderr' >&2
+echo 'hello world'
+"
+        .into();
+        let code = Code {
+            contents,
+            language: CodeLanguage::Shell("sh".into()),
+            attributes: CodeAttributes { execute: true, ..Default::default() },
+        };
+        let handle = CodeExecuter::execute(&code).expect("execution failed");
+        let state = loop {
+            let state = handle.state();
+            if state.status.is_finished() {
+                break state;
+            }
+        };
+
+        let expected_lines = vec!["This message redirects to stderr", "hello world"];
+        assert_eq!(state.output, expected_lines);
     }
 }
