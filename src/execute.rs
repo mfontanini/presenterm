@@ -100,8 +100,8 @@ impl ProcessReader {
         let stdout = self.handle.stdout.take().expect("no stdout");
         let stdout = BufReader::new(stdout);
         let _ = Self::process_output(self.state.clone(), stdout);
-        let success = match self.handle.try_wait() {
-            Ok(Some(code)) => code.success(),
+        let success = match self.handle.wait() {
+            Ok(code) => code.success(),
             _ => false,
         };
         let status = match success {
