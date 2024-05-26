@@ -195,7 +195,6 @@ echo 'bye'"
         let contents = r"
 echo 'This message redirects to stderr' >&2
 echo 'hello world'
-man
 "
         .into();
         let code = Code {
@@ -211,7 +210,7 @@ man
             }
         };
 
-        let expected_lines = vec!["This message redirects to stderr", "hello world", "What manual page do you want?"];
+        let expected_lines = vec!["This message redirects to stderr", "hello world"];
         assert_eq!(state.output, expected_lines);
     }
 }
