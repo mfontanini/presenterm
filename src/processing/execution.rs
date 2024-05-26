@@ -1,5 +1,5 @@
 use crate::{
-    execute::{CodeExecuter, ExecutionHandle, ExecutionState, ProcessStatus},
+    execute::{CodeExecutor, ExecutionHandle, ExecutionState, ProcessStatus},
     markdown::elements::Code,
     presentation::{AsRenderOperations, PreformattedLine, RenderOnDemand, RenderOnDemandState, RenderOperation},
     render::properties::WindowSize,
@@ -20,16 +20,17 @@ struct RunCodeOperationInner {
 #[derive(Debug)]
 pub(crate) struct RunCodeOperation {
     code: Code,
+    executor: Rc<CodeExecutor>,
     default_colors: Colors,
     block_colors: Colors,
     inner: Rc<RefCell<RunCodeOperationInner>>,
 }
 
 impl RunCodeOperation {
-    pub(crate) fn new(code: Code, default_colors: Colors, block_colors: Colors) -> Self {
+    pub(crate) fn new(code: Code, executor: Rc<CodeExecutor>, default_colors: Colors, block_colors: Colors) -> Self {
         let inner =
             RunCodeOperationInner { handle: None, output_lines: Vec::new(), state: RenderOnDemandState::default() };
-        Self { code, default_colors, block_colors, inner: Rc::new(RefCell::new(inner)) }
+        Self { code, executor, default_colors, block_colors, inner: Rc::new(RefCell::new(inner)) }
     }
 
     fn render_line(&self, mut line: String) -> RenderOperation {
@@ -105,7 +106,7 @@ impl RenderOnDemand for RunCodeOperation {
         if !matches!(inner.state, RenderOnDemandState::NotStarted) {
             return false;
         }
-        match CodeExecuter.execute(&self.code) {
+        match self.executor.execute(&self.code) {
             Ok(handle) => {
                 inner.handle = Some(handle);
                 inner.state = RenderOnDemandState::Rendering;

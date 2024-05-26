@@ -2,8 +2,11 @@
 
 use crate::markdown::elements::{Code, CodeLanguage};
 use std::{
+    collections::BTreeMap,
     ffi::OsStr,
+    fs,
     io::{self, BufRead, BufReader, Write},
+    path::{Path, PathBuf},
     process::{self, Stdio},
     sync::{Arc, Mutex},
     thread,
@@ -13,11 +16,42 @@ use tempfile::NamedTempFile;
 include!(concat!(env!("OUT_DIR"), "/executors.rs"));
 
 /// Allows executing code.
-pub struct CodeExecuter;
+#[derive(Default, Debug)]
+pub struct CodeExecutor {
+    custom_executors: BTreeMap<CodeLanguage, Vec<u8>>,
+}
 
-impl CodeExecuter {
+impl CodeExecutor {
+    pub fn load(executors_path: &Path) -> Result<Self, LoadExecutorsError> {
+        let mut custom_executors = BTreeMap::new();
+        if let Ok(paths) = fs::read_dir(executors_path) {
+            for executor in paths {
+                let executor = executor?;
+                let path = executor.path();
+                let filename = path.file_name().unwrap_or_default().to_string_lossy();
+                let Some((name, extension)) = filename.split_once('.') else {
+                    return Err(LoadExecutorsError::InvalidExecutor(path, "no extension"));
+                };
+                if extension != "sh" {
+                    return Err(LoadExecutorsError::InvalidExecutor(path, "non .sh extension"));
+                }
+                let language: CodeLanguage = match name.parse() {
+                    Ok(language) => language,
+                    Err(_) => return Err(LoadExecutorsError::InvalidExecutor(path, "invalid code language")),
+                };
+                let file_contents = fs::read(path)?;
+                custom_executors.insert(language, file_contents);
+            }
+        }
+        Ok(Self { custom_executors })
+    }
+
     pub(crate) fn is_execution_supported(&self, language: &CodeLanguage) -> bool {
-        if matches!(language, CodeLanguage::Shell(_)) { true } else { EXECUTORS.contains_key(language) }
+        if matches!(language, CodeLanguage::Shell(_)) {
+            true
+        } else {
+            EXECUTORS.contains_key(language) || self.custom_executors.contains_key(language)
+        }
     }
 
     /// Execute a piece of code.
@@ -31,10 +65,17 @@ impl CodeExecuter {
                 Self::execute_shell(interpreter, code.contents.as_bytes(), args)
             }
             lang => {
-                let executor = EXECUTORS.get(lang).ok_or(CodeExecuteError::UnsupportedExecution)?;
+                let executor = self.executor(lang).ok_or(CodeExecuteError::UnsupportedExecution)?;
                 Self::execute_lang(executor, code.contents.as_bytes())
             }
         }
+    }
+
+    fn executor(&self, language: &CodeLanguage) -> Option<&[u8]> {
+        if let Some(executor) = self.custom_executors.get(language) {
+            return Some(executor);
+        }
+        EXECUTORS.get(language).copied()
     }
 
     fn execute_shell<S>(interpreter: &str, code: &[u8], args: &[S]) -> Result<ExecutionHandle, CodeExecuteError>
@@ -71,6 +112,16 @@ impl CodeExecuter {
         handle.program_path = Some(code_file);
         Ok(handle)
     }
+}
+
+/// An error during the load of custom executors.
+#[derive(thiserror::Error, Debug)]
+pub enum LoadExecutorsError {
+    #[error("io: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("invalid executor '{0}': {1}")]
+    InvalidExecutor(PathBuf, &'static str),
 }
 
 /// An error during the execution of some code.
@@ -191,7 +242,7 @@ echo 'bye'"
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: true, ..Default::default() },
         };
-        let handle = CodeExecuter.execute(&code).expect("execution failed");
+        let handle = CodeExecutor::default().execute(&code).expect("execution failed");
         let state = loop {
             let state = handle.state();
             if state.status.is_finished() {
@@ -211,7 +262,7 @@ echo 'bye'"
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: false, ..Default::default() },
         };
-        let result = CodeExecuter.execute(&code);
+        let result = CodeExecutor::default().execute(&code);
         assert!(result.is_err());
     }
 
@@ -227,7 +278,7 @@ echo 'hello world'
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: true, ..Default::default() },
         };
-        let handle = CodeExecuter.execute(&code).expect("execution failed");
+        let handle = CodeExecutor::default().execute(&code).expect("execution failed");
         let state = loop {
             let state = handle.state();
             if state.status.is_finished() {

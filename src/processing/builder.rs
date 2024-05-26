@@ -1,6 +1,6 @@
 use crate::{
     custom::{KeyBindingsConfig, OptionsConfig},
-    execute::CodeExecuter,
+    execute::CodeExecutor,
     markdown::{
         elements::{
             Code, CodeLanguage, Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement,
@@ -95,7 +95,7 @@ pub(crate) struct PresentationBuilder<'a> {
     chunk_mutators: Vec<Box<dyn ChunkMutator>>,
     slides: Vec<Slide>,
     highlighter: CodeHighlighter,
-    code_executer: &'a CodeExecuter,
+    code_executor: Rc<CodeExecutor>,
     theme: Cow<'a, PresentationTheme>,
     resources: &'a mut Resources,
     typst: &'a mut TypstRender,
@@ -115,7 +115,7 @@ impl<'a> PresentationBuilder<'a> {
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
         typst: &'a mut TypstRender,
-        code_executer: &'a CodeExecuter,
+        code_executor: Rc<CodeExecutor>,
         themes: &'a Themes,
         image_registry: ImageRegistry,
         bindings_config: KeyBindingsConfig,
@@ -127,7 +127,7 @@ impl<'a> PresentationBuilder<'a> {
             chunk_mutators: Vec::new(),
             slides: Vec::new(),
             highlighter: CodeHighlighter::default(),
-            code_executer,
+            code_executor,
             theme: Cow::Borrowed(default_theme),
             resources,
             typst,
@@ -733,11 +733,12 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_code_execution(&mut self, code: Code) -> Result<(), BuildError> {
-        if !self.code_executer.is_execution_supported(&code.language) {
+        if !self.code_executor.is_execution_supported(&code.language) {
             return Err(BuildError::UnsupportedExecution(code.language));
         }
         let operation = RunCodeOperation::new(
             code,
+            self.code_executor.clone(),
             self.theme.default_style.colors.clone(),
             self.theme.execution_output.colors.clone(),
         );
@@ -1061,14 +1062,14 @@ mod test {
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp", Default::default());
         let mut typst = TypstRender::default();
-        let code_executer = CodeExecuter;
+        let code_executor = Rc::new(CodeExecutor::default());
         let themes = Themes::default();
         let bindings = KeyBindingsConfig::default();
         let builder = PresentationBuilder::new(
             &theme,
             &mut resources,
             &mut typst,
-            &code_executer,
+            code_executor,
             &themes,
             Default::default(),
             bindings,

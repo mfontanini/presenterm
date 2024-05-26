@@ -1,5 +1,5 @@
 use crate::{
-    execute::CodeExecuter,
+    execute::CodeExecutor,
     input::{
         source::Command,
         user::{CommandKeyBindings, UserInput},
@@ -10,7 +10,7 @@ use crate::{
     render::{draw::TerminalDrawer, terminal::TerminalWrite},
     ImageRegistry, MarkdownParser, PresentationBuilderOptions, PresentationTheme, Resources, Themes, TypstRender,
 };
-use std::io;
+use std::{io, rc::Rc};
 
 const PRESENTATION: &str = r#"
 # Header 1
@@ -102,13 +102,13 @@ impl<W: TerminalWrite> ThemesDemo<W> {
         let mut resources = Resources::new("non_existent", image_registry.clone());
         let mut typst = TypstRender::default();
         let options = PresentationBuilderOptions::default();
-        let executer = CodeExecuter;
+        let executer = Rc::new(CodeExecutor::default());
         let bindings_config = Default::default();
         let builder = PresentationBuilder::new(
             theme,
             &mut resources,
             &mut typst,
-            &executer,
+            executer,
             &self.themes,
             image_registry,
             bindings_config,

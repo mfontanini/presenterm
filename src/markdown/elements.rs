@@ -1,6 +1,6 @@
 use crate::style::TextStyle;
 use std::{iter, ops::Range, path::PathBuf};
-use strum::EnumIter;
+use strum::{EnumIter, EnumString};
 use unicode_width::UnicodeWidthStr;
 
 /// A markdown element.
@@ -186,7 +186,7 @@ pub(crate) struct Code {
 }
 
 /// The language of a piece of code.
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, EnumString)]
 pub enum CodeLanguage {
     Ada,
     Asp,
