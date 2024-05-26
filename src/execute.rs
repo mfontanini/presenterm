@@ -289,4 +289,30 @@ echo 'hello world'
         let expected_lines = vec!["This message redirects to stderr", "hello world"];
         assert_eq!(state.output, expected_lines);
     }
+
+    #[test]
+    fn shell_code_execution_executes_hidden_lines() {
+        let contents = r"
+/// echo 'this line was hidden'
+/// echo 'this line was hidden and contains another delimiter /// '
+echo 'hello world'
+"
+        .into();
+        let code = Code {
+            contents,
+            language: CodeLanguage::Shell("sh".into()),
+            attributes: CodeAttributes { execute: true, ..Default::default() },
+        };
+        let handle = CodeExecutor::default().execute(&code).expect("execution failed");
+        let state = loop {
+            let state = handle.state();
+            if state.status.is_finished() {
+                break state;
+            }
+        };
+
+        let expected_lines =
+            vec!["this line was hidden", "this line was hidden and contains another delimiter /// ", "hello world"];
+        assert_eq!(state.output, expected_lines);
+    }
 }
