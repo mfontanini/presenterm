@@ -193,7 +193,16 @@ impl Code {
     }
 
     pub(crate) fn executable_contents(&self) -> String {
-        self.contents.replace(Self::HIDDEN_CODE_LINE_DELIMITER, "")
+        self.contents
+            .lines()
+            .map(|line| {
+                let mut line = format!("{}\n", line);
+                if line.starts_with(Self::HIDDEN_CODE_LINE_DELIMITER) {
+                    line.replace_range(..Self::HIDDEN_CODE_LINE_DELIMITER.len(), "");
+                }
+                line
+            })
+            .collect()
     }
 }
 
