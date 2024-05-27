@@ -2,9 +2,9 @@ use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use directories::ProjectDirs;
 use presenterm::{
-    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
-    LoadThemeError, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet,
-    Presenter, PresenterOptions, Resources, Themes, ThemesDemo, TypstRender, ValidateOverflows,
+    CodeExecutor, CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol,
+    ImageRegistry, LoadThemeError, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme,
+    PresentationThemeSet, Presenter, PresenterOptions, Resources, Themes, ThemesDemo, TypstRender, ValidateOverflows,
 };
 use std::{
     env, io,
@@ -82,7 +82,14 @@ fn create_splash() -> String {
     )
 }
 
-fn load_customizations(config_file_path: Option<PathBuf>) -> Result<(Config, Themes), Box<dyn std::error::Error>> {
+#[derive(Default)]
+struct Customizations {
+    config: Config,
+    themes: Themes,
+    code_executor: CodeExecutor,
+}
+
+fn load_customizations(config_file_path: Option<PathBuf>) -> Result<Customizations, Box<dyn std::error::Error>> {
     let configs_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
         Ok(path) => Path::new(&path).join("presenterm"),
         Err(_) => {
@@ -95,7 +102,8 @@ fn load_customizations(config_file_path: Option<PathBuf>) -> Result<(Config, The
     let themes = load_themes(&configs_path)?;
     let config_file_path = config_file_path.unwrap_or_else(|| configs_path.join("config.yaml"));
     let config = Config::load(&config_file_path)?;
-    Ok((config, themes))
+    let code_executor = CodeExecutor::load(&configs_path.join("executors"))?;
+    Ok(Customizations { config, themes, code_executor })
 }
 
 fn load_themes(config_path: &Path) -> Result<Themes, Box<dyn std::error::Error>> {
@@ -174,7 +182,8 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let (config, themes) = load_customizations(cli.config_file.clone().map(PathBuf::from))?;
+    let Customizations { config, themes, code_executor } =
+        load_customizations(cli.config_file.clone().map(PathBuf::from))?;
 
     let default_theme = load_default_theme(&config, &themes, &cli);
     let force_default_theme = cli.theme.is_some();
@@ -206,8 +215,9 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let registry = ImageRegistry(printer.clone());
     let resources = Resources::new(resources_path, registry.clone());
     let typst = TypstRender::new(config.typst.ppi, registry, resources_path);
+    let code_executor = Rc::new(code_executor);
     if cli.export_pdf || cli.generate_pdf_metadata {
-        let mut exporter = Exporter::new(parser, &default_theme, resources, typst, themes, options);
+        let mut exporter = Exporter::new(parser, &default_theme, resources, typst, code_executor, themes, options);
         let mut args = Vec::new();
         if let Some(theme) = cli.theme.as_ref() {
             args.extend(["--theme", theme]);
@@ -232,7 +242,8 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             bindings: config.bindings,
             validate_overflows,
         };
-        let presenter = Presenter::new(&default_theme, commands, parser, resources, typst, themes, printer, options);
+        let presenter =
+            Presenter::new(&default_theme, commands, parser, resources, typst, code_executor, themes, printer, options);
         presenter.present(&path)?;
     }
     Ok(())

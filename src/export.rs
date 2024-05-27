@@ -1,5 +1,6 @@
 use crate::{
     custom::KeyBindingsConfig,
+    execute::CodeExecutor,
     markdown::parse::ParseError,
     media::{
         image::{Image, ImageSource},
@@ -16,9 +17,9 @@ use image::{codecs::png::PngEncoder, DynamicImage, ImageEncoder, ImageError};
 use semver::Version;
 use serde::Serialize;
 use std::{
-    env, fs,
-    io::{self},
+    env, fs, io,
     path::{Path, PathBuf},
+    rc::Rc,
 };
 
 const MINIMUM_EXPORTER_VERSION: Version = Version::new(0, 2, 0);
@@ -29,6 +30,7 @@ pub struct Exporter<'a> {
     default_theme: &'a PresentationTheme,
     resources: Resources,
     typst: TypstRender,
+    code_executor: Rc<CodeExecutor>,
     themes: Themes,
     options: PresentationBuilderOptions,
 }
@@ -40,10 +42,11 @@ impl<'a> Exporter<'a> {
         default_theme: &'a PresentationTheme,
         resources: Resources,
         typst: TypstRender,
+        code_executor: Rc<CodeExecutor>,
         themes: Themes,
         options: PresentationBuilderOptions,
     ) -> Self {
-        Self { parser, default_theme, resources, typst, themes, options }
+        Self { parser, default_theme, resources, typst, code_executor, themes, options }
     }
 
     /// Export the given presentation into PDF.
@@ -83,6 +86,7 @@ impl<'a> Exporter<'a> {
             self.default_theme,
             &mut self.resources,
             &mut self.typst,
+            self.code_executor.clone(),
             &self.themes,
             Default::default(),
             KeyBindingsConfig::default(),
@@ -299,9 +303,10 @@ mod test {
         let theme = PresentationThemeSet::default().load_by_name("dark").unwrap();
         let resources = Resources::new("examples", Default::default());
         let typst = TypstRender::default();
+        let code_executor = Default::default();
         let themes = Themes::default();
         let options = PresentationBuilderOptions { allow_mutations: false, ..Default::default() };
-        let mut exporter = Exporter::new(parser, &theme, resources, typst, themes, options);
+        let mut exporter = Exporter::new(parser, &theme, resources, typst, code_executor, themes, options);
         exporter.extract_metadata(content, Path::new(path)).expect("metadata extraction failed")
     }
 

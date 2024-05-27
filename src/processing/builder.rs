@@ -1,5 +1,6 @@
 use crate::{
     custom::{KeyBindingsConfig, OptionsConfig},
+    execute::CodeExecutor,
     markdown::{
         elements::{
             Code, CodeLanguage, Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement,
@@ -94,6 +95,7 @@ pub(crate) struct PresentationBuilder<'a> {
     chunk_mutators: Vec<Box<dyn ChunkMutator>>,
     slides: Vec<Slide>,
     highlighter: CodeHighlighter,
+    code_executor: Rc<CodeExecutor>,
     theme: Cow<'a, PresentationTheme>,
     resources: &'a mut Resources,
     typst: &'a mut TypstRender,
@@ -113,6 +115,7 @@ impl<'a> PresentationBuilder<'a> {
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
         typst: &'a mut TypstRender,
+        code_executor: Rc<CodeExecutor>,
         themes: &'a Themes,
         image_registry: ImageRegistry,
         bindings_config: KeyBindingsConfig,
@@ -124,6 +127,7 @@ impl<'a> PresentationBuilder<'a> {
             chunk_mutators: Vec::new(),
             slides: Vec::new(),
             highlighter: CodeHighlighter::default(),
+            code_executor,
             theme: Cow::Borrowed(default_theme),
             resources,
             typst,
@@ -680,7 +684,7 @@ impl<'a> PresentationBuilder<'a> {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
         if code.attributes.execute {
-            self.push_code_execution(code);
+            self.push_code_execution(code)?;
         }
         Ok(())
     }
@@ -728,14 +732,19 @@ impl<'a> PresentationBuilder<'a> {
         (output, context)
     }
 
-    fn push_code_execution(&mut self, code: Code) {
+    fn push_code_execution(&mut self, code: Code) -> Result<(), BuildError> {
+        if !self.code_executor.is_execution_supported(&code.language) {
+            return Err(BuildError::UnsupportedExecution(code.language));
+        }
         let operation = RunCodeOperation::new(
             code,
+            self.code_executor.clone(),
             self.theme.default_style.colors.clone(),
             self.theme.execution_output.colors.clone(),
         );
         let operation = RenderOperation::RenderOnDemand(Rc::new(operation));
         self.chunk_operations.push(operation);
+        Ok(())
     }
 
     fn terminate_slide(&mut self) {
@@ -898,6 +907,9 @@ pub enum BuildError {
 
     #[error("typst render failed: {0}")]
     TypstRender(#[from] TypstRenderError),
+
+    #[error("language {0:?} does not support execution")]
+    UnsupportedExecution(CodeLanguage),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -1050,12 +1062,14 @@ mod test {
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp", Default::default());
         let mut typst = TypstRender::default();
+        let code_executor = Rc::new(CodeExecutor::default());
         let themes = Themes::default();
         let bindings = KeyBindingsConfig::default();
         let builder = PresentationBuilder::new(
             &theme,
             &mut resources,
             &mut typst,
+            code_executor,
             &themes,
             Default::default(),
             bindings,

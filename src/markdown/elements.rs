@@ -1,6 +1,6 @@
 use crate::style::TextStyle;
 use std::{iter, ops::Range, path::PathBuf};
-use strum::EnumIter;
+use strum::{EnumIter, EnumString};
 use unicode_width::UnicodeWidthStr;
 
 /// A markdown element.
@@ -186,8 +186,8 @@ pub(crate) struct Code {
 }
 
 /// The language of a piece of code.
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter)]
-pub(crate) enum CodeLanguage {
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, EnumString)]
+pub enum CodeLanguage {
     Ada,
     Asp,
     Awk,
@@ -244,10 +244,6 @@ pub(crate) enum CodeLanguage {
 }
 
 impl CodeLanguage {
-    pub(crate) fn supports_execution(&self) -> bool {
-        matches!(self, Self::Shell(_))
-    }
-
     pub(crate) fn supports_auto_render(&self) -> bool {
         matches!(self, Self::Latex | Self::Typst)
     }

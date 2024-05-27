@@ -2,40 +2,95 @@
 
 use crate::markdown::elements::{Code, CodeLanguage};
 use std::{
+    collections::BTreeMap,
+    ffi::OsStr,
+    fs,
     io::{self, BufRead, BufReader, Write},
+    path::{Path, PathBuf},
     process::{self, Stdio},
     sync::{Arc, Mutex},
     thread,
 };
 use tempfile::NamedTempFile;
 
-/// Allows executing code.
-pub(crate) struct CodeExecuter;
+include!(concat!(env!("OUT_DIR"), "/executors.rs"));
 
-impl CodeExecuter {
-    /// Execute a piece of code.
-    pub(crate) fn execute(code: &Code) -> Result<ExecutionHandle, CodeExecuteError> {
-        if !code.language.supports_execution() {
-            return Err(CodeExecuteError::UnsupportedExecution);
+/// Allows executing code.
+#[derive(Default, Debug)]
+pub struct CodeExecutor {
+    custom_executors: BTreeMap<CodeLanguage, Vec<u8>>,
+}
+
+impl CodeExecutor {
+    pub fn load(executors_path: &Path) -> Result<Self, LoadExecutorsError> {
+        let mut custom_executors = BTreeMap::new();
+        if let Ok(paths) = fs::read_dir(executors_path) {
+            for executor in paths {
+                let executor = executor?;
+                let path = executor.path();
+                let filename = path.file_name().unwrap_or_default().to_string_lossy();
+                let Some((name, extension)) = filename.split_once('.') else {
+                    return Err(LoadExecutorsError::InvalidExecutor(path, "no extension"));
+                };
+                if extension != "sh" {
+                    return Err(LoadExecutorsError::InvalidExecutor(path, "non .sh extension"));
+                }
+                let language: CodeLanguage = match name.parse() {
+                    Ok(language) => language,
+                    Err(_) => return Err(LoadExecutorsError::InvalidExecutor(path, "invalid code language")),
+                };
+                let file_contents = fs::read(path)?;
+                custom_executors.insert(language, file_contents);
+            }
         }
+        Ok(Self { custom_executors })
+    }
+
+    pub(crate) fn is_execution_supported(&self, language: &CodeLanguage) -> bool {
+        if matches!(language, CodeLanguage::Shell(_)) {
+            true
+        } else {
+            EXECUTORS.contains_key(language) || self.custom_executors.contains_key(language)
+        }
+    }
+
+    /// Execute a piece of code.
+    pub(crate) fn execute(&self, code: &Code) -> Result<ExecutionHandle, CodeExecuteError> {
         if !code.attributes.execute {
             return Err(CodeExecuteError::NotExecutableCode);
         }
         match &code.language {
-            CodeLanguage::Shell(interpreter) => Self::execute_shell(interpreter, &code.contents),
-            _ => Err(CodeExecuteError::UnsupportedExecution),
+            CodeLanguage::Shell(interpreter) => {
+                let args: &[&str] = &[];
+                Self::execute_shell(interpreter, code.contents.as_bytes(), args)
+            }
+            lang => {
+                let executor = self.executor(lang).ok_or(CodeExecuteError::UnsupportedExecution)?;
+                Self::execute_lang(executor, code.contents.as_bytes())
+            }
         }
     }
 
-    fn execute_shell(interpreter: &str, code: &str) -> Result<ExecutionHandle, CodeExecuteError> {
+    fn executor(&self, language: &CodeLanguage) -> Option<&[u8]> {
+        if let Some(executor) = self.custom_executors.get(language) {
+            return Some(executor);
+        }
+        EXECUTORS.get(language).copied()
+    }
+
+    fn execute_shell<S>(interpreter: &str, code: &[u8], args: &[S]) -> Result<ExecutionHandle, CodeExecuteError>
+    where
+        S: AsRef<OsStr>,
+    {
         let mut output_file = NamedTempFile::new().map_err(CodeExecuteError::TempFile)?;
-        output_file.write_all(code.as_bytes()).map_err(CodeExecuteError::TempFile)?;
+        output_file.write_all(code).map_err(CodeExecuteError::TempFile)?;
         output_file.flush().map_err(CodeExecuteError::TempFile)?;
         let (reader, writer) = os_pipe::pipe().map_err(CodeExecuteError::Pipe)?;
         let writer_clone = writer.try_clone().map_err(CodeExecuteError::Pipe)?;
         let process_handle = process::Command::new("/usr/bin/env")
             .arg(interpreter)
             .arg(output_file.path())
+            .args(args)
             .stdin(Stdio::null())
             .stdout(writer)
             .stderr(writer_clone)
@@ -44,9 +99,29 @@ impl CodeExecuter {
 
         let state: Arc<Mutex<ExecutionState>> = Default::default();
         let reader_handle = ProcessReader::spawn(process_handle, state.clone(), output_file, reader);
-        let handle = ExecutionHandle { state, reader_handle };
+        let handle = ExecutionHandle { state, reader_handle, program_path: None };
         Ok(handle)
     }
+
+    fn execute_lang(executor: &[u8], code: &[u8]) -> Result<ExecutionHandle, CodeExecuteError> {
+        let mut code_file = NamedTempFile::new().map_err(CodeExecuteError::TempFile)?;
+        code_file.write_all(code).map_err(CodeExecuteError::TempFile)?;
+
+        let path = code_file.path();
+        let mut handle = Self::execute_shell("bash", executor, &[path])?;
+        handle.program_path = Some(code_file);
+        Ok(handle)
+    }
+}
+
+/// An error during the load of custom executors.
+#[derive(thiserror::Error, Debug)]
+pub enum LoadExecutorsError {
+    #[error("io: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("invalid executor '{0}': {1}")]
+    InvalidExecutor(PathBuf, &'static str),
 }
 
 /// An error during the execution of some code.
@@ -74,6 +149,7 @@ pub(crate) struct ExecutionHandle {
     state: Arc<Mutex<ExecutionState>>,
     #[allow(dead_code)]
     reader_handle: thread::JoinHandle<()>,
+    program_path: Option<NamedTempFile>,
 }
 
 impl ExecutionHandle {
@@ -166,7 +242,7 @@ echo 'bye'"
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: true, ..Default::default() },
         };
-        let handle = CodeExecuter::execute(&code).expect("execution failed");
+        let handle = CodeExecutor::default().execute(&code).expect("execution failed");
         let state = loop {
             let state = handle.state();
             if state.status.is_finished() {
@@ -186,7 +262,7 @@ echo 'bye'"
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: false, ..Default::default() },
         };
-        let result = CodeExecuter::execute(&code);
+        let result = CodeExecutor::default().execute(&code);
         assert!(result.is_err());
     }
 
@@ -202,7 +278,7 @@ echo 'hello world'
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: true, ..Default::default() },
         };
-        let handle = CodeExecuter::execute(&code).expect("execution failed");
+        let handle = CodeExecutor::default().execute(&code).expect("execution failed");
         let state = loop {
             let state = handle.state();
             if state.status.is_finished() {
