@@ -186,23 +186,26 @@ pub(crate) struct Code {
 }
 
 impl Code {
-    const HIDDEN_CODE_LINE_DELIMITER: &'static str = "/// ";
-
     pub(crate) fn visible_lines(&self) -> impl Iterator<Item = &str> {
-        self.contents.lines().filter(|line| !line.starts_with(Self::HIDDEN_CODE_LINE_DELIMITER))
+        let prefix = self.language.hidden_line_prefix();
+        self.contents.lines().filter(move |line| !prefix.is_some_and(|prefix| line.starts_with(prefix)))
     }
 
     pub(crate) fn executable_contents(&self) -> String {
-        self.contents
-            .lines()
-            .map(|line| {
-                let mut line = format!("{}\n", line);
-                if line.starts_with(Self::HIDDEN_CODE_LINE_DELIMITER) {
-                    line.replace_range(..Self::HIDDEN_CODE_LINE_DELIMITER.len(), "");
-                }
-                line
-            })
-            .collect()
+        if let Some(prefix) = self.language.hidden_line_prefix() {
+            self.contents
+                .lines()
+                .map(|line| {
+                    let mut line = format!("{}\n", line);
+                    if line.starts_with(prefix) {
+                        line.replace_range(..prefix.len(), "");
+                    }
+                    line
+                })
+                .collect()
+        } else {
+            self.contents.to_owned()
+        }
     }
 }
 
@@ -267,6 +270,14 @@ pub enum CodeLanguage {
 impl CodeLanguage {
     pub(crate) fn supports_auto_render(&self) -> bool {
         matches!(self, Self::Latex | Self::Typst)
+    }
+
+    pub(crate) fn hidden_line_prefix(&self) -> Option<&'static str> {
+        match self {
+            // TODO: Use "#" for Rust, and decide on something for Shell/Bash.
+            CodeLanguage::Rust | CodeLanguage::Shell(_) | CodeLanguage::Bash => Some("/// "),
+            _ => None,
+        }
     }
 }
 
