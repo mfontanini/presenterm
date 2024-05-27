@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-exec python "$1"
+exec python -u "$1"
