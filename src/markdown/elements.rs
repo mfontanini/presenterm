@@ -368,13 +368,13 @@ mod test {
         let contents = r"echo 'hello world'
 ## echo 'this was hidden'
 
-echo '## is the delimiter'
-## echo 'the delimiter is ## '
+echo '## is the prefix'
+## echo 'the prefix is ## '
 echo 'hello again'
 "
         .to_string();
 
-        let expected = vec!["echo 'hello world'", "", "echo '## is the delimiter'", "echo 'hello again'"];
+        let expected = vec!["echo 'hello world'", "", "echo '## is the prefix'", "echo 'hello again'"];
         let code = Code { contents, language: CodeLanguage::Bash, attributes: Default::default() };
         assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
     }
@@ -383,6 +383,7 @@ echo 'hello again'
     fn code_visible_lines_rust() {
         let contents = r##"# fn main() {
 println!("Hello world");
+# // The prefix is # .
 # }
 "##
         .to_string();
@@ -397,8 +398,8 @@ println!("Hello world");
         let contents = r"echo 'hello world'
 ## echo 'this was hidden'
 
-echo '## is the delimiter'
-## echo 'the delimiter is ## '
+echo '## is the prefix'
+## echo 'the prefix is ## '
 echo 'hello again'
 "
         .to_string();
@@ -406,8 +407,8 @@ echo 'hello again'
         let expected = r"echo 'hello world'
 echo 'this was hidden'
 
-echo '## is the delimiter'
-echo 'the delimiter is ## '
+echo '## is the prefix'
+echo 'the prefix is ## '
 echo 'hello again'
 "
         .to_string();
@@ -420,12 +421,14 @@ echo 'hello again'
     fn code_executable_contents_rust() {
         let contents = r##"# fn main() {
 println!("Hello world");
+# // The prefix is # .
 # }
 "##
         .to_string();
 
         let expected = r##"fn main() {
 println!("Hello world");
+// The prefix is # .
 }
 "##
         .to_string();
