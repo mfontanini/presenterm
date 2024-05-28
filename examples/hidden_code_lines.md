@@ -60,8 +60,8 @@ The following snippet has a hidden enclosing main function, and a hidden code li
 ```rust +line_numbers
 # fn main() {
 let foo = 2;
-let bar = 2;
-# This is also hidden, to show it works with interleaved hidden lines.
+let bar = 3;
+# // This is also hidden, to show it works with interleaved hidden lines.
 let sum = foo + bar;
 println!("The sum is: {}", sum);
 # }
@@ -73,22 +73,18 @@ println!("The sum is: {}", sum);
 
 The following snippet has a hidden enclosing main function, and a hidden code line between the visible lines 6 and 7.
 
-The lines `{1,3,4,7,9-11}` should be highlighted, which match the visible code line numbers:
+The lines `{1,3,5-7}` should be highlighted, which match the visible code line numbers:
 
-```rust {1,3,4,7,9-11} +line_numbers
+```rust {1,3,5-7} +line_numbers
 # fn main() {
-println!("Hello world");
-let mut q = 42;
-q = q * 1337;
-q = q * 1337;
-q = q * 1337;
-let foo = "Hidden line comes next";
-# This is also hidden, to show it works with interleaved hidden lines.
-let bar = "Hidden line above";
-q = q * 1337;
-q = q * 1337;
-q = q * 1337;
-q = q * 1337;
+println!("Hello world!");
+let mut foo = 5;
+foo = foo * 2;
+println!("Hidden line comes next.");
+# // This is also hidden, to show it works with interleaved hidden lines.
+println!("Hidden line above.");
+let bar = 3;
+println!("The sum is: {}", foo + bar);
 # }
 ```
 
@@ -102,12 +98,14 @@ The following snippet has a hidden enclosing main function, and a hidden code li
 
 Here we highlight each line on each consectuive slide, in turn:
 
-```rust {1|2|3|4} +line_numbers
+```rust {1|2|3|4|5|6} +line_numbers
 # fn main() {
-println!("Hello world");
-let mut q = 42;
-let foo = "Hidden line comes next";
-# This is also hidden, to show it works with interleaved hidden lines.
-let bar = "Hidden line above";
+println!("Hello world!");
+let foo = 5;
+println!("Hidden line comes next.");
+# // This is also hidden, to show it works with interleaved hidden lines.
+println!("Hidden line above.");
+let bar = 3;
+println!("The sum is: {}", foo + bar);
 # }
 ```
