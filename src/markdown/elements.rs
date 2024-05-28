@@ -274,8 +274,8 @@ impl CodeLanguage {
 
     pub(crate) fn hidden_line_prefix(&self) -> Option<&'static str> {
         match self {
-            // TODO: Use "#" for Rust, and decide on something for Shell/Bash.
-            CodeLanguage::Rust | CodeLanguage::Shell(_) | CodeLanguage::Bash => Some("/// "),
+            CodeLanguage::Rust => Some("# "),
+            CodeLanguage::Python | CodeLanguage::Shell(_) | CodeLanguage::Bash => Some("## "),
             _ => None,
         }
     }
@@ -366,42 +366,15 @@ mod test {
     #[test]
     fn code_visible_lines() {
         let contents = r"echo 'hello world'
-/// echo 'this was hidden'
+## echo 'this was hidden'
+
+echo '## is the delimiter'
+## echo 'the delimiter is ## '
 echo 'hello again'
 "
         .to_string();
 
-        let expected = vec!["echo 'hello world'", "echo 'hello again'"];
-        let code = Code { contents, language: CodeLanguage::Bash, attributes: Default::default() };
-        assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
-    }
-
-    #[test]
-    fn code_visible_lines_with_blank_lines() {
-        let contents = r"echo 'hello world'
-/// echo 'this was hidden'
-
-echo 'hello again'
-
-"
-        .to_string();
-
-        let expected = vec!["echo 'hello world'", "", "echo 'hello again'", ""];
-        let code = Code { contents, language: CodeLanguage::Bash, attributes: Default::default() };
-        assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
-    }
-
-    #[test]
-    fn code_visible_lines_with_interleaved_delimiters() {
-        let contents = r"echo 'hello world'
-/// echo 'this was hidden'
-echo '/// is the delimiter'
-/// echo 'the delimiter is /// '
-echo 'hello again'
-"
-        .to_string();
-
-        let expected = vec!["echo 'hello world'", "echo '/// is the delimiter'", "echo 'hello again'"];
+        let expected = vec!["echo 'hello world'", "", "echo '## is the delimiter'", "echo 'hello again'"];
         let code = Code { contents, language: CodeLanguage::Bash, attributes: Default::default() };
         assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
     }
@@ -409,26 +382,10 @@ echo 'hello again'
     #[test]
     fn code_executable_contents() {
         let contents = r"echo 'hello world'
-/// echo 'this was hidden'
-echo 'hello again'
-"
-        .to_string();
+## echo 'this was hidden'
 
-        let expected = r"echo 'hello world'
-echo 'this was hidden'
-echo 'hello again'
-"
-        .to_string();
-
-        let code = Code { contents, language: CodeLanguage::Bash, attributes: Default::default() };
-        assert_eq!(expected, code.executable_contents());
-    }
-
-    #[test]
-    fn code_executable_contents_with_blank_lines() {
-        let contents = r"echo 'hello world'
-/// echo 'this was hidden'
-
+echo '## is the delimiter'
+## echo 'the delimiter is ## '
 echo 'hello again'
 "
         .to_string();
@@ -436,28 +393,8 @@ echo 'hello again'
         let expected = r"echo 'hello world'
 echo 'this was hidden'
 
-echo 'hello again'
-"
-        .to_string();
-
-        let code = Code { contents, language: CodeLanguage::Bash, attributes: Default::default() };
-        assert_eq!(expected, code.executable_contents());
-    }
-
-    #[test]
-    fn code_executable_contents_with_interleaved_delimiters() {
-        let contents = r"echo 'hello world'
-/// echo 'this was hidden'
-echo '/// is the delimiter'
-/// echo 'the delimiter is /// '
-echo 'hello again'
-"
-        .to_string();
-
-        let expected = r"echo 'hello world'
-echo 'this was hidden'
-echo '/// is the delimiter'
-echo 'the delimiter is /// '
+echo '## is the delimiter'
+echo 'the delimiter is ## '
 echo 'hello again'
 "
         .to_string();
