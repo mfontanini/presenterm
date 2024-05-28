@@ -364,7 +364,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn code_visible_lines() {
+    fn code_visible_lines_bash() {
         let contents = r"echo 'hello world'
 ## echo 'this was hidden'
 
@@ -380,7 +380,20 @@ echo 'hello again'
     }
 
     #[test]
-    fn code_executable_contents() {
+    fn code_visible_lines_rust() {
+        let contents = r##"# fn main() {
+println!("Hello world");
+# }
+"##
+        .to_string();
+
+        let expected = vec!["println!(\"Hello world\");"];
+        let code = Code { contents, language: CodeLanguage::Rust, attributes: Default::default() };
+        assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn code_executable_contents_bash() {
         let contents = r"echo 'hello world'
 ## echo 'this was hidden'
 
@@ -400,6 +413,24 @@ echo 'hello again'
         .to_string();
 
         let code = Code { contents, language: CodeLanguage::Bash, attributes: Default::default() };
+        assert_eq!(expected, code.executable_contents());
+    }
+
+    #[test]
+    fn code_executable_contents_rust() {
+        let contents = r##"# fn main() {
+println!("Hello world");
+# }
+"##
+        .to_string();
+
+        let expected = r##"fn main() {
+println!("Hello world");
+}
+"##
+        .to_string();
+
+        let code = Code { contents, language: CodeLanguage::Rust, attributes: Default::default() };
         assert_eq!(expected, code.executable_contents());
     }
 }
