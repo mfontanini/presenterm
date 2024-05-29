@@ -24,13 +24,21 @@ pub(crate) struct RunCodeOperation {
     default_colors: Colors,
     block_colors: Colors,
     inner: Rc<RefCell<RunCodeOperationInner>>,
+    state_description: RefCell<&'static str>,
 }
 
 impl RunCodeOperation {
     pub(crate) fn new(code: Code, executor: Rc<CodeExecutor>, default_colors: Colors, block_colors: Colors) -> Self {
         let inner =
             RunCodeOperationInner { handle: None, output_lines: Vec::new(), state: RenderOnDemandState::default() };
-        Self { code, executor, default_colors, block_colors, inner: Rc::new(RefCell::new(inner)) }
+        Self {
+            code,
+            executor,
+            default_colors,
+            block_colors,
+            inner: Rc::new(RefCell::new(inner)),
+            state_description: "running".into(),
+        }
     }
 
     fn render_line(&self, mut line: String) -> RenderOperation {
@@ -53,11 +61,8 @@ impl AsRenderOperations for RunCodeOperation {
         if matches!(inner.state, RenderOnDemandState::NotStarted) {
             return Vec::new();
         }
-        let state = match inner.state {
-            RenderOnDemandState::Rendered => "done",
-            _ => "running",
-        };
-        let heading = format!(" [{state}] ");
+        let description = self.state_description.borrow();
+        let heading = format!(" [{description}] ");
         let separator = RenderSeparator::new(heading);
         let mut operations = vec![
             RenderOperation::RenderLineBreak,
@@ -89,14 +94,16 @@ impl RenderOnDemand for RunCodeOperation {
         if let Some(handle) = inner.handle.as_mut() {
             let state = handle.state();
             let ExecutionState { output, status } = state;
+            *self.state_description.borrow_mut() = match status {
+                ProcessStatus::Running => "running",
+                ProcessStatus::Success => "finished",
+                ProcessStatus::Failure => "finished with error",
+            };
             if status.is_finished() {
                 inner.handle.take();
                 inner.state = RenderOnDemandState::Rendered;
             }
             inner.output_lines = output;
-            if matches!(status, ProcessStatus::Failure) {
-                inner.output_lines.push("[finished with error]".to_string());
-            }
         }
         inner.state.clone()
     }
