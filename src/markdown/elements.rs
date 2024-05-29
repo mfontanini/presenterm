@@ -93,7 +93,7 @@ pub(crate) enum ParagraphElement {
 /// A block of text.
 ///
 /// Text is represented as a series of chunks, each with their own formatting.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub(crate) struct TextBlock(pub(crate) Vec<Text>);
 
 impl TextBlock {

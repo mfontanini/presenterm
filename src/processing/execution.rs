@@ -1,9 +1,10 @@
 use crate::{
     execute::{CodeExecutor, ExecutionHandle, ExecutionState, ProcessStatus},
-    markdown::elements::Code,
+    markdown::elements::{Code, Text, TextBlock},
     presentation::{AsRenderOperations, PreformattedLine, RenderOnDemand, RenderOnDemandState, RenderOperation},
     render::properties::WindowSize,
-    style::Colors,
+    style::{Colors, TextStyle},
+    theme::ExecutionStatusBlockStyle,
 };
 use itertools::Itertools;
 use std::{cell::RefCell, rc::Rc};
@@ -23,21 +24,30 @@ pub(crate) struct RunCodeOperation {
     executor: Rc<CodeExecutor>,
     default_colors: Colors,
     block_colors: Colors,
+    status_colors: ExecutionStatusBlockStyle,
     inner: Rc<RefCell<RunCodeOperationInner>>,
-    state_description: RefCell<&'static str>,
+    state_description: RefCell<Text>,
 }
 
 impl RunCodeOperation {
-    pub(crate) fn new(code: Code, executor: Rc<CodeExecutor>, default_colors: Colors, block_colors: Colors) -> Self {
+    pub(crate) fn new(
+        code: Code,
+        executor: Rc<CodeExecutor>,
+        default_colors: Colors,
+        block_colors: Colors,
+        status_colors: ExecutionStatusBlockStyle,
+    ) -> Self {
         let inner =
             RunCodeOperationInner { handle: None, output_lines: Vec::new(), state: RenderOnDemandState::default() };
+        let running_colors = status_colors.running.clone();
         Self {
             code,
             executor,
             default_colors,
             block_colors,
+            status_colors,
             inner: Rc::new(RefCell::new(inner)),
-            state_description: "running".into(),
+            state_description: Text::new("running", TextStyle::default().colors(running_colors)).into(),
         }
     }
 
@@ -62,7 +72,7 @@ impl AsRenderOperations for RunCodeOperation {
             return Vec::new();
         }
         let description = self.state_description.borrow();
-        let heading = format!(" [{description}] ");
+        let heading = TextBlock(vec![" [".into(), description.clone(), "] ".into()]);
         let separator = RenderSeparator::new(heading);
         let mut operations = vec![
             RenderOperation::RenderLineBreak,
@@ -95,9 +105,15 @@ impl RenderOnDemand for RunCodeOperation {
             let state = handle.state();
             let ExecutionState { output, status } = state;
             *self.state_description.borrow_mut() = match status {
-                ProcessStatus::Running => "running",
-                ProcessStatus::Success => "finished",
-                ProcessStatus::Failure => "finished with error",
+                ProcessStatus::Running => {
+                    Text::new("running", TextStyle::default().colors(self.status_colors.running.clone()))
+                }
+                ProcessStatus::Success => {
+                    Text::new("finished", TextStyle::default().colors(self.status_colors.success.clone()))
+                }
+                ProcessStatus::Failure => {
+                    Text::new("finished with error", TextStyle::default().colors(self.status_colors.failure.clone()))
+                }
             };
             if status.is_finished() {
                 inner.handle.take();

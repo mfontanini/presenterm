@@ -741,6 +741,7 @@ impl<'a> PresentationBuilder<'a> {
             self.code_executor.clone(),
             self.theme.default_style.colors.clone(),
             self.theme.execution_output.colors.clone(),
+            self.theme.execution_output.status.clone(),
         );
         let operation = RenderOperation::RenderOnDemand(Rc::new(operation));
         self.chunk_operations.push(operation);
