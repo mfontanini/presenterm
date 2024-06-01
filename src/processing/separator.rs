@@ -28,10 +28,15 @@ impl AsRenderOperations for RenderSeparator {
         let separator = match self.heading.width() == 0 {
             true => TextBlock::from(character.repeat(dimensions.columns as usize)),
             false => {
-                let dashes_len = (dimensions.columns as usize).saturating_sub(self.heading.width()) / 2;
-                let dashes = character.repeat(dashes_len);
+                let width = (dimensions.columns as usize).saturating_sub(self.heading.width());
+                let (dashes_len, remainder) = (width / 2, width % 2);
+                let mut dashes = character.repeat(dashes_len);
                 let mut line = TextBlock::from(dashes.clone());
                 line.0.extend(self.heading.0.iter().cloned());
+
+                if remainder > 0 {
+                    dashes.push_str(character);
+                }
                 line.0.push(dashes.into());
                 line
             }
