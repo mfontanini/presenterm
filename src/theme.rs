@@ -417,9 +417,29 @@ pub(crate) struct CodeBlockStyle {
 /// The style for the output of a code execution block.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct ExecutionOutputBlockStyle {
-    /// The colors to be used.
+    /// The colors to be used for the output pane.
     #[serde(default)]
     pub(crate) colors: Colors,
+
+    /// The colors to be used for the text that represents the status of the execution block.
+    #[serde(default)]
+    pub(crate) status: ExecutionStatusBlockStyle,
+}
+
+/// The style for the status of a code execution block.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct ExecutionStatusBlockStyle {
+    /// The colors for the "running" status.
+    #[serde(default)]
+    pub(crate) running: Colors,
+
+    /// The colors for the "finished" status.
+    #[serde(default)]
+    pub(crate) success: Colors,
+
+    /// The colors for the "finished with error" status.
+    #[serde(default)]
+    pub(crate) failure: Colors,
 }
 
 /// The style for inline code.

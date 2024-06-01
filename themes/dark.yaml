@@ -27,6 +27,13 @@ execution_output:
   colors:
     foreground: "e6e6e6"
     background: "2d2d2d"
+  status:
+    running:
+      foreground: "b4ccff"
+    success:
+      foreground: "a8df8e"
+    failure:
+      foreground: "f78ca2"
 
 inline_code:
   colors:

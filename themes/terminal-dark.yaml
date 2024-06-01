@@ -26,6 +26,13 @@ code:
 execution_output:
   colors:
     background: grey
+  status:
+    running:
+      foreground: "blue"
+    success:
+      foreground: "green"
+    failure:
+      foreground: "red"
 
 inline_code:
   colors:
