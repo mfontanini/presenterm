@@ -185,6 +185,30 @@ pub(crate) struct Code {
     pub(crate) attributes: CodeAttributes,
 }
 
+impl Code {
+    pub(crate) fn visible_lines(&self) -> impl Iterator<Item = &str> {
+        let prefix = self.language.hidden_line_prefix();
+        self.contents.lines().filter(move |line| !prefix.is_some_and(|prefix| line.starts_with(prefix)))
+    }
+
+    pub(crate) fn executable_contents(&self) -> String {
+        if let Some(prefix) = self.language.hidden_line_prefix() {
+            self.contents
+                .lines()
+                .map(|line| {
+                    let mut line = format!("{}\n", line);
+                    if line.starts_with(prefix) {
+                        line.replace_range(..prefix.len(), "");
+                    }
+                    line
+                })
+                .collect()
+        } else {
+            self.contents.to_owned()
+        }
+    }
+}
+
 /// The language of a piece of code.
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, EnumString)]
 pub enum CodeLanguage {
@@ -246,6 +270,14 @@ pub enum CodeLanguage {
 impl CodeLanguage {
     pub(crate) fn supports_auto_render(&self) -> bool {
         matches!(self, Self::Latex | Self::Typst)
+    }
+
+    pub(crate) fn hidden_line_prefix(&self) -> Option<&'static str> {
+        match self {
+            CodeLanguage::Rust => Some("# "),
+            CodeLanguage::Python | CodeLanguage::Shell(_) | CodeLanguage::Bash => Some("## "),
+            _ => None,
+        }
     }
 }
 
@@ -326,3 +358,82 @@ impl Table {
 /// A table row.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct TableRow(pub(crate) Vec<TextBlock>);
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn code_visible_lines_bash() {
+        let contents = r"echo 'hello world'
+## echo 'this was hidden'
+
+echo '## is the prefix'
+## echo 'the prefix is ## '
+echo 'hello again'
+"
+        .to_string();
+
+        let expected = vec!["echo 'hello world'", "", "echo '## is the prefix'", "echo 'hello again'"];
+        let code = Code { contents, language: CodeLanguage::Bash, attributes: Default::default() };
+        assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn code_visible_lines_rust() {
+        let contents = r##"# fn main() {
+println!("Hello world");
+# // The prefix is # .
+# }
+"##
+        .to_string();
+
+        let expected = vec!["println!(\"Hello world\");"];
+        let code = Code { contents, language: CodeLanguage::Rust, attributes: Default::default() };
+        assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn code_executable_contents_bash() {
+        let contents = r"echo 'hello world'
+## echo 'this was hidden'
+
+echo '## is the prefix'
+## echo 'the prefix is ## '
+echo 'hello again'
+"
+        .to_string();
+
+        let expected = r"echo 'hello world'
+echo 'this was hidden'
+
+echo '## is the prefix'
+echo 'the prefix is ## '
+echo 'hello again'
+"
+        .to_string();
+
+        let code = Code { contents, language: CodeLanguage::Bash, attributes: Default::default() };
+        assert_eq!(expected, code.executable_contents());
+    }
+
+    #[test]
+    fn code_executable_contents_rust() {
+        let contents = r##"# fn main() {
+println!("Hello world");
+# // The prefix is # .
+# }
+"##
+        .to_string();
+
+        let expected = r##"fn main() {
+println!("Hello world");
+// The prefix is # .
+}
+"##
+        .to_string();
+
+        let code = Code { contents, language: CodeLanguage::Rust, attributes: Default::default() };
+        assert_eq!(expected, code.executable_contents());
+    }
+}
