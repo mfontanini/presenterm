@@ -36,6 +36,9 @@ impl CodeExecutor {
                     return Err(LoadExecutorsError::InvalidExecutor(path, "non .sh extension"));
                 }
                 let language: CodeLanguage = match name.parse() {
+                    Ok(CodeLanguage::Unknown) => {
+                        return Err(LoadExecutorsError::InvalidExecutor(path, "unknown language"));
+                    }
                     Ok(language) => language,
                     Err(_) => return Err(LoadExecutorsError::InvalidExecutor(path, "invalid code language")),
                 };
@@ -228,6 +231,8 @@ impl ProcessStatus {
 
 #[cfg(test)]
 mod test {
+    use tempfile::tempdir;
+
     use super::*;
     use crate::markdown::elements::CodeAttributes;
 
@@ -288,5 +293,36 @@ echo 'hello world'
 
         let expected_lines = vec!["This message redirects to stderr", "hello world"];
         assert_eq!(state.output, expected_lines);
+    }
+
+    #[test]
+    fn validate_builtin_executors() {
+        assert!(EXECUTORS.get(&CodeLanguage::Unknown).is_none(), "unknown language in executors");
+    }
+
+    #[test]
+    fn custom_executor() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("rust.sh"), "hi").expect("writing script failed");
+        let executor = CodeExecutor::load(dir.path()).expect("load filed");
+
+        let script = executor.custom_executors.get(&CodeLanguage::Rust).expect("rust not found");
+        assert_eq!(script, b"hi");
+    }
+
+    #[test]
+    fn unknown_executor_language() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("potato.sh"), "").expect("writing script failed");
+        let executor = CodeExecutor::load(dir.path());
+        assert!(matches!(executor, Err(LoadExecutorsError::InvalidExecutor(_, _))));
+    }
+
+    #[test]
+    fn invalid_executor_extension() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("rust.potato"), "").expect("writing script failed");
+        let executor = CodeExecutor::load(dir.path());
+        assert!(matches!(executor, Err(LoadExecutorsError::InvalidExecutor(_, _))));
     }
 }
