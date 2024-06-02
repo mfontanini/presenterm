@@ -1,6 +1,6 @@
 use crate::style::TextStyle;
-use std::{iter, ops::Range, path::PathBuf};
-use strum::{EnumIter, EnumString};
+use std::{convert::Infallible, iter, ops::Range, path::PathBuf, str::FromStr};
+use strum::EnumIter;
 use unicode_width::UnicodeWidthStr;
 
 /// A markdown element.
@@ -186,7 +186,7 @@ pub(crate) struct Code {
 }
 
 /// The language of a piece of code.
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, EnumString)]
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord)]
 pub enum CodeLanguage {
     Ada,
     Asp,
@@ -246,6 +246,69 @@ pub enum CodeLanguage {
 impl CodeLanguage {
     pub(crate) fn supports_auto_render(&self) -> bool {
         matches!(self, Self::Latex | Self::Typst)
+    }
+}
+
+impl FromStr for CodeLanguage {
+    type Err = Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use CodeLanguage::*;
+        let language = match s {
+            "ada" => Ada,
+            "asp" => Asp,
+            "awk" => Awk,
+            "c" => C,
+            "cmake" => CMake,
+            "crontab" => Crontab,
+            "csharp" => CSharp,
+            "clojure" => Clojure,
+            "cpp" | "c++" => Cpp,
+            "css" => Css,
+            "d" => DLang,
+            "diff" => Diff,
+            "docker" => Docker,
+            "dotenv" => Dotenv,
+            "elixir" => Elixir,
+            "elm" => Elm,
+            "erlang" => Erlang,
+            "go" => Go,
+            "haskell" => Haskell,
+            "html" => Html,
+            "java" => Java,
+            "javascript" | "js" => JavaScript,
+            "json" => Json,
+            "kotlin" => Kotlin,
+            "latex" => Latex,
+            "lua" => Lua,
+            "make" => Makefile,
+            "markdown" => Markdown,
+            "nix" => Nix,
+            "ocaml" => OCaml,
+            "perl" => Perl,
+            "php" => Php,
+            "protobuf" => Protobuf,
+            "puppet" => Puppet,
+            "python" => Python,
+            "r" => R,
+            "ruby" => Ruby,
+            "rust" => Rust,
+            "scala" => Scala,
+            "shell" => Shell("sh".into()),
+            interpreter @ ("bash" | "sh" | "zsh" | "fish") => Shell(interpreter.into()),
+            "sql" => Sql,
+            "svelte" => Svelte,
+            "swift" => Swift,
+            "terraform" => Terraform,
+            "typescript" | "ts" => TypeScript,
+            "typst" => Typst,
+            "xml" => Xml,
+            "yaml" => Yaml,
+            "vue" => Vue,
+            "zig" => Zig,
+            _ => Unknown,
+        };
+        Ok(language)
     }
 }
 
