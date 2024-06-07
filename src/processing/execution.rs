@@ -8,6 +8,7 @@ use crate::{
 };
 use itertools::Itertools;
 use std::{cell::RefCell, rc::Rc};
+use unicode_width::UnicodeWidthStr;
 
 use super::separator::RenderSeparator;
 
@@ -55,7 +56,7 @@ impl RunCodeOperation {
         if line.contains('\t') {
             line = line.replace('\t', "    ");
         }
-        let line_len = line.len() as u16;
+        let line_len = line.width() as u16;
         RenderOperation::RenderPreformattedLine(PreformattedLine {
             text: line,
             unformatted_length: line_len,
