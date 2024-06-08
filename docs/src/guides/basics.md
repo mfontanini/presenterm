@@ -85,6 +85,20 @@ author: Myself
 
 All of these attributes are optional so you're not forced to set them all.
 
+#### Multiple authors
+
+If you're creating a presentation in which there's multiple authors, you can use the `authors` key instead of `author`
+and list them all this way:
+
+```markdown
+---
+title: Our first presentation
+authors:
+  - Me
+  - You
+---
+```
+
 ### Slide titles
 
 Any [setext header](https://spec.commonmark.org/0.30/#setext-headings) will be considered to be a slide title and will 
