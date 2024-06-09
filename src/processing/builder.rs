@@ -305,6 +305,9 @@ impl<'a> PresentationBuilder<'a> {
             }
         }
         if let Some(overrides) = &metadata.overrides {
+            if overrides.extends.is_some() {
+                return Err(BuildError::InvalidMetadata("theme overrides can't use 'extends'".into()));
+            }
             // This shouldn't fail as the models are already correct.
             let theme = merge_struct::merge(self.theme.as_ref(), overrides)
                 .map_err(|e| BuildError::InvalidMetadata(format!("invalid theme: {e}")))?;
@@ -465,13 +468,13 @@ impl<'a> PresentationBuilder<'a> {
 
         let style = self.theme.slide_title.clone();
         let mut text_style = TextStyle::default().colors(style.colors.clone());
-        if style.bold {
+        if style.bold.unwrap_or_default() {
             text_style = text_style.bold();
         }
-        if style.italics {
+        if style.italics.unwrap_or_default() {
             text_style = text_style.italics();
         }
-        if style.underlined {
+        if style.underlined.unwrap_or_default() {
             text_style = text_style.underlined();
         }
         text.apply_style(&text_style);
