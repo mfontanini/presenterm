@@ -3,8 +3,8 @@ use comrak::Arena;
 use directories::ProjectDirs;
 use presenterm::{
     CodeExecutor, CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol,
-    ImageRegistry, LoadThemeError, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme,
-    PresentationThemeSet, Presenter, PresenterOptions, Resources, Themes, ThemesDemo, TypstRender, ValidateOverflows,
+    ImageRegistry, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet,
+    Presenter, PresenterOptions, Resources, Themes, ThemesDemo, TypstRender, ValidateOverflows,
 };
 use std::{
     env, io,
@@ -113,10 +113,7 @@ fn load_themes(config_path: &Path) -> Result<Themes, Box<dyn std::error::Error>>
     highlight_themes.register_from_directory(themes_path.join("highlighting"))?;
 
     let mut presentation_themes = PresentationThemeSet::default();
-    let register_result = presentation_themes.register_from_directory(&themes_path);
-    if let Err(e @ (LoadThemeError::Duplicate(_) | LoadThemeError::Corrupted(..))) = register_result {
-        return Err(e.into());
-    }
+    presentation_themes.register_from_directory(&themes_path)?;
 
     let themes = Themes { presentation: presentation_themes, highlight: highlight_themes };
     Ok(themes)
