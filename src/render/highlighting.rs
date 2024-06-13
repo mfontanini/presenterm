@@ -137,6 +137,7 @@ impl CodeHighlighter {
             Lua => "lua",
             Makefile => "make",
             Markdown => "md",
+            Mermaid => "txt",
             Nix => "nix",
             OCaml => "ml",
             Perl => "pl",

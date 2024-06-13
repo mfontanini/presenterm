@@ -170,7 +170,11 @@ pub struct PresentationTheme {
     #[serde(default)]
     pub(crate) typst: TypstStyle,
 
-    /// The style for typst auto-rendered code blocks.
+    /// The style for mermaid auto-rendered code blocks.
+    #[serde(default)]
+    pub(crate) mermaid: MermaidStyle,
+
+    /// The style for modals.
     #[serde(default)]
     pub(crate) modals: ModalStyle,
 }
@@ -605,6 +609,16 @@ pub(crate) struct TypstStyle {
     /// The colors to be used.
     #[serde(default)]
     pub(crate) colors: Colors,
+}
+
+/// Where to position the author's name in the intro slide.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct MermaidStyle {
+    /// The mermaidjs theme to use.
+    pub(crate) theme: Option<String>,
+
+    /// The background color to use.
+    pub(crate) background: Option<String>,
 }
 
 /// Modals style.

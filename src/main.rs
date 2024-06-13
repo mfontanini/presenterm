@@ -4,7 +4,7 @@ use directories::ProjectDirs;
 use presenterm::{
     CodeExecutor, CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol,
     ImageRegistry, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet,
-    Presenter, PresenterOptions, Resources, Themes, ThemesDemo, TypstRender, ValidateOverflows,
+    Presenter, PresenterOptions, Resources, Themes, ThemesDemo, ThirdPartyConfigs, ThirdPartyRender, ValidateOverflows,
 };
 use std::{
     env, io,
@@ -211,10 +211,13 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let printer = Rc::new(ImagePrinter::new(graphics_mode.clone())?);
     let registry = ImageRegistry(printer.clone());
     let resources = Resources::new(resources_path, registry.clone());
-    let typst = TypstRender::new(config.typst.ppi, registry, resources_path);
+    let third_party_config =
+        ThirdPartyConfigs { typst_ppi: config.typst.ppi.to_string(), mermaid_scale: config.mermaid.scale.to_string() };
+    let third_party = ThirdPartyRender::new(third_party_config, registry, resources_path);
     let code_executor = Rc::new(code_executor);
     if cli.export_pdf || cli.generate_pdf_metadata {
-        let mut exporter = Exporter::new(parser, &default_theme, resources, typst, code_executor, themes, options);
+        let mut exporter =
+            Exporter::new(parser, &default_theme, resources, third_party, code_executor, themes, options);
         let mut args = Vec::new();
         if let Some(theme) = cli.theme.as_ref() {
             args.extend(["--theme", theme]);
@@ -239,8 +242,17 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             bindings: config.bindings,
             validate_overflows,
         };
-        let presenter =
-            Presenter::new(&default_theme, commands, parser, resources, typst, code_executor, themes, printer, options);
+        let presenter = Presenter::new(
+            &default_theme,
+            commands,
+            parser,
+            resources,
+            third_party,
+            code_executor,
+            themes,
+            printer,
+            options,
+        );
         presenter.present(&path)?;
     }
     Ok(())

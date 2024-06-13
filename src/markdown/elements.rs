@@ -217,6 +217,7 @@ pub enum CodeLanguage {
     Latex,
     Lua,
     Makefile,
+    Mermaid,
     Markdown,
     Nix,
     OCaml,
@@ -245,7 +246,7 @@ pub enum CodeLanguage {
 
 impl CodeLanguage {
     pub(crate) fn supports_auto_render(&self) -> bool {
-        matches!(self, Self::Latex | Self::Typst)
+        matches!(self, Self::Latex | Self::Typst | Self::Mermaid)
     }
 }
 
@@ -283,6 +284,7 @@ impl FromStr for CodeLanguage {
             "lua" => Lua,
             "make" => Makefile,
             "markdown" => Markdown,
+            "mermaid" => Mermaid,
             "nix" => Nix,
             "ocaml" => OCaml,
             "perl" => Perl,

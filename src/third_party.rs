@@ -1,31 +1,36 @@
 use crate::{
+    custom::{default_mermaid_scale, default_typst_ppi},
     media::{image::Image, printer::RegisterImageError},
     style::Color,
-    theme::TypstStyle,
+    theme::{MermaidStyle, TypstStyle},
     tools::{ExecutionError, ThirdPartyTools},
     ImageRegistry,
 };
 use std::{fs, io, path::Path};
 use tempfile::tempdir_in;
 
-const DEFAULT_PPI: u32 = 300;
 const DEFAULT_HORIZONTAL_MARGIN: u16 = 5;
 const DEFAULT_VERTICAL_MARGIN: u16 = 7;
 
-pub struct TypstRender {
-    ppi: String,
+pub struct ThirdPartyConfigs {
+    pub typst_ppi: String,
+    pub mermaid_scale: String,
+}
+
+pub struct ThirdPartyRender {
+    config: ThirdPartyConfigs,
     image_registry: ImageRegistry,
     root_dir: String,
 }
 
-impl TypstRender {
-    pub fn new(ppi: u32, image_registry: ImageRegistry, root_dir: &Path) -> Self {
+impl ThirdPartyRender {
+    pub fn new(config: ThirdPartyConfigs, image_registry: ImageRegistry, root_dir: &Path) -> Self {
         // typst complains about empty paths so we give it a "." if we don't have one.
         let root_dir = match root_dir.to_string_lossy().to_string() {
             path if path.is_empty() => ".".into(),
             path => path,
         };
-        Self { ppi: ppi.to_string(), image_registry, root_dir }
+        Self { config, image_registry, root_dir }
     }
 
     pub(crate) fn render_typst(&self, input: &str, style: &TypstStyle) -> Result<Image, TypstRenderError> {
@@ -47,6 +52,32 @@ impl TypstRender {
         self.render_typst(&input, style)
     }
 
+    pub(crate) fn render_mermaid(&self, input: &str, style: &MermaidStyle) -> Result<Image, TypstRenderError> {
+        let workdir = tempdir_in(&self.root_dir)?;
+        let output_path = workdir.path().join("output.png");
+        let input_path = workdir.path().join("input.mmd");
+        fs::write(&input_path, input)?;
+
+        ThirdPartyTools::mermaid(&[
+            "-i",
+            &input_path.to_string_lossy(),
+            "-o",
+            &output_path.to_string_lossy(),
+            "-s",
+            &self.config.mermaid_scale,
+            "-t",
+            style.theme.as_deref().unwrap_or("default"),
+            "-b",
+            style.background.as_deref().unwrap_or("white"),
+        ])
+        .run()?;
+
+        let png_contents = fs::read(&output_path)?;
+        let image = image::load_from_memory(&png_contents)?;
+        let image = self.image_registry.register_image(image)?;
+        Ok(image)
+    }
+
     fn render_to_image(&self, base_path: &Path, path: &Path) -> Result<Image, TypstRenderError> {
         let output_path = base_path.join("output.png");
         ThirdPartyTools::typst(&[
@@ -56,7 +87,7 @@ impl TypstRender {
             "--root",
             &self.root_dir,
             "--ppi",
-            &self.ppi,
+            &self.config.typst_ppi,
             &path.to_string_lossy(),
             &output_path.to_string_lossy(),
         ])
@@ -91,9 +122,13 @@ impl TypstRender {
     }
 }
 
-impl Default for TypstRender {
+impl Default for ThirdPartyRender {
     fn default() -> Self {
-        Self::new(DEFAULT_PPI, Default::default(), Path::new("."))
+        let config = ThirdPartyConfigs {
+            typst_ppi: default_typst_ppi().to_string(),
+            mermaid_scale: default_mermaid_scale().to_string(),
+        };
+        Self::new(config, Default::default(), Path::new("."))
     }
 }
 

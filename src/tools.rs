@@ -17,6 +17,10 @@ impl ThirdPartyTools {
         Tool::new("typst", args)
     }
 
+    pub(crate) fn mermaid(args: &[&str]) -> Tool {
+        Tool::new("mmdc", args)
+    }
+
     pub(crate) fn presenterm_export(args: &[&str]) -> Tool {
         Tool::new("presenterm-export", args).inherit_stdout()
     }

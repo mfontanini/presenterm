@@ -8,8 +8,8 @@ use crate::{
     },
     presentation::{Presentation, RenderOperation},
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
+    third_party::ThirdPartyRender,
     tools::{ExecutionError, ThirdPartyTools},
-    typst::TypstRender,
     MarkdownParser, PresentationTheme, Resources,
 };
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -29,7 +29,7 @@ pub struct Exporter<'a> {
     parser: MarkdownParser<'a>,
     default_theme: &'a PresentationTheme,
     resources: Resources,
-    typst: TypstRender,
+    third_party: ThirdPartyRender,
     code_executor: Rc<CodeExecutor>,
     themes: Themes,
     options: PresentationBuilderOptions,
@@ -41,12 +41,12 @@ impl<'a> Exporter<'a> {
         parser: MarkdownParser<'a>,
         default_theme: &'a PresentationTheme,
         resources: Resources,
-        typst: TypstRender,
+        third_party: ThirdPartyRender,
         code_executor: Rc<CodeExecutor>,
         themes: Themes,
         options: PresentationBuilderOptions,
     ) -> Self {
-        Self { parser, default_theme, resources, typst, code_executor, themes, options }
+        Self { parser, default_theme, resources, third_party, code_executor, themes, options }
     }
 
     /// Export the given presentation into PDF.
@@ -85,7 +85,7 @@ impl<'a> Exporter<'a> {
         let mut presentation = PresentationBuilder::new(
             self.default_theme,
             &mut self.resources,
-            &mut self.typst,
+            &mut self.third_party,
             self.code_executor.clone(),
             &self.themes,
             Default::default(),
@@ -302,11 +302,11 @@ mod test {
         let parser = MarkdownParser::new(&arena);
         let theme = PresentationThemeSet::default().load_by_name("dark").unwrap();
         let resources = Resources::new("examples", Default::default());
-        let typst = TypstRender::default();
+        let third_party = ThirdPartyRender::default();
         let code_executor = Default::default();
         let themes = Themes::default();
         let options = PresentationBuilderOptions { allow_mutations: false, ..Default::default() };
-        let mut exporter = Exporter::new(parser, &theme, resources, typst, code_executor, themes, options);
+        let mut exporter = Exporter::new(parser, &theme, resources, third_party, code_executor, themes, options);
         exporter.extract_metadata(content, Path::new(path)).expect("metadata extraction failed")
     }
 

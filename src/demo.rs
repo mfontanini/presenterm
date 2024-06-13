@@ -8,7 +8,7 @@ use crate::{
     presentation::Presentation,
     processing::builder::{BuildError, PresentationBuilder},
     render::{draw::TerminalDrawer, terminal::TerminalWrite},
-    ImageRegistry, MarkdownParser, PresentationBuilderOptions, PresentationTheme, Resources, Themes, TypstRender,
+    ImageRegistry, MarkdownParser, PresentationBuilderOptions, PresentationTheme, Resources, Themes, ThirdPartyRender,
 };
 use std::{io, rc::Rc};
 
@@ -100,14 +100,14 @@ impl<W: TerminalWrite> ThemesDemo<W> {
     ) -> Result<Presentation, BuildError> {
         let image_registry = ImageRegistry::default();
         let mut resources = Resources::new("non_existent", image_registry.clone());
-        let mut typst = TypstRender::default();
+        let mut third_party = ThirdPartyRender::default();
         let options = PresentationBuilderOptions::default();
         let executer = Rc::new(CodeExecutor::default());
         let bindings_config = Default::default();
         let builder = PresentationBuilder::new(
             theme,
             &mut resources,
-            &mut typst,
+            &mut third_party,
             executer,
             &self.themes,
             image_registry,
