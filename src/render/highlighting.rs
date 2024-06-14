@@ -157,7 +157,7 @@ impl CodeHighlighter {
             TypeScript => "ts",
             Typst => "txt",
             // default to plain text so we get the same look&feel
-            Unknown => "txt",
+            Unknown(_) => "txt",
             Vue => "vue",
             Xml => "xml",
             Yaml => "yaml",

@@ -33,7 +33,7 @@ impl ThirdPartyRender {
         Self { config, image_registry, root_dir }
     }
 
-    pub(crate) fn render_typst(&self, input: &str, style: &TypstStyle) -> Result<Image, TypstRenderError> {
+    pub(crate) fn render_typst(&self, input: &str, style: &TypstStyle) -> Result<Image, ThirdPartyRenderError> {
         let workdir = tempdir_in(&self.root_dir)?;
         let mut typst_input = Self::generate_page_header(style)?;
         typst_input.push_str(input);
@@ -43,7 +43,7 @@ impl ThirdPartyRender {
         self.render_to_image(workdir.path(), &input_path)
     }
 
-    pub(crate) fn render_latex(&self, input: &str, style: &TypstStyle) -> Result<Image, TypstRenderError> {
+    pub(crate) fn render_latex(&self, input: &str, style: &TypstStyle) -> Result<Image, ThirdPartyRenderError> {
         let output = ThirdPartyTools::pandoc(&["--from", "latex", "--to", "typst"])
             .stdin(input.as_bytes().into())
             .run_and_capture_stdout()?;
@@ -52,7 +52,7 @@ impl ThirdPartyRender {
         self.render_typst(&input, style)
     }
 
-    pub(crate) fn render_mermaid(&self, input: &str, style: &MermaidStyle) -> Result<Image, TypstRenderError> {
+    pub(crate) fn render_mermaid(&self, input: &str, style: &MermaidStyle) -> Result<Image, ThirdPartyRenderError> {
         let workdir = tempdir_in(&self.root_dir)?;
         let output_path = workdir.path().join("output.png");
         let input_path = workdir.path().join("input.mmd");
@@ -78,7 +78,7 @@ impl ThirdPartyRender {
         Ok(image)
     }
 
-    fn render_to_image(&self, base_path: &Path, path: &Path) -> Result<Image, TypstRenderError> {
+    fn render_to_image(&self, base_path: &Path, path: &Path) -> Result<Image, ThirdPartyRenderError> {
         let output_path = base_path.join("output.png");
         ThirdPartyTools::typst(&[
             "compile",
@@ -99,7 +99,7 @@ impl ThirdPartyRender {
         Ok(image)
     }
 
-    fn generate_page_header(style: &TypstStyle) -> Result<String, TypstRenderError> {
+    fn generate_page_header(style: &TypstStyle) -> Result<String, ThirdPartyRenderError> {
         let x_margin = style.horizontal_margin.unwrap_or(DEFAULT_HORIZONTAL_MARGIN);
         let y_margin = style.vertical_margin.unwrap_or(DEFAULT_VERTICAL_MARGIN);
         let background =
@@ -114,10 +114,10 @@ impl ThirdPartyRender {
         Ok(header)
     }
 
-    fn as_typst_color(color: &Color) -> Result<String, TypstRenderError> {
+    fn as_typst_color(color: &Color) -> Result<String, ThirdPartyRenderError> {
         match color.as_rgb() {
             Some((r, g, b)) => Ok(format!("rgb(\"#{r:02x}{g:02x}{b:02x}\")")),
-            None => Err(TypstRenderError::UnsupportedColor(color.to_string())),
+            None => Err(ThirdPartyRenderError::UnsupportedColor(color.to_string())),
         }
     }
 }
@@ -133,7 +133,7 @@ impl Default for ThirdPartyRender {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum TypstRenderError {
+pub enum ThirdPartyRenderError {
     #[error(transparent)]
     Execution(#[from] ExecutionError),
 

@@ -237,7 +237,7 @@ pub enum CodeLanguage {
     Terraform,
     TypeScript,
     Typst,
-    Unknown,
+    Unknown(String),
     Xml,
     Yaml,
     Vue,
@@ -308,7 +308,7 @@ impl FromStr for CodeLanguage {
             "yaml" => Yaml,
             "vue" => Vue,
             "zig" => Zig,
-            _ => Unknown,
+            other => Unknown(other.to_string()),
         };
         Ok(language)
     }

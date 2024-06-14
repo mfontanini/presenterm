@@ -26,7 +26,7 @@ use crate::{
     theme::{
         Alignment, AuthorPositioning, ElementType, LoadThemeError, Margin, PresentationTheme, PresentationThemeSet,
     },
-    third_party::{ThirdPartyRender, TypstRenderError},
+    third_party::{ThirdPartyRender, ThirdPartyRenderError},
 };
 use image::DynamicImage;
 use serde::Deserialize;
@@ -706,7 +706,7 @@ impl<'a> PresentationBuilder<'a> {
     fn highlight_lines(&self, code: &Code) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
         let lines = CodePreparer::new(&self.theme).prepare(code);
         let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
-        let mut empty_highlighter = self.highlighter.language_highlighter(&CodeLanguage::Unknown);
+        let mut empty_highlighter = self.highlighter.language_highlighter(&CodeLanguage::Unknown(String::new()));
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let padding_style = {
             let mut highlighter = self.highlighter.language_highlighter(&CodeLanguage::Rust);
@@ -910,8 +910,8 @@ pub enum BuildError {
     #[error("error parsing command at line {line}: {error}")]
     CommandParse { line: usize, error: CommandParseError },
 
-    #[error("typst render failed: {0}")]
-    TypstRender(#[from] TypstRenderError),
+    #[error("third party render failed: {0}")]
+    ThirdPartyRender(#[from] ThirdPartyRenderError),
 
     #[error("language {0:?} does not support execution")]
     UnsupportedExecution(CodeLanguage),
