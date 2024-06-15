@@ -147,6 +147,7 @@ impl CodeHighlighter {
             R => "r",
             Ruby => "rb",
             Rust => "rs",
+            RustScript => "rs",
             Scala => "scala",
             Shell(_) => "sh",
             Sql => "sql",

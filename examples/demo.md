@@ -120,7 +120,7 @@ And many more!
 Dynamic code highlighting
 ---
 
-Select specific subsets of lines to be highlighted dynamically as you move to the next slide. Optionally enable line 
+Select specific subsets of lines to be highlighted dynamically as you move to the next slide. Optionally enable line
 numbers to make it easier to specify which lines you're referring to!
 
 ```rust {1-4|6-10|all} +line_numbers
@@ -149,6 +149,48 @@ do
     echo "hi $i"
     sleep 0.5
 done
+```
+
+<!-- end_slide -->
+
+Shell Rust code execution 1
+---
+
+```rust-script +exec
+#!/usr/bin/env rust-script
+//! Dependencies can be specified in the script file itself as follows:
+//!
+//! ```cargo
+//! [dependencies]
+//! rand = "0.8.0"
+//! ```
+
+use rand::prelude::*;
+
+fn main() {
+    let x: u64 = random();
+    println!("A random number: {}", x);
+}
+```
+
+<!-- end_slide -->
+
+Shell Rust code execution 2
+---
+
+```rust-script +exec
+#!/usr/bin/env rust-script
+//! This is a regular crate doc comment, but it also contains a partial
+//! Cargo manifest.  Note the use of a *fenced* code block, and the
+//! `cargo` "language".
+//!
+//! ```cargo
+//! [dependencies]
+//! time = "0.1.25"
+//! ```
+fn main() {
+    println!("{}", time::now().rfc822z());
+}
 ```
 
 <!-- end_slide -->
@@ -199,7 +241,7 @@ _Picture by Alexis Bailey / CC BY-NC 4.0_
 
 <!-- reset_layout -->
 
-Because we just reset the layout, this text is now below both of the columns. Code and any other element will now look 
+Because we just reset the layout, this text is now below both of the columns. Code and any other element will now look
 like it usually does:
 
 ```python
@@ -245,4 +287,3 @@ Other elements supported are:
 A horizontal line by using `---`.
 
 ---
-
