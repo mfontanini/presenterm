@@ -1,3 +1,3 @@
-#!/usr/bin/env rust-script
+#!/usr/bin/env bash
 
 rust-script "$1"
