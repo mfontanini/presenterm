@@ -67,11 +67,6 @@ impl CodeExecutor {
                 let args: &[&str] = &[];
                 Self::execute_shell(interpreter, code.contents.as_bytes(), args)
             }
-            // CodeLanguage::RustScript => {
-            //     let executor = self.executor(&CodeLanguage::RustScript)
-            //         .ok_or(CodeExecuteError::UnsupportedExecution)?;
-            //     Self::execute_lang(executor, code.contents.as_bytes())
-            // }
             lang => {
                 let executor = self.executor(lang).ok_or(CodeExecuteError::UnsupportedExecution)?;
                 Self::execute_lang(executor, code.contents.as_bytes())
