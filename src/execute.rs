@@ -36,7 +36,7 @@ impl CodeExecutor {
                     return Err(LoadExecutorsError::InvalidExecutor(path, "non .sh extension"));
                 }
                 let language: CodeLanguage = match name.parse() {
-                    Ok(CodeLanguage::Unknown) => {
+                    Ok(CodeLanguage::Unknown(_)) => {
                         return Err(LoadExecutorsError::InvalidExecutor(path, "unknown language"));
                     }
                     Ok(language) => language,
@@ -293,11 +293,6 @@ echo 'hello world'
 
         let expected_lines = vec!["This message redirects to stderr", "hello world"];
         assert_eq!(state.output, expected_lines);
-    }
-
-    #[test]
-    fn validate_builtin_executors() {
-        assert!(EXECUTORS.get(&CodeLanguage::Unknown).is_none(), "unknown language in executors");
     }
 
     #[test]

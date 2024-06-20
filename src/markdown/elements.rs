@@ -217,6 +217,7 @@ pub enum CodeLanguage {
     Latex,
     Lua,
     Makefile,
+    Mermaid,
     Markdown,
     Nix,
     OCaml,
@@ -237,7 +238,7 @@ pub enum CodeLanguage {
     Terraform,
     TypeScript,
     Typst,
-    Unknown,
+    Unknown(String),
     Xml,
     Yaml,
     Vue,
@@ -246,7 +247,7 @@ pub enum CodeLanguage {
 
 impl CodeLanguage {
     pub(crate) fn supports_auto_render(&self) -> bool {
-        matches!(self, Self::Latex | Self::Typst)
+        matches!(self, Self::Latex | Self::Typst | Self::Mermaid)
     }
 }
 
@@ -284,6 +285,7 @@ impl FromStr for CodeLanguage {
             "lua" => Lua,
             "make" => Makefile,
             "markdown" => Markdown,
+            "mermaid" => Mermaid,
             "nix" => Nix,
             "ocaml" => OCaml,
             "perl" => Perl,
@@ -308,7 +310,7 @@ impl FromStr for CodeLanguage {
             "yaml" => Yaml,
             "vue" => Vue,
             "zig" => Zig,
-            _ => Unknown,
+            other => Unknown(other.to_string()),
         };
         Ok(language)
     }

@@ -26,7 +26,7 @@ use crate::{
     theme::{
         Alignment, AuthorPositioning, ElementType, LoadThemeError, Margin, PresentationTheme, PresentationThemeSet,
     },
-    typst::{TypstRender, TypstRenderError},
+    third_party::{ThirdPartyRender, ThirdPartyRenderError},
 };
 use image::DynamicImage;
 use serde::Deserialize;
@@ -98,7 +98,7 @@ pub(crate) struct PresentationBuilder<'a> {
     code_executor: Rc<CodeExecutor>,
     theme: Cow<'a, PresentationTheme>,
     resources: &'a mut Resources,
-    typst: &'a mut TypstRender,
+    third_party: &'a mut ThirdPartyRender,
     slide_state: SlideState,
     footer_context: Rc<RefCell<FooterContext>>,
     themes: &'a Themes,
@@ -114,7 +114,7 @@ impl<'a> PresentationBuilder<'a> {
     pub(crate) fn new(
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
-        typst: &'a mut TypstRender,
+        third_party: &'a mut ThirdPartyRender,
         code_executor: Rc<CodeExecutor>,
         themes: &'a Themes,
         image_registry: ImageRegistry,
@@ -130,7 +130,7 @@ impl<'a> PresentationBuilder<'a> {
             code_executor,
             theme: Cow::Borrowed(default_theme),
             resources,
-            typst,
+            third_party,
             slide_state: Default::default(),
             footer_context: Default::default(),
             themes,
@@ -694,8 +694,9 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_rendered_code(&mut self, code: Code) -> Result<(), BuildError> {
         let image = match code.language {
-            CodeLanguage::Typst => self.typst.render_typst(&code.contents, &self.theme.typst)?,
-            CodeLanguage::Latex => self.typst.render_latex(&code.contents, &self.theme.typst)?,
+            CodeLanguage::Typst => self.third_party.render_typst(&code.contents, &self.theme.typst)?,
+            CodeLanguage::Latex => self.third_party.render_latex(&code.contents, &self.theme.typst)?,
+            CodeLanguage::Mermaid => self.third_party.render_mermaid(&code.contents, &self.theme.mermaid)?,
             _ => panic!("language {:?} should not be renderable", code.language),
         };
         self.push_image(image);
@@ -705,7 +706,7 @@ impl<'a> PresentationBuilder<'a> {
     fn highlight_lines(&self, code: &Code) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
         let lines = CodePreparer::new(&self.theme).prepare(code);
         let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
-        let mut empty_highlighter = self.highlighter.language_highlighter(&CodeLanguage::Unknown);
+        let mut empty_highlighter = self.highlighter.language_highlighter(&CodeLanguage::Unknown(String::new()));
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let padding_style = {
             let mut highlighter = self.highlighter.language_highlighter(&CodeLanguage::Rust);
@@ -909,8 +910,8 @@ pub enum BuildError {
     #[error("error parsing command at line {line}: {error}")]
     CommandParse { line: usize, error: CommandParseError },
 
-    #[error("typst render failed: {0}")]
-    TypstRender(#[from] TypstRenderError),
+    #[error("third party render failed: {0}")]
+    ThirdPartyRender(#[from] ThirdPartyRenderError),
 
     #[error("language {0:?} does not support execution")]
     UnsupportedExecution(CodeLanguage),
@@ -1065,14 +1066,14 @@ mod test {
     ) -> Result<Presentation, BuildError> {
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp", Default::default());
-        let mut typst = TypstRender::default();
+        let mut third_party = ThirdPartyRender::default();
         let code_executor = Rc::new(CodeExecutor::default());
         let themes = Themes::default();
         let bindings = KeyBindingsConfig::default();
         let builder = PresentationBuilder::new(
             &theme,
             &mut resources,
-            &mut typst,
+            &mut third_party,
             code_executor,
             &themes,
             Default::default(),

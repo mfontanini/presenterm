@@ -180,7 +180,7 @@ mod test {
 
     #[test]
     fn unknown_language() {
-        assert_eq!(parse_language("potato"), CodeLanguage::Unknown);
+        assert_eq!(parse_language("potato"), CodeLanguage::Unknown("potato".to_string()));
     }
 
     #[test]

@@ -189,7 +189,7 @@ mod test {
         let input_lines = "hi\n".repeat(total_lines);
         let code = Code {
             contents: input_lines,
-            language: CodeLanguage::Unknown,
+            language: CodeLanguage::Unknown("".to_string()),
             attributes: CodeAttributes { line_numbers: true, ..Default::default() },
         };
         let lines = CodePreparer { theme: &Default::default() }.prepare(&code);

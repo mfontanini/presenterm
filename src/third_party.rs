@@ -1,34 +1,39 @@
 use crate::{
+    custom::{default_mermaid_scale, default_typst_ppi},
     media::{image::Image, printer::RegisterImageError},
     style::Color,
-    theme::TypstStyle,
+    theme::{MermaidStyle, TypstStyle},
     tools::{ExecutionError, ThirdPartyTools},
     ImageRegistry,
 };
 use std::{fs, io, path::Path};
 use tempfile::tempdir_in;
 
-const DEFAULT_PPI: u32 = 300;
 const DEFAULT_HORIZONTAL_MARGIN: u16 = 5;
 const DEFAULT_VERTICAL_MARGIN: u16 = 7;
 
-pub struct TypstRender {
-    ppi: String,
+pub struct ThirdPartyConfigs {
+    pub typst_ppi: String,
+    pub mermaid_scale: String,
+}
+
+pub struct ThirdPartyRender {
+    config: ThirdPartyConfigs,
     image_registry: ImageRegistry,
     root_dir: String,
 }
 
-impl TypstRender {
-    pub fn new(ppi: u32, image_registry: ImageRegistry, root_dir: &Path) -> Self {
+impl ThirdPartyRender {
+    pub fn new(config: ThirdPartyConfigs, image_registry: ImageRegistry, root_dir: &Path) -> Self {
         // typst complains about empty paths so we give it a "." if we don't have one.
         let root_dir = match root_dir.to_string_lossy().to_string() {
             path if path.is_empty() => ".".into(),
             path => path,
         };
-        Self { ppi: ppi.to_string(), image_registry, root_dir }
+        Self { config, image_registry, root_dir }
     }
 
-    pub(crate) fn render_typst(&self, input: &str, style: &TypstStyle) -> Result<Image, TypstRenderError> {
+    pub(crate) fn render_typst(&self, input: &str, style: &TypstStyle) -> Result<Image, ThirdPartyRenderError> {
         let workdir = tempdir_in(&self.root_dir)?;
         let mut typst_input = Self::generate_page_header(style)?;
         typst_input.push_str(input);
@@ -38,7 +43,7 @@ impl TypstRender {
         self.render_to_image(workdir.path(), &input_path)
     }
 
-    pub(crate) fn render_latex(&self, input: &str, style: &TypstStyle) -> Result<Image, TypstRenderError> {
+    pub(crate) fn render_latex(&self, input: &str, style: &TypstStyle) -> Result<Image, ThirdPartyRenderError> {
         let output = ThirdPartyTools::pandoc(&["--from", "latex", "--to", "typst"])
             .stdin(input.as_bytes().into())
             .run_and_capture_stdout()?;
@@ -47,7 +52,33 @@ impl TypstRender {
         self.render_typst(&input, style)
     }
 
-    fn render_to_image(&self, base_path: &Path, path: &Path) -> Result<Image, TypstRenderError> {
+    pub(crate) fn render_mermaid(&self, input: &str, style: &MermaidStyle) -> Result<Image, ThirdPartyRenderError> {
+        let workdir = tempdir_in(&self.root_dir)?;
+        let output_path = workdir.path().join("output.png");
+        let input_path = workdir.path().join("input.mmd");
+        fs::write(&input_path, input)?;
+
+        ThirdPartyTools::mermaid(&[
+            "-i",
+            &input_path.to_string_lossy(),
+            "-o",
+            &output_path.to_string_lossy(),
+            "-s",
+            &self.config.mermaid_scale,
+            "-t",
+            style.theme.as_deref().unwrap_or("default"),
+            "-b",
+            style.background.as_deref().unwrap_or("white"),
+        ])
+        .run()?;
+
+        let png_contents = fs::read(&output_path)?;
+        let image = image::load_from_memory(&png_contents)?;
+        let image = self.image_registry.register_image(image)?;
+        Ok(image)
+    }
+
+    fn render_to_image(&self, base_path: &Path, path: &Path) -> Result<Image, ThirdPartyRenderError> {
         let output_path = base_path.join("output.png");
         ThirdPartyTools::typst(&[
             "compile",
@@ -56,7 +87,7 @@ impl TypstRender {
             "--root",
             &self.root_dir,
             "--ppi",
-            &self.ppi,
+            &self.config.typst_ppi,
             &path.to_string_lossy(),
             &output_path.to_string_lossy(),
         ])
@@ -68,7 +99,7 @@ impl TypstRender {
         Ok(image)
     }
 
-    fn generate_page_header(style: &TypstStyle) -> Result<String, TypstRenderError> {
+    fn generate_page_header(style: &TypstStyle) -> Result<String, ThirdPartyRenderError> {
         let x_margin = style.horizontal_margin.unwrap_or(DEFAULT_HORIZONTAL_MARGIN);
         let y_margin = style.vertical_margin.unwrap_or(DEFAULT_VERTICAL_MARGIN);
         let background =
@@ -83,22 +114,26 @@ impl TypstRender {
         Ok(header)
     }
 
-    fn as_typst_color(color: &Color) -> Result<String, TypstRenderError> {
+    fn as_typst_color(color: &Color) -> Result<String, ThirdPartyRenderError> {
         match color.as_rgb() {
             Some((r, g, b)) => Ok(format!("rgb(\"#{r:02x}{g:02x}{b:02x}\")")),
-            None => Err(TypstRenderError::UnsupportedColor(color.to_string())),
+            None => Err(ThirdPartyRenderError::UnsupportedColor(color.to_string())),
         }
     }
 }
 
-impl Default for TypstRender {
+impl Default for ThirdPartyRender {
     fn default() -> Self {
-        Self::new(DEFAULT_PPI, Default::default(), Path::new("."))
+        let config = ThirdPartyConfigs {
+            typst_ppi: default_typst_ppi().to_string(),
+            mermaid_scale: default_mermaid_scale().to_string(),
+        };
+        Self::new(config, Default::default(), Path::new("."))
     }
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum TypstRenderError {
+pub enum ThirdPartyRenderError {
     #[error(transparent)]
     Execution(#[from] ExecutionError),
 

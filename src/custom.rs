@@ -16,8 +16,10 @@ pub struct Config {
     pub defaults: DefaultsConfig,
 
     #[serde(default)]
-    #[validate(range(min = 1))]
     pub typst: TypstConfig,
+
+    #[serde(default)]
+    pub mermaid: MermaidConfig,
 
     #[serde(default)]
     pub options: OptionsConfig,
@@ -126,8 +128,26 @@ impl Default for TypstConfig {
     }
 }
 
-fn default_typst_ppi() -> u32 {
+pub(crate) fn default_typst_ppi() -> u32 {
     300
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MermaidConfig {
+    /// The scaling parameter to be used in the mermaid CLI.
+    #[serde(default = "default_mermaid_scale")]
+    pub scale: u32,
+}
+
+impl Default for MermaidConfig {
+    fn default() -> Self {
+        Self { scale: default_mermaid_scale() }
+    }
+}
+
+pub(crate) fn default_mermaid_scale() -> u32 {
+    2
 }
 
 #[derive(Clone, Debug, Default, Deserialize, ValueEnum, JsonSchema)]

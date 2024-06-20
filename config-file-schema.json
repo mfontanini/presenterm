@@ -14,16 +14,14 @@
         }
       ]
     },
+    "mermaid": {
+      "$ref": "#/definitions/MermaidConfig"
+    },
     "options": {
       "$ref": "#/definitions/OptionsConfig"
     },
     "typst": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/TypstConfig"
-        }
-      ],
-      "minimum": 1.0
+      "$ref": "#/definitions/TypstConfig"
     }
   },
   "additionalProperties": false,
@@ -206,6 +204,19 @@
           "items": {
             "$ref": "#/definitions/KeyBinding"
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "MermaidConfig": {
+      "type": "object",
+      "properties": {
+        "scale": {
+          "description": "The scaling parameter to be used in the mermaid CLI.",
+          "default": 2,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
         }
       },
       "additionalProperties": false

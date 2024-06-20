@@ -137,6 +137,7 @@ impl CodeHighlighter {
             Lua => "lua",
             Makefile => "make",
             Markdown => "md",
+            Mermaid => "txt",
             Nix => "nix",
             OCaml => "ml",
             Perl => "pl",
@@ -157,7 +158,7 @@ impl CodeHighlighter {
             TypeScript => "ts",
             Typst => "txt",
             // default to plain text so we get the same look&feel
-            Unknown => "txt",
+            Unknown(_) => "txt",
             Vue => "vue",
             Xml => "xml",
             Yaml => "yaml",
