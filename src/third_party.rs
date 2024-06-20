@@ -6,7 +6,7 @@ use crate::{
     tools::{ExecutionError, ThirdPartyTools},
     ImageRegistry,
 };
-use std::{fs, io, path::Path};
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, fs, io, path::Path};
 use tempfile::tempdir_in;
 
 const DEFAULT_HORIZONTAL_MARGIN: u16 = 5;
@@ -21,6 +21,7 @@ pub struct ThirdPartyRender {
     config: ThirdPartyConfigs,
     image_registry: ImageRegistry,
     root_dir: String,
+    cache: RefCell<HashMap<ImageSnippet<'static>, Image>>,
 }
 
 impl ThirdPartyRender {
@@ -30,29 +31,35 @@ impl ThirdPartyRender {
             path if path.is_empty() => ".".into(),
             path => path,
         };
-        Self { config, image_registry, root_dir }
+        Self { config, image_registry, root_dir, cache: Default::default() }
     }
 
     pub(crate) fn render_typst(&self, input: &str, style: &TypstStyle) -> Result<Image, ThirdPartyRenderError> {
-        let workdir = tempdir_in(&self.root_dir)?;
-        let mut typst_input = Self::generate_page_header(style)?;
-        typst_input.push_str(input);
-
-        let input_path = workdir.path().join("input.typst");
-        fs::write(&input_path, &typst_input)?;
-        self.render_to_image(workdir.path(), &input_path)
+        let snippet = ImageSnippet { snippet: Cow::Borrowed(input), source: SnippetSource::Typst };
+        if let Some(image) = self.cache.borrow().get(&snippet).cloned() {
+            return Ok(image);
+        }
+        self.do_render_typst(snippet, input, style)
     }
 
     pub(crate) fn render_latex(&self, input: &str, style: &TypstStyle) -> Result<Image, ThirdPartyRenderError> {
+        let snippet = ImageSnippet { snippet: Cow::Borrowed(input), source: SnippetSource::Latex };
+        if let Some(image) = self.cache.borrow().get(&snippet).cloned() {
+            return Ok(image);
+        }
         let output = ThirdPartyTools::pandoc(&["--from", "latex", "--to", "typst"])
             .stdin(input.as_bytes().into())
             .run_and_capture_stdout()?;
 
         let input = String::from_utf8_lossy(&output);
-        self.render_typst(&input, style)
+        self.do_render_typst(snippet, &input, style)
     }
 
     pub(crate) fn render_mermaid(&self, input: &str, style: &MermaidStyle) -> Result<Image, ThirdPartyRenderError> {
+        let snippet = ImageSnippet { snippet: Cow::Borrowed(input), source: SnippetSource::Mermaid };
+        if let Some(image) = self.cache.borrow().get(&snippet).cloned() {
+            return Ok(image);
+        }
         let workdir = tempdir_in(&self.root_dir)?;
         let output_path = workdir.path().join("output.png");
         let input_path = workdir.path().join("input.mmd");
@@ -72,14 +79,23 @@ impl ThirdPartyRender {
         ])
         .run()?;
 
-        let png_contents = fs::read(&output_path)?;
-        let image = image::load_from_memory(&png_contents)?;
-        let image = self.image_registry.register_image(image)?;
-        Ok(image)
+        self.load_image(snippet, &output_path)
     }
 
-    fn render_to_image(&self, base_path: &Path, path: &Path) -> Result<Image, ThirdPartyRenderError> {
-        let output_path = base_path.join("output.png");
+    fn do_render_typst(
+        &self,
+        snippet: ImageSnippet,
+        input: &str,
+        style: &TypstStyle,
+    ) -> Result<Image, ThirdPartyRenderError> {
+        let workdir = tempdir_in(&self.root_dir)?;
+        let mut typst_input = Self::generate_page_header(style)?;
+        typst_input.push_str(input);
+
+        let input_path = workdir.path().join("input.typst");
+        fs::write(&input_path, &typst_input)?;
+
+        let output_path = workdir.path().join("output.png");
         ThirdPartyTools::typst(&[
             "compile",
             "--format",
@@ -88,15 +104,12 @@ impl ThirdPartyRender {
             &self.root_dir,
             "--ppi",
             &self.config.typst_ppi,
-            &path.to_string_lossy(),
+            &input_path.to_string_lossy(),
             &output_path.to_string_lossy(),
         ])
         .run()?;
 
-        let png_contents = fs::read(&output_path)?;
-        let image = image::load_from_memory(&png_contents)?;
-        let image = self.image_registry.register_image(image)?;
-        Ok(image)
+        self.load_image(snippet, &output_path)
     }
 
     fn generate_page_header(style: &TypstStyle) -> Result<String, ThirdPartyRenderError> {
@@ -119,6 +132,15 @@ impl ThirdPartyRender {
             Some((r, g, b)) => Ok(format!("rgb(\"#{r:02x}{g:02x}{b:02x}\")")),
             None => Err(ThirdPartyRenderError::UnsupportedColor(color.to_string())),
         }
+    }
+
+    fn load_image(&self, snippet: ImageSnippet, path: &Path) -> Result<Image, ThirdPartyRenderError> {
+        let contents = fs::read(path)?;
+        let image = image::load_from_memory(&contents)?;
+        let image = self.image_registry.register_image(image)?;
+        let snippet = ImageSnippet { snippet: Cow::Owned(snippet.snippet.into_owned()), source: snippet.source };
+        self.cache.borrow_mut().insert(snippet, image.clone());
+        Ok(image)
     }
 }
 
@@ -148,4 +170,17 @@ pub enum ThirdPartyRenderError {
 
     #[error("unsupported color '{0}', only RGB is supported")]
     UnsupportedColor(String),
+}
+
+#[derive(Hash, PartialEq, Eq)]
+enum SnippetSource {
+    Typst,
+    Latex,
+    Mermaid,
+}
+
+#[derive(Hash, PartialEq, Eq)]
+struct ImageSnippet<'a> {
+    snippet: Cow<'a, str>,
+    source: SnippetSource,
 }
