@@ -220,6 +220,7 @@ pub enum CodeLanguage {
     Mermaid,
     Markdown,
     Nix,
+    Nushell,
     OCaml,
     Perl,
     Php,
