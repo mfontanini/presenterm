@@ -10,7 +10,7 @@ use crate::{
     style::{Color, Colors, TextStyle},
     theme::{Alignment, Margin},
 };
-use std::{io, rc::Rc};
+use std::{io, sync::Arc};
 
 /// The result of a render operation.
 pub(crate) type RenderResult = Result<(), RenderError>;
@@ -26,7 +26,7 @@ where
     W: TerminalWrite,
 {
     /// Construct a drawer over a [std::io::Write].
-    pub(crate) fn new(handle: W, image_printer: Rc<ImagePrinter>, font_size_fallback: u8) -> io::Result<Self> {
+    pub(crate) fn new(handle: W, image_printer: Arc<ImagePrinter>, font_size_fallback: u8) -> io::Result<Self> {
         let terminal = Terminal::new(handle, image_printer)?;
         Ok(Self { terminal, font_size_fallback })
     }
@@ -41,19 +41,27 @@ where
     }
 
     /// Render an error.
-    pub(crate) fn render_error(&mut self, message: &str) -> RenderResult {
+    pub(crate) fn render_error(&mut self, message: &str, source: &ErrorSource) -> RenderResult {
         let dimensions = WindowSize::current(self.font_size_fallback)?;
-        let heading = vec![Text::new("Error loading presentation", TextStyle::default().bold()), Text::from(": ")];
+        let center_alignment = Alignment::Center { minimum_size: 0, minimum_margin: Margin::Percent(8) };
+        let (heading_text, alignment) = match source {
+            ErrorSource::Presentation => ("Error loading presentation".to_string(), center_alignment.clone()),
+            ErrorSource::Slide(slide) => {
+                (format!("Error in slide {slide}"), Alignment::Left { margin: Margin::Percent(25) })
+            }
+        };
+        let heading = vec![Text::new(heading_text, TextStyle::default().bold()), Text::from(": ")];
+        let total_lines = message.lines().count();
+        let starting_row = (dimensions.rows / 2).saturating_sub(total_lines as u16 / 2 + 3);
 
-        let alignment = Alignment::Center { minimum_size: 0, minimum_margin: Margin::Percent(8) };
         let mut operations = vec![
             RenderOperation::SetColors(Colors {
                 foreground: Some(Color::new(255, 0, 0)),
                 background: Some(Color::new(0, 0, 0)),
             }),
             RenderOperation::ClearScreen,
-            RenderOperation::JumpToVerticalCenter,
-            RenderOperation::RenderText { line: WeightedTextBlock::from(heading), alignment: alignment.clone() },
+            RenderOperation::JumpToRow { index: starting_row },
+            RenderOperation::RenderText { line: WeightedTextBlock::from(heading), alignment: center_alignment.clone() },
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
         ];
@@ -116,4 +124,9 @@ pub enum RenderError {
 
     #[error(transparent)]
     Other(Box<dyn std::error::Error>),
+}
+
+pub(crate) enum ErrorSource {
+    Presentation,
+    Slide(usize),
 }

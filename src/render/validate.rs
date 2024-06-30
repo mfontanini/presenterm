@@ -8,13 +8,13 @@ use crate::{
     },
     ImagePrinter,
 };
-use std::{io, rc::Rc};
+use std::{io, sync::Arc};
 
 pub(crate) struct OverflowValidator;
 
 impl OverflowValidator {
     pub(crate) fn validate(presentation: &Presentation, dimensions: WindowSize) -> Result<(), OverflowError> {
-        let printer = Rc::new(ImagePrinter::Null);
+        let printer = Arc::new(ImagePrinter::Null);
         for (index, slide) in presentation.iter_slides().enumerate() {
             let index = index + 1;
             let mut terminal = Terminal::new(io::Empty::default(), printer.clone()).map_err(RenderError::from)?;

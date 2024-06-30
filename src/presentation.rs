@@ -7,7 +7,14 @@ use crate::{
     theme::{Alignment, Margin, PresentationTheme},
 };
 use serde::Deserialize;
-use std::{cell::RefCell, fmt::Debug, ops::Deref, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::HashSet,
+    fmt::Debug,
+    ops::Deref,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 #[derive(Debug)]
 pub(crate) struct Modals {
@@ -20,7 +27,7 @@ pub(crate) struct Modals {
 pub(crate) struct Presentation {
     slides: Vec<Slide>,
     modals: Modals,
-    state: PresentationState,
+    pub(crate) state: PresentationState,
 }
 
 impl Presentation {
@@ -133,30 +140,47 @@ impl Presentation {
         self.current_slide().current_chunk_index()
     }
 
-    /// Render all widgets in this slide.
-    pub(crate) fn render_slide_widgets(&mut self) -> bool {
+    /// Render all async render operations in this slide.
+    pub(crate) fn trigger_slide_async_renders(&mut self) -> bool {
         let slide = self.current_slide_mut();
         let mut any_rendered = false;
         for operation in slide.iter_operations_mut() {
-            if let RenderOperation::RenderOnDemand(operation) = operation {
-                any_rendered = any_rendered || operation.start_render();
+            if let RenderOperation::RenderAsync(operation) = operation {
+                let is_rendered = operation.start_render();
+                any_rendered = any_rendered || is_rendered;
             }
         }
         any_rendered
     }
 
-    /// Poll every widget in the current slide and check whether they're rendered.
-    pub(crate) fn widgets_rendered(&mut self) -> bool {
+    // Get all slides that contain async render operations.
+    pub(crate) fn slides_with_async_renders(&self) -> HashSet<usize> {
+        let mut indexes = HashSet::new();
+        for (index, slide) in self.slides.iter().enumerate() {
+            for operation in slide.iter_operations() {
+                if let RenderOperation::RenderAsync(operation) = operation {
+                    if matches!(operation.poll_state(), RenderAsyncState::Rendering) {
+                        indexes.insert(index);
+                        break;
+                    }
+                }
+            }
+        }
+        indexes
+    }
+
+    /// Poll every async render operation in the current slide and check whether they're completed.
+    pub(crate) fn async_renders_completed(&mut self) -> bool {
         let slide = self.current_slide_mut();
         let mut all_rendered = true;
         for operation in slide.iter_operations_mut() {
-            if let RenderOperation::RenderOnDemand(operation) = operation {
-                all_rendered = all_rendered && matches!(operation.poll_state(), RenderOnDemandState::Rendered);
+            if let RenderOperation::RenderAsync(operation) = operation {
+                let is_rendered = matches!(operation.poll_state(), RenderAsyncState::Rendered);
+                all_rendered = all_rendered && is_rendered;
             }
         }
         all_rendered
     }
-
     /// Run a callback through every operation and let it mutate it in place.
     ///
     /// This should be used with care!
@@ -210,9 +234,18 @@ impl From<Vec<Slide>> for Presentation {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct AsyncPresentationError {
+    pub(crate) slide: usize,
+    pub(crate) error: String,
+}
+
+pub(crate) type AsyncPresentationErrorHolder = Arc<Mutex<Option<AsyncPresentationError>>>;
+
 #[derive(Debug, Default)]
 pub(crate) struct PresentationStateInner {
     current_slide_index: usize,
+    async_error_holder: AsyncPresentationErrorHolder,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -221,6 +254,10 @@ pub(crate) struct PresentationState {
 }
 
 impl PresentationState {
+    pub(crate) fn async_error_holder(&self) -> AsyncPresentationErrorHolder {
+        self.inner.deref().borrow().async_error_holder.clone()
+    }
+
     pub(crate) fn current_slide_index(&self) -> usize {
         self.inner.deref().borrow().current_slide_index
     }
@@ -509,8 +546,8 @@ pub(crate) enum RenderOperation {
     /// [RenderOperation] with the screen itself.
     RenderDynamic(Rc<dyn AsRenderOperations>),
 
-    /// An operation that is rendered on demand.
-    RenderOnDemand(Rc<dyn RenderOnDemand>),
+    /// An operation that is rendered asynchronously.
+    RenderAsync(Rc<dyn RenderAsync>),
 
     /// Initialize a column layout.
     ///
@@ -569,18 +606,21 @@ pub(crate) trait AsRenderOperations: Debug + 'static {
     fn diffable_content(&self) -> Option<&str>;
 }
 
-/// A type that can be rendered on demand.
-pub(crate) trait RenderOnDemand: AsRenderOperations {
-    /// Start the on demand render for this operation.
+/// An operation that can be rendered asynchronously.
+pub(crate) trait RenderAsync: AsRenderOperations {
+    /// Start the render for this operation.
+    ///
+    /// Should return true if the invocation triggered the rendering (aka if rendering wasn't
+    /// already started before).
     fn start_render(&self) -> bool;
 
-    /// Poll and update the internal on demand state and return the latest.
-    fn poll_state(&self) -> RenderOnDemandState;
+    /// Update the internal state and return the updated state.
+    fn poll_state(&self) -> RenderAsyncState;
 }
 
-/// The state of a [RenderOnDemand].
+/// The state of a [RenderAsync].
 #[derive(Clone, Debug, Default)]
-pub(crate) enum RenderOnDemandState {
+pub(crate) enum RenderAsyncState {
     #[default]
     NotStarted,
     Rendering,
@@ -589,10 +629,9 @@ pub(crate) enum RenderOnDemandState {
 
 #[cfg(test)]
 mod test {
-    use std::cell::RefCell;
-
     use super::*;
     use rstest::rstest;
+    use std::cell::RefCell;
 
     #[derive(Clone)]
     enum Jump {

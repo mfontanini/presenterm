@@ -81,6 +81,8 @@ impl ContentDiff for RenderOperation {
             (RenderDynamic(original), RenderDynamic(updated)) => {
                 original.diffable_content() != updated.diffable_content()
             }
+            (RenderAsync(original), RenderAsync(updated)) if original.type_id() != updated.type_id() => true,
+            (RenderAsync(original), RenderAsync(updated)) => original.diffable_content() != updated.diffable_content(),
             _ => false,
         }
     }
@@ -108,7 +110,7 @@ where
 mod test {
     use super::*;
     use crate::{
-        presentation::{AsRenderOperations, PreformattedLine, Slide, SlideBuilder},
+        presentation::{AsRenderOperations, PreformattedLine, RenderAsync, RenderAsyncState, Slide, SlideBuilder},
         render::properties::WindowSize,
         style::{Color, Colors},
         theme::{Alignment, Margin},
@@ -129,6 +131,16 @@ mod test {
         }
     }
 
+    impl RenderAsync for Dynamic {
+        fn start_render(&self) -> bool {
+            false
+        }
+
+        fn poll_state(&self) -> RenderAsyncState {
+            RenderAsyncState::Rendered
+        }
+    }
+
     #[rstest]
     #[case(RenderOperation::ClearScreen)]
     #[case(RenderOperation::JumpToVerticalCenter)]
@@ -145,6 +157,7 @@ mod test {
         }
     ))]
     #[case(RenderOperation::RenderDynamic(Rc::new(Dynamic)))]
+    #[case(RenderOperation::RenderAsync(Rc::new(Dynamic)))]
     #[case(RenderOperation::InitColumnLayout{ columns: vec![1, 2] })]
     #[case(RenderOperation::EnterColumn{ column: 1 })]
     #[case(RenderOperation::ExitLayout)]

@@ -1,12 +1,12 @@
 use crate::media::printer::{ImageResource, ResourceProperties};
-use std::{fmt::Debug, ops::Deref, path::PathBuf, rc::Rc};
+use std::{fmt::Debug, ops::Deref, path::PathBuf, sync::Arc};
 
 /// An image.
 ///
-/// This stores the image in an [std::rc::Rc] so it's cheap to clone.
+/// This stores the image in an [std::sync::Arc] so it's cheap to clone.
 #[derive(Clone)]
 pub(crate) struct Image {
-    pub(crate) resource: Rc<ImageResource>,
+    pub(crate) resource: Arc<ImageResource>,
     pub(crate) source: ImageSource,
 }
 
@@ -26,7 +26,7 @@ impl Debug for Image {
 impl Image {
     /// Constructs a new image.
     pub(crate) fn new(resource: ImageResource, source: ImageSource) -> Self {
-        Self { resource: Rc::new(resource), source }
+        Self { resource: Arc::new(resource), source }
     }
 }
 
