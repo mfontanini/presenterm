@@ -17,18 +17,12 @@ impl ResourceProperties for SixelResource {
     }
 }
 
-pub struct SixelPrinter {
-    encoder: Encoder,
-}
+#[derive(Default)]
+pub struct SixelPrinter;
 
 impl SixelPrinter {
     pub(crate) fn new() -> Result<Self, CreatePrinterError> {
-        let encoder =
-            Encoder::new().map_err(|e| CreatePrinterError::Other(format!("creating sixel encoder: {e:?}")))?;
-        encoder
-            .set_encode_policy(EncodePolicy::Fast)
-            .map_err(|e| CreatePrinterError::Other(format!("setting encoder policy: {e:?}")))?;
-        Ok(Self { encoder })
+        Ok(Self)
     }
 }
 
@@ -52,6 +46,11 @@ impl PrintImage for SixelPrinter {
         // We're already positioned in the right place but we may not have flushed that yet.
         writer.flush()?;
 
+        let encoder = Encoder::new().map_err(|e| PrintImageError::other(format!("creating sixel encoder: {e:?}")))?;
+        encoder
+            .set_encode_policy(EncodePolicy::Fast)
+            .map_err(|e| PrintImageError::other(format!("setting encoder policy: {e:?}")))?;
+
         // This check was taken from viuer: it seems to be a bug in xterm
         let width = (options.column_width * options.columns).min(1000);
         let height = options.row_height * options.rows;
@@ -64,7 +63,7 @@ impl PrintImage for SixelPrinter {
             .format(PixelFormat::RGBA8888)
             .pixels(bytes);
 
-        self.encoder.encode_bytes(frame).map_err(|e| PrintImageError::other(format!("encoding sixel image: {e:?}")))?;
+        encoder.encode_bytes(frame).map_err(|e| PrintImageError::other(format!("encoding sixel image: {e:?}")))?;
         Ok(())
     }
 }

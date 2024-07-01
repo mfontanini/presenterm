@@ -68,8 +68,8 @@ pub(crate) enum Command {
     /// Go to one particular slide.
     GoToSlide(u32),
 
-    /// Render any widgets in the currently visible slide.
-    RenderWidgets,
+    /// Render any async render operations in the current slide.
+    RenderAsyncOperations,
 
     /// Exit the presentation.
     Exit,

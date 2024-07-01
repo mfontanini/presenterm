@@ -26,7 +26,7 @@ use crate::{
     theme::{
         Alignment, AuthorPositioning, ElementType, LoadThemeError, Margin, PresentationTheme, PresentationThemeSet,
     },
-    third_party::{ThirdPartyRender, ThirdPartyRenderError},
+    third_party::{ThirdPartyRender, ThirdPartyRenderError, ThirdPartyRenderRequest},
 };
 use image::DynamicImage;
 use serde::Deserialize;
@@ -37,7 +37,7 @@ use super::modals::KeyBindingsModalBuilder;
 
 // TODO: move to a theme config.
 static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
-static DEFAULT_Z_INDEX: i32 = -2;
+pub(crate) static DEFAULT_IMAGE_Z_INDEX: i32 = -2;
 
 #[derive(Default)]
 pub struct Themes {
@@ -100,6 +100,7 @@ pub(crate) struct PresentationBuilder<'a> {
     resources: &'a mut Resources,
     third_party: &'a mut ThirdPartyRender,
     slide_state: SlideState,
+    presentation_state: PresentationState,
     footer_context: Rc<RefCell<FooterContext>>,
     themes: &'a Themes,
     index_builder: IndexBuilder,
@@ -132,6 +133,7 @@ impl<'a> PresentationBuilder<'a> {
             resources,
             third_party,
             slide_state: Default::default(),
+            presentation_state: Default::default(),
             footer_context: Default::default(),
             themes,
             index_builder: Default::default(),
@@ -178,11 +180,10 @@ impl<'a> PresentationBuilder<'a> {
             bindings_modal_builder.set_background(background);
         };
 
-        let presentation_state = PresentationState::default();
-        let slide_index = self.index_builder.build(&self.theme, presentation_state.clone());
+        let slide_index = self.index_builder.build(&self.theme, self.presentation_state.clone());
         let bindings = bindings_modal_builder.build(&self.theme, &self.bindings_config);
         let modals = Modals { slide_index, bindings };
-        let presentation = Presentation::new(self.slides, modals, presentation_state);
+        let presentation = Presentation::new(self.slides, modals, self.presentation_state);
         Ok(presentation)
     }
 
@@ -549,7 +550,7 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_image(&mut self, image: Image) {
         let properties = ImageProperties {
-            z_index: DEFAULT_Z_INDEX,
+            z_index: DEFAULT_IMAGE_Z_INDEX,
             size: Default::default(),
             restore_cursor: false,
             background_color: self.theme.default_style.colors.background,
@@ -693,13 +694,16 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_rendered_code(&mut self, code: Code) -> Result<(), BuildError> {
-        let image = match code.language {
-            CodeLanguage::Typst => self.third_party.render_typst(&code.contents, &self.theme.typst)?,
-            CodeLanguage::Latex => self.third_party.render_latex(&code.contents, &self.theme.typst)?,
-            CodeLanguage::Mermaid => self.third_party.render_mermaid(&code.contents, &self.theme.mermaid)?,
-            _ => panic!("language {:?} should not be renderable", code.language),
+        let Code { contents, language, .. } = code;
+        let error_holder = self.presentation_state.async_error_holder();
+        let request = match language {
+            CodeLanguage::Typst => ThirdPartyRenderRequest::Typst(contents, self.theme.typst.clone()),
+            CodeLanguage::Latex => ThirdPartyRenderRequest::Latex(contents, self.theme.typst.clone()),
+            CodeLanguage::Mermaid => ThirdPartyRenderRequest::Mermaid(contents, self.theme.mermaid.clone()),
+            _ => panic!("language {language:?} should not be renderable"),
         };
-        self.push_image(image);
+        let operation = self.third_party.render(request, &self.theme, error_holder, self.slides.len() + 1)?;
+        self.chunk_operations.push(operation);
         Ok(())
     }
 
@@ -747,7 +751,7 @@ impl<'a> PresentationBuilder<'a> {
             self.theme.execution_output.colors.clone(),
             self.theme.execution_output.status.clone(),
         );
-        let operation = RenderOperation::RenderOnDemand(Rc::new(operation));
+        let operation = RenderOperation::RenderAsync(Rc::new(operation));
         self.chunk_operations.push(operation);
         Ok(())
     }
@@ -1117,7 +1121,7 @@ mod test {
             | RenderImage(_, _)
             | RenderPreformattedLine(_)
             | RenderDynamic(_)
-            | RenderOnDemand(_) => true,
+            | RenderAsync(_) => true,
         }
     }
 

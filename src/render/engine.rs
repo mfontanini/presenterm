@@ -13,7 +13,7 @@ use crate::{
         scale::scale_image,
     },
     presentation::{
-        AsRenderOperations, ImageProperties, ImageSize, MarginProperties, PreformattedLine, RenderOnDemand,
+        AsRenderOperations, ImageProperties, ImageSize, MarginProperties, PreformattedLine, RenderAsync,
         RenderOperation,
     },
     render::{layout::Positioning, properties::WindowSize},
@@ -88,7 +88,7 @@ where
             RenderOperation::RenderImage(image, properties) => self.render_image(image, properties),
             RenderOperation::RenderPreformattedLine(operation) => self.render_preformatted_line(operation),
             RenderOperation::RenderDynamic(generator) => self.render_dynamic(generator.as_ref()),
-            RenderOperation::RenderOnDemand(generator) => self.render_on_demand(generator.as_ref()),
+            RenderOperation::RenderAsync(generator) => self.render_async(generator.as_ref()),
             RenderOperation::InitColumnLayout { columns } => self.init_column_layout(columns),
             RenderOperation::EnterColumn { column } => self.enter_column(*column),
             RenderOperation::ExitLayout => self.exit_layout(),
@@ -237,7 +237,7 @@ where
         Ok(())
     }
 
-    fn render_on_demand(&mut self, generator: &dyn RenderOnDemand) -> RenderResult {
+    fn render_async(&mut self, generator: &dyn RenderAsync) -> RenderResult {
         let operations = generator.as_render_operations(self.current_dimensions());
         for operation in operations {
             self.render_one(&operation)?;

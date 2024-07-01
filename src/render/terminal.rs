@@ -13,7 +13,7 @@ use crossterm::{
 };
 use std::{
     io::{self, Write},
-    rc::Rc,
+    sync::Arc,
 };
 
 /// A wrapper over the terminal write handle.
@@ -22,12 +22,12 @@ where
     W: TerminalWrite,
 {
     writer: W,
-    image_printer: Rc<ImagePrinter>,
+    image_printer: Arc<ImagePrinter>,
     pub(crate) cursor_row: u16,
 }
 
 impl<W: TerminalWrite> Terminal<W> {
-    pub(crate) fn new(mut writer: W, image_printer: Rc<ImagePrinter>) -> io::Result<Self> {
+    pub(crate) fn new(mut writer: W, image_printer: Arc<ImagePrinter>) -> io::Result<Self> {
         writer.init()?;
         Ok(Self { writer, image_printer, cursor_row: 0 })
     }

@@ -4,10 +4,10 @@ use super::{
 };
 use crate::ImagePrinter;
 use image::DynamicImage;
-use std::{path::PathBuf, rc::Rc};
+use std::{path::PathBuf, sync::Arc};
 
 #[derive(Clone, Default)]
-pub struct ImageRegistry(pub Rc<ImagePrinter>);
+pub struct ImageRegistry(pub Arc<ImagePrinter>);
 
 impl ImageRegistry {
     pub(crate) fn register_image(&self, image: DynamicImage) -> Result<Image, RegisterImageError> {

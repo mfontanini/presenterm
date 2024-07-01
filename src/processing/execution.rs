@@ -1,7 +1,7 @@
 use crate::{
     execute::{CodeExecutor, ExecutionHandle, ExecutionState, ProcessStatus},
     markdown::elements::{Code, Text, TextBlock},
-    presentation::{AsRenderOperations, PreformattedLine, RenderOnDemand, RenderOnDemandState, RenderOperation},
+    presentation::{AsRenderOperations, PreformattedLine, RenderAsync, RenderAsyncState, RenderOperation},
     render::properties::WindowSize,
     style::{Colors, TextStyle},
     theme::ExecutionStatusBlockStyle,
@@ -16,7 +16,7 @@ use super::separator::RenderSeparator;
 struct RunCodeOperationInner {
     handle: Option<ExecutionHandle>,
     output_lines: Vec<String>,
-    state: RenderOnDemandState,
+    state: RenderAsyncState,
 }
 
 #[derive(Debug)]
@@ -39,7 +39,7 @@ impl RunCodeOperation {
         status_colors: ExecutionStatusBlockStyle,
     ) -> Self {
         let inner =
-            RunCodeOperationInner { handle: None, output_lines: Vec::new(), state: RenderOnDemandState::default() };
+            RunCodeOperationInner { handle: None, output_lines: Vec::new(), state: RenderAsyncState::default() };
         let running_colors = status_colors.running.clone();
         Self {
             code,
@@ -69,7 +69,7 @@ impl RunCodeOperation {
 impl AsRenderOperations for RunCodeOperation {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let inner = self.inner.borrow();
-        if matches!(inner.state, RenderOnDemandState::NotStarted) {
+        if matches!(inner.state, RenderAsyncState::NotStarted) {
             return Vec::new();
         }
         let description = self.state_description.borrow();
@@ -99,8 +99,8 @@ impl AsRenderOperations for RunCodeOperation {
     }
 }
 
-impl RenderOnDemand for RunCodeOperation {
-    fn poll_state(&self) -> RenderOnDemandState {
+impl RenderAsync for RunCodeOperation {
+    fn poll_state(&self) -> RenderAsyncState {
         let mut inner = self.inner.borrow_mut();
         if let Some(handle) = inner.handle.as_mut() {
             let state = handle.state();
@@ -118,7 +118,7 @@ impl RenderOnDemand for RunCodeOperation {
             };
             if status.is_finished() {
                 inner.handle.take();
-                inner.state = RenderOnDemandState::Rendered;
+                inner.state = RenderAsyncState::Rendered;
             }
             inner.output_lines = output;
         }
@@ -127,18 +127,18 @@ impl RenderOnDemand for RunCodeOperation {
 
     fn start_render(&self) -> bool {
         let mut inner = self.inner.borrow_mut();
-        if !matches!(inner.state, RenderOnDemandState::NotStarted) {
+        if !matches!(inner.state, RenderAsyncState::NotStarted) {
             return false;
         }
         match self.executor.execute(&self.code) {
             Ok(handle) => {
                 inner.handle = Some(handle);
-                inner.state = RenderOnDemandState::Rendering;
+                inner.state = RenderAsyncState::Rendering;
                 true
             }
             Err(e) => {
                 inner.output_lines = vec![e.to_string()];
-                inner.state = RenderOnDemandState::Rendered;
+                inner.state = RenderAsyncState::Rendered;
                 true
             }
         }

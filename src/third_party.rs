@@ -1,14 +1,29 @@
 use crate::{
     custom::{default_mermaid_scale, default_typst_ppi},
+    markdown::elements::{Text, TextBlock},
     media::{image::Image, printer::RegisterImageError},
-    style::Color,
-    theme::{MermaidStyle, TypstStyle},
+    presentation::{
+        AsRenderOperations, AsyncPresentationError, AsyncPresentationErrorHolder, ImageProperties, RenderAsync,
+        RenderAsyncState, RenderOperation,
+    },
+    processing::builder::DEFAULT_IMAGE_Z_INDEX,
+    render::properties::WindowSize,
+    style::{Color, Colors, TextStyle},
+    theme::{Alignment, MermaidStyle, TypstStyle},
     tools::{ExecutionError, ThirdPartyTools},
-    ImageRegistry,
+    ImageRegistry, PresentationTheme,
 };
-use std::{borrow::Cow, cell::RefCell, collections::HashMap, fs, io, path::Path};
+use std::{
+    collections::{HashMap, VecDeque},
+    fs, io, mem,
+    path::Path,
+    rc::Rc,
+    sync::{Arc, Condvar, Mutex},
+    thread,
+};
 use tempfile::tempdir_in;
 
+const MAX_WORKERS: usize = 2;
 const DEFAULT_HORIZONTAL_MARGIN: u16 = 5;
 const DEFAULT_VERTICAL_MARGIN: u16 = 7;
 
@@ -18,10 +33,7 @@ pub struct ThirdPartyConfigs {
 }
 
 pub struct ThirdPartyRender {
-    config: ThirdPartyConfigs,
-    image_registry: ImageRegistry,
-    root_dir: String,
-    cache: RefCell<HashMap<ImageSnippet<'static>, Image>>,
+    render_pool: RenderPool,
 }
 
 impl ThirdPartyRender {
@@ -31,20 +43,143 @@ impl ThirdPartyRender {
             path if path.is_empty() => ".".into(),
             path => path,
         };
-        Self { config, image_registry, root_dir, cache: Default::default() }
+        let render_pool = RenderPool::new(config, root_dir, image_registry);
+        Self { render_pool }
     }
 
-    pub(crate) fn render_typst(&self, input: &str, style: &TypstStyle) -> Result<Image, ThirdPartyRenderError> {
-        let snippet = ImageSnippet { snippet: Cow::Borrowed(input), source: SnippetSource::Typst };
-        if let Some(image) = self.cache.borrow().get(&snippet).cloned() {
+    pub(crate) fn render(
+        &self,
+        request: ThirdPartyRenderRequest,
+        theme: &PresentationTheme,
+        error_holder: AsyncPresentationErrorHolder,
+        slide: usize,
+    ) -> Result<RenderOperation, ThirdPartyRenderError> {
+        // Note: this is a bit gore; the diffable content interface needs to be improved as it's
+        // too restrictive.
+        let diffable_content = format!("{request:?}");
+        let result = self.render_pool.render(request);
+        let operation = Rc::new(RenderThirdParty::new(
+            result,
+            theme.default_style.colors.clone(),
+            error_holder,
+            slide,
+            diffable_content,
+        ));
+        Ok(RenderOperation::RenderAsync(operation))
+    }
+}
+
+impl Default for ThirdPartyRender {
+    fn default() -> Self {
+        let config = ThirdPartyConfigs {
+            typst_ppi: default_typst_ppi().to_string(),
+            mermaid_scale: default_mermaid_scale().to_string(),
+        };
+        Self::new(config, Default::default(), Path::new("."))
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum ThirdPartyRenderRequest {
+    Typst(String, TypstStyle),
+    Latex(String, TypstStyle),
+    Mermaid(String, MermaidStyle),
+}
+
+#[derive(Debug, Default)]
+enum RenderResult {
+    Success(Image),
+    Failure(String),
+    #[default]
+    Pending,
+}
+
+struct RenderPoolState {
+    requests: VecDeque<(ThirdPartyRenderRequest, Arc<Mutex<RenderResult>>)>,
+    image_registry: ImageRegistry,
+    cache: HashMap<ImageSnippet, Image>,
+}
+
+struct Shared {
+    config: ThirdPartyConfigs,
+    root_dir: String,
+    signal: Condvar,
+}
+
+struct RenderPool {
+    state: Arc<Mutex<RenderPoolState>>,
+    shared: Arc<Shared>,
+}
+
+impl RenderPool {
+    fn new(config: ThirdPartyConfigs, root_dir: String, image_registry: ImageRegistry) -> Self {
+        let shared = Shared { config, root_dir, signal: Default::default() };
+        let state = RenderPoolState { requests: Default::default(), image_registry, cache: Default::default() };
+
+        let max_workers = MAX_WORKERS;
+        let this = Self { state: Arc::new(Mutex::new(state)), shared: Arc::new(shared) };
+        for _ in 0..max_workers {
+            let worker = Worker { state: this.state.clone(), shared: this.shared.clone() };
+            thread::spawn(move || worker.run());
+        }
+        this
+    }
+
+    fn render(&self, request: ThirdPartyRenderRequest) -> Arc<Mutex<RenderResult>> {
+        let result: Arc<Mutex<RenderResult>> = Default::default();
+        let mut state = self.state.lock().expect("lock poisoned");
+        state.requests.push_back((request, result.clone()));
+        self.shared.signal.notify_one();
+        result
+    }
+}
+
+struct Worker {
+    state: Arc<Mutex<RenderPoolState>>,
+    shared: Arc<Shared>,
+}
+
+impl Worker {
+    fn run(self) {
+        loop {
+            let mut state = self.state.lock().unwrap();
+            let (request, result) = loop {
+                let Some((request, result)) = state.requests.pop_front() else {
+                    state = self.shared.signal.wait(state).unwrap();
+                    continue;
+                };
+                break (request, result);
+            };
+            drop(state);
+
+            self.render(request, result);
+        }
+    }
+
+    fn render(&self, request: ThirdPartyRenderRequest, result: Arc<Mutex<RenderResult>>) {
+        let output = match request {
+            ThirdPartyRenderRequest::Typst(input, style) => self.render_typst(input, &style),
+            ThirdPartyRenderRequest::Latex(input, style) => self.render_latex(input, &style),
+            ThirdPartyRenderRequest::Mermaid(input, style) => self.render_mermaid(input, &style),
+        };
+        let mut result = result.lock().unwrap();
+        match output {
+            Ok(image) => *result = RenderResult::Success(image),
+            Err(error) => *result = RenderResult::Failure(error.to_string()),
+        };
+    }
+
+    pub(crate) fn render_typst(&self, input: String, style: &TypstStyle) -> Result<Image, ThirdPartyRenderError> {
+        let snippet = ImageSnippet { snippet: input.clone(), source: SnippetSource::Typst };
+        if let Some(image) = self.state.lock().unwrap().cache.get(&snippet).cloned() {
             return Ok(image);
         }
-        self.do_render_typst(snippet, input, style)
+        self.do_render_typst(snippet, &input, style)
     }
 
-    pub(crate) fn render_latex(&self, input: &str, style: &TypstStyle) -> Result<Image, ThirdPartyRenderError> {
-        let snippet = ImageSnippet { snippet: Cow::Borrowed(input), source: SnippetSource::Latex };
-        if let Some(image) = self.cache.borrow().get(&snippet).cloned() {
+    pub(crate) fn render_latex(&self, input: String, style: &TypstStyle) -> Result<Image, ThirdPartyRenderError> {
+        let snippet = ImageSnippet { snippet: input.clone(), source: SnippetSource::Latex };
+        if let Some(image) = self.state.lock().unwrap().cache.get(&snippet).cloned() {
             return Ok(image);
         }
         let output = ThirdPartyTools::pandoc(&["--from", "latex", "--to", "typst"])
@@ -55,12 +190,12 @@ impl ThirdPartyRender {
         self.do_render_typst(snippet, &input, style)
     }
 
-    pub(crate) fn render_mermaid(&self, input: &str, style: &MermaidStyle) -> Result<Image, ThirdPartyRenderError> {
-        let snippet = ImageSnippet { snippet: Cow::Borrowed(input), source: SnippetSource::Mermaid };
-        if let Some(image) = self.cache.borrow().get(&snippet).cloned() {
+    pub(crate) fn render_mermaid(&self, input: String, style: &MermaidStyle) -> Result<Image, ThirdPartyRenderError> {
+        let snippet = ImageSnippet { snippet: input.clone(), source: SnippetSource::Mermaid };
+        if let Some(image) = self.state.lock().unwrap().cache.get(&snippet).cloned() {
             return Ok(image);
         }
-        let workdir = tempdir_in(&self.root_dir)?;
+        let workdir = tempdir_in(&self.shared.root_dir)?;
         let output_path = workdir.path().join("output.png");
         let input_path = workdir.path().join("input.mmd");
         fs::write(&input_path, input)?;
@@ -71,7 +206,7 @@ impl ThirdPartyRender {
             "-o",
             &output_path.to_string_lossy(),
             "-s",
-            &self.config.mermaid_scale,
+            &self.shared.config.mermaid_scale,
             "-t",
             style.theme.as_deref().unwrap_or("default"),
             "-b",
@@ -88,7 +223,7 @@ impl ThirdPartyRender {
         input: &str,
         style: &TypstStyle,
     ) -> Result<Image, ThirdPartyRenderError> {
-        let workdir = tempdir_in(&self.root_dir)?;
+        let workdir = tempdir_in(&self.shared.root_dir)?;
         let mut typst_input = Self::generate_page_header(style)?;
         typst_input.push_str(input);
 
@@ -101,9 +236,9 @@ impl ThirdPartyRender {
             "--format",
             "png",
             "--root",
-            &self.root_dir,
+            &self.shared.root_dir,
             "--ppi",
-            &self.config.typst_ppi,
+            &self.shared.config.typst_ppi,
             &input_path.to_string_lossy(),
             &output_path.to_string_lossy(),
         ])
@@ -137,20 +272,9 @@ impl ThirdPartyRender {
     fn load_image(&self, snippet: ImageSnippet, path: &Path) -> Result<Image, ThirdPartyRenderError> {
         let contents = fs::read(path)?;
         let image = image::load_from_memory(&contents)?;
-        let image = self.image_registry.register_image(image)?;
-        let snippet = ImageSnippet { snippet: Cow::Owned(snippet.snippet.into_owned()), source: snippet.source };
-        self.cache.borrow_mut().insert(snippet, image.clone());
+        let image = self.state.lock().unwrap().image_registry.register_image(image)?;
+        self.state.lock().unwrap().cache.insert(snippet, image.clone());
         Ok(image)
-    }
-}
-
-impl Default for ThirdPartyRender {
-    fn default() -> Self {
-        let config = ThirdPartyConfigs {
-            typst_ppi: default_typst_ppi().to_string(),
-            mermaid_scale: default_mermaid_scale().to_string(),
-        };
-        Self::new(config, Default::default(), Path::new("."))
     }
 }
 
@@ -180,7 +304,84 @@ enum SnippetSource {
 }
 
 #[derive(Hash, PartialEq, Eq)]
-struct ImageSnippet<'a> {
-    snippet: Cow<'a, str>,
+struct ImageSnippet {
+    snippet: String,
     source: SnippetSource,
+}
+
+#[derive(Debug)]
+pub(crate) struct RenderThirdParty {
+    contents: Arc<Mutex<Option<Image>>>,
+    pending_result: Arc<Mutex<RenderResult>>,
+    default_colors: Colors,
+    error_holder: AsyncPresentationErrorHolder,
+    slide: usize,
+    diffable_content: String,
+}
+
+impl RenderThirdParty {
+    fn new(
+        pending_result: Arc<Mutex<RenderResult>>,
+        default_colors: Colors,
+        error_holder: AsyncPresentationErrorHolder,
+        slide: usize,
+        diffable_content: String,
+    ) -> Self {
+        Self { contents: Default::default(), pending_result, default_colors, error_holder, slide, diffable_content }
+    }
+}
+
+impl RenderAsync for RenderThirdParty {
+    fn start_render(&self) -> bool {
+        false
+    }
+
+    fn poll_state(&self) -> RenderAsyncState {
+        let mut contents = self.contents.lock().unwrap();
+        if contents.is_some() {
+            return RenderAsyncState::Rendered;
+        }
+        match mem::take(&mut *self.pending_result.lock().unwrap()) {
+            RenderResult::Success(image) => {
+                *contents = Some(image);
+                RenderAsyncState::Rendered
+            }
+            RenderResult::Failure(error) => {
+                *self.error_holder.lock().unwrap() = Some(AsyncPresentationError { slide: self.slide, error });
+                RenderAsyncState::Rendered
+            }
+            RenderResult::Pending => RenderAsyncState::Rendering,
+        }
+    }
+}
+
+impl AsRenderOperations for RenderThirdParty {
+    fn as_render_operations(&self, _: &WindowSize) -> Vec<RenderOperation> {
+        match &*self.contents.lock().unwrap() {
+            Some(image) => {
+                let properties = ImageProperties {
+                    z_index: DEFAULT_IMAGE_Z_INDEX,
+                    size: Default::default(),
+                    restore_cursor: false,
+                    background_color: None,
+                };
+
+                vec![
+                    RenderOperation::RenderImage(image.clone(), properties),
+                    RenderOperation::SetColors(self.default_colors.clone()),
+                ]
+            }
+            None => {
+                let text = TextBlock::from(Text::new("Loading...", TextStyle::default().bold()));
+                vec![RenderOperation::RenderText {
+                    line: text.into(),
+                    alignment: Alignment::Center { minimum_margin: Default::default(), minimum_size: 0 },
+                }]
+            }
+        }
+    }
+
+    fn diffable_content(&self) -> Option<&str> {
+        Some(&self.diffable_content)
+    }
 }

@@ -88,7 +88,7 @@ impl CommandKeyBindings {
                     MatchContext::Number(number) => Command::GoToSlide(number),
                 }
             }
-            RenderWidgets => Command::RenderWidgets,
+            RenderAsyncOperations => Command::RenderAsyncOperations,
             Exit => Command::Exit,
             Reload => Command::Reload,
             HardReload => Command::HardReload,
@@ -136,7 +136,7 @@ impl TryFrom<KeyBindingsConfig> for CommandKeyBindings {
             .chain(zip(CommandDiscriminants::HardReload, config.reload))
             .chain(zip(CommandDiscriminants::ToggleSlideIndex, config.toggle_slide_index))
             .chain(zip(CommandDiscriminants::ToggleKeyBindingsConfig, config.toggle_bindings))
-            .chain(zip(CommandDiscriminants::RenderWidgets, config.execute_code))
+            .chain(zip(CommandDiscriminants::RenderAsyncOperations, config.execute_code))
             .chain(zip(CommandDiscriminants::CloseModal, config.close_modal))
             .collect();
         Self::validate_conflicts(bindings.iter().map(|binding| &binding.0))?;
