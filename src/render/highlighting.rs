@@ -139,7 +139,7 @@ impl CodeHighlighter {
             Markdown => "md",
             Mermaid => "txt",
             Nix => "nix",
-            Nushell => "nix",
+            Nushell => "txt",
             OCaml => "ml",
             Perl => "pl",
             Php => "php",

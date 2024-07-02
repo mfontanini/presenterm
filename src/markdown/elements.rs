@@ -288,6 +288,7 @@ impl FromStr for CodeLanguage {
             "markdown" => Markdown,
             "mermaid" => Mermaid,
             "nix" => Nix,
+            "nushell" | "nu" => Nushell,
             "ocaml" => OCaml,
             "perl" => Perl,
             "php" => Php,
