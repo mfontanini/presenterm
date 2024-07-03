@@ -1,3 +1,4 @@
+use super::modals::KeyBindingsModalBuilder;
 use crate::{
     custom::{KeyBindingsConfig, OptionsConfig},
     execute::CodeExecutor,
@@ -33,8 +34,6 @@ use serde::Deserialize;
 use std::{borrow::Cow, cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 
-use super::modals::KeyBindingsModalBuilder;
-
 // TODO: move to a theme config.
 static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
 pub(crate) static DEFAULT_IMAGE_Z_INDEX: i32 = -2;
@@ -55,6 +54,7 @@ pub struct PresentationBuilderOptions {
     pub end_slide_shorthand: bool,
     pub print_modal_background: bool,
     pub strict_front_matter_parsing: bool,
+    pub enable_snippet_execution: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -81,6 +81,7 @@ impl Default for PresentationBuilderOptions {
             end_slide_shorthand: false,
             print_modal_background: false,
             strict_front_matter_parsing: true,
+            enable_snippet_execution: false,
         }
     }
 }
@@ -687,7 +688,7 @@ impl<'a> PresentationBuilder<'a> {
         if self.options.allow_mutations && context.borrow().groups.len() > 1 {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
-        if code.attributes.execute {
+        if code.attributes.execute && self.options.enable_snippet_execution {
             self.push_code_execution(code)?;
         }
         Ok(())
@@ -1047,6 +1048,7 @@ impl From<StrictPresentationMetadata> for PresentationMetadata {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::markdown::elements::CodeAttributes;
     use rstest::rstest;
 
     fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
@@ -1463,5 +1465,32 @@ mod test {
         let elements = vec![MarkdownElement::FrontMatter("potato: yes".into())];
         let result = try_build_presentation_with_options(elements, options);
         assert!(result.is_ok());
+    }
+
+    #[rstest]
+    #[case::enabled(true)]
+    #[case::disabled(false)]
+    fn snippet_execution(#[case] enabled: bool) {
+        let element = MarkdownElement::Code(Code {
+            contents: "".into(),
+            language: CodeLanguage::Rust,
+            attributes: CodeAttributes { execute: true, ..Default::default() },
+        });
+        let options = PresentationBuilderOptions { enable_snippet_execution: enabled, ..Default::default() };
+        let presentation = build_presentation_with_options(vec![element], options);
+        let slide = presentation.iter_slides().next().unwrap();
+        let mut found_render_async = false;
+        for operation in slide.iter_operations() {
+            let is_render_async = matches!(operation, RenderOperation::RenderAsync(_));
+            if is_render_async {
+                assert!(enabled);
+                found_render_async = true;
+            }
+        }
+        if found_render_async {
+            assert!(enabled, "code execution block found but not enabled");
+        } else {
+            assert!(!enabled, "code execution enabled but not found");
+        }
     }
 }

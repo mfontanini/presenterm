@@ -20,6 +20,9 @@
     "options": {
       "$ref": "#/definitions/OptionsConfig"
     },
+    "snippet": {
+      "$ref": "#/definitions/SnippetConfig"
+    },
     "typst": {
       "$ref": "#/definitions/TypstConfig"
     }
@@ -258,6 +261,33 @@
             "boolean",
             "null"
           ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "SnippetConfig": {
+      "type": "object",
+      "properties": {
+        "exec": {
+          "description": "The properties for snippet execution.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SnippetExecConfig"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "SnippetExecConfig": {
+      "type": "object",
+      "required": [
+        "enable"
+      ],
+      "properties": {
+        "enable": {
+          "description": "Whether to enable snippet execution.",
+          "type": "boolean"
         }
       },
       "additionalProperties": false

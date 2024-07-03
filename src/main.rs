@@ -64,6 +64,10 @@ struct Cli {
     #[clap(long)]
     validate_overflows: bool,
 
+    /// Enable code snippet execution.
+    #[clap(short = 'x', long)]
+    enable_snippet_execution: bool,
+
     /// The path to the configuration file.
     #[clap(short, long)]
     config_file: Option<String>,
@@ -135,6 +139,7 @@ fn make_builder_options(config: &Config, mode: &PresentMode, force_default_theme
         end_slide_shorthand: config.options.end_slide_shorthand.unwrap_or_default(),
         print_modal_background: false,
         strict_front_matter_parsing: config.options.strict_front_matter_parsing.unwrap_or(true),
+        enable_snippet_execution: config.snippet.exec.enable,
     }
 }
 
@@ -208,6 +213,9 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let validate_overflows = overflow_validation(&mode, &config.defaults.validate_overflows) || cli.validate_overflows;
     let resources_path = path.parent().unwrap_or(Path::new("/"));
     let mut options = make_builder_options(&config, &mode, force_default_theme);
+    if cli.enable_snippet_execution {
+        options.enable_snippet_execution = true;
+    }
     let graphics_mode = select_graphics_mode(&cli, &config);
     let printer = Arc::new(ImagePrinter::new(graphics_mode.clone())?);
     let registry = ImageRegistry(printer.clone());

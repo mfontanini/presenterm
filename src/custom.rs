@@ -26,6 +26,9 @@ pub struct Config {
 
     #[serde(default)]
     pub bindings: KeyBindingsConfig,
+
+    #[serde(default)]
+    pub snippet: SnippetConfig,
 }
 
 impl Config {
@@ -112,6 +115,21 @@ pub struct OptionsConfig {
 
     /// Whether to be strict about parsing the presentation's front matter.
     pub strict_front_matter_parsing: Option<bool>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SnippetConfig {
+    /// The properties for snippet execution.
+    #[serde(default)]
+    pub exec: SnippetExecConfig,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SnippetExecConfig {
+    /// Whether to enable snippet execution.
+    pub enable: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
