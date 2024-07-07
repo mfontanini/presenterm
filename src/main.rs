@@ -220,8 +220,11 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let printer = Arc::new(ImagePrinter::new(graphics_mode.clone())?);
     let registry = ImageRegistry(printer.clone());
     let resources = Resources::new(resources_path, registry.clone());
-    let third_party_config =
-        ThirdPartyConfigs { typst_ppi: config.typst.ppi.to_string(), mermaid_scale: config.mermaid.scale.to_string() };
+    let third_party_config = ThirdPartyConfigs {
+        typst_ppi: config.typst.ppi.to_string(),
+        mermaid_scale: config.mermaid.scale.to_string(),
+        threads: config.snippet.render.threads,
+    };
     let third_party = ThirdPartyRender::new(third_party_config, registry, resources_path);
     let code_executor = Rc::new(code_executor);
     if cli.export_pdf || cli.generate_pdf_metadata {

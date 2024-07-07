@@ -123,6 +123,10 @@ pub struct SnippetConfig {
     /// The properties for snippet execution.
     #[serde(default)]
     pub exec: SnippetExecConfig,
+
+    /// The properties for snippet auto rendering.
+    #[serde(default)]
+    pub render: SnippetRenderConfig,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
@@ -130,6 +134,24 @@ pub struct SnippetConfig {
 pub struct SnippetExecConfig {
     /// Whether to enable snippet execution.
     pub enable: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SnippetRenderConfig {
+    /// The number of threads to use when rendering.
+    #[serde(default = "default_snippet_render_threads")]
+    pub threads: usize,
+}
+
+impl Default for SnippetRenderConfig {
+    fn default() -> Self {
+        Self { threads: default_snippet_render_threads() }
+    }
+}
+
+pub(crate) fn default_snippet_render_threads() -> usize {
+    2
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
