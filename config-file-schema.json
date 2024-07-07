@@ -275,6 +275,14 @@
               "$ref": "#/definitions/SnippetExecConfig"
             }
           ]
+        },
+        "render": {
+          "description": "The properties for snippet auto rendering.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SnippetRenderConfig"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -288,6 +296,19 @@
         "enable": {
           "description": "Whether to enable snippet execution.",
           "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SnippetRenderConfig": {
+      "type": "object",
+      "properties": {
+        "threads": {
+          "description": "The number of threads to use when rendering.",
+          "default": 2,
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
         }
       },
       "additionalProperties": false

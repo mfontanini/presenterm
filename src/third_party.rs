@@ -1,5 +1,5 @@
 use crate::{
-    custom::{default_mermaid_scale, default_typst_ppi},
+    custom::{default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
     markdown::elements::{Text, TextBlock},
     media::{image::Image, printer::RegisterImageError},
     presentation::{
@@ -23,13 +23,13 @@ use std::{
 };
 use tempfile::tempdir_in;
 
-const MAX_WORKERS: usize = 2;
 const DEFAULT_HORIZONTAL_MARGIN: u16 = 5;
 const DEFAULT_VERTICAL_MARGIN: u16 = 7;
 
 pub struct ThirdPartyConfigs {
     pub typst_ppi: String,
     pub mermaid_scale: String,
+    pub threads: usize,
 }
 
 pub struct ThirdPartyRender {
@@ -74,6 +74,7 @@ impl Default for ThirdPartyRender {
         let config = ThirdPartyConfigs {
             typst_ppi: default_typst_ppi().to_string(),
             mermaid_scale: default_mermaid_scale().to_string(),
+            threads: default_snippet_render_threads(),
         };
         Self::new(config, Default::default(), Path::new("."))
     }
@@ -113,12 +114,12 @@ struct RenderPool {
 
 impl RenderPool {
     fn new(config: ThirdPartyConfigs, root_dir: String, image_registry: ImageRegistry) -> Self {
+        let threads = config.threads;
         let shared = Shared { config, root_dir, signal: Default::default() };
         let state = RenderPoolState { requests: Default::default(), image_registry, cache: Default::default() };
 
-        let max_workers = MAX_WORKERS;
         let this = Self { state: Arc::new(Mutex::new(state)), shared: Arc::new(shared) };
-        for _ in 0..max_workers {
+        for _ in 0..threads {
             let worker = Worker { state: this.state.clone(), shared: this.shared.clone() };
             thread::spawn(move || worker.run());
         }
