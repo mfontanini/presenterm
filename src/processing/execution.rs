@@ -1,3 +1,4 @@
+use super::separator::RenderSeparator;
 use crate::{
     execute::{CodeExecutor, ExecutionHandle, ExecutionState, ProcessStatus},
     markdown::elements::{Code, Text, TextBlock},
@@ -9,8 +10,6 @@ use crate::{
 use itertools::Itertools;
 use std::{cell::RefCell, rc::Rc};
 use unicode_width::UnicodeWidthStr;
-
-use super::separator::RenderSeparator;
 
 #[derive(Debug)]
 struct RunCodeOperationInner {
@@ -116,9 +115,12 @@ impl RenderAsync for RunCodeOperation {
                     Text::new("finished with error", TextStyle::default().colors(self.status_colors.failure.clone()))
                 }
             };
+            let modified = inner.output_lines.len() != output.len();
             if status.is_finished() {
                 inner.handle.take();
-                inner.state = RenderAsyncState::Rendered;
+                inner.state = RenderAsyncState::JustFinishedRendering;
+            } else {
+                inner.state = RenderAsyncState::Rendering { modified };
             }
             inner.output_lines = output;
         }
@@ -133,7 +135,7 @@ impl RenderAsync for RunCodeOperation {
         match self.executor.execute(&self.code) {
             Ok(handle) => {
                 inner.handle = Some(handle);
-                inner.state = RenderAsyncState::Rendering;
+                inner.state = RenderAsyncState::Rendering { modified: false };
                 true
             }
             Err(e) => {

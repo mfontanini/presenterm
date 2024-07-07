@@ -345,13 +345,13 @@ impl RenderAsync for RenderThirdParty {
         match mem::take(&mut *self.pending_result.lock().unwrap()) {
             RenderResult::Success(image) => {
                 *contents = Some(image);
-                RenderAsyncState::Rendered
+                RenderAsyncState::JustFinishedRendering
             }
             RenderResult::Failure(error) => {
                 *self.error_holder.lock().unwrap() = Some(AsyncPresentationError { slide: self.slide, error });
-                RenderAsyncState::Rendered
+                RenderAsyncState::JustFinishedRendering
             }
-            RenderResult::Pending => RenderAsyncState::Rendering,
+            RenderResult::Pending => RenderAsyncState::Rendering { modified: false },
         }
     }
 }
