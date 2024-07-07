@@ -1,4 +1,4 @@
-use super::modals::KeyBindingsModalBuilder;
+use super::{execution::SnippetExecutionDisabledOperation, modals::KeyBindingsModalBuilder};
 use crate::{
     custom::{KeyBindingsConfig, OptionsConfig},
     execute::CodeExecutor,
@@ -16,7 +16,7 @@ use crate::{
     },
     processing::{
         code::{CodePreparer, HighlightContext, HighlightMutator, HighlightedLine},
-        execution::RunCodeOperation,
+        execution::RunSnippetOperation,
         footer::{FooterContext, FooterGenerator},
         modals::IndexBuilder,
         separator::RenderSeparator,
@@ -688,8 +688,16 @@ impl<'a> PresentationBuilder<'a> {
         if self.options.allow_mutations && context.borrow().groups.len() > 1 {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
-        if code.attributes.execute && self.options.enable_snippet_execution {
-            self.push_code_execution(code)?;
+        if code.attributes.execute {
+            if self.options.enable_snippet_execution {
+                self.push_code_execution(code)?;
+            } else {
+                let operation = SnippetExecutionDisabledOperation::new(
+                    self.theme.execution_output.status.failure.clone(),
+                    self.theme.code.alignment.clone().unwrap_or_default(),
+                );
+                self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(operation)))
+            }
         }
         Ok(())
     }
@@ -745,7 +753,7 @@ impl<'a> PresentationBuilder<'a> {
         if !self.code_executor.is_execution_supported(&code.language) {
             return Err(BuildError::UnsupportedExecution(code.language));
         }
-        let operation = RunCodeOperation::new(
+        let operation = RunSnippetOperation::new(
             code,
             self.code_executor.clone(),
             self.theme.default_style.colors.clone(),
@@ -1479,18 +1487,32 @@ mod test {
         let options = PresentationBuilderOptions { enable_snippet_execution: enabled, ..Default::default() };
         let presentation = build_presentation_with_options(vec![element], options);
         let slide = presentation.iter_slides().next().unwrap();
-        let mut found_render_async = false;
+        let mut found_render_block = false;
+        let mut found_cant_render_block = false;
         for operation in slide.iter_operations() {
-            let is_render_async = matches!(operation, RenderOperation::RenderAsync(_));
-            if is_render_async {
-                assert!(enabled);
-                found_render_async = true;
-            }
+            match operation {
+                RenderOperation::RenderAsync(operation) => {
+                    let operation = format!("{operation:?}");
+                    if operation.contains("RunSnippetOperation") {
+                        assert!(enabled);
+                        found_render_block = true;
+                    } else if operation.contains("SnippetExecutionDisabledOperation") {
+                        assert!(!enabled);
+                        found_cant_render_block = true;
+                    }
+                }
+                _ => (),
+            };
         }
-        if found_render_async {
-            assert!(enabled, "code execution block found but not enabled");
+        if found_render_block {
+            assert!(enabled, "snippet execution block found but not enabled");
         } else {
-            assert!(!enabled, "code execution enabled but not found");
+            assert!(!enabled, "snippet execution enabled but not found");
+        }
+        if found_cant_render_block {
+            assert!(!enabled, "can't execute snippet operation found but enabled");
+        } else {
+            assert!(enabled, "can't execute snippet operation not found");
         }
     }
 }

@@ -5,10 +5,10 @@ use crate::{
     presentation::{AsRenderOperations, PreformattedLine, RenderAsync, RenderAsyncState, RenderOperation},
     render::properties::WindowSize,
     style::{Colors, TextStyle},
-    theme::ExecutionStatusBlockStyle,
+    theme::{Alignment, ExecutionStatusBlockStyle},
 };
 use itertools::Itertools;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, mem, rc::Rc};
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug)]
@@ -19,7 +19,7 @@ struct RunCodeOperationInner {
 }
 
 #[derive(Debug)]
-pub(crate) struct RunCodeOperation {
+pub(crate) struct RunSnippetOperation {
     code: Code,
     executor: Rc<CodeExecutor>,
     default_colors: Colors,
@@ -29,7 +29,7 @@ pub(crate) struct RunCodeOperation {
     state_description: RefCell<Text>,
 }
 
-impl RunCodeOperation {
+impl RunSnippetOperation {
     pub(crate) fn new(
         code: Code,
         executor: Rc<CodeExecutor>,
@@ -65,7 +65,7 @@ impl RunCodeOperation {
     }
 }
 
-impl AsRenderOperations for RunCodeOperation {
+impl AsRenderOperations for RunSnippetOperation {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let inner = self.inner.borrow();
         if matches!(inner.state, RenderAsyncState::NotStarted) {
@@ -98,7 +98,7 @@ impl AsRenderOperations for RunCodeOperation {
     }
 }
 
-impl RenderAsync for RunCodeOperation {
+impl RenderAsync for RunSnippetOperation {
     fn poll_state(&self) -> RenderAsyncState {
         let mut inner = self.inner.borrow_mut();
         if let Some(handle) = inner.handle.as_mut() {
@@ -144,5 +144,53 @@ impl RenderAsync for RunCodeOperation {
                 true
             }
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct SnippetExecutionDisabledOperation {
+    colors: Colors,
+    alignment: Alignment,
+    started: RefCell<bool>,
+}
+
+impl SnippetExecutionDisabledOperation {
+    pub(crate) fn new(colors: Colors, alignment: Alignment) -> Self {
+        Self { colors, alignment, started: Default::default() }
+    }
+}
+
+impl AsRenderOperations for SnippetExecutionDisabledOperation {
+    fn as_render_operations(&self, _: &WindowSize) -> Vec<RenderOperation> {
+        if !*self.started.borrow() {
+            return Vec::new();
+        }
+        vec![
+            RenderOperation::RenderLineBreak,
+            RenderOperation::RenderText {
+                line: vec![Text::new(
+                    "snippet execution is disabled",
+                    TextStyle::default().colors(self.colors.clone()),
+                )]
+                .into(),
+                alignment: self.alignment.clone(),
+            },
+            RenderOperation::RenderLineBreak,
+        ]
+    }
+
+    fn diffable_content(&self) -> Option<&str> {
+        None
+    }
+}
+
+impl RenderAsync for SnippetExecutionDisabledOperation {
+    fn start_render(&self) -> bool {
+        let was_started = mem::replace(&mut *self.started.borrow_mut(), true);
+        !was_started
+    }
+
+    fn poll_state(&self) -> RenderAsyncState {
+        RenderAsyncState::Rendered
     }
 }
