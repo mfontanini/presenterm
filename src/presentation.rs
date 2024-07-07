@@ -159,7 +159,7 @@ impl Presentation {
         for (index, slide) in self.slides.iter().enumerate() {
             for operation in slide.iter_operations() {
                 if let RenderOperation::RenderAsync(operation) = operation {
-                    if matches!(operation.poll_state(), RenderAsyncState::Rendering) {
+                    if matches!(operation.poll_state(), RenderAsyncState::Rendering { .. }) {
                         indexes.insert(index);
                         break;
                     }
@@ -170,16 +170,28 @@ impl Presentation {
     }
 
     /// Poll every async render operation in the current slide and check whether they're completed.
-    pub(crate) fn async_renders_completed(&mut self) -> bool {
+    pub(crate) fn poll_slide_async_renders(&mut self) -> RenderAsyncState {
         let slide = self.current_slide_mut();
-        let mut all_rendered = true;
+        let mut slide_state = RenderAsyncState::Rendered;
         for operation in slide.iter_operations_mut() {
             if let RenderOperation::RenderAsync(operation) = operation {
-                let is_rendered = matches!(operation.poll_state(), RenderAsyncState::Rendered);
-                all_rendered = all_rendered && is_rendered;
+                let state = operation.poll_state();
+                slide_state = match (&slide_state, &state) {
+                    // If one finished rendering and another one still is rendering, claim that we
+                    // are still rendering and there's modifications.
+                    (RenderAsyncState::JustFinishedRendering, RenderAsyncState::Rendering { modified: false })
+                    | (RenderAsyncState::Rendering { modified: false }, RenderAsyncState::JustFinishedRendering) => {
+                        RenderAsyncState::Rendering { modified: true }
+                    }
+                    // Render + modified overrides anything, rendering overrides only "rendered".
+                    (_, RenderAsyncState::Rendering { modified: true })
+                    | (RenderAsyncState::Rendered, RenderAsyncState::Rendering { .. })
+                    | (_, RenderAsyncState::JustFinishedRendering) => state,
+                    _ => slide_state,
+                };
             }
         }
-        all_rendered
+        slide_state
     }
     /// Run a callback through every operation and let it mutate it in place.
     ///
@@ -623,8 +635,11 @@ pub(crate) trait RenderAsync: AsRenderOperations {
 pub(crate) enum RenderAsyncState {
     #[default]
     NotStarted,
-    Rendering,
+    Rendering {
+        modified: bool,
+    },
     Rendered,
+    JustFinishedRendering,
 }
 
 #[cfg(test)]

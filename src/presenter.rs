@@ -6,7 +6,7 @@ use crate::{
     input::source::{Command, CommandSource},
     markdown::parse::{MarkdownParser, ParseError},
     media::{printer::ImagePrinter, register::ImageRegistry},
-    presentation::Presentation,
+    presentation::{Presentation, RenderAsyncState},
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     render::{
         draw::{ErrorSource, RenderError, RenderResult, TerminalDrawer},
@@ -91,10 +91,14 @@ impl<'a> Presenter<'a> {
         let mut drawer =
             TerminalDrawer::new(io::stdout(), self.image_printer.clone(), self.options.font_size_fallback)?;
         loop {
+            // Poll async renders once before we draw just in case.
+            self.poll_async_renders()?;
             self.render(&mut drawer)?;
 
             loop {
-                self.update_async_renders(&mut drawer)?;
+                if self.poll_async_renders()? {
+                    self.render(&mut drawer)?;
+                }
                 let Some(command) = self.commands.try_next_command()? else {
                     if self.check_async_error() {
                         break;
@@ -109,9 +113,6 @@ impl<'a> Presenter<'a> {
                     }
                     CommandSideEffect::Redraw => {
                         break;
-                    }
-                    CommandSideEffect::PollAsyncRenders => {
-                        self.slides_with_pending_async_renders.insert(self.state.presentation().current_slide_index());
                     }
                     CommandSideEffect::None => (),
                 };
@@ -132,17 +133,22 @@ impl<'a> Presenter<'a> {
         }
     }
 
-    fn update_async_renders(&mut self, drawer: &mut TerminalDrawer<Stdout>) -> RenderResult {
+    fn poll_async_renders(&mut self) -> Result<bool, RenderError> {
         let current_index = self.state.presentation().current_slide_index();
         if self.slides_with_pending_async_renders.contains(&current_index) {
-            self.render(drawer)?;
-            if self.state.presentation_mut().async_renders_completed() {
-                // Render one last time just in case it _just_ rendered
-                self.render(drawer)?;
-                self.slides_with_pending_async_renders.remove(&current_index);
-            }
+            let state = self.state.presentation_mut().poll_slide_async_renders();
+            match state {
+                RenderAsyncState::NotStarted | RenderAsyncState::Rendering { modified: false } => (),
+                RenderAsyncState::Rendering { modified: true } => {
+                    return Ok(true);
+                }
+                RenderAsyncState::Rendered | RenderAsyncState::JustFinishedRendering => {
+                    self.slides_with_pending_async_renders.remove(&current_index);
+                    return Ok(true);
+                }
+            };
         }
-        Ok(())
+        Ok(false)
     }
 
     fn render(&mut self, drawer: &mut TerminalDrawer<Stdout>) -> RenderResult {
@@ -205,7 +211,7 @@ impl<'a> Presenter<'a> {
             Command::RenderAsyncOperations => {
                 if presentation.trigger_slide_async_renders() {
                     self.slides_with_pending_async_renders.insert(self.state.presentation().current_slide_index());
-                    return CommandSideEffect::PollAsyncRenders;
+                    return CommandSideEffect::Redraw;
                 } else {
                     return CommandSideEffect::None;
                 }
@@ -319,7 +325,6 @@ impl<'a> Presenter<'a> {
 enum CommandSideEffect {
     Exit,
     Redraw,
-    PollAsyncRenders,
     Reload,
     None,
 }
