@@ -65,11 +65,11 @@ impl CodeExecutor {
         match &code.language {
             CodeLanguage::Shell(interpreter) => {
                 let args: &[&str] = &[];
-                Self::execute_shell(interpreter, code.contents.as_bytes(), args)
+                Self::execute_shell(interpreter, code.executable_contents().as_bytes(), args)
             }
             lang => {
                 let executor = self.executor(lang).ok_or(CodeExecuteError::UnsupportedExecution)?;
-                Self::execute_lang(executor, code.contents.as_bytes())
+                Self::execute_lang(executor, code.executable_contents().as_bytes())
             }
         }
     }
@@ -292,6 +292,32 @@ echo 'hello world'
         };
 
         let expected_lines = vec!["This message redirects to stderr", "hello world"];
+        assert_eq!(state.output, expected_lines);
+    }
+
+    #[test]
+    fn shell_code_execution_executes_hidden_lines() {
+        let contents = r"
+/// echo 'this line was hidden'
+/// echo 'this line was hidden and contains another prefix /// '
+echo 'hello world'
+"
+        .into();
+        let code = Code {
+            contents,
+            language: CodeLanguage::Shell("sh".into()),
+            attributes: CodeAttributes { execute: true, ..Default::default() },
+        };
+        let handle = CodeExecutor::default().execute(&code).expect("execution failed");
+        let state = loop {
+            let state = handle.state();
+            if state.status.is_finished() {
+                break state;
+            }
+        };
+
+        let expected_lines =
+            vec!["this line was hidden", "this line was hidden and contains another prefix /// ", "hello world"];
         assert_eq!(state.output, expected_lines);
     }
 

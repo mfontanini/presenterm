@@ -42,8 +42,8 @@ impl<'a> CodePreparer<'a> {
         }
 
         let padding = " ".repeat(horizontal_padding as usize);
-        let padder = NumberPadder::new(code.contents.lines().count());
-        for (index, line) in code.contents.lines().enumerate() {
+        let padder = NumberPadder::new(code.visible_lines().count());
+        for (index, line) in code.visible_lines().enumerate() {
             let mut line = line.to_string();
             let mut prefix = padding.clone();
             if code.attributes.line_numbers {
