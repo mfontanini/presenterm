@@ -1,5 +1,5 @@
 use crate::style::TextStyle;
-use std::{convert::Infallible, iter, ops::Range, path::PathBuf, str::FromStr};
+use std::{convert::Infallible, fmt::Write, iter, ops::Range, path::PathBuf, str::FromStr};
 use strum::EnumIter;
 use unicode_width::UnicodeWidthStr;
 
@@ -193,16 +193,11 @@ impl Code {
 
     pub(crate) fn executable_contents(&self) -> String {
         if let Some(prefix) = self.language.hidden_line_prefix() {
-            self.contents
-                .lines()
-                .map(|line| {
-                    let mut line = format!("{}\n", line);
-                    if line.starts_with(prefix) {
-                        line.replace_range(..prefix.len(), "");
-                    }
-                    line
-                })
-                .collect()
+            self.contents.lines().fold(String::new(), |mut output, line| {
+                let line = line.strip_prefix(prefix).unwrap_or(line);
+                let _ = writeln!(output, "{line}");
+                output
+            })
         } else {
             self.contents.to_owned()
         }
