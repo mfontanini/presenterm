@@ -120,7 +120,7 @@ And many more!
 Dynamic code highlighting
 ---
 
-Select specific subsets of lines to be highlighted dynamically as you move to the next slide. Optionally enable line 
+Select specific subsets of lines to be highlighted dynamically as you move to the next slide. Optionally enable line
 numbers to make it easier to specify which lines you're referring to!
 
 ```rust {1-4|6-10|all} +line_numbers
@@ -199,7 +199,7 @@ _Picture by Alexis Bailey / CC BY-NC 4.0_
 
 <!-- reset_layout -->
 
-Because we just reset the layout, this text is now below both of the columns. Code and any other element will now look 
+Because we just reset the layout, this text is now below both of the columns. Code and any other element will now look
 like it usually does:
 
 ```python
@@ -245,4 +245,3 @@ Other elements supported are:
 A horizontal line by using `---`.
 
 ---
-

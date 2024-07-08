@@ -41,7 +41,7 @@ default-features = false
 features = ["parsing", "default-themes", "regex-onig", "plist-load"]
 
 [dev-dependencies]
-rstest = { version = "0.19", default-features = false }
+rstest = { version = "0.21", default-features = false }
 
 [features]
 default = []

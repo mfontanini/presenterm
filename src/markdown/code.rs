@@ -24,61 +24,8 @@ impl CodeBlockParser {
 
     fn parse_language(input: &str) -> (CodeLanguage, &str) {
         let token = Self::next_identifier(input);
-        use CodeLanguage::*;
-        let language = match token {
-            "ada" => Ada,
-            "asp" => Asp,
-            "awk" => Awk,
-            "c" => C,
-            "cmake" => CMake,
-            "crontab" => Crontab,
-            "csharp" => CSharp,
-            "clojure" => Clojure,
-            "cpp" | "c++" => Cpp,
-            "css" => Css,
-            "d" => DLang,
-            "diff" => Diff,
-            "docker" => Docker,
-            "dotenv" => Dotenv,
-            "elixir" => Elixir,
-            "elm" => Elm,
-            "erlang" => Erlang,
-            "go" => Go,
-            "haskell" => Haskell,
-            "html" => Html,
-            "java" => Java,
-            "javascript" | "js" => JavaScript,
-            "json" => Json,
-            "kotlin" => Kotlin,
-            "latex" => Latex,
-            "lua" => Lua,
-            "make" => Makefile,
-            "markdown" => Markdown,
-            "nix" => Nix,
-            "ocaml" => OCaml,
-            "perl" => Perl,
-            "php" => Php,
-            "protobuf" => Protobuf,
-            "puppet" => Puppet,
-            "python" => Python,
-            "r" => R,
-            "ruby" => Ruby,
-            "rust" => Rust,
-            "scala" => Scala,
-            "shell" => Shell("sh".into()),
-            interpreter @ ("bash" | "sh" | "zsh" | "fish") => Shell(interpreter.into()),
-            "sql" => Sql,
-            "svelte" => Svelte,
-            "swift" => Swift,
-            "terraform" => Terraform,
-            "typescript" | "ts" => TypeScript,
-            "typst" => Typst,
-            "xml" => Xml,
-            "yaml" => Yaml,
-            "vue" => Vue,
-            "zig" => Zig,
-            _ => Unknown,
-        };
+        // this always returns `Ok` given we fall back to `Unknown` if we don't know the language.
+        let language = token.parse().expect("language parsing");
         let rest = &input[token.len()..];
         (language, rest)
     }
@@ -233,7 +180,7 @@ mod test {
 
     #[test]
     fn unknown_language() {
-        assert_eq!(parse_language("potato"), CodeLanguage::Unknown);
+        assert_eq!(parse_language("potato"), CodeLanguage::Unknown("potato".to_string()));
     }
 
     #[test]

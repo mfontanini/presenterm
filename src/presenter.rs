@@ -6,16 +6,16 @@ use crate::{
     input::source::{Command, CommandSource},
     markdown::parse::{MarkdownParser, ParseError},
     media::{printer::ImagePrinter, register::ImageRegistry},
-    presentation::Presentation,
+    presentation::{Presentation, RenderAsyncState},
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     render::{
-        draw::{RenderError, RenderResult, TerminalDrawer},
+        draw::{ErrorSource, RenderError, RenderResult, TerminalDrawer},
         properties::WindowSize,
         validate::OverflowValidator,
     },
     resource::Resources,
     theme::PresentationTheme,
-    typst::TypstRender,
+    third_party::ThirdPartyRender,
 };
 use std::{
     collections::HashSet,
@@ -23,8 +23,10 @@ use std::{
     fs,
     io::{self, Stdout},
     mem,
+    ops::Deref,
     path::Path,
     rc::Rc,
+    sync::Arc,
 };
 
 pub struct PresenterOptions {
@@ -43,11 +45,11 @@ pub struct Presenter<'a> {
     commands: CommandSource,
     parser: MarkdownParser<'a>,
     resources: Resources,
-    typst: TypstRender,
+    third_party: ThirdPartyRender,
     code_executor: Rc<CodeExecutor>,
     state: PresenterState,
-    slides_with_pending_widgets: HashSet<usize>,
-    image_printer: Rc<ImagePrinter>,
+    slides_with_pending_async_renders: HashSet<usize>,
+    image_printer: Arc<ImagePrinter>,
     themes: Themes,
     options: PresenterOptions,
 }
@@ -60,10 +62,10 @@ impl<'a> Presenter<'a> {
         commands: CommandSource,
         parser: MarkdownParser<'a>,
         resources: Resources,
-        typst: TypstRender,
+        third_party: ThirdPartyRender,
         code_executor: Rc<CodeExecutor>,
         themes: Themes,
-        image_printer: Rc<ImagePrinter>,
+        image_printer: Arc<ImagePrinter>,
         options: PresenterOptions,
     ) -> Self {
         Self {
@@ -71,10 +73,10 @@ impl<'a> Presenter<'a> {
             commands,
             parser,
             resources,
-            typst,
+            third_party,
             code_executor,
             state: PresenterState::Empty,
-            slides_with_pending_widgets: HashSet::new(),
+            slides_with_pending_async_renders: HashSet::new(),
             image_printer,
             themes,
             options,
@@ -89,12 +91,18 @@ impl<'a> Presenter<'a> {
         let mut drawer =
             TerminalDrawer::new(io::stdout(), self.image_printer.clone(), self.options.font_size_fallback)?;
         loop {
+            // Poll async renders once before we draw just in case.
+            self.poll_async_renders()?;
             self.render(&mut drawer)?;
-            self.update_widgets(&mut drawer)?;
 
             loop {
-                self.update_widgets(&mut drawer)?;
+                if self.poll_async_renders()? {
+                    self.render(&mut drawer)?;
+                }
                 let Some(command) = self.commands.try_next_command()? else {
+                    if self.check_async_error() {
+                        break;
+                    }
                     continue;
                 };
                 match self.apply_command(command) {
@@ -106,26 +114,41 @@ impl<'a> Presenter<'a> {
                     CommandSideEffect::Redraw => {
                         break;
                     }
-                    CommandSideEffect::PollWidgets => {
-                        self.slides_with_pending_widgets.insert(self.state.presentation().current_slide_index());
-                    }
                     CommandSideEffect::None => (),
                 };
             }
         }
     }
 
-    fn update_widgets(&mut self, drawer: &mut TerminalDrawer<Stdout>) -> RenderResult {
-        let current_index = self.state.presentation().current_slide_index();
-        if self.slides_with_pending_widgets.contains(&current_index) {
-            self.render(drawer)?;
-            if self.state.presentation_mut().widgets_rendered() {
-                // Render one last time just in case it _just_ rendered
-                self.render(drawer)?;
-                self.slides_with_pending_widgets.remove(&current_index);
+    fn check_async_error(&mut self) -> bool {
+        let error_holder = self.state.presentation().state.async_error_holder();
+        let error_holder = error_holder.lock().unwrap();
+        match error_holder.deref() {
+            Some(error) => {
+                let presentation = mem::take(&mut self.state).into_presentation();
+                self.state = PresenterState::failure(&error.error, presentation, ErrorSource::Slide(error.slide));
+                true
             }
+            None => false,
         }
-        Ok(())
+    }
+
+    fn poll_async_renders(&mut self) -> Result<bool, RenderError> {
+        let current_index = self.state.presentation().current_slide_index();
+        if self.slides_with_pending_async_renders.contains(&current_index) {
+            let state = self.state.presentation_mut().poll_slide_async_renders();
+            match state {
+                RenderAsyncState::NotStarted | RenderAsyncState::Rendering { modified: false } => (),
+                RenderAsyncState::Rendering { modified: true } => {
+                    return Ok(true);
+                }
+                RenderAsyncState::Rendered | RenderAsyncState::JustFinishedRendering => {
+                    self.slides_with_pending_async_renders.remove(&current_index);
+                    return Ok(true);
+                }
+            };
+        }
+        Ok(false)
     }
 
     fn render(&mut self, drawer: &mut TerminalDrawer<Stdout>) -> RenderResult {
@@ -139,7 +162,7 @@ impl<'a> Presenter<'a> {
                 drawer.render_slide(presentation)?;
                 drawer.render_key_bindings(presentation)
             }
-            PresenterState::Failure { error, .. } => drawer.render_error(error),
+            PresenterState::Failure { error, source, .. } => drawer.render_error(error, source),
             PresenterState::Empty => panic!("cannot render without state"),
         };
         // If the screen is too small, simply ignore this. Eventually the user will resize the
@@ -185,10 +208,10 @@ impl<'a> Presenter<'a> {
             Command::FirstSlide => presentation.jump_first_slide(),
             Command::LastSlide => presentation.jump_last_slide(),
             Command::GoToSlide(number) => presentation.go_to_slide(number.saturating_sub(1) as usize),
-            Command::RenderWidgets => {
-                if presentation.render_slide_widgets() {
-                    self.slides_with_pending_widgets.insert(self.state.presentation().current_slide_index());
-                    return CommandSideEffect::PollWidgets;
+            Command::RenderAsyncOperations => {
+                if presentation.trigger_slide_async_renders() {
+                    self.slides_with_pending_async_renders.insert(self.state.presentation().current_slide_index());
+                    return CommandSideEffect::Redraw;
                 } else {
                     return CommandSideEffect::None;
                 }
@@ -218,7 +241,7 @@ impl<'a> Presenter<'a> {
         if matches!(self.options.mode, PresentMode::Presentation) && !force {
             return;
         }
-        self.slides_with_pending_widgets.clear();
+        self.slides_with_pending_async_renders.clear();
         match self.load_presentation(path) {
             Ok(mut presentation) => {
                 let current = self.state.presentation();
@@ -229,11 +252,12 @@ impl<'a> Presenter<'a> {
                     presentation.go_to_slide(current.current_slide_index());
                     presentation.jump_chunk(current.current_chunk());
                 }
+                self.slides_with_pending_async_renders = presentation.slides_with_async_renders().into_iter().collect();
                 self.state = self.validate_overflows(presentation);
             }
             Err(e) => {
                 let presentation = mem::take(&mut self.state).into_presentation();
-                self.state = PresenterState::failure(e, presentation);
+                self.state = PresenterState::failure(e, presentation, ErrorSource::Presentation);
             }
         };
     }
@@ -242,11 +266,11 @@ impl<'a> Presenter<'a> {
         if self.options.validate_overflows {
             let dimensions = match WindowSize::current(self.options.font_size_fallback) {
                 Ok(dimensions) => dimensions,
-                Err(e) => return PresenterState::failure(e, presentation),
+                Err(e) => return PresenterState::failure(e, presentation, ErrorSource::Presentation),
             };
             match OverflowValidator::validate(&presentation, dimensions) {
                 Ok(()) => PresenterState::Presenting(presentation),
-                Err(e) => PresenterState::failure(e, presentation),
+                Err(e) => PresenterState::failure(e, presentation, ErrorSource::Presentation),
             }
         } else {
             PresenterState::Presenting(presentation)
@@ -260,7 +284,7 @@ impl<'a> Presenter<'a> {
         let mut presentation = PresentationBuilder::new(
             self.default_theme,
             &mut self.resources,
-            &mut self.typst,
+            &mut self.third_party,
             self.code_executor.clone(),
             &self.themes,
             ImageRegistry(self.image_printer.clone()),
@@ -301,7 +325,6 @@ impl<'a> Presenter<'a> {
 enum CommandSideEffect {
     Exit,
     Redraw,
-    PollWidgets,
     Reload,
     None,
 }
@@ -316,12 +339,13 @@ enum PresenterState {
     Failure {
         error: String,
         presentation: Presentation,
+        source: ErrorSource,
     },
 }
 
 impl PresenterState {
-    pub(crate) fn failure<E: Display>(error: E, presentation: Presentation) -> Self {
-        PresenterState::Failure { error: error.to_string(), presentation }
+    pub(crate) fn failure<E: Display>(error: E, presentation: Presentation, source: ErrorSource) -> Self {
+        PresenterState::Failure { error: error.to_string(), presentation, source }
     }
 
     fn presentation(&self) -> &Presentation {

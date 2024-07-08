@@ -1,6 +1,6 @@
 use crate::style::TextStyle;
-use std::{iter, ops::Range, path::PathBuf};
-use strum::{EnumIter, EnumString};
+use std::{convert::Infallible, iter, ops::Range, path::PathBuf, str::FromStr};
+use strum::EnumIter;
 use unicode_width::UnicodeWidthStr;
 
 /// A markdown element.
@@ -93,7 +93,7 @@ pub(crate) enum ParagraphElement {
 /// A block of text.
 ///
 /// Text is represented as a series of chunks, each with their own formatting.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub(crate) struct TextBlock(pub(crate) Vec<Text>);
 
 impl TextBlock {
@@ -210,7 +210,7 @@ impl Code {
 }
 
 /// The language of a piece of code.
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, EnumString)]
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord)]
 pub enum CodeLanguage {
     Ada,
     Asp,
@@ -241,8 +241,10 @@ pub enum CodeLanguage {
     Latex,
     Lua,
     Makefile,
+    Mermaid,
     Markdown,
     Nix,
+    Nushell,
     OCaml,
     Perl,
     Php,
@@ -252,6 +254,7 @@ pub enum CodeLanguage {
     R,
     Ruby,
     Rust,
+    RustScript,
     Scala,
     Shell(String),
     Sql,
@@ -260,7 +263,7 @@ pub enum CodeLanguage {
     Terraform,
     TypeScript,
     Typst,
-    Unknown,
+    Unknown(String),
     Xml,
     Yaml,
     Vue,
@@ -269,7 +272,7 @@ pub enum CodeLanguage {
 
 impl CodeLanguage {
     pub(crate) fn supports_auto_render(&self) -> bool {
-        matches!(self, Self::Latex | Self::Typst)
+        matches!(self, Self::Latex | Self::Typst | Self::Mermaid)
     }
 
     pub(crate) fn hidden_line_prefix(&self) -> Option<&'static str> {
@@ -278,6 +281,72 @@ impl CodeLanguage {
             CodeLanguage::Python | CodeLanguage::Shell(_) | CodeLanguage::Bash => Some("## "),
             _ => None,
         }
+    }
+}
+
+impl FromStr for CodeLanguage {
+    type Err = Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use CodeLanguage::*;
+        let language = match s {
+            "ada" => Ada,
+            "asp" => Asp,
+            "awk" => Awk,
+            "c" => C,
+            "cmake" => CMake,
+            "crontab" => Crontab,
+            "csharp" => CSharp,
+            "clojure" => Clojure,
+            "cpp" | "c++" => Cpp,
+            "css" => Css,
+            "d" => DLang,
+            "diff" => Diff,
+            "docker" => Docker,
+            "dotenv" => Dotenv,
+            "elixir" => Elixir,
+            "elm" => Elm,
+            "erlang" => Erlang,
+            "go" => Go,
+            "haskell" => Haskell,
+            "html" => Html,
+            "java" => Java,
+            "javascript" | "js" => JavaScript,
+            "json" => Json,
+            "kotlin" => Kotlin,
+            "latex" => Latex,
+            "lua" => Lua,
+            "make" => Makefile,
+            "markdown" => Markdown,
+            "mermaid" => Mermaid,
+            "nix" => Nix,
+            "nushell" | "nu" => Nushell,
+            "ocaml" => OCaml,
+            "perl" => Perl,
+            "php" => Php,
+            "protobuf" => Protobuf,
+            "puppet" => Puppet,
+            "python" => Python,
+            "r" => R,
+            "ruby" => Ruby,
+            "rust" => Rust,
+            "rust-script" => RustScript,
+            "scala" => Scala,
+            "shell" => Shell("sh".into()),
+            interpreter @ ("bash" | "sh" | "zsh" | "fish") => Shell(interpreter.into()),
+            "sql" => Sql,
+            "svelte" => Svelte,
+            "swift" => Swift,
+            "terraform" => Terraform,
+            "typescript" | "ts" => TypeScript,
+            "typst" => Typst,
+            "xml" => Xml,
+            "yaml" => Yaml,
+            "vue" => Vue,
+            "zig" => Zig,
+            other => Unknown(other.to_string()),
+        };
+        Ok(language)
     }
 }
 

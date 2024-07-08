@@ -51,14 +51,11 @@ fn build_executors(out_dir: &str) -> io::Result<()> {
         let path = file.path();
         let contents = fs::read(&path)?;
         let file_name = path.file_name().unwrap().to_string_lossy();
-        let (executor_name, extension) = file_name.split_once('.').unwrap();
+        let (language, extension) = file_name.split_once('.').unwrap();
         if extension != "sh" {
             panic!("extension must be 'sh'");
         }
-        output_file.write_all(
-            format!("(crate::markdown::elements::CodeLanguage::{executor_name}, {contents:?}.as_slice()),\n")
-                .as_bytes(),
-        )?;
+        output_file.write_all(format!("(\"{language}\".parse().unwrap(), {contents:?}.as_slice()),\n").as_bytes())?;
     }
     output_file.write_all(b"]));\n")?;
 

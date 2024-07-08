@@ -14,16 +14,17 @@
         }
       ]
     },
+    "mermaid": {
+      "$ref": "#/definitions/MermaidConfig"
+    },
     "options": {
       "$ref": "#/definitions/OptionsConfig"
     },
+    "snippet": {
+      "$ref": "#/definitions/SnippetConfig"
+    },
     "typst": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/TypstConfig"
-        }
-      ],
-      "minimum": 1.0
+      "$ref": "#/definitions/TypstConfig"
     }
   },
   "additionalProperties": false,
@@ -210,6 +211,19 @@
       },
       "additionalProperties": false
     },
+    "MermaidConfig": {
+      "type": "object",
+      "properties": {
+        "scale": {
+          "description": "The scaling parameter to be used in the mermaid CLI.",
+          "default": 2,
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
     "OptionsConfig": {
       "type": "object",
       "properties": {
@@ -247,6 +261,54 @@
             "boolean",
             "null"
           ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "SnippetConfig": {
+      "type": "object",
+      "properties": {
+        "exec": {
+          "description": "The properties for snippet execution.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SnippetExecConfig"
+            }
+          ]
+        },
+        "render": {
+          "description": "The properties for snippet auto rendering.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SnippetRenderConfig"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "SnippetExecConfig": {
+      "type": "object",
+      "required": [
+        "enable"
+      ],
+      "properties": {
+        "enable": {
+          "description": "Whether to enable snippet execution.",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SnippetRenderConfig": {
+      "type": "object",
+      "properties": {
+        "threads": {
+          "description": "The number of threads to use when rendering.",
+          "default": 2,
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
         }
       },
       "additionalProperties": false

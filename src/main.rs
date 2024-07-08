@@ -3,13 +3,14 @@ use comrak::Arena;
 use directories::ProjectDirs;
 use presenterm::{
     CodeExecutor, CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol,
-    ImageRegistry, LoadThemeError, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme,
-    PresentationThemeSet, Presenter, PresenterOptions, Resources, Themes, ThemesDemo, TypstRender, ValidateOverflows,
+    ImageRegistry, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet,
+    Presenter, PresenterOptions, Resources, Themes, ThemesDemo, ThirdPartyConfigs, ThirdPartyRender, ValidateOverflows,
 };
 use std::{
     env, io,
     path::{Path, PathBuf},
     rc::Rc,
+    sync::Arc,
 };
 
 const DEFAULT_THEME: &str = "dark";
@@ -63,6 +64,10 @@ struct Cli {
     #[clap(long)]
     validate_overflows: bool,
 
+    /// Enable code snippet execution.
+    #[clap(short = 'x', long)]
+    enable_snippet_execution: bool,
+
     /// The path to the configuration file.
     #[clap(short, long)]
     config_file: Option<String>,
@@ -113,10 +118,7 @@ fn load_themes(config_path: &Path) -> Result<Themes, Box<dyn std::error::Error>>
     highlight_themes.register_from_directory(themes_path.join("highlighting"))?;
 
     let mut presentation_themes = PresentationThemeSet::default();
-    let register_result = presentation_themes.register_from_directory(&themes_path);
-    if let Err(e @ (LoadThemeError::Duplicate(_) | LoadThemeError::Corrupted(..))) = register_result {
-        return Err(e.into());
-    }
+    presentation_themes.register_from_directory(&themes_path)?;
 
     let themes = Themes { presentation: presentation_themes, highlight: highlight_themes };
     Ok(themes)
@@ -137,6 +139,7 @@ fn make_builder_options(config: &Config, mode: &PresentMode, force_default_theme
         end_slide_shorthand: config.options.end_slide_shorthand.unwrap_or_default(),
         print_modal_background: false,
         strict_front_matter_parsing: config.options.strict_front_matter_parsing.unwrap_or(true),
+        enable_snippet_execution: config.snippet.exec.enable,
     }
 }
 
@@ -210,14 +213,23 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let validate_overflows = overflow_validation(&mode, &config.defaults.validate_overflows) || cli.validate_overflows;
     let resources_path = path.parent().unwrap_or(Path::new("/"));
     let mut options = make_builder_options(&config, &mode, force_default_theme);
+    if cli.enable_snippet_execution {
+        options.enable_snippet_execution = true;
+    }
     let graphics_mode = select_graphics_mode(&cli, &config);
-    let printer = Rc::new(ImagePrinter::new(graphics_mode.clone())?);
+    let printer = Arc::new(ImagePrinter::new(graphics_mode.clone())?);
     let registry = ImageRegistry(printer.clone());
     let resources = Resources::new(resources_path, registry.clone());
-    let typst = TypstRender::new(config.typst.ppi, registry, resources_path);
+    let third_party_config = ThirdPartyConfigs {
+        typst_ppi: config.typst.ppi.to_string(),
+        mermaid_scale: config.mermaid.scale.to_string(),
+        threads: config.snippet.render.threads,
+    };
+    let third_party = ThirdPartyRender::new(third_party_config, registry, resources_path);
     let code_executor = Rc::new(code_executor);
     if cli.export_pdf || cli.generate_pdf_metadata {
-        let mut exporter = Exporter::new(parser, &default_theme, resources, typst, code_executor, themes, options);
+        let mut exporter =
+            Exporter::new(parser, &default_theme, resources, third_party, code_executor, themes, options);
         let mut args = Vec::new();
         if let Some(theme) = cli.theme.as_ref() {
             args.extend(["--theme", theme]);
@@ -242,8 +254,17 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             bindings: config.bindings,
             validate_overflows,
         };
-        let presenter =
-            Presenter::new(&default_theme, commands, parser, resources, typst, code_executor, themes, printer, options);
+        let presenter = Presenter::new(
+            &default_theme,
+            commands,
+            parser,
+            resources,
+            third_party,
+            code_executor,
+            themes,
+            printer,
+            options,
+        );
         presenter.present(&path)?;
     }
     Ok(())

@@ -1,43 +1,61 @@
+use super::separator::RenderSeparator;
 use crate::{
     execute::{CodeExecutor, ExecutionHandle, ExecutionState, ProcessStatus},
-    markdown::elements::Code,
-    presentation::{AsRenderOperations, PreformattedLine, RenderOnDemand, RenderOnDemandState, RenderOperation},
+    markdown::elements::{Code, Text, TextBlock},
+    presentation::{AsRenderOperations, PreformattedLine, RenderAsync, RenderAsyncState, RenderOperation},
     render::properties::WindowSize,
-    style::Colors,
+    style::{Colors, TextStyle},
+    theme::{Alignment, ExecutionStatusBlockStyle},
 };
 use itertools::Itertools;
-use std::{cell::RefCell, rc::Rc};
-
-use super::separator::RenderSeparator;
+use std::{cell::RefCell, mem, rc::Rc};
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug)]
 struct RunCodeOperationInner {
     handle: Option<ExecutionHandle>,
     output_lines: Vec<String>,
-    state: RenderOnDemandState,
+    state: RenderAsyncState,
 }
 
 #[derive(Debug)]
-pub(crate) struct RunCodeOperation {
+pub(crate) struct RunSnippetOperation {
     code: Code,
     executor: Rc<CodeExecutor>,
     default_colors: Colors,
     block_colors: Colors,
+    status_colors: ExecutionStatusBlockStyle,
     inner: Rc<RefCell<RunCodeOperationInner>>,
+    state_description: RefCell<Text>,
 }
 
-impl RunCodeOperation {
-    pub(crate) fn new(code: Code, executor: Rc<CodeExecutor>, default_colors: Colors, block_colors: Colors) -> Self {
+impl RunSnippetOperation {
+    pub(crate) fn new(
+        code: Code,
+        executor: Rc<CodeExecutor>,
+        default_colors: Colors,
+        block_colors: Colors,
+        status_colors: ExecutionStatusBlockStyle,
+    ) -> Self {
         let inner =
-            RunCodeOperationInner { handle: None, output_lines: Vec::new(), state: RenderOnDemandState::default() };
-        Self { code, executor, default_colors, block_colors, inner: Rc::new(RefCell::new(inner)) }
+            RunCodeOperationInner { handle: None, output_lines: Vec::new(), state: RenderAsyncState::default() };
+        let running_colors = status_colors.running.clone();
+        Self {
+            code,
+            executor,
+            default_colors,
+            block_colors,
+            status_colors,
+            inner: Rc::new(RefCell::new(inner)),
+            state_description: Text::new("running", TextStyle::default().colors(running_colors)).into(),
+        }
     }
 
     fn render_line(&self, mut line: String) -> RenderOperation {
         if line.contains('\t') {
             line = line.replace('\t', "    ");
         }
-        let line_len = line.len() as u16;
+        let line_len = line.width() as u16;
         RenderOperation::RenderPreformattedLine(PreformattedLine {
             text: line,
             unformatted_length: line_len,
@@ -47,17 +65,14 @@ impl RunCodeOperation {
     }
 }
 
-impl AsRenderOperations for RunCodeOperation {
+impl AsRenderOperations for RunSnippetOperation {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let inner = self.inner.borrow();
-        if matches!(inner.state, RenderOnDemandState::NotStarted) {
+        if matches!(inner.state, RenderAsyncState::NotStarted) {
             return Vec::new();
         }
-        let state = match inner.state {
-            RenderOnDemandState::Rendered => "done",
-            _ => "running",
-        };
-        let heading = format!(" [{state}] ");
+        let description = self.state_description.borrow();
+        let heading = TextBlock(vec![" [".into(), description.clone(), "] ".into()]);
         let separator = RenderSeparator::new(heading);
         let mut operations = vec![
             RenderOperation::RenderLineBreak,
@@ -83,40 +98,99 @@ impl AsRenderOperations for RunCodeOperation {
     }
 }
 
-impl RenderOnDemand for RunCodeOperation {
-    fn poll_state(&self) -> RenderOnDemandState {
+impl RenderAsync for RunSnippetOperation {
+    fn poll_state(&self) -> RenderAsyncState {
         let mut inner = self.inner.borrow_mut();
         if let Some(handle) = inner.handle.as_mut() {
             let state = handle.state();
             let ExecutionState { output, status } = state;
+            *self.state_description.borrow_mut() = match status {
+                ProcessStatus::Running => {
+                    Text::new("running", TextStyle::default().colors(self.status_colors.running.clone()))
+                }
+                ProcessStatus::Success => {
+                    Text::new("finished", TextStyle::default().colors(self.status_colors.success.clone()))
+                }
+                ProcessStatus::Failure => {
+                    Text::new("finished with error", TextStyle::default().colors(self.status_colors.failure.clone()))
+                }
+            };
+            let modified = inner.output_lines.len() != output.len();
             if status.is_finished() {
                 inner.handle.take();
-                inner.state = RenderOnDemandState::Rendered;
+                inner.state = RenderAsyncState::JustFinishedRendering;
+            } else {
+                inner.state = RenderAsyncState::Rendering { modified };
             }
             inner.output_lines = output;
-            if matches!(status, ProcessStatus::Failure) {
-                inner.output_lines.push("[finished with error]".to_string());
-            }
         }
         inner.state.clone()
     }
 
     fn start_render(&self) -> bool {
         let mut inner = self.inner.borrow_mut();
-        if !matches!(inner.state, RenderOnDemandState::NotStarted) {
+        if !matches!(inner.state, RenderAsyncState::NotStarted) {
             return false;
         }
         match self.executor.execute(&self.code) {
             Ok(handle) => {
                 inner.handle = Some(handle);
-                inner.state = RenderOnDemandState::Rendering;
+                inner.state = RenderAsyncState::Rendering { modified: false };
                 true
             }
             Err(e) => {
                 inner.output_lines = vec![e.to_string()];
-                inner.state = RenderOnDemandState::Rendered;
+                inner.state = RenderAsyncState::Rendered;
                 true
             }
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct SnippetExecutionDisabledOperation {
+    colors: Colors,
+    alignment: Alignment,
+    started: RefCell<bool>,
+}
+
+impl SnippetExecutionDisabledOperation {
+    pub(crate) fn new(colors: Colors, alignment: Alignment) -> Self {
+        Self { colors, alignment, started: Default::default() }
+    }
+}
+
+impl AsRenderOperations for SnippetExecutionDisabledOperation {
+    fn as_render_operations(&self, _: &WindowSize) -> Vec<RenderOperation> {
+        if !*self.started.borrow() {
+            return Vec::new();
+        }
+        vec![
+            RenderOperation::RenderLineBreak,
+            RenderOperation::RenderText {
+                line: vec![Text::new(
+                    "snippet execution is disabled",
+                    TextStyle::default().colors(self.colors.clone()),
+                )]
+                .into(),
+                alignment: self.alignment.clone(),
+            },
+            RenderOperation::RenderLineBreak,
+        ]
+    }
+
+    fn diffable_content(&self) -> Option<&str> {
+        None
+    }
+}
+
+impl RenderAsync for SnippetExecutionDisabledOperation {
+    fn start_render(&self) -> bool {
+        let was_started = mem::replace(&mut *self.started.borrow_mut(), true);
+        !was_started
+    }
+
+    fn poll_state(&self) -> RenderAsyncState {
+        RenderAsyncState::Rendered
     }
 }

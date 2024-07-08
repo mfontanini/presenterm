@@ -27,6 +27,7 @@ impl PresentationThemeSet {
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
             Err(e) => return Err(e.into()),
         };
+        let mut dependencies = BTreeMap::new();
         for entry in handle {
             let entry = entry?;
             let metadata = entry.metadata()?;
@@ -39,9 +40,38 @@ impl PresentationThemeSet {
                     return Err(LoadThemeError::Duplicate(theme_name.into()));
                 }
                 let theme = PresentationTheme::from_path(entry.path())?;
+                let base = theme.extends.clone();
                 self.custom_themes.insert(theme_name.into(), theme);
+                dependencies.insert(theme_name.to_string(), base);
             }
         }
+        let mut graph = ThemeGraph::new(dependencies);
+        for theme_name in graph.dependents.keys() {
+            let theme_name = theme_name.as_str();
+            if !THEMES.contains_key(theme_name) && !self.custom_themes.contains_key(theme_name) {
+                return Err(LoadThemeError::ExtendedThemeNotFound(theme_name.into()));
+            }
+        }
+
+        while let Some(theme_name) = graph.pop() {
+            self.extend_theme(&theme_name)?;
+        }
+        if !graph.dependents.is_empty() {
+            return Err(LoadThemeError::ExtensionLoop(graph.dependents.into_keys().collect()));
+        }
+        Ok(())
+    }
+
+    fn extend_theme(&mut self, theme_name: &str) -> Result<(), LoadThemeError> {
+        let Some(base_name) = self.custom_themes.get(theme_name).expect("theme not found").extends.clone() else {
+            return Ok(());
+        };
+        let Some(base_theme) = self.load_by_name(&base_name) else {
+            return Err(LoadThemeError::ExtendedThemeNotFound(base_name.clone()));
+        };
+        let theme = self.custom_themes.get_mut(theme_name).expect("theme not found");
+        *theme = merge_struct::merge(&base_theme, theme)
+            .map_err(|e| LoadThemeError::Corrupted(base_name.to_string(), e.into()))?;
         Ok(())
     }
 
@@ -53,10 +83,49 @@ impl PresentationThemeSet {
     }
 }
 
+struct ThemeGraph {
+    dependents: BTreeMap<String, Vec<String>>,
+    ready: Vec<String>,
+}
+
+impl ThemeGraph {
+    fn new<I>(dependencies: I) -> Self
+    where
+        I: IntoIterator<Item = (String, Option<String>)>,
+    {
+        let mut dependents: BTreeMap<_, Vec<_>> = BTreeMap::new();
+        let mut ready = Vec::new();
+        for (name, extends) in dependencies {
+            dependents.entry(name.clone()).or_default();
+            match extends {
+                // If we extend from a non built in theme, make ourselves their dependent
+                Some(base) if !THEMES.contains_key(base.as_str()) => {
+                    dependents.entry(base).or_default().push(name);
+                }
+                // Otherwise this theme is ready to be processed
+                _ => ready.push(name),
+            }
+        }
+        Self { dependents, ready }
+    }
+
+    fn pop(&mut self) -> Option<String> {
+        let theme = self.ready.pop()?;
+        if let Some(dependents) = self.dependents.remove(&theme) {
+            self.ready.extend(dependents);
+        }
+        Some(theme)
+    }
+}
+
 /// A presentation theme.
 #[derive(Default, Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct PresentationTheme {
+    /// The theme this theme extends from.
+    #[serde(default)]
+    pub(crate) extends: Option<String>,
+
     /// The style for a slide's title.
     #[serde(default)]
     pub(crate) slide_title: SlideTitleStyle,
@@ -101,7 +170,11 @@ pub struct PresentationTheme {
     #[serde(default)]
     pub(crate) typst: TypstStyle,
 
-    /// The style for typst auto-rendered code blocks.
+    /// The style for mermaid auto-rendered code blocks.
+    #[serde(default)]
+    pub(crate) mermaid: MermaidStyle,
+
+    /// The style for modals.
     #[serde(default)]
     pub(crate) modals: ModalStyle,
 }
@@ -111,7 +184,7 @@ impl PresentationTheme {
     pub(crate) fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, LoadThemeError> {
         let contents = fs::read_to_string(&path)?;
         let theme = serde_yaml::from_str(&contents)
-            .map_err(|e| LoadThemeError::Corrupted(path.as_ref().display().to_string(), e))?;
+            .map_err(|e| LoadThemeError::Corrupted(path.as_ref().display().to_string(), e.into()))?;
         Ok(theme)
     }
 
@@ -166,15 +239,15 @@ pub(crate) struct SlideTitleStyle {
 
     /// Whether to use bold font for slide titles.
     #[serde(default)]
-    pub(crate) bold: bool,
+    pub(crate) bold: Option<bool>,
 
     /// Whether to use italics font for slide titles.
     #[serde(default)]
-    pub(crate) italics: bool,
+    pub(crate) italics: Option<bool>,
 
     /// Whether to use underlined font for slide titles.
     #[serde(default)]
-    pub(crate) underlined: bool,
+    pub(crate) underlined: Option<bool>,
 }
 
 /// The style for all headings.
@@ -417,9 +490,29 @@ pub(crate) struct CodeBlockStyle {
 /// The style for the output of a code execution block.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct ExecutionOutputBlockStyle {
-    /// The colors to be used.
+    /// The colors to be used for the output pane.
     #[serde(default)]
     pub(crate) colors: Colors,
+
+    /// The colors to be used for the text that represents the status of the execution block.
+    #[serde(default)]
+    pub(crate) status: ExecutionStatusBlockStyle,
+}
+
+/// The style for the status of a code execution block.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct ExecutionStatusBlockStyle {
+    /// The colors for the "running" status.
+    #[serde(default)]
+    pub(crate) running: Colors,
+
+    /// The colors for the "finished" status.
+    #[serde(default)]
+    pub(crate) success: Colors,
+
+    /// The colors for the "finished with error" status.
+    #[serde(default)]
+    pub(crate) failure: Colors,
 }
 
 /// The style for inline code.
@@ -518,6 +611,16 @@ pub(crate) struct TypstStyle {
     pub(crate) colors: Colors,
 }
 
+/// Where to position the author's name in the intro slide.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct MermaidStyle {
+    /// The mermaidjs theme to use.
+    pub(crate) theme: Option<String>,
+
+    /// The background color to use.
+    pub(crate) background: Option<String>,
+}
+
 /// Modals style.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct ModalStyle {
@@ -537,16 +640,28 @@ pub enum LoadThemeError {
     Io(#[from] io::Error),
 
     #[error("theme at '{0}' is corrupted: {1}")]
-    Corrupted(String, serde_yaml::Error),
+    Corrupted(String, Box<dyn std::error::Error>),
 
     #[error("duplicate custom theme '{0}'")]
     Duplicate(String),
+
+    #[error("extended theme does not exist: {0}")]
+    ExtendedThemeNotFound(String),
+
+    #[error("theme has an extension loop involving: {0:?}")]
+    ExtensionLoop(Vec<String>),
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use tempfile::tempdir;
+    use tempfile::{tempdir, TempDir};
+
+    fn write_theme(name: &str, theme: PresentationTheme, directory: &TempDir) {
+        let theme = serde_yaml::to_string(&theme).unwrap();
+        let file_name = format!("{name}.yaml");
+        fs::write(directory.path().join(file_name), theme).expect("writing theme");
+    }
 
     #[test]
     fn validate_themes() {
@@ -556,6 +671,9 @@ mod test {
                 panic!("theme '{theme_name}' is corrupted");
             };
 
+            // Built-in themes can't use this because... I don't feel like supporting this now.
+            assert!(theme.extends.is_none(), "theme '{theme_name}' uses extends");
+
             let merged = merge_struct::merge(&PresentationTheme::default(), &theme);
             assert!(merged.is_ok(), "theme '{theme_name}' can't be merged: {}", merged.unwrap_err());
         }
@@ -564,12 +682,61 @@ mod test {
     #[test]
     fn load_custom() {
         let directory = tempdir().expect("creating tempdir");
-        let theme = serde_yaml::to_string(&PresentationTheme::default()).unwrap();
-        fs::write(directory.path().join("potato.yaml"), theme).expect("writing theme");
+        write_theme(
+            "potato",
+            PresentationTheme { extends: Some("dark".to_string()), ..Default::default() },
+            &directory,
+        );
 
         let mut themes = PresentationThemeSet::default();
         themes.register_from_directory(directory.path()).expect("loading themes");
-        assert!(themes.load_by_name("potato").is_some());
+        let mut theme = themes.load_by_name("potato").expect("theme not found");
+
+        // Since we extend the dark theme they must match after we remove the "extends" field.
+        let dark = themes.load_by_name("dark");
+        theme.extends.take().expect("no extends");
+        assert_eq!(serde_yaml::to_string(&theme).unwrap(), serde_yaml::to_string(&dark).unwrap());
+    }
+
+    #[test]
+    fn load_derive_chain() {
+        let directory = tempdir().expect("creating tempdir");
+        write_theme("A", PresentationTheme { extends: Some("dark".to_string()), ..Default::default() }, &directory);
+        write_theme("B", PresentationTheme { extends: Some("C".to_string()), ..Default::default() }, &directory);
+        write_theme("C", PresentationTheme { extends: Some("A".to_string()), ..Default::default() }, &directory);
+        write_theme("D", PresentationTheme::default(), &directory);
+
+        let mut themes = PresentationThemeSet::default();
+        themes.register_from_directory(directory.path()).expect("loading themes");
+        themes.load_by_name("A").expect("A not found");
+        themes.load_by_name("B").expect("B not found");
+        themes.load_by_name("C").expect("C not found");
+        themes.load_by_name("D").expect("D not found");
+    }
+
+    #[test]
+    fn invalid_derives() {
+        let directory = tempdir().expect("creating tempdir");
+        write_theme(
+            "A",
+            PresentationTheme { extends: Some("non-existent-theme".to_string()), ..Default::default() },
+            &directory,
+        );
+
+        let mut themes = PresentationThemeSet::default();
+        themes.register_from_directory(directory.path()).expect_err("loading themes succeeded");
+    }
+
+    #[test]
+    fn load_derive_chain_loop() {
+        let directory = tempdir().expect("creating tempdir");
+        write_theme("A", PresentationTheme { extends: Some("B".to_string()), ..Default::default() }, &directory);
+        write_theme("B", PresentationTheme { extends: Some("A".to_string()), ..Default::default() }, &directory);
+
+        let mut themes = PresentationThemeSet::default();
+        let err = themes.register_from_directory(directory.path()).expect_err("loading themes succeeded");
+        let LoadThemeError::ExtensionLoop(names) = err else { panic!("not an extension loop error") };
+        assert_eq!(names, &["A", "B"]);
     }
 
     #[test]

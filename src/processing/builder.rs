@@ -1,3 +1,4 @@
+use super::{execution::SnippetExecutionDisabledOperation, modals::KeyBindingsModalBuilder};
 use crate::{
     custom::{KeyBindingsConfig, OptionsConfig},
     execute::CodeExecutor,
@@ -15,7 +16,7 @@ use crate::{
     },
     processing::{
         code::{CodePreparer, HighlightContext, HighlightMutator, HighlightedLine},
-        execution::RunCodeOperation,
+        execution::RunSnippetOperation,
         footer::{FooterContext, FooterGenerator},
         modals::IndexBuilder,
         separator::RenderSeparator,
@@ -26,18 +27,16 @@ use crate::{
     theme::{
         Alignment, AuthorPositioning, ElementType, LoadThemeError, Margin, PresentationTheme, PresentationThemeSet,
     },
-    typst::{TypstRender, TypstRenderError},
+    third_party::{ThirdPartyRender, ThirdPartyRenderError, ThirdPartyRenderRequest},
 };
 use image::DynamicImage;
 use serde::Deserialize;
 use std::{borrow::Cow, cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 
-use super::modals::KeyBindingsModalBuilder;
-
 // TODO: move to a theme config.
 static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
-static DEFAULT_Z_INDEX: i32 = -2;
+pub(crate) static DEFAULT_IMAGE_Z_INDEX: i32 = -2;
 
 #[derive(Default)]
 pub struct Themes {
@@ -55,6 +54,7 @@ pub struct PresentationBuilderOptions {
     pub end_slide_shorthand: bool,
     pub print_modal_background: bool,
     pub strict_front_matter_parsing: bool,
+    pub enable_snippet_execution: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -81,6 +81,7 @@ impl Default for PresentationBuilderOptions {
             end_slide_shorthand: false,
             print_modal_background: false,
             strict_front_matter_parsing: true,
+            enable_snippet_execution: false,
         }
     }
 }
@@ -98,8 +99,9 @@ pub(crate) struct PresentationBuilder<'a> {
     code_executor: Rc<CodeExecutor>,
     theme: Cow<'a, PresentationTheme>,
     resources: &'a mut Resources,
-    typst: &'a mut TypstRender,
+    third_party: &'a mut ThirdPartyRender,
     slide_state: SlideState,
+    presentation_state: PresentationState,
     footer_context: Rc<RefCell<FooterContext>>,
     themes: &'a Themes,
     index_builder: IndexBuilder,
@@ -114,7 +116,7 @@ impl<'a> PresentationBuilder<'a> {
     pub(crate) fn new(
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
-        typst: &'a mut TypstRender,
+        third_party: &'a mut ThirdPartyRender,
         code_executor: Rc<CodeExecutor>,
         themes: &'a Themes,
         image_registry: ImageRegistry,
@@ -130,8 +132,9 @@ impl<'a> PresentationBuilder<'a> {
             code_executor,
             theme: Cow::Borrowed(default_theme),
             resources,
-            typst,
+            third_party,
             slide_state: Default::default(),
+            presentation_state: Default::default(),
             footer_context: Default::default(),
             themes,
             index_builder: Default::default(),
@@ -178,11 +181,10 @@ impl<'a> PresentationBuilder<'a> {
             bindings_modal_builder.set_background(background);
         };
 
-        let presentation_state = PresentationState::default();
-        let slide_index = self.index_builder.build(&self.theme, presentation_state.clone());
+        let slide_index = self.index_builder.build(&self.theme, self.presentation_state.clone());
         let bindings = bindings_modal_builder.build(&self.theme, &self.bindings_config);
         let modals = Modals { slide_index, bindings };
-        let presentation = Presentation::new(self.slides, modals, presentation_state);
+        let presentation = Presentation::new(self.slides, modals, self.presentation_state);
         Ok(presentation)
     }
 
@@ -305,6 +307,9 @@ impl<'a> PresentationBuilder<'a> {
             }
         }
         if let Some(overrides) = &metadata.overrides {
+            if overrides.extends.is_some() {
+                return Err(BuildError::InvalidMetadata("theme overrides can't use 'extends'".into()));
+            }
             // This shouldn't fail as the models are already correct.
             let theme = merge_struct::merge(self.theme.as_ref(), overrides)
                 .map_err(|e| BuildError::InvalidMetadata(format!("invalid theme: {e}")))?;
@@ -465,13 +470,13 @@ impl<'a> PresentationBuilder<'a> {
 
         let style = self.theme.slide_title.clone();
         let mut text_style = TextStyle::default().colors(style.colors.clone());
-        if style.bold {
+        if style.bold.unwrap_or_default() {
             text_style = text_style.bold();
         }
-        if style.italics {
+        if style.italics.unwrap_or_default() {
             text_style = text_style.italics();
         }
-        if style.underlined {
+        if style.underlined.unwrap_or_default() {
             text_style = text_style.underlined();
         }
         text.apply_style(&text_style);
@@ -546,7 +551,7 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_image(&mut self, image: Image) {
         let properties = ImageProperties {
-            z_index: DEFAULT_Z_INDEX,
+            z_index: DEFAULT_IMAGE_Z_INDEX,
             size: Default::default(),
             restore_cursor: false,
             background_color: self.theme.default_style.colors.background,
@@ -684,25 +689,37 @@ impl<'a> PresentationBuilder<'a> {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
         if code.attributes.execute {
-            self.push_code_execution(code)?;
+            if self.options.enable_snippet_execution {
+                self.push_code_execution(code)?;
+            } else {
+                let operation = SnippetExecutionDisabledOperation::new(
+                    self.theme.execution_output.status.failure.clone(),
+                    self.theme.code.alignment.clone().unwrap_or_default(),
+                );
+                self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(operation)))
+            }
         }
         Ok(())
     }
 
     fn push_rendered_code(&mut self, code: Code) -> Result<(), BuildError> {
-        let image = match code.language {
-            CodeLanguage::Typst => self.typst.render_typst(&code.contents, &self.theme.typst)?,
-            CodeLanguage::Latex => self.typst.render_latex(&code.contents, &self.theme.typst)?,
-            _ => panic!("language {:?} should not be renderable", code.language),
+        let Code { contents, language, .. } = code;
+        let error_holder = self.presentation_state.async_error_holder();
+        let request = match language {
+            CodeLanguage::Typst => ThirdPartyRenderRequest::Typst(contents, self.theme.typst.clone()),
+            CodeLanguage::Latex => ThirdPartyRenderRequest::Latex(contents, self.theme.typst.clone()),
+            CodeLanguage::Mermaid => ThirdPartyRenderRequest::Mermaid(contents, self.theme.mermaid.clone()),
+            _ => panic!("language {language:?} should not be renderable"),
         };
-        self.push_image(image);
+        let operation = self.third_party.render(request, &self.theme, error_holder, self.slides.len() + 1)?;
+        self.chunk_operations.push(operation);
         Ok(())
     }
 
     fn highlight_lines(&self, code: &Code) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
         let lines = CodePreparer::new(&self.theme).prepare(code);
         let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
-        let mut empty_highlighter = self.highlighter.language_highlighter(&CodeLanguage::Unknown);
+        let mut empty_highlighter = self.highlighter.language_highlighter(&CodeLanguage::Unknown(String::new()));
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let padding_style = {
             let mut highlighter = self.highlighter.language_highlighter(&CodeLanguage::Rust);
@@ -736,13 +753,14 @@ impl<'a> PresentationBuilder<'a> {
         if !self.code_executor.is_execution_supported(&code.language) {
             return Err(BuildError::UnsupportedExecution(code.language));
         }
-        let operation = RunCodeOperation::new(
+        let operation = RunSnippetOperation::new(
             code,
             self.code_executor.clone(),
             self.theme.default_style.colors.clone(),
             self.theme.execution_output.colors.clone(),
+            self.theme.execution_output.status.clone(),
         );
-        let operation = RenderOperation::RenderOnDemand(Rc::new(operation));
+        let operation = RenderOperation::RenderAsync(Rc::new(operation));
         self.chunk_operations.push(operation);
         Ok(())
     }
@@ -905,8 +923,8 @@ pub enum BuildError {
     #[error("error parsing command at line {line}: {error}")]
     CommandParse { line: usize, error: CommandParseError },
 
-    #[error("typst render failed: {0}")]
-    TypstRender(#[from] TypstRenderError),
+    #[error("third party render failed: {0}")]
+    ThirdPartyRender(#[from] ThirdPartyRenderError),
 
     #[error("language {0:?} does not support execution")]
     UnsupportedExecution(CodeLanguage),
@@ -1038,6 +1056,7 @@ impl From<StrictPresentationMetadata> for PresentationMetadata {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::markdown::elements::CodeAttributes;
     use rstest::rstest;
 
     fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
@@ -1061,14 +1080,14 @@ mod test {
     ) -> Result<Presentation, BuildError> {
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp", Default::default());
-        let mut typst = TypstRender::default();
+        let mut third_party = ThirdPartyRender::default();
         let code_executor = Rc::new(CodeExecutor::default());
         let themes = Themes::default();
         let bindings = KeyBindingsConfig::default();
         let builder = PresentationBuilder::new(
             &theme,
             &mut resources,
-            &mut typst,
+            &mut third_party,
             code_executor,
             &themes,
             Default::default(),
@@ -1112,7 +1131,7 @@ mod test {
             | RenderImage(_, _)
             | RenderPreformattedLine(_)
             | RenderDynamic(_)
-            | RenderOnDemand(_) => true,
+            | RenderAsync(_) => true,
         }
     }
 
@@ -1454,5 +1473,46 @@ mod test {
         let elements = vec![MarkdownElement::FrontMatter("potato: yes".into())];
         let result = try_build_presentation_with_options(elements, options);
         assert!(result.is_ok());
+    }
+
+    #[rstest]
+    #[case::enabled(true)]
+    #[case::disabled(false)]
+    fn snippet_execution(#[case] enabled: bool) {
+        let element = MarkdownElement::Code(Code {
+            contents: "".into(),
+            language: CodeLanguage::Rust,
+            attributes: CodeAttributes { execute: true, ..Default::default() },
+        });
+        let options = PresentationBuilderOptions { enable_snippet_execution: enabled, ..Default::default() };
+        let presentation = build_presentation_with_options(vec![element], options);
+        let slide = presentation.iter_slides().next().unwrap();
+        let mut found_render_block = false;
+        let mut found_cant_render_block = false;
+        for operation in slide.iter_operations() {
+            match operation {
+                RenderOperation::RenderAsync(operation) => {
+                    let operation = format!("{operation:?}");
+                    if operation.contains("RunSnippetOperation") {
+                        assert!(enabled);
+                        found_render_block = true;
+                    } else if operation.contains("SnippetExecutionDisabledOperation") {
+                        assert!(!enabled);
+                        found_cant_render_block = true;
+                    }
+                }
+                _ => (),
+            };
+        }
+        if found_render_block {
+            assert!(enabled, "snippet execution block found but not enabled");
+        } else {
+            assert!(!enabled, "snippet execution enabled but not found");
+        }
+        if found_cant_render_block {
+            assert!(!enabled, "can't execute snippet operation found but enabled");
+        } else {
+            assert!(enabled, "can't execute snippet operation not found");
+        }
     }
 }
