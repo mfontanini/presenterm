@@ -298,8 +298,8 @@ echo 'hello world'
     #[test]
     fn shell_code_execution_executes_hidden_lines() {
         let contents = r"
-## echo 'this line was hidden'
-## echo 'this line was hidden and contains another delimiter ## '
+/// echo 'this line was hidden'
+/// echo 'this line was hidden and contains another prefix /// '
 echo 'hello world'
 "
         .into();
@@ -317,7 +317,7 @@ echo 'hello world'
         };
 
         let expected_lines =
-            vec!["this line was hidden", "this line was hidden and contains another delimiter ## ", "hello world"];
+            vec!["this line was hidden", "this line was hidden and contains another prefix /// ", "hello world"];
         assert_eq!(state.output, expected_lines);
     }
 
