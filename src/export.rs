@@ -1,6 +1,6 @@
 use crate::{
     custom::KeyBindingsConfig,
-    execute::CodeExecutor,
+    execute::SnippetExecutor,
     markdown::parse::ParseError,
     media::{
         image::{Image, ImageSource},
@@ -30,7 +30,7 @@ pub struct Exporter<'a> {
     default_theme: &'a PresentationTheme,
     resources: Resources,
     third_party: ThirdPartyRender,
-    code_executor: Rc<CodeExecutor>,
+    code_executor: Rc<SnippetExecutor>,
     themes: Themes,
     options: PresentationBuilderOptions,
 }
@@ -42,7 +42,7 @@ impl<'a> Exporter<'a> {
         default_theme: &'a PresentationTheme,
         resources: Resources,
         third_party: ThirdPartyRender,
-        code_executor: Rc<CodeExecutor>,
+        code_executor: Rc<SnippetExecutor>,
         themes: Themes,
         options: PresentationBuilderOptions,
     ) -> Self {

@@ -1,60 +1,54 @@
 //! Code execution.
 
-use crate::markdown::elements::{Code, CodeLanguage};
+use crate::{
+    custom::LanguageSnippetExecutionConfig,
+    markdown::elements::{Code, CodeLanguage},
+};
+use once_cell::sync::Lazy;
+use os_pipe::PipeReader;
 use std::{
-    collections::BTreeMap,
-    ffi::OsStr,
-    fs,
+    collections::{BTreeMap, HashMap},
+    fs::File,
     io::{self, BufRead, BufReader, Write},
-    path::{Path, PathBuf},
-    process::{self, Stdio},
+    process::{self, Child, Stdio},
     sync::{Arc, Mutex},
     thread,
 };
-use tempfile::NamedTempFile;
+use tempfile::TempDir;
 
-include!(concat!(env!("OUT_DIR"), "/executors.rs"));
+static EXECUTORS: Lazy<BTreeMap<CodeLanguage, LanguageSnippetExecutionConfig>> =
+    Lazy::new(|| serde_yaml::from_slice(include_bytes!("../executors.yaml")).expect("executors.yaml is broken"));
 
 /// Allows executing code.
-#[derive(Default, Debug)]
-pub struct CodeExecutor {
-    custom_executors: BTreeMap<CodeLanguage, Vec<u8>>,
+#[derive(Debug)]
+pub struct SnippetExecutor {
+    executors: BTreeMap<CodeLanguage, LanguageSnippetExecutionConfig>,
 }
 
-impl CodeExecutor {
-    pub fn load(executors_path: &Path) -> Result<Self, LoadExecutorsError> {
-        let mut custom_executors = BTreeMap::new();
-        if let Ok(paths) = fs::read_dir(executors_path) {
-            for executor in paths {
-                let executor = executor?;
-                let path = executor.path();
-                let filename = path.file_name().unwrap_or_default().to_string_lossy();
-                let Some((name, extension)) = filename.split_once('.') else {
-                    return Err(LoadExecutorsError::InvalidExecutor(path, "no extension"));
-                };
-                if extension != "sh" {
-                    return Err(LoadExecutorsError::InvalidExecutor(path, "non .sh extension"));
+impl SnippetExecutor {
+    pub fn new(
+        custom_executors: BTreeMap<CodeLanguage, LanguageSnippetExecutionConfig>,
+    ) -> Result<Self, InvalidSnippetConfig> {
+        let mut executors = EXECUTORS.clone();
+        executors.extend(custom_executors);
+        for (language, config) in &executors {
+            if config.filename.is_empty() {
+                return Err(InvalidSnippetConfig(language.clone(), "filename is empty"));
+            }
+            if config.commands.is_empty() {
+                return Err(InvalidSnippetConfig(language.clone(), "no commands given"));
+            }
+            for command in &config.commands {
+                if command.is_empty() {
+                    return Err(InvalidSnippetConfig(language.clone(), "empty command given"));
                 }
-                let language: CodeLanguage = match name.parse() {
-                    Ok(CodeLanguage::Unknown(_)) => {
-                        return Err(LoadExecutorsError::InvalidExecutor(path, "unknown language"));
-                    }
-                    Ok(language) => language,
-                    Err(_) => return Err(LoadExecutorsError::InvalidExecutor(path, "invalid code language")),
-                };
-                let file_contents = fs::read(path)?;
-                custom_executors.insert(language, file_contents);
             }
         }
-        Ok(Self { custom_executors })
+        Ok(Self { executors })
     }
 
     pub(crate) fn is_execution_supported(&self, language: &CodeLanguage) -> bool {
-        if matches!(language, CodeLanguage::Shell(_)) {
-            true
-        } else {
-            EXECUTORS.contains_key(language) || self.custom_executors.contains_key(language)
-        }
+        self.executors.contains_key(language)
     }
 
     /// Execute a piece of code.
@@ -62,70 +56,39 @@ impl CodeExecutor {
         if !code.attributes.execute {
             return Err(CodeExecuteError::NotExecutableCode);
         }
-        match &code.language {
-            CodeLanguage::Shell(interpreter) => {
-                let args: &[&str] = &[];
-                Self::execute_shell(interpreter, code.executable_contents().as_bytes(), args)
-            }
-            lang => {
-                let executor = self.executor(lang).ok_or(CodeExecuteError::UnsupportedExecution)?;
-                Self::execute_lang(executor, code.executable_contents().as_bytes())
-            }
-        }
+        let Some(config) = self.executors.get(&code.language) else {
+            return Err(CodeExecuteError::UnsupportedExecution);
+        };
+        Self::execute_lang(config, code.executable_contents().as_bytes())
     }
 
-    fn executor(&self, language: &CodeLanguage) -> Option<&[u8]> {
-        if let Some(executor) = self.custom_executors.get(language) {
-            return Some(executor);
+    fn execute_lang(config: &LanguageSnippetExecutionConfig, code: &[u8]) -> Result<ExecutionHandle, CodeExecuteError> {
+        let script_dir =
+            tempfile::Builder::default().prefix(".presenterm").tempdir().map_err(CodeExecuteError::TempDir)?;
+        let snippet_path = script_dir.path().join(&config.filename);
+        {
+            let mut snippet_file = File::create(snippet_path).map_err(CodeExecuteError::TempDir)?;
+            snippet_file.write_all(code).map_err(CodeExecuteError::TempDir)?;
         }
-        EXECUTORS.get(language).copied()
-    }
-
-    fn execute_shell<S>(interpreter: &str, code: &[u8], args: &[S]) -> Result<ExecutionHandle, CodeExecuteError>
-    where
-        S: AsRef<OsStr>,
-    {
-        let mut output_file = NamedTempFile::new().map_err(CodeExecuteError::TempFile)?;
-        output_file.write_all(code).map_err(CodeExecuteError::TempFile)?;
-        output_file.flush().map_err(CodeExecuteError::TempFile)?;
-        let (reader, writer) = os_pipe::pipe().map_err(CodeExecuteError::Pipe)?;
-        let writer_clone = writer.try_clone().map_err(CodeExecuteError::Pipe)?;
-        let process_handle = process::Command::new("/usr/bin/env")
-            .arg(interpreter)
-            .arg(output_file.path())
-            .args(args)
-            .stdin(Stdio::null())
-            .stdout(writer)
-            .stderr(writer_clone)
-            .spawn()
-            .map_err(CodeExecuteError::SpawnProcess)?;
 
         let state: Arc<Mutex<ExecutionState>> = Default::default();
-        let reader_handle = ProcessReader::spawn(process_handle, state.clone(), output_file, reader);
-        let handle = ExecutionHandle { state, reader_handle, program_path: None };
-        Ok(handle)
-    }
-
-    fn execute_lang(executor: &[u8], code: &[u8]) -> Result<ExecutionHandle, CodeExecuteError> {
-        let mut code_file = NamedTempFile::new().map_err(CodeExecuteError::TempFile)?;
-        code_file.write_all(code).map_err(CodeExecuteError::TempFile)?;
-
-        let path = code_file.path();
-        let mut handle = Self::execute_shell("bash", executor, &[path])?;
-        handle.program_path = Some(code_file);
+        let reader_handle =
+            CommandsRunner::spawn(state.clone(), script_dir, config.commands.clone(), config.environment.clone());
+        let handle = ExecutionHandle { state, reader_handle };
         Ok(handle)
     }
 }
 
-/// An error during the load of custom executors.
+impl Default for SnippetExecutor {
+    fn default() -> Self {
+        Self::new(Default::default()).expect("initialization failed")
+    }
+}
+
+/// An invalid executor was found.
 #[derive(thiserror::Error, Debug)]
-pub enum LoadExecutorsError {
-    #[error("io: {0}")]
-    Io(#[from] io::Error),
-
-    #[error("invalid executor '{0}': {1}")]
-    InvalidExecutor(PathBuf, &'static str),
-}
+#[error("invalid snippet execution for '{0:?}': {1}")]
+pub struct InvalidSnippetConfig(CodeLanguage, &'static str);
 
 /// An error during the execution of some code.
 #[derive(thiserror::Error, Debug)]
@@ -136,11 +99,11 @@ pub(crate) enum CodeExecuteError {
     #[error("code is not marked for execution")]
     NotExecutableCode,
 
-    #[error("error creating temporary file: {0}")]
-    TempFile(io::Error),
+    #[error("error creating temporary directory: {0}")]
+    TempDir(io::Error),
 
-    #[error("error spawning process: {0}")]
-    SpawnProcess(io::Error),
+    #[error("error spawning process '{0}': {1}")]
+    SpawnProcess(String, io::Error),
 
     #[error("error creating pipe: {0}")]
     Pipe(io::Error),
@@ -152,7 +115,6 @@ pub(crate) struct ExecutionHandle {
     state: Arc<Mutex<ExecutionState>>,
     #[allow(dead_code)]
     reader_handle: thread::JoinHandle<()>,
-    program_path: Option<NamedTempFile>,
 }
 
 impl ExecutionHandle {
@@ -163,36 +125,73 @@ impl ExecutionHandle {
 }
 
 /// Consumes the output of a process and stores it in a shared state.
-struct ProcessReader {
-    handle: process::Child,
+struct CommandsRunner {
     state: Arc<Mutex<ExecutionState>>,
-    #[allow(dead_code)]
-    file_handle: NamedTempFile,
-    reader: os_pipe::PipeReader,
+    script_directory: TempDir,
 }
 
-impl ProcessReader {
+impl CommandsRunner {
     fn spawn(
-        handle: process::Child,
         state: Arc<Mutex<ExecutionState>>,
-        file_handle: NamedTempFile,
-        reader: os_pipe::PipeReader,
+        script_directory: TempDir,
+        commands: Vec<Vec<String>>,
+        env: HashMap<String, String>,
     ) -> thread::JoinHandle<()> {
-        let reader = Self { handle, state, file_handle, reader };
-        thread::spawn(|| reader.run())
+        let reader = Self { state, script_directory };
+        thread::spawn(|| reader.run(commands, env))
     }
 
-    fn run(mut self) {
-        let _ = Self::process_output(self.state.clone(), self.reader);
-        let success = match self.handle.wait() {
-            Ok(code) => code.success(),
-            _ => false,
-        };
-        let status = match success {
+    fn run(self, commands: Vec<Vec<String>>, env: HashMap<String, String>) {
+        let mut last_result = true;
+        for command in commands {
+            last_result = self.run_command(command, &env);
+            if !last_result {
+                break;
+            }
+        }
+        let status = match last_result {
             true => ProcessStatus::Success,
             false => ProcessStatus::Failure,
         };
         self.state.lock().unwrap().status = status;
+    }
+
+    fn run_command(&self, command: Vec<String>, env: &HashMap<String, String>) -> bool {
+        let (mut child, reader) = match self.launch_process(command, env) {
+            Ok(inner) => inner,
+            Err(e) => {
+                let mut state = self.state.lock().unwrap();
+                state.status = ProcessStatus::Failure;
+                state.output.push(e.to_string());
+                return false;
+            }
+        };
+        let _ = Self::process_output(self.state.clone(), reader);
+
+        match child.wait() {
+            Ok(code) => code.success(),
+            _ => false,
+        }
+    }
+
+    fn launch_process(
+        &self,
+        commands: Vec<String>,
+        env: &HashMap<String, String>,
+    ) -> Result<(Child, PipeReader), CodeExecuteError> {
+        let (reader, writer) = os_pipe::pipe().map_err(CodeExecuteError::Pipe)?;
+        let writer_clone = writer.try_clone().map_err(CodeExecuteError::Pipe)?;
+        let (command, args) = commands.split_first().expect("no commands");
+        let child = process::Command::new(command)
+            .args(args)
+            .envs(env)
+            .current_dir(self.script_directory.path())
+            .stdin(Stdio::null())
+            .stdout(writer)
+            .stderr(writer_clone)
+            .spawn()
+            .map_err(|e| CodeExecuteError::SpawnProcess(command.clone(), e))?;
+        Ok((child, reader))
     }
 
     fn process_output(state: Arc<Mutex<ExecutionState>>, reader: os_pipe::PipeReader) -> io::Result<()> {
@@ -231,8 +230,6 @@ impl ProcessStatus {
 
 #[cfg(test)]
 mod test {
-    use tempfile::tempdir;
-
     use super::*;
     use crate::markdown::elements::CodeAttributes;
 
@@ -247,7 +244,7 @@ echo 'bye'"
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: true, ..Default::default() },
         };
-        let handle = CodeExecutor::default().execute(&code).expect("execution failed");
+        let handle = SnippetExecutor::default().execute(&code).expect("execution failed");
         let state = loop {
             let state = handle.state();
             if state.status.is_finished() {
@@ -267,7 +264,7 @@ echo 'bye'"
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: false, ..Default::default() },
         };
-        let result = CodeExecutor::default().execute(&code);
+        let result = SnippetExecutor::default().execute(&code);
         assert!(result.is_err());
     }
 
@@ -283,7 +280,7 @@ echo 'hello world'
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: true, ..Default::default() },
         };
-        let handle = CodeExecutor::default().execute(&code).expect("execution failed");
+        let handle = SnippetExecutor::default().execute(&code).expect("execution failed");
         let state = loop {
             let state = handle.state();
             if state.status.is_finished() {
@@ -308,7 +305,7 @@ echo 'hello world'
             language: CodeLanguage::Shell("sh".into()),
             attributes: CodeAttributes { execute: true, ..Default::default() },
         };
-        let handle = CodeExecutor::default().execute(&code).expect("execution failed");
+        let handle = SnippetExecutor::default().execute(&code).expect("execution failed");
         let state = loop {
             let state = handle.state();
             if state.status.is_finished() {
@@ -322,28 +319,7 @@ echo 'hello world'
     }
 
     #[test]
-    fn custom_executor() {
-        let dir = tempdir().unwrap();
-        fs::write(dir.path().join("rust.sh"), "hi").expect("writing script failed");
-        let executor = CodeExecutor::load(dir.path()).expect("load filed");
-
-        let script = executor.custom_executors.get(&CodeLanguage::Rust).expect("rust not found");
-        assert_eq!(script, b"hi");
-    }
-
-    #[test]
-    fn unknown_executor_language() {
-        let dir = tempdir().unwrap();
-        fs::write(dir.path().join("potato.sh"), "").expect("writing script failed");
-        let executor = CodeExecutor::load(dir.path());
-        assert!(matches!(executor, Err(LoadExecutorsError::InvalidExecutor(_, _))));
-    }
-
-    #[test]
-    fn invalid_executor_extension() {
-        let dir = tempdir().unwrap();
-        fs::write(dir.path().join("rust.potato"), "").expect("writing script failed");
-        let executor = CodeExecutor::load(dir.path());
-        assert!(matches!(executor, Err(LoadExecutorsError::InvalidExecutor(_, _))));
+    fn built_in_executors() {
+        SnippetExecutor::new(Default::default()).expect("invalid default executors");
     }
 }

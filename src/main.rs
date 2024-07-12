@@ -2,9 +2,10 @@ use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use directories::ProjectDirs;
 use presenterm::{
-    CodeExecutor, CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol,
-    ImageRegistry, MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet,
-    Presenter, PresenterOptions, Resources, Themes, ThemesDemo, ThirdPartyConfigs, ThirdPartyRender, ValidateOverflows,
+    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
+    MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter,
+    PresenterOptions, Resources, SnippetExecutor, Themes, ThemesDemo, ThirdPartyConfigs, ThirdPartyRender,
+    ValidateOverflows,
 };
 use std::{
     env, io,
@@ -91,7 +92,7 @@ fn create_splash() -> String {
 struct Customizations {
     config: Config,
     themes: Themes,
-    code_executor: CodeExecutor,
+    code_executor: SnippetExecutor,
 }
 
 fn load_customizations(config_file_path: Option<PathBuf>) -> Result<Customizations, Box<dyn std::error::Error>> {
@@ -107,7 +108,7 @@ fn load_customizations(config_file_path: Option<PathBuf>) -> Result<Customizatio
     let themes = load_themes(&configs_path)?;
     let config_file_path = config_file_path.unwrap_or_else(|| configs_path.join("config.yaml"));
     let config = Config::load(&config_file_path)?;
-    let code_executor = CodeExecutor::load(&configs_path.join("executors"))?;
+    let code_executor = SnippetExecutor::new(config.snippet.exec.custom.clone())?;
     Ok(Customizations { config, themes, code_executor })
 }
 

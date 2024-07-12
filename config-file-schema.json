@@ -211,6 +211,38 @@
       },
       "additionalProperties": false
     },
+    "LanguageSnippetExecutionConfig": {
+      "description": "The snippet execution configuration for a specific programming language.",
+      "type": "object",
+      "required": [
+        "commands",
+        "filename"
+      ],
+      "properties": {
+        "commands": {
+          "description": "The commands to be run when executing snippets for this programming language.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "environment": {
+          "description": "The environment variables to set before invoking every command.",
+          "default": {},
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "filename": {
+          "description": "The filename to use for the snippet input file.",
+          "type": "string"
+        }
+      }
+    },
     "MermaidConfig": {
       "type": "object",
       "properties": {
@@ -293,6 +325,13 @@
         "enable"
       ],
       "properties": {
+        "custom": {
+          "description": "Custom snippet executors.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/LanguageSnippetExecutionConfig"
+          }
+        },
         "enable": {
           "description": "Whether to enable snippet execution.",
           "type": "boolean"

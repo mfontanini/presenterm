@@ -1,6 +1,6 @@
 use super::separator::RenderSeparator;
 use crate::{
-    execute::{CodeExecutor, ExecutionHandle, ExecutionState, ProcessStatus},
+    execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
     markdown::elements::{Code, Text, TextBlock},
     presentation::{AsRenderOperations, PreformattedLine, RenderAsync, RenderAsyncState, RenderOperation},
     render::properties::WindowSize,
@@ -12,7 +12,7 @@ use std::{cell::RefCell, mem, rc::Rc};
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug)]
-struct RunCodeOperationInner {
+struct RunSnippetOperationInner {
     handle: Option<ExecutionHandle>,
     output_lines: Vec<String>,
     state: RenderAsyncState,
@@ -21,24 +21,24 @@ struct RunCodeOperationInner {
 #[derive(Debug)]
 pub(crate) struct RunSnippetOperation {
     code: Code,
-    executor: Rc<CodeExecutor>,
+    executor: Rc<SnippetExecutor>,
     default_colors: Colors,
     block_colors: Colors,
     status_colors: ExecutionStatusBlockStyle,
-    inner: Rc<RefCell<RunCodeOperationInner>>,
+    inner: Rc<RefCell<RunSnippetOperationInner>>,
     state_description: RefCell<Text>,
 }
 
 impl RunSnippetOperation {
     pub(crate) fn new(
         code: Code,
-        executor: Rc<CodeExecutor>,
+        executor: Rc<SnippetExecutor>,
         default_colors: Colors,
         block_colors: Colors,
         status_colors: ExecutionStatusBlockStyle,
     ) -> Self {
         let inner =
-            RunCodeOperationInner { handle: None, output_lines: Vec::new(), state: RenderAsyncState::default() };
+            RunSnippetOperationInner { handle: None, output_lines: Vec::new(), state: RenderAsyncState::default() };
         let running_colors = status_colors.running.clone();
         Self {
             code,
