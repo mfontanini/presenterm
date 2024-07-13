@@ -1,4 +1,5 @@
 use crate::style::TextStyle;
+use serde_with::DeserializeFromStr;
 use std::{convert::Infallible, fmt::Write, iter, ops::Range, path::PathBuf, str::FromStr};
 use strum::EnumIter;
 use unicode_width::UnicodeWidthStr;
@@ -205,7 +206,7 @@ impl Code {
 }
 
 /// The language of a piece of code.
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, DeserializeFromStr)]
 pub enum CodeLanguage {
     Ada,
     Asp,

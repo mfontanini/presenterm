@@ -23,7 +23,7 @@ pub(crate) mod tools;
 pub use crate::{
     custom::{Config, ImageProtocol, ValidateOverflows},
     demo::ThemesDemo,
-    execute::CodeExecutor,
+    execute::SnippetExecutor,
     export::{ExportError, Exporter},
     input::source::CommandSource,
     markdown::parse::MarkdownParser,

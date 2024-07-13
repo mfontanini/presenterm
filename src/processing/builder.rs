@@ -1,7 +1,7 @@
 use super::{execution::SnippetExecutionDisabledOperation, modals::KeyBindingsModalBuilder};
 use crate::{
     custom::{KeyBindingsConfig, OptionsConfig},
-    execute::CodeExecutor,
+    execute::SnippetExecutor,
     markdown::{
         elements::{
             Code, CodeLanguage, Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement,
@@ -96,7 +96,7 @@ pub(crate) struct PresentationBuilder<'a> {
     chunk_mutators: Vec<Box<dyn ChunkMutator>>,
     slides: Vec<Slide>,
     highlighter: CodeHighlighter,
-    code_executor: Rc<CodeExecutor>,
+    code_executor: Rc<SnippetExecutor>,
     theme: Cow<'a, PresentationTheme>,
     resources: &'a mut Resources,
     third_party: &'a mut ThirdPartyRender,
@@ -117,7 +117,7 @@ impl<'a> PresentationBuilder<'a> {
         default_theme: &'a PresentationTheme,
         resources: &'a mut Resources,
         third_party: &'a mut ThirdPartyRender,
-        code_executor: Rc<CodeExecutor>,
+        code_executor: Rc<SnippetExecutor>,
         themes: &'a Themes,
         image_registry: ImageRegistry,
         bindings_config: KeyBindingsConfig,
@@ -1081,7 +1081,7 @@ mod test {
         let theme = PresentationTheme::default();
         let mut resources = Resources::new("/tmp", Default::default());
         let mut third_party = ThirdPartyRender::default();
-        let code_executor = Rc::new(CodeExecutor::default());
+        let code_executor = Rc::new(SnippetExecutor::default());
         let themes = Themes::default();
         let bindings = KeyBindingsConfig::default();
         let builder = PresentationBuilder::new(

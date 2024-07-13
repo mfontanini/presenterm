@@ -1,5 +1,5 @@
 use crate::{
-    execute::CodeExecutor,
+    execute::SnippetExecutor,
     input::{
         source::Command,
         user::{CommandKeyBindings, UserInput},
@@ -102,7 +102,7 @@ impl<W: TerminalWrite> ThemesDemo<W> {
         let mut resources = Resources::new("non_existent", image_registry.clone());
         let mut third_party = ThirdPartyRender::default();
         let options = PresentationBuilderOptions::default();
-        let executer = Rc::new(CodeExecutor::default());
+        let executer = Rc::new(SnippetExecutor::default());
         let bindings_config = Default::default();
         let builder = PresentationBuilder::new(
             theme,

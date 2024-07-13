@@ -27,7 +27,7 @@
           "src"
           "themes"
           "bat"
-          "executors"
+          "executors.yaml"
         ];
 
         buildSrc = flakeboxLib.filterSubPaths {

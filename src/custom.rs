@@ -1,12 +1,17 @@
 use crate::{
     input::user::KeyBinding,
+    markdown::elements::CodeLanguage,
     media::{emulator::TerminalEmulator, kitty::KittyMode},
     GraphicsMode,
 };
 use clap::ValueEnum;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use std::{fs, io, path::Path};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fs, io,
+    path::Path,
+};
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -134,6 +139,10 @@ pub struct SnippetConfig {
 pub struct SnippetExecConfig {
     /// Whether to enable snippet execution.
     pub enable: bool,
+
+    /// Custom snippet executors.
+    #[serde(default)]
+    pub custom: BTreeMap<CodeLanguage, LanguageSnippetExecutionConfig>,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
@@ -188,6 +197,20 @@ impl Default for MermaidConfig {
 
 pub(crate) fn default_mermaid_scale() -> u32 {
     2
+}
+
+/// The snippet execution configuration for a specific programming language.
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+pub struct LanguageSnippetExecutionConfig {
+    /// The filename to use for the snippet input file.
+    pub filename: String,
+
+    /// The environment variables to set before invoking every command.
+    #[serde(default)]
+    pub environment: HashMap<String, String>,
+
+    /// The commands to be run when executing snippets for this programming language.
+    pub commands: Vec<Vec<String>>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, ValueEnum, JsonSchema)]
