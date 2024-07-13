@@ -2,7 +2,7 @@
 
 use crate::{
     custom::LanguageSnippetExecutionConfig,
-    markdown::elements::{Code, CodeLanguage},
+    markdown::elements::{Snippet, SnippetLanguage},
 };
 use once_cell::sync::Lazy;
 use os_pipe::PipeReader;
@@ -16,18 +16,18 @@ use std::{
 };
 use tempfile::TempDir;
 
-static EXECUTORS: Lazy<BTreeMap<CodeLanguage, LanguageSnippetExecutionConfig>> =
+static EXECUTORS: Lazy<BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>> =
     Lazy::new(|| serde_yaml::from_slice(include_bytes!("../executors.yaml")).expect("executors.yaml is broken"));
 
 /// Allows executing code.
 #[derive(Debug)]
 pub struct SnippetExecutor {
-    executors: BTreeMap<CodeLanguage, LanguageSnippetExecutionConfig>,
+    executors: BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>,
 }
 
 impl SnippetExecutor {
     pub fn new(
-        custom_executors: BTreeMap<CodeLanguage, LanguageSnippetExecutionConfig>,
+        custom_executors: BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>,
     ) -> Result<Self, InvalidSnippetConfig> {
         let mut executors = EXECUTORS.clone();
         executors.extend(custom_executors);
@@ -47,12 +47,12 @@ impl SnippetExecutor {
         Ok(Self { executors })
     }
 
-    pub(crate) fn is_execution_supported(&self, language: &CodeLanguage) -> bool {
+    pub(crate) fn is_execution_supported(&self, language: &SnippetLanguage) -> bool {
         self.executors.contains_key(language)
     }
 
     /// Execute a piece of code.
-    pub(crate) fn execute(&self, code: &Code) -> Result<ExecutionHandle, CodeExecuteError> {
+    pub(crate) fn execute(&self, code: &Snippet) -> Result<ExecutionHandle, CodeExecuteError> {
         if !code.attributes.execute {
             return Err(CodeExecuteError::NotExecutableCode);
         }
@@ -88,7 +88,7 @@ impl Default for SnippetExecutor {
 /// An invalid executor was found.
 #[derive(thiserror::Error, Debug)]
 #[error("invalid snippet execution for '{0:?}': {1}")]
-pub struct InvalidSnippetConfig(CodeLanguage, &'static str);
+pub struct InvalidSnippetConfig(SnippetLanguage, &'static str);
 
 /// An error during the execution of some code.
 #[derive(thiserror::Error, Debug)]
@@ -231,7 +231,7 @@ impl ProcessStatus {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::markdown::elements::CodeAttributes;
+    use crate::markdown::elements::SnippetAttributes;
 
     #[test]
     fn shell_code_execution() {
@@ -239,10 +239,10 @@ mod test {
 echo 'hello world'
 echo 'bye'"
             .into();
-        let code = Code {
+        let code = Snippet {
             contents,
-            language: CodeLanguage::Shell("sh".into()),
-            attributes: CodeAttributes { execute: true, ..Default::default() },
+            language: SnippetLanguage::Shell,
+            attributes: SnippetAttributes { execute: true, ..Default::default() },
         };
         let handle = SnippetExecutor::default().execute(&code).expect("execution failed");
         let state = loop {
@@ -259,10 +259,10 @@ echo 'bye'"
     #[test]
     fn non_executable_code_cant_be_executed() {
         let contents = String::new();
-        let code = Code {
+        let code = Snippet {
             contents,
-            language: CodeLanguage::Shell("sh".into()),
-            attributes: CodeAttributes { execute: false, ..Default::default() },
+            language: SnippetLanguage::Shell,
+            attributes: SnippetAttributes { execute: false, ..Default::default() },
         };
         let result = SnippetExecutor::default().execute(&code);
         assert!(result.is_err());
@@ -275,10 +275,10 @@ echo 'This message redirects to stderr' >&2
 echo 'hello world'
 "
         .into();
-        let code = Code {
+        let code = Snippet {
             contents,
-            language: CodeLanguage::Shell("sh".into()),
-            attributes: CodeAttributes { execute: true, ..Default::default() },
+            language: SnippetLanguage::Shell,
+            attributes: SnippetAttributes { execute: true, ..Default::default() },
         };
         let handle = SnippetExecutor::default().execute(&code).expect("execution failed");
         let state = loop {
@@ -300,10 +300,10 @@ echo 'hello world'
 echo 'hello world'
 "
         .into();
-        let code = Code {
+        let code = Snippet {
             contents,
-            language: CodeLanguage::Shell("sh".into()),
-            attributes: CodeAttributes { execute: true, ..Default::default() },
+            language: SnippetLanguage::Shell,
+            attributes: SnippetAttributes { execute: true, ..Default::default() },
         };
         let handle = SnippetExecutor::default().execute(&code).expect("execution failed");
         let state = loop {

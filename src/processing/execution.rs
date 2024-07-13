@@ -1,7 +1,7 @@
 use super::separator::RenderSeparator;
 use crate::{
     execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
-    markdown::elements::{Code, Text, TextBlock},
+    markdown::elements::{Snippet, Text, TextBlock},
     presentation::{AsRenderOperations, PreformattedLine, RenderAsync, RenderAsyncState, RenderOperation},
     render::properties::WindowSize,
     style::{Colors, TextStyle},
@@ -20,7 +20,7 @@ struct RunSnippetOperationInner {
 
 #[derive(Debug)]
 pub(crate) struct RunSnippetOperation {
-    code: Code,
+    code: Snippet,
     executor: Rc<SnippetExecutor>,
     default_colors: Colors,
     block_colors: Colors,
@@ -31,7 +31,7 @@ pub(crate) struct RunSnippetOperation {
 
 impl RunSnippetOperation {
     pub(crate) fn new(
-        code: Code,
+        code: Snippet,
         executor: Rc<SnippetExecutor>,
         default_colors: Colors,
         block_colors: Colors,

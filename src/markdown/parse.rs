@@ -76,7 +76,7 @@ impl<'a> MarkdownParser<'a> {
                 | MarkdownElement::Paragraph(_)
                 | MarkdownElement::Image { .. }
                 | MarkdownElement::List(_)
-                | MarkdownElement::Code(_)
+                | MarkdownElement::Snippet(_)
                 | MarkdownElement::Table(_)
                 | MarkdownElement::ThematicBreak
                 | MarkdownElement::BlockQuote(_) => continue,
@@ -166,7 +166,7 @@ impl<'a> MarkdownParser<'a> {
         }
         let code =
             CodeBlockParser::parse(block).map_err(|e| ParseErrorKind::InvalidCodeBlock(e).with_sourcepos(sourcepos))?;
-        Ok(MarkdownElement::Code(code))
+        Ok(MarkdownElement::Snippet(code))
     }
 
     fn parse_heading(heading: &NodeHeading, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
@@ -490,7 +490,7 @@ mod test {
     use rstest::rstest;
 
     use super::*;
-    use crate::markdown::elements::CodeLanguage;
+    use crate::markdown::elements::SnippetLanguage;
     use std::path::Path;
 
     fn parse_single(input: &str) -> MarkdownElement {
@@ -643,8 +643,8 @@ let q = 42;
 ````
 ",
         );
-        let MarkdownElement::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
-        assert_eq!(code.language, CodeLanguage::Rust);
+        let MarkdownElement::Snippet(code) = parsed else { panic!("not a code block: {parsed:?}") };
+        assert_eq!(code.language, SnippetLanguage::Rust);
         assert_eq!(code.contents, "let q = 42;\n");
         assert!(!code.attributes.execute);
     }
@@ -658,8 +658,8 @@ echo hi mom
 ````
 ",
         );
-        let MarkdownElement::Code(code) = parsed else { panic!("not a code block: {parsed:?}") };
-        assert_eq!(code.language, CodeLanguage::Shell("bash".into()));
+        let MarkdownElement::Snippet(code) = parsed else { panic!("not a code block: {parsed:?}") };
+        assert_eq!(code.language, SnippetLanguage::Bash);
         assert!(code.attributes.execute);
     }
 
