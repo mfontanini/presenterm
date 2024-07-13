@@ -1,4 +1,4 @@
-use crate::{markdown::elements::CodeLanguage, theme::CodeBlockStyle};
+use crate::{markdown::elements::SnippetLanguage, theme::CodeBlockStyle};
 use crossterm::{
     style::{SetBackgroundColor, SetForegroundColor},
     QueueableCommand,
@@ -97,20 +97,20 @@ pub struct CodeHighlighter {
 
 impl CodeHighlighter {
     /// Create a highlighter for a specific language.
-    pub(crate) fn language_highlighter(&self, language: &CodeLanguage) -> LanguageHighlighter {
+    pub(crate) fn language_highlighter(&self, language: &SnippetLanguage) -> LanguageHighlighter {
         let extension = Self::language_extension(language);
         let syntax = SYNTAX_SET.find_syntax_by_extension(extension).unwrap();
         let highlighter = HighlightLines::new(syntax, &self.theme);
         LanguageHighlighter { highlighter }
     }
 
-    fn language_extension(language: &CodeLanguage) -> &'static str {
-        use CodeLanguage::*;
+    fn language_extension(language: &SnippetLanguage) -> &'static str {
+        use SnippetLanguage::*;
         match language {
             Ada => "adb",
             Asp => "asa",
             Awk => "awk",
-            Bash => "bash",
+            Bash => "sh",
             BatchFile => "bat",
             C => "c",
             CMake => "cmake",
@@ -126,6 +126,7 @@ impl CodeHighlighter {
             Elixir => "ex",
             Elm => "elm",
             Erlang => "erl",
+            Fish => "fish",
             Go => "go",
             Haskell => "hs",
             Html => "html",
@@ -151,7 +152,7 @@ impl CodeHighlighter {
             Rust => "rs",
             RustScript => "rs",
             Scala => "scala",
-            Shell(_) => "sh",
+            Shell => "sh",
             Sql => "sql",
             Swift => "swift",
             Svelte => "svelte",
@@ -163,6 +164,7 @@ impl CodeHighlighter {
             Vue => "vue",
             Xml => "xml",
             Yaml => "yaml",
+            Zsh => "sh",
             Zig => "zig",
         }
     }
@@ -262,7 +264,7 @@ mod test {
 
     #[test]
     fn language_extensions_exist() {
-        for language in CodeLanguage::iter() {
+        for language in SnippetLanguage::iter() {
             let extension = CodeHighlighter::language_extension(&language);
             let syntax = SYNTAX_SET.find_syntax_by_extension(extension);
             assert!(syntax.is_some(), "extension {extension} for {language:?} not found");

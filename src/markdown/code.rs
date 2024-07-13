@@ -1,4 +1,4 @@
-use super::elements::{Code, CodeAttributes, CodeLanguage, Highlight, HighlightGroup};
+use super::elements::{Highlight, HighlightGroup, Snippet, SnippetAttributes, SnippetLanguage};
 use comrak::nodes::NodeCodeBlock;
 use strum::EnumDiscriminants;
 
@@ -7,13 +7,13 @@ pub(crate) type ParseResult<T> = Result<T, CodeBlockParseError>;
 pub(crate) struct CodeBlockParser;
 
 impl CodeBlockParser {
-    pub(crate) fn parse(code_block: &NodeCodeBlock) -> ParseResult<Code> {
+    pub(crate) fn parse(code_block: &NodeCodeBlock) -> ParseResult<Snippet> {
         let (language, attributes) = Self::parse_block_info(&code_block.info)?;
-        let code = Code { contents: code_block.literal.clone(), language, attributes };
+        let code = Snippet { contents: code_block.literal.clone(), language, attributes };
         Ok(code)
     }
 
-    fn parse_block_info(input: &str) -> ParseResult<(CodeLanguage, CodeAttributes)> {
+    fn parse_block_info(input: &str) -> ParseResult<(SnippetLanguage, SnippetAttributes)> {
         let (language, input) = Self::parse_language(input);
         let attributes = Self::parse_attributes(input)?;
         if attributes.auto_render && !language.supports_auto_render() {
@@ -22,7 +22,7 @@ impl CodeBlockParser {
         Ok((language, attributes))
     }
 
-    fn parse_language(input: &str) -> (CodeLanguage, &str) {
+    fn parse_language(input: &str) -> (SnippetLanguage, &str) {
         let token = Self::next_identifier(input);
         // this always returns `Ok` given we fall back to `Unknown` if we don't know the language.
         let language = token.parse().expect("language parsing");
@@ -30,8 +30,8 @@ impl CodeBlockParser {
         (language, rest)
     }
 
-    fn parse_attributes(mut input: &str) -> ParseResult<CodeAttributes> {
-        let mut attributes = CodeAttributes::default();
+    fn parse_attributes(mut input: &str) -> ParseResult<SnippetAttributes> {
+        let mut attributes = SnippetAttributes::default();
         let mut processed_attributes = Vec::new();
         while let (Some(attribute), rest) = Self::parse_attribute(input)? {
             let discriminant = AttributeDiscriminants::from(&attribute);
@@ -151,7 +151,7 @@ pub(crate) enum CodeBlockParseError {
     DuplicateAttribute(&'static str),
 
     #[error("language {0:?} does not support {1}")]
-    UnsupportedAttribute(CodeLanguage, &'static str),
+    UnsupportedAttribute(SnippetLanguage, &'static str),
 }
 
 #[derive(EnumDiscriminants)]
@@ -168,24 +168,24 @@ mod test {
     use rstest::rstest;
     use Highlight::*;
 
-    fn parse_language(input: &str) -> CodeLanguage {
+    fn parse_language(input: &str) -> SnippetLanguage {
         let (language, _) = CodeBlockParser::parse_block_info(input).expect("parse failed");
         language
     }
 
-    fn parse_attributes(input: &str) -> CodeAttributes {
+    fn parse_attributes(input: &str) -> SnippetAttributes {
         let (_, attributes) = CodeBlockParser::parse_block_info(input).expect("parse failed");
         attributes
     }
 
     #[test]
     fn unknown_language() {
-        assert_eq!(parse_language("potato"), CodeLanguage::Unknown("potato".to_string()));
+        assert_eq!(parse_language("potato"), SnippetLanguage::Unknown("potato".to_string()));
     }
 
     #[test]
     fn no_attributes() {
-        assert_eq!(parse_language("rust"), CodeLanguage::Rust);
+        assert_eq!(parse_language("rust"), SnippetLanguage::Rust);
     }
 
     #[test]

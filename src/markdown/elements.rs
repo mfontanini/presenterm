@@ -30,8 +30,8 @@ pub(crate) enum MarkdownElement {
     /// All contiguous list items are merged into a single one, regardless of levels of nesting.
     List(Vec<ListItem>),
 
-    /// A block of code.
-    Code(Code),
+    /// A code snippet.
+    Snippet(Snippet),
 
     /// A table.
     Table(Table),
@@ -173,20 +173,20 @@ pub(crate) enum ListItemType {
     OrderedPeriod,
 }
 
-/// A piece of code.
+/// A code snippet.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Code {
-    /// The code itself.
+pub(crate) struct Snippet {
+    /// The snippet itself.
     pub(crate) contents: String,
 
-    /// The programming language this code is written in.
-    pub(crate) language: CodeLanguage,
+    /// The programming language this snippet is written in.
+    pub(crate) language: SnippetLanguage,
 
-    /// The attributes used for this code.
-    pub(crate) attributes: CodeAttributes,
+    /// The attributes used for snippet.
+    pub(crate) attributes: SnippetAttributes,
 }
 
-impl Code {
+impl Snippet {
     pub(crate) fn visible_lines(&self) -> impl Iterator<Item = &str> {
         let prefix = self.language.hidden_line_prefix();
         self.contents.lines().filter(move |line| !prefix.is_some_and(|prefix| line.starts_with(prefix)))
@@ -205,9 +205,9 @@ impl Code {
     }
 }
 
-/// The language of a piece of code.
+/// The language of a code snippet.
 #[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, DeserializeFromStr)]
-pub enum CodeLanguage {
+pub enum SnippetLanguage {
     Ada,
     Asp,
     Awk,
@@ -227,6 +227,7 @@ pub enum CodeLanguage {
     Elixir,
     Elm,
     Erlang,
+    Fish,
     Go,
     Haskell,
     Html,
@@ -252,7 +253,7 @@ pub enum CodeLanguage {
     Rust,
     RustScript,
     Scala,
-    Shell(String),
+    Shell,
     Sql,
     Swift,
     Svelte,
@@ -264,31 +265,34 @@ pub enum CodeLanguage {
     Yaml,
     Vue,
     Zig,
+    Zsh,
 }
 
-impl CodeLanguage {
+impl SnippetLanguage {
     pub(crate) fn supports_auto_render(&self) -> bool {
         matches!(self, Self::Latex | Self::Typst | Self::Mermaid)
     }
 
     pub(crate) fn hidden_line_prefix(&self) -> Option<&'static str> {
+        use SnippetLanguage::*;
         match self {
-            CodeLanguage::Rust => Some("# "),
-            CodeLanguage::Python | CodeLanguage::Shell(_) | CodeLanguage::Bash => Some("/// "),
+            Rust => Some("# "),
+            Python | Bash | Fish | Shell | Zsh => Some("/// "),
             _ => None,
         }
     }
 }
 
-impl FromStr for CodeLanguage {
+impl FromStr for SnippetLanguage {
     type Err = Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use CodeLanguage::*;
+        use SnippetLanguage::*;
         let language = match s {
             "ada" => Ada,
             "asp" => Asp,
             "awk" => Awk,
+            "bash" => Bash,
             "c" => C,
             "cmake" => CMake,
             "crontab" => Crontab,
@@ -303,6 +307,7 @@ impl FromStr for CodeLanguage {
             "elixir" => Elixir,
             "elm" => Elm,
             "erlang" => Erlang,
+            "fish" => Fish,
             "go" => Go,
             "haskell" => Haskell,
             "html" => Html,
@@ -328,8 +333,7 @@ impl FromStr for CodeLanguage {
             "rust" => Rust,
             "rust-script" => RustScript,
             "scala" => Scala,
-            "shell" => Shell("sh".into()),
-            interpreter @ ("bash" | "sh" | "zsh" | "fish") => Shell(interpreter.into()),
+            "shell" | "sh" => Shell,
             "sql" => Sql,
             "svelte" => Svelte,
             "swift" => Swift,
@@ -340,25 +344,26 @@ impl FromStr for CodeLanguage {
             "yaml" => Yaml,
             "vue" => Vue,
             "zig" => Zig,
+            "zsh" => Zsh,
             other => Unknown(other.to_string()),
         };
         Ok(language)
     }
 }
 
-/// Attributes for code blocks.
+/// Attributes for code snippets.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct CodeAttributes {
-    /// Whether the code block is marked as executable.
+pub(crate) struct SnippetAttributes {
+    /// Whether the snippet is marked as executable.
     pub(crate) execute: bool,
 
-    /// Whether a code block is marked to be auto rendered.
+    /// Whether a snippet is marked to be auto rendered.
     ///
-    /// An auto rendered piece of code is transformed during parsing, leading to some visual
+    /// An auto rendered snippet is transformed during parsing, leading to some visual
     /// representation of it being shown rather than the original code.
     pub(crate) auto_render: bool,
 
-    /// Whether the code block should show line numbers.
+    /// Whether the snippet should show line numbers.
     pub(crate) line_numbers: bool,
 
     /// The groups of lines to highlight.
@@ -440,7 +445,7 @@ echo 'hello again'
         .to_string();
 
         let expected = vec!["echo 'hello world'", "", "echo '/// is the prefix'", "echo 'hello again'"];
-        let code = Code { contents, language: CodeLanguage::Bash, attributes: Default::default() };
+        let code = Snippet { contents, language: SnippetLanguage::Bash, attributes: Default::default() };
         assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
     }
 
@@ -454,7 +459,7 @@ println!("Hello world");
         .to_string();
 
         let expected = vec!["println!(\"Hello world\");"];
-        let code = Code { contents, language: CodeLanguage::Rust, attributes: Default::default() };
+        let code = Snippet { contents, language: SnippetLanguage::Rust, attributes: Default::default() };
         assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
     }
 
@@ -478,7 +483,7 @@ echo 'hello again'
 "
         .to_string();
 
-        let code = Code { contents, language: CodeLanguage::Bash, attributes: Default::default() };
+        let code = Snippet { contents, language: SnippetLanguage::Bash, attributes: Default::default() };
         assert_eq!(expected, code.executable_contents());
     }
 
@@ -498,7 +503,7 @@ println!("Hello world");
 "##
         .to_string();
 
-        let code = Code { contents, language: CodeLanguage::Rust, attributes: Default::default() };
+        let code = Snippet { contents, language: SnippetLanguage::Rust, attributes: Default::default() };
         assert_eq!(expected, code.executable_contents());
     }
 }

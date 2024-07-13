@@ -1,6 +1,6 @@
 use super::padding::NumberPadder;
 use crate::{
-    markdown::elements::{Code, HighlightGroup},
+    markdown::elements::{HighlightGroup, Snippet},
     presentation::{AsRenderOperations, ChunkMutator, PreformattedLine, RenderOperation},
     render::{
         highlighting::{LanguageHighlighter, StyledTokens},
@@ -22,7 +22,7 @@ impl<'a> CodePreparer<'a> {
         Self { theme }
     }
 
-    pub(crate) fn prepare(&self, code: &Code) -> Vec<CodeLine> {
+    pub(crate) fn prepare(&self, code: &Snippet) -> Vec<CodeLine> {
         let mut lines = Vec::new();
         let horizontal_padding = self.theme.code.padding.horizontal.unwrap_or(0);
         let vertical_padding = self.theme.code.padding.vertical.unwrap_or(0);
@@ -36,7 +36,7 @@ impl<'a> CodePreparer<'a> {
         lines
     }
 
-    fn push_lines(&self, code: &Code, horizontal_padding: u8, lines: &mut Vec<CodeLine>) {
+    fn push_lines(&self, code: &Snippet, horizontal_padding: u8, lines: &mut Vec<CodeLine>) {
         if code.contents.is_empty() {
             return;
         }
@@ -179,7 +179,7 @@ impl ChunkMutator for HighlightMutator {
 
 #[cfg(test)]
 mod test {
-    use crate::markdown::elements::{CodeAttributes, CodeLanguage};
+    use crate::markdown::elements::{SnippetAttributes, SnippetLanguage};
 
     use super::*;
 
@@ -187,10 +187,10 @@ mod test {
     fn code_with_line_numbers() {
         let total_lines = 11;
         let input_lines = "hi\n".repeat(total_lines);
-        let code = Code {
+        let code = Snippet {
             contents: input_lines,
-            language: CodeLanguage::Unknown("".to_string()),
-            attributes: CodeAttributes { line_numbers: true, ..Default::default() },
+            language: SnippetLanguage::Unknown("".to_string()),
+            attributes: SnippetAttributes { line_numbers: true, ..Default::default() },
         };
         let lines = CodePreparer { theme: &Default::default() }.prepare(&code);
         assert_eq!(lines.len(), total_lines);

@@ -4,8 +4,8 @@ use crate::{
     execute::SnippetExecutor,
     markdown::{
         elements::{
-            Code, CodeLanguage, Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement,
-            SourcePosition, Table, TableRow, Text, TextBlock,
+            Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement, Snippet,
+            SnippetLanguage, SourcePosition, Table, TableRow, Text, TextBlock,
         },
         text::WeightedTextBlock,
     },
@@ -247,7 +247,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::Heading { level, text } => self.push_heading(level, text),
             MarkdownElement::Paragraph(elements) => self.push_paragraph(elements)?,
             MarkdownElement::List(elements) => self.push_list(elements),
-            MarkdownElement::Code(code) => self.push_code(code)?,
+            MarkdownElement::Snippet(code) => self.push_code(code)?,
             MarkdownElement::Table(table) => self.push_table(table),
             MarkdownElement::ThematicBreak => self.process_thematic_break(),
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
@@ -676,7 +676,7 @@ impl<'a> PresentationBuilder<'a> {
         self.chunk_operations.push(RenderOperation::RenderLineBreak);
     }
 
-    fn push_code(&mut self, code: Code) -> Result<(), BuildError> {
+    fn push_code(&mut self, code: Snippet) -> Result<(), BuildError> {
         if code.attributes.auto_render {
             return self.push_rendered_code(code);
         }
@@ -702,13 +702,13 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_rendered_code(&mut self, code: Code) -> Result<(), BuildError> {
-        let Code { contents, language, .. } = code;
+    fn push_rendered_code(&mut self, code: Snippet) -> Result<(), BuildError> {
+        let Snippet { contents, language, .. } = code;
         let error_holder = self.presentation_state.async_error_holder();
         let request = match language {
-            CodeLanguage::Typst => ThirdPartyRenderRequest::Typst(contents, self.theme.typst.clone()),
-            CodeLanguage::Latex => ThirdPartyRenderRequest::Latex(contents, self.theme.typst.clone()),
-            CodeLanguage::Mermaid => ThirdPartyRenderRequest::Mermaid(contents, self.theme.mermaid.clone()),
+            SnippetLanguage::Typst => ThirdPartyRenderRequest::Typst(contents, self.theme.typst.clone()),
+            SnippetLanguage::Latex => ThirdPartyRenderRequest::Latex(contents, self.theme.typst.clone()),
+            SnippetLanguage::Mermaid => ThirdPartyRenderRequest::Mermaid(contents, self.theme.mermaid.clone()),
             _ => panic!("language {language:?} should not be renderable"),
         };
         let operation = self.third_party.render(request, &self.theme, error_holder, self.slides.len() + 1)?;
@@ -716,13 +716,13 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn highlight_lines(&self, code: &Code) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
+    fn highlight_lines(&self, code: &Snippet) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
         let lines = CodePreparer::new(&self.theme).prepare(code);
         let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
-        let mut empty_highlighter = self.highlighter.language_highlighter(&CodeLanguage::Unknown(String::new()));
+        let mut empty_highlighter = self.highlighter.language_highlighter(&SnippetLanguage::Unknown(String::new()));
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let padding_style = {
-            let mut highlighter = self.highlighter.language_highlighter(&CodeLanguage::Rust);
+            let mut highlighter = self.highlighter.language_highlighter(&SnippetLanguage::Rust);
             highlighter.style_line("//").next().expect("no styles").style
         };
         let groups = match self.options.allow_mutations {
@@ -749,7 +749,7 @@ impl<'a> PresentationBuilder<'a> {
         (output, context)
     }
 
-    fn push_code_execution(&mut self, code: Code) -> Result<(), BuildError> {
+    fn push_code_execution(&mut self, code: Snippet) -> Result<(), BuildError> {
         if !self.code_executor.is_execution_supported(&code.language) {
             return Err(BuildError::UnsupportedExecution(code.language));
         }
@@ -927,7 +927,7 @@ pub enum BuildError {
     ThirdPartyRender(#[from] ThirdPartyRenderError),
 
     #[error("language {0:?} does not support execution")]
-    UnsupportedExecution(CodeLanguage),
+    UnsupportedExecution(SnippetLanguage),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -1056,7 +1056,7 @@ impl From<StrictPresentationMetadata> for PresentationMetadata {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::markdown::elements::CodeAttributes;
+    use crate::markdown::elements::SnippetAttributes;
     use rstest::rstest;
 
     fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
@@ -1479,10 +1479,10 @@ mod test {
     #[case::enabled(true)]
     #[case::disabled(false)]
     fn snippet_execution(#[case] enabled: bool) {
-        let element = MarkdownElement::Code(Code {
+        let element = MarkdownElement::Snippet(Snippet {
             contents: "".into(),
-            language: CodeLanguage::Rust,
-            attributes: CodeAttributes { execute: true, ..Default::default() },
+            language: SnippetLanguage::Rust,
+            attributes: SnippetAttributes { execute: true, ..Default::default() },
         });
         let options = PresentationBuilderOptions { enable_snippet_execution: enabled, ..Default::default() };
         let presentation = build_presentation_with_options(vec![element], options);

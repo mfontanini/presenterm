@@ -1,6 +1,6 @@
 use crate::{
     input::user::KeyBinding,
-    markdown::elements::CodeLanguage,
+    markdown::elements::SnippetLanguage,
     media::{emulator::TerminalEmulator, kitty::KittyMode},
     GraphicsMode,
 };
@@ -142,7 +142,7 @@ pub struct SnippetExecConfig {
 
     /// Custom snippet executors.
     #[serde(default)]
-    pub custom: BTreeMap<CodeLanguage, LanguageSnippetExecutionConfig>,
+    pub custom: BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
