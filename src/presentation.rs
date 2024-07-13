@@ -179,8 +179,8 @@ impl Presentation {
                 slide_state = match (&slide_state, &state) {
                     // If one finished rendering and another one still is rendering, claim that we
                     // are still rendering and there's modifications.
-                    (RenderAsyncState::JustFinishedRendering, RenderAsyncState::Rendering { modified: false })
-                    | (RenderAsyncState::Rendering { modified: false }, RenderAsyncState::JustFinishedRendering) => {
+                    (RenderAsyncState::JustFinishedRendering, RenderAsyncState::Rendering { .. })
+                    | (RenderAsyncState::Rendering { .. }, RenderAsyncState::JustFinishedRendering) => {
                         RenderAsyncState::Rendering { modified: true }
                     }
                     // Render + modified overrides anything, rendering overrides only "rendered".
