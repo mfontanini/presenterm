@@ -13,7 +13,7 @@ use crate::{
         scale::scale_image,
     },
     presentation::{
-        AsRenderOperations, ImageProperties, ImageSize, MarginProperties, PreformattedLine, RenderAsync,
+        AsRenderOperations, BlockLine, BlockLineText, ImageProperties, ImageSize, MarginProperties, RenderAsync,
         RenderOperation,
     },
     render::{layout::Positioning, properties::WindowSize},
@@ -86,7 +86,7 @@ where
             RenderOperation::RenderText { line, alignment } => self.render_text(line, alignment),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image, properties) => self.render_image(image, properties),
-            RenderOperation::RenderPreformattedLine(operation) => self.render_preformatted_line(operation),
+            RenderOperation::RenderBlockLine(operation) => self.render_preformatted_line(operation),
             RenderOperation::RenderDynamic(generator) => self.render_dynamic(generator.as_ref()),
             RenderOperation::RenderAsync(generator) => self.render_async(generator.as_ref()),
             RenderOperation::InitColumnLayout { columns } => self.init_column_layout(columns),
@@ -199,8 +199,8 @@ where
         Ok(())
     }
 
-    fn render_preformatted_line(&mut self, operation: &PreformattedLine) -> RenderResult {
-        let PreformattedLine { text, unformatted_length, block_length, alignment } = operation;
+    fn render_preformatted_line(&mut self, operation: &BlockLine) -> RenderResult {
+        let BlockLine { text, unformatted_length, block_length, alignment } = operation;
         let layout = self.build_layout(alignment.clone());
 
         let dimensions = self.current_dimensions();
@@ -213,7 +213,10 @@ where
 
         // Pad this code block with spaces so we get a nice little rectangle.
         let until_right_edge = max_line_length.saturating_sub(*unformatted_length);
-        self.terminal.print_line(text)?;
+        match text {
+            BlockLineText::Preformatted(text) => self.terminal.print_line(text)?,
+            BlockLineText::Weighted(text) => self.render_text(text, alignment)?,
+        };
         self.terminal.print_line(&" ".repeat(until_right_edge as usize))?;
 
         // If this line is longer than the screen, our cursor wrapped around so we need to update

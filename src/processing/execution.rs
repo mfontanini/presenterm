@@ -1,11 +1,12 @@
-use super::separator::RenderSeparator;
+use super::separator::{RenderSeparator, SeparatorWidth};
 use crate::{
     execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
     markdown::elements::{Snippet, Text, TextBlock},
-    presentation::{AsRenderOperations, PreformattedLine, RenderAsync, RenderAsyncState, RenderOperation},
+    presentation::{AsRenderOperations, BlockLine, BlockLineText, RenderAsync, RenderAsyncState, RenderOperation},
     render::properties::WindowSize,
     style::{Colors, TextStyle},
     theme::{Alignment, ExecutionStatusBlockStyle},
+    PresentationTheme,
 };
 use itertools::Itertools;
 use std::{cell::RefCell, mem, rc::Rc};
@@ -16,6 +17,7 @@ struct RunSnippetOperationInner {
     handle: Option<ExecutionHandle>,
     output_lines: Vec<String>,
     state: RenderAsyncState,
+    max_line_length: u16,
 }
 
 #[derive(Debug)]
@@ -25,6 +27,8 @@ pub(crate) struct RunSnippetOperation {
     default_colors: Colors,
     block_colors: Colors,
     status_colors: ExecutionStatusBlockStyle,
+    block_length: u16,
+    alignment: Alignment,
     inner: Rc<RefCell<RunSnippetOperationInner>>,
     state_description: RefCell<Text>,
 }
@@ -33,34 +37,44 @@ impl RunSnippetOperation {
     pub(crate) fn new(
         code: Snippet,
         executor: Rc<SnippetExecutor>,
-        default_colors: Colors,
-        block_colors: Colors,
-        status_colors: ExecutionStatusBlockStyle,
+        theme: &PresentationTheme,
+        block_length: u16,
     ) -> Self {
-        let inner =
-            RunSnippetOperationInner { handle: None, output_lines: Vec::new(), state: RenderAsyncState::default() };
+        let default_colors = theme.default_style.colors.clone();
+        let block_colors = theme.execution_output.colors.clone();
+        let status_colors = theme.execution_output.status.clone();
         let running_colors = status_colors.running.clone();
+        let alignment = theme.code.alignment.clone().unwrap_or_default();
+        let block_length = match &alignment {
+            Alignment::Left { .. } | Alignment::Right { .. } => block_length,
+            Alignment::Center { minimum_size, .. } => block_length.max(*minimum_size),
+        };
+        let inner = RunSnippetOperationInner {
+            handle: None,
+            output_lines: Vec::new(),
+            state: RenderAsyncState::default(),
+            max_line_length: 0,
+        };
         Self {
             code,
             executor,
             default_colors,
             block_colors,
             status_colors,
+            block_length,
+            alignment,
             inner: Rc::new(RefCell::new(inner)),
             state_description: Text::new("running", TextStyle::default().colors(running_colors)).into(),
         }
     }
 
-    fn render_line(&self, mut line: String) -> RenderOperation {
-        if line.contains('\t') {
-            line = line.replace('\t', "    ");
-        }
+    fn render_line(&self, line: String, block_length: u16) -> RenderOperation {
         let line_len = line.width() as u16;
-        RenderOperation::RenderPreformattedLine(PreformattedLine {
-            text: line,
+        RenderOperation::RenderBlockLine(BlockLine {
+            text: BlockLineText::Preformatted(line),
             unformatted_length: line_len,
-            block_length: line_len,
-            alignment: Default::default(),
+            block_length,
+            alignment: self.alignment.clone(),
         })
     }
 }
@@ -73,7 +87,11 @@ impl AsRenderOperations for RunSnippetOperation {
         }
         let description = self.state_description.borrow();
         let heading = TextBlock(vec![" [".into(), description.clone(), "] ".into()]);
-        let separator = RenderSeparator::new(heading);
+        let separator_width = match &self.alignment {
+            Alignment::Left { .. } | Alignment::Right { .. } => SeparatorWidth::FitToWindow,
+            Alignment::Center { .. } => SeparatorWidth::Fixed(self.block_length),
+        };
+        let separator = RenderSeparator::new(heading, separator_width);
         let mut operations = vec![
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderDynamic(Rc::new(separator)),
@@ -82,10 +100,11 @@ impl AsRenderOperations for RunSnippetOperation {
             RenderOperation::SetColors(self.block_colors.clone()),
         ];
 
+        let block_length = self.block_length.max(inner.max_line_length.saturating_add(1));
         for line in &inner.output_lines {
             let chunks = line.chars().chunks(dimensions.columns as usize);
             for chunk in &chunks {
-                operations.push(self.render_line(chunk.collect()));
+                operations.push(self.render_line(chunk.collect(), block_length));
                 operations.push(RenderOperation::RenderLineBreak);
             }
         }
@@ -102,8 +121,8 @@ impl RenderAsync for RunSnippetOperation {
     fn poll_state(&self) -> RenderAsyncState {
         let mut inner = self.inner.borrow_mut();
         if let Some(handle) = inner.handle.as_mut() {
-            let state = handle.state();
-            let ExecutionState { output, status } = state;
+            let mut state = handle.state.lock().unwrap();
+            let ExecutionState { output, status } = &mut *state;
             *self.state_description.borrow_mut() = match status {
                 ProcessStatus::Running => {
                     Text::new("running", TextStyle::default().colors(self.status_colors.running.clone()))
@@ -115,14 +134,24 @@ impl RenderAsync for RunSnippetOperation {
                     Text::new("finished with error", TextStyle::default().colors(self.status_colors.failure.clone()))
                 }
             };
-            let modified = inner.output_lines.len() != output.len();
-            if status.is_finished() {
+            let new_lines = mem::take(output);
+            let modified = !new_lines.is_empty();
+            let is_finished = status.is_finished();
+            drop(state);
+
+            let mut max_line_length = 0;
+            for line in &new_lines {
+                let width = u16::try_from(line.width()).unwrap_or(u16::MAX);
+                max_line_length = max_line_length.max(width);
+            }
+            if is_finished {
                 inner.handle.take();
                 inner.state = RenderAsyncState::JustFinishedRendering;
             } else {
                 inner.state = RenderAsyncState::Rendering { modified };
             }
-            inner.output_lines = output;
+            inner.output_lines.extend(new_lines);
+            inner.max_line_length = inner.max_line_length.max(max_line_length);
         }
         inner.state.clone()
     }

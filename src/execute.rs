@@ -112,16 +112,9 @@ pub(crate) enum CodeExecuteError {
 /// A handle for the execution of a piece of code.
 #[derive(Debug)]
 pub(crate) struct ExecutionHandle {
-    state: Arc<Mutex<ExecutionState>>,
+    pub(crate) state: Arc<Mutex<ExecutionState>>,
     #[allow(dead_code)]
     reader_handle: thread::JoinHandle<()>,
-}
-
-impl ExecutionHandle {
-    /// Get the current state of the process.
-    pub(crate) fn state(&self) -> ExecutionState {
-        self.state.lock().unwrap().clone()
-    }
 }
 
 /// Consumes the output of a process and stores it in a shared state.
@@ -197,7 +190,10 @@ impl CommandsRunner {
     fn process_output(state: Arc<Mutex<ExecutionState>>, reader: os_pipe::PipeReader) -> io::Result<()> {
         let reader = BufReader::new(reader);
         for line in reader.lines() {
-            let line = line?;
+            let mut line = line?;
+            if line.contains('\t') {
+                line = line.replace('\t', "    ");
+            }
             // TODO: consider not locking per line...
             state.lock().unwrap().output.push(line);
         }
@@ -246,7 +242,7 @@ echo 'bye'"
         };
         let handle = SnippetExecutor::default().execute(&code).expect("execution failed");
         let state = loop {
-            let state = handle.state();
+            let state = handle.state.lock().unwrap();
             if state.status.is_finished() {
                 break state;
             }
@@ -282,7 +278,7 @@ echo 'hello world'
         };
         let handle = SnippetExecutor::default().execute(&code).expect("execution failed");
         let state = loop {
-            let state = handle.state();
+            let state = handle.state.lock().unwrap();
             if state.status.is_finished() {
                 break state;
             }
@@ -307,7 +303,7 @@ echo 'hello world'
         };
         let handle = SnippetExecutor::default().execute(&code).expect("execution failed");
         let state = loop {
-            let state = handle.state();
+            let state = handle.state.lock().unwrap();
             if state.status.is_finished() {
                 break state;
             }

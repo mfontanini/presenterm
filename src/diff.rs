@@ -72,7 +72,7 @@ impl ContentDiff for RenderOperation {
                 false
             }
             (RenderImage(original, _), RenderImage(updated, _)) if original != updated => true,
-            (RenderPreformattedLine(original), RenderPreformattedLine(updated)) if original != updated => true,
+            (RenderBlockLine(original), RenderBlockLine(updated)) if original != updated => true,
             (InitColumnLayout { columns: original }, InitColumnLayout { columns: updated }) if original != updated => {
                 true
             }
@@ -110,7 +110,9 @@ where
 mod test {
     use super::*;
     use crate::{
-        presentation::{AsRenderOperations, PreformattedLine, RenderAsync, RenderAsyncState, Slide, SlideBuilder},
+        presentation::{
+            AsRenderOperations, BlockLine, BlockLineText, RenderAsync, RenderAsyncState, Slide, SlideBuilder,
+        },
         render::properties::WindowSize,
         style::{Color, Colors},
         theme::{Alignment, Margin},
@@ -148,9 +150,9 @@ mod test {
     #[case(RenderOperation::RenderLineBreak)]
     #[case(RenderOperation::SetColors(Colors{background: None, foreground: None}))]
     #[case(RenderOperation::RenderText{line: String::from("asd").into(), alignment: Default::default()})]
-    #[case(RenderOperation::RenderPreformattedLine(
-        PreformattedLine{
-            text: "asd".into(),
+    #[case(RenderOperation::RenderBlockLine(
+        BlockLine{
+            text: BlockLineText::Preformatted("".into()),
             alignment: Default::default(),
             block_length: 42,
             unformatted_length: 1337

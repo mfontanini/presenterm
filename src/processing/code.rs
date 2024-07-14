@@ -1,7 +1,7 @@
 use super::padding::NumberPadder;
 use crate::{
     markdown::elements::{HighlightGroup, Snippet},
-    presentation::{AsRenderOperations, ChunkMutator, PreformattedLine, RenderOperation},
+    presentation::{AsRenderOperations, BlockLine, BlockLineText, ChunkMutator, RenderOperation},
     render::{
         highlighting::{LanguageHighlighter, StyledTokens},
         properties::WindowSize,
@@ -115,8 +115,8 @@ impl AsRenderOperations for HighlightedLine {
             false => self.not_highlighted.clone(),
         };
         vec![
-            RenderOperation::RenderPreformattedLine(PreformattedLine {
-                text,
+            RenderOperation::RenderBlockLine(BlockLine {
+                text: BlockLineText::Preformatted(text),
                 unformatted_length: self.width as u16,
                 block_length: context.block_length as u16,
                 alignment: context.alignment.clone(),
