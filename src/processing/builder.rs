@@ -725,9 +725,8 @@ impl<'a> PresentationBuilder<'a> {
         lines: Vec<CodeLine>,
         block_length: usize,
     ) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
-        let mut empty_highlighter = self.highlighter.language_highlighter(&SnippetLanguage::Unknown(String::new()));
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
-        let padding_style = {
+        let dim_style = {
             let mut highlighter = self.highlighter.language_highlighter(&SnippetLanguage::Rust);
             highlighter.style_line("//").next().expect("no styles").style
         };
@@ -745,8 +744,8 @@ impl<'a> PresentationBuilder<'a> {
         let mut output = Vec::new();
         let block_style = &self.theme.code;
         for line in lines.into_iter() {
-            let highlighted = line.highlight(&padding_style, &mut code_highlighter, block_style);
-            let not_highlighted = line.highlight(&padding_style, &mut empty_highlighter, block_style);
+            let highlighted = line.highlight(&dim_style, &mut code_highlighter, block_style);
+            let not_highlighted = line.dim(&dim_style, block_style);
             let width = line.width();
             let line_number = line.line_number;
             let context = context.clone();
