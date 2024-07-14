@@ -1,18 +1,27 @@
 use crate::{
     markdown::elements::TextBlock,
-    presentation::{AsRenderOperations, RenderOperation},
+    presentation::{AsRenderOperations, BlockLine, BlockLineText, RenderOperation},
     render::properties::WindowSize,
+    theme::{Alignment, Margin},
 };
 use std::rc::Rc;
 
 #[derive(Clone, Debug, Default)]
+pub(crate) enum SeparatorWidth {
+    Fixed(u16),
+    #[default]
+    FitToWindow,
+}
+
+#[derive(Clone, Debug, Default)]
 pub(crate) struct RenderSeparator {
     heading: TextBlock,
+    width: SeparatorWidth,
 }
 
 impl RenderSeparator {
-    pub(crate) fn new<S: Into<TextBlock>>(heading: S) -> Self {
-        Self { heading: heading.into() }
+    pub(crate) fn new<S: Into<TextBlock>>(heading: S, width: SeparatorWidth) -> Self {
+        Self { heading: heading.into(), width }
     }
 }
 
@@ -25,10 +34,14 @@ impl From<RenderSeparator> for RenderOperation {
 impl AsRenderOperations for RenderSeparator {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let character = "—";
+        let width = match self.width {
+            SeparatorWidth::Fixed(width) => width as usize,
+            SeparatorWidth::FitToWindow => dimensions.columns as usize,
+        };
         let separator = match self.heading.width() == 0 {
-            true => TextBlock::from(character.repeat(dimensions.columns as usize)),
+            true => TextBlock::from(character.repeat(width)),
             false => {
-                let width = (dimensions.columns as usize).saturating_sub(self.heading.width());
+                let width = width.saturating_sub(self.heading.width());
                 let (dashes_len, remainder) = (width / 2, width % 2);
                 let mut dashes = character.repeat(dashes_len);
                 let mut line = TextBlock::from(dashes.clone());
@@ -41,7 +54,12 @@ impl AsRenderOperations for RenderSeparator {
                 line
             }
         };
-        vec![RenderOperation::RenderText { line: separator.into(), alignment: Default::default() }]
+        vec![RenderOperation::RenderBlockLine(BlockLine {
+            text: BlockLineText::Weighted(separator.into()),
+            unformatted_length: width as u16,
+            block_length: width as u16,
+            alignment: Alignment::Center { minimum_size: 1, minimum_margin: Margin::Fixed(0) },
+        })]
     }
 
     fn diffable_content(&self) -> Option<&str> {

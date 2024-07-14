@@ -1,4 +1,4 @@
-use super::{execution::SnippetExecutionDisabledOperation, modals::KeyBindingsModalBuilder};
+use super::{code::CodeLine, execution::SnippetExecutionDisabledOperation, modals::KeyBindingsModalBuilder};
 use crate::{
     custom::{KeyBindingsConfig, OptionsConfig},
     execute::SnippetExecutor,
@@ -11,8 +11,9 @@ use crate::{
     },
     media::{image::Image, printer::RegisterImageError, register::ImageRegistry},
     presentation::{
-        ChunkMutator, ImageProperties, MarginProperties, Modals, PreformattedLine, Presentation, PresentationMetadata,
-        PresentationState, PresentationThemeMetadata, RenderOperation, Slide, SlideBuilder, SlideChunk,
+        BlockLine, BlockLineText, ChunkMutator, ImageProperties, MarginProperties, Modals, Presentation,
+        PresentationMetadata, PresentationState, PresentationThemeMetadata, RenderOperation, Slide, SlideBuilder,
+        SlideChunk,
     },
     processing::{
         code::{CodePreparer, HighlightContext, HighlightMutator, HighlightedLine},
@@ -639,8 +640,8 @@ impl<'a> PresentationBuilder<'a> {
                 // Print a preformatted empty block so we fill in the line with properly colored
                 // spaces.
                 RenderOperation::SetColors(self.theme.block_quote.colors.base.clone()),
-                RenderOperation::RenderPreformattedLine(PreformattedLine {
-                    text: "".into(),
+                RenderOperation::RenderBlockLine(BlockLine {
+                    text: BlockLineText::Preformatted("".into()),
                     unformatted_length: 0,
                     block_length,
                     alignment: alignment.clone(),
@@ -680,7 +681,9 @@ impl<'a> PresentationBuilder<'a> {
         if code.attributes.auto_render {
             return self.push_rendered_code(code);
         }
-        let (lines, context) = self.highlight_lines(&code);
+        let lines = CodePreparer::new(&self.theme).prepare(&code);
+        let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
+        let (lines, context) = self.highlight_lines(&code, lines, block_length);
         for line in lines {
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
         }
@@ -690,7 +693,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         if code.attributes.execute {
             if self.options.enable_snippet_execution {
-                self.push_code_execution(code)?;
+                self.push_code_execution(code, block_length)?;
             } else {
                 let operation = SnippetExecutionDisabledOperation::new(
                     self.theme.execution_output.status.failure.clone(),
@@ -716,9 +719,12 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn highlight_lines(&self, code: &Snippet) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
-        let lines = CodePreparer::new(&self.theme).prepare(code);
-        let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
+    fn highlight_lines(
+        &self,
+        code: &Snippet,
+        lines: Vec<CodeLine>,
+        block_length: usize,
+    ) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
         let mut empty_highlighter = self.highlighter.language_highlighter(&SnippetLanguage::Unknown(String::new()));
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let padding_style = {
@@ -749,17 +755,11 @@ impl<'a> PresentationBuilder<'a> {
         (output, context)
     }
 
-    fn push_code_execution(&mut self, code: Snippet) -> Result<(), BuildError> {
+    fn push_code_execution(&mut self, code: Snippet, block_length: usize) -> Result<(), BuildError> {
         if !self.code_executor.is_execution_supported(&code.language) {
             return Err(BuildError::UnsupportedExecution(code.language));
         }
-        let operation = RunSnippetOperation::new(
-            code,
-            self.code_executor.clone(),
-            self.theme.default_style.colors.clone(),
-            self.theme.execution_output.colors.clone(),
-            self.theme.execution_output.status.clone(),
-        );
+        let operation = RunSnippetOperation::new(code, self.code_executor.clone(), &self.theme, block_length as u16);
         let operation = RenderOperation::RenderAsync(Rc::new(operation));
         self.chunk_operations.push(operation);
         Ok(())
@@ -1129,7 +1129,7 @@ mod test {
             RenderText { .. }
             | RenderLineBreak
             | RenderImage(_, _)
-            | RenderPreformattedLine(_)
+            | RenderBlockLine(_)
             | RenderDynamic(_)
             | RenderAsync(_) => true,
         }
