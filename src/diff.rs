@@ -71,7 +71,11 @@ impl ContentDiff for RenderOperation {
             (RenderText { alignment: original, .. }, RenderText { alignment: updated, .. }) if original != updated => {
                 false
             }
-            (RenderImage(original, _), RenderImage(updated, _)) if original != updated => true,
+            (RenderImage(original, original_properties), RenderImage(updated, updated_properties))
+                if original != updated || original_properties != updated_properties =>
+            {
+                true
+            }
             (RenderBlockLine(original), RenderBlockLine(updated)) if original != updated => true,
             (InitColumnLayout { columns: original }, InitColumnLayout { columns: updated }) if original != updated => {
                 true

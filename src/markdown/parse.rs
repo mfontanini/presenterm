@@ -7,13 +7,16 @@ use crate::{
     style::TextStyle,
 };
 use comrak::{
+    arena_tree::Node,
     format_commonmark,
     nodes::{
-        AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList, NodeValue, Sourcepos,
+        Ast, AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList, NodeValue,
+        Sourcepos,
     },
     parse_document, Arena, ComrakOptions, ListStyleType,
 };
 use std::{
+    cell::RefCell,
     fmt::{self, Debug, Display},
     io::BufWriter,
     mem,
@@ -56,7 +59,7 @@ impl<'a> MarkdownParser<'a> {
         let mut lines_offset = 0;
         for node in node.children() {
             let mut parsed_elements =
-                Self::parse_node(node).map_err(|e| ParseError::new(e.kind, e.sourcepos.offset_lines(lines_offset)))?;
+                self.parse_node(node).map_err(|e| ParseError::new(e.kind, e.sourcepos.offset_lines(lines_offset)))?;
             if let Some(MarkdownElement::FrontMatter(contents)) = parsed_elements.first() {
                 lines_offset += contents.lines().count() + 2;
             }
@@ -86,18 +89,18 @@ impl<'a> MarkdownParser<'a> {
         }
     }
 
-    fn parse_node(node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
+    fn parse_node(&self, node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
         let data = node.data.borrow();
         let element = match &data.value {
             // Paragraphs are the only ones that can actually yield more than one.
-            NodeValue::Paragraph => return Self::parse_paragraph(node),
+            NodeValue::Paragraph => return self.parse_paragraph(node),
             NodeValue::FrontMatter(contents) => Self::parse_front_matter(contents)?,
-            NodeValue::Heading(heading) => Self::parse_heading(heading, node)?,
+            NodeValue::Heading(heading) => self.parse_heading(heading, node)?,
             NodeValue::List(list) => {
-                let items = Self::parse_list(node, list.marker_offset as u8 / 2)?;
+                let items = self.parse_list(node, list.marker_offset as u8 / 2)?;
                 MarkdownElement::List(items)
             }
-            NodeValue::Table(_) => Self::parse_table(node)?,
+            NodeValue::Table(_) => self.parse_table(node)?,
             NodeValue::CodeBlock(block) => Self::parse_code_block(block, data.sourcepos)?,
             NodeValue::ThematicBreak => MarkdownElement::ThematicBreak,
             NodeValue::HtmlBlock(block) => Self::parse_html_block(block, data.sourcepos)?,
@@ -169,8 +172,8 @@ impl<'a> MarkdownParser<'a> {
         Ok(MarkdownElement::Snippet(code))
     }
 
-    fn parse_heading(heading: &NodeHeading, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
-        let text = Self::parse_text(node)?;
+    fn parse_heading(&self, heading: &NodeHeading, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
+        let text = self.parse_text(node)?;
         if heading.setext {
             Ok(MarkdownElement::SetexHeading { text })
         } else {
@@ -178,19 +181,23 @@ impl<'a> MarkdownParser<'a> {
         }
     }
 
-    fn parse_paragraph(node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
+    fn parse_paragraph(&self, node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
         let mut elements = Vec::new();
-        let inlines = InlinesParser::default().parse(node)?;
+        let inlines = InlinesParser::new(self.arena).parse(node)?;
         let mut paragraph_elements = Vec::new();
         for inline in inlines {
             match inline {
                 Inline::Text(text) => paragraph_elements.push(ParagraphElement::Text(text)),
                 Inline::LineBreak => paragraph_elements.push(ParagraphElement::LineBreak),
-                Inline::Image(path) => {
+                Inline::Image { path, title } => {
                     if !paragraph_elements.is_empty() {
                         elements.push(MarkdownElement::Paragraph(mem::take(&mut paragraph_elements)));
                     }
-                    elements.push(MarkdownElement::Image { path: path.into() });
+                    elements.push(MarkdownElement::Image {
+                        path: path.into(),
+                        title,
+                        source_position: node.data.borrow().sourcepos.into(),
+                    });
                 }
             }
         }
@@ -200,8 +207,8 @@ impl<'a> MarkdownParser<'a> {
         Ok(elements)
     }
 
-    fn parse_text(node: &'a AstNode<'a>) -> ParseResult<TextBlock> {
-        let inlines = InlinesParser::default().parse(node)?;
+    fn parse_text(&self, node: &'a AstNode<'a>) -> ParseResult<TextBlock> {
+        let inlines = InlinesParser::new(self.arena).parse(node)?;
         let mut chunks = Vec::new();
         for inline in inlines {
             match inline {
@@ -215,13 +222,13 @@ impl<'a> MarkdownParser<'a> {
         Ok(TextBlock(chunks))
     }
 
-    fn parse_list(root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
+    fn parse_list(&self, root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
         let mut elements = Vec::new();
         for node in root.children() {
             let data = node.data.borrow();
             match &data.value {
                 NodeValue::Item(item) => {
-                    elements.extend(Self::parse_list_item(item, node, depth)?);
+                    elements.extend(self.parse_list_item(item, node, depth)?);
                 }
                 other => {
                     return Err(ParseErrorKind::UnsupportedStructure {
@@ -235,7 +242,7 @@ impl<'a> MarkdownParser<'a> {
         Ok(elements)
     }
 
-    fn parse_list_item(item: &NodeList, root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
+    fn parse_list_item(&self, item: &NodeList, root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
         let item_type = match (item.list_type, item.delimiter) {
             (ListType::Bullet, _) => ListItemType::Unordered,
             (ListType::Ordered, ListDelimType::Paren) => ListItemType::OrderedParens,
@@ -246,11 +253,11 @@ impl<'a> MarkdownParser<'a> {
             let data = node.data.borrow();
             match &data.value {
                 NodeValue::Paragraph => {
-                    let contents = Self::parse_text(node)?;
+                    let contents = self.parse_text(node)?;
                     elements.push(ListItem { contents, depth, item_type: item_type.clone() });
                 }
                 NodeValue::List(_) => {
-                    elements.extend(Self::parse_list(node, depth + 1)?);
+                    elements.extend(self.parse_list(node, depth + 1)?);
                 }
                 other => {
                     return Err(ParseErrorKind::UnsupportedStructure {
@@ -264,7 +271,7 @@ impl<'a> MarkdownParser<'a> {
         Ok(elements)
     }
 
-    fn parse_table(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
+    fn parse_table(&self, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
         let mut header = TableRow(Vec::new());
         let mut rows = Vec::new();
         for node in node.children() {
@@ -276,7 +283,7 @@ impl<'a> MarkdownParser<'a> {
                 }
                 .with_sourcepos(data.sourcepos));
             };
-            let row = Self::parse_table_row(node)?;
+            let row = self.parse_table_row(node)?;
             if header.0.is_empty() {
                 header = row;
             } else {
@@ -286,7 +293,7 @@ impl<'a> MarkdownParser<'a> {
         Ok(MarkdownElement::Table(Table { header, rows }))
     }
 
-    fn parse_table_row(node: &'a AstNode<'a>) -> ParseResult<TableRow> {
+    fn parse_table_row(&self, node: &'a AstNode<'a>) -> ParseResult<TableRow> {
         let mut cells = Vec::new();
         for node in node.children() {
             let data = node.data.borrow();
@@ -297,21 +304,25 @@ impl<'a> MarkdownParser<'a> {
                 }
                 .with_sourcepos(data.sourcepos));
             };
-            let text = Self::parse_text(node)?;
+            let text = self.parse_text(node)?;
             cells.push(text);
         }
         Ok(TableRow(cells))
     }
 }
 
-#[derive(Default)]
-struct InlinesParser {
+struct InlinesParser<'a> {
     inlines: Vec<Inline>,
     pending_text: Vec<Text>,
+    arena: &'a Arena<AstNode<'a>>,
 }
 
-impl InlinesParser {
-    fn parse<'a>(mut self, node: &'a AstNode<'a>) -> ParseResult<Vec<Inline>> {
+impl<'a> InlinesParser<'a> {
+    fn new(arena: &'a Arena<AstNode<'a>>) -> Self {
+        Self { inlines: Vec::new(), pending_text: Vec::new(), arena }
+    }
+
+    fn parse(mut self, node: &'a AstNode<'a>) -> ParseResult<Vec<Inline>> {
         self.process_children(node, TextStyle::default())?;
         self.store_pending_text();
         Ok(self.inlines)
@@ -324,7 +335,7 @@ impl InlinesParser {
         }
     }
 
-    fn process_node<'a>(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
+    fn process_node(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
         let data = node.data.borrow();
         match &data.value {
             NodeValue::Text(text) => {
@@ -344,7 +355,21 @@ impl InlinesParser {
             }
             NodeValue::Image(link) => {
                 self.store_pending_text();
-                self.inlines.push(Inline::Image(link.url.clone()));
+
+                // The image "title" contains inlines so we create a dummy paragraph node that
+                // contains it so we can flatten it back into text. We could walk the tree but this
+                // is good enough.
+                let mut buffer = Vec::new();
+                let paragraph =
+                    self.arena.alloc(Node::new(RefCell::new(Ast::new(NodeValue::Paragraph, data.sourcepos.start))));
+                for child in node.children() {
+                    paragraph.append(child);
+                }
+                format_commonmark(paragraph, &ParserOptions::default().0, &mut buffer)
+                    .map_err(|e| ParseErrorKind::Internal(e.to_string()).with_sourcepos(data.sourcepos))?;
+
+                let title = String::from_utf8_lossy(&buffer).trim_end().to_string();
+                self.inlines.push(Inline::Image { path: link.url.clone(), title });
             }
             other => {
                 return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.identifier() }
@@ -354,7 +379,7 @@ impl InlinesParser {
         Ok(())
     }
 
-    fn process_children<'a>(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
+    fn process_children(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
         for node in node.children() {
             self.process_node(node, style.clone())?;
         }
@@ -364,7 +389,7 @@ impl InlinesParser {
 
 enum Inline {
     Text(TextBlock),
-    Image(String),
+    Image { path: String, title: String },
     LineBreak,
 }
 
@@ -372,7 +397,7 @@ impl Inline {
     fn kind(&self) -> &'static str {
         match self {
             Self::Text(_) => "text",
-            Self::Image(_) => "image",
+            Self::Image { .. } => "image",
             Self::LineBreak => "line break",
         }
     }
@@ -487,23 +512,24 @@ impl Identifier for NodeValue {
 
 #[cfg(test)]
 mod test {
-    use rstest::rstest;
-
     use super::*;
     use crate::markdown::elements::SnippetLanguage;
+    use rstest::rstest;
     use std::path::Path;
 
-    fn parse_single(input: &str) -> MarkdownElement {
+    fn try_parse(input: &str) -> Result<Vec<MarkdownElement>, ParseError> {
         let arena = Arena::new();
-        let result = MarkdownParser::new(&arena).parse(input).expect("parsing failed");
-        assert_eq!(result.len(), 1, "more than one element: {result:?}");
-        result.into_iter().next().unwrap()
+        MarkdownParser::new(&arena).parse(input)
+    }
+
+    fn parse_single(input: &str) -> MarkdownElement {
+        let elements = try_parse(input).expect("failed to parse");
+        assert_eq!(elements.len(), 1, "more than one element: {elements:?}");
+        elements.into_iter().next().unwrap()
     }
 
     fn parse_all(input: &str) -> Vec<MarkdownElement> {
-        let arena = Arena::new();
-        let result = MarkdownParser::new(&arena).parse(input).expect("parsing failed");
-        result
+        try_parse(input).expect("parsing failed")
     }
 
     #[test]
