@@ -76,13 +76,21 @@ impl CodeLine {
 
     pub(crate) fn highlight(
         &self,
-        padding_style: &Style,
+        dim_style: &Style,
         code_highlighter: &mut LanguageHighlighter,
         block_style: &CodeBlockStyle,
     ) -> String {
-        let mut output = StyledTokens { style: *padding_style, tokens: &self.prefix }.apply_style(block_style);
+        let mut output = StyledTokens { style: *dim_style, tokens: &self.prefix }.apply_style(block_style);
         output.push_str(&code_highlighter.highlight_line(&self.code, block_style));
-        output.push_str(&StyledTokens { style: *padding_style, tokens: &self.suffix }.apply_style(block_style));
+        output.push_str(&StyledTokens { style: *dim_style, tokens: &self.suffix }.apply_style(block_style));
+        output
+    }
+
+    pub(crate) fn dim(&self, padding_style: &Style, block_style: &CodeBlockStyle) -> String {
+        let mut output = String::new();
+        for chunk in [&self.prefix, &self.code, &self.suffix] {
+            output.push_str(&StyledTokens { style: *padding_style, tokens: chunk }.apply_style(block_style));
+        }
         output
     }
 }
