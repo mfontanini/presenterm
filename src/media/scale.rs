@@ -1,6 +1,24 @@
 use crate::render::properties::{CursorPosition, WindowSize};
 
+/// Scale an image to a specific size.
 pub(crate) fn scale_image(
+    scale_size: &WindowSize,
+    window_dimensions: &WindowSize,
+    image_width: u32,
+    image_height: u32,
+    position: &CursorPosition,
+) -> TerminalRect {
+    let aspect_ratio = image_height as f64 / image_width as f64;
+    let column_in_pixels = scale_size.pixels_per_column();
+    let width_in_columns = scale_size.columns;
+    let image_width = width_in_columns as f64 * column_in_pixels;
+    let image_height = image_width * aspect_ratio;
+
+    fit_image_to_window(window_dimensions, image_width as u32, image_height as u32, position)
+}
+
+/// Shrink an image so it fits the dimensions of the layout it's being displayed in.
+pub(crate) fn fit_image_to_window(
     dimensions: &WindowSize,
     image_width: u32,
     image_height: u32,
@@ -38,6 +56,7 @@ pub(crate) fn scale_image(
     TerminalRect { start_column, columns: width_in_columns as u16, rows: height_in_rows }
 }
 
+#[derive(Debug)]
 pub(crate) struct TerminalRect {
     pub(crate) start_column: u16,
     pub(crate) columns: u16,

@@ -23,7 +23,7 @@ pub(crate) enum MarkdownElement {
     Paragraph(Vec<ParagraphElement>),
 
     /// An image.
-    Image { path: PathBuf },
+    Image { path: PathBuf, title: String, source_position: SourcePosition },
 
     /// A list.
     ///

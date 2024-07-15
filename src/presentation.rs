@@ -586,7 +586,7 @@ pub(crate) enum RenderOperation {
 }
 
 /// The properties of an image being rendered.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ImageProperties {
     pub(crate) z_index: i32,
     pub(crate) size: ImageSize,
@@ -595,11 +595,14 @@ pub(crate) struct ImageProperties {
 }
 
 /// The size used when printing an image.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) enum ImageSize {
     #[default]
     Scaled,
     Specific(u16, u16),
+    WidthScaled {
+        ratio: f64,
+    },
 }
 
 /// Slide properties, set on initialization.

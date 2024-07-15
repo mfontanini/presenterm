@@ -10,7 +10,7 @@ use crate::{
     media::{
         image::Image,
         printer::{PrintOptions, ResourceProperties},
-        scale::scale_image,
+        scale::{fit_image_to_window, scale_image},
     },
     presentation::{
         AsRenderOperations, BlockLine, BlockLineText, ImageProperties, ImageSize, MarginProperties, RenderAsync,
@@ -175,10 +175,16 @@ where
         let (width, height) = image.dimensions();
         let (cursor_position, columns, rows) = match properties.size {
             ImageSize::Scaled => {
-                let scale = scale_image(&rect.dimensions, width, height, &starting_position);
+                let scale = fit_image_to_window(&rect.dimensions, width, height, &starting_position);
                 (CursorPosition { row: starting_position.row, column: scale.start_column }, scale.columns, scale.rows)
             }
             ImageSize::Specific(columns, rows) => (starting_position.clone(), columns, rows),
+            ImageSize::WidthScaled { ratio } => {
+                let extra_columns = (rect.dimensions.columns as f64 * (1.0 - ratio)).ceil() as u16;
+                let dimensions = rect.dimensions.shrink_columns(extra_columns);
+                let scale = scale_image(&dimensions, &rect.dimensions, width, height, &starting_position);
+                (CursorPosition { row: starting_position.row, column: scale.start_column }, scale.columns, scale.rows)
+            }
         };
 
         let options = PrintOptions {

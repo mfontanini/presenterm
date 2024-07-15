@@ -112,6 +112,9 @@ pub struct OptionsConfig {
     /// The prefix to use for commands.
     pub command_prefix: Option<String>,
 
+    /// The prefix to use for image attributes.
+    pub image_attributes_prefix: Option<String>,
+
     /// Show all lists incrementally, by implicitly adding pauses in between elements.
     pub incremental_lists: Option<bool>,
 

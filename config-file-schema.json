@@ -273,6 +273,13 @@
             "null"
           ]
         },
+        "image_attributes_prefix": {
+          "description": "The prefix to use for image attributes.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "implicit_slide_ends": {
           "description": "Whether slides are automatically terminated when a slide title is found.",
           "type": [

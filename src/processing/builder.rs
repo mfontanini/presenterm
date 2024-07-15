@@ -11,7 +11,7 @@ use crate::{
     },
     media::{image::Image, printer::RegisterImageError, register::ImageRegistry},
     presentation::{
-        BlockLine, BlockLineText, ChunkMutator, ImageProperties, MarginProperties, Modals, Presentation,
+        BlockLine, BlockLineText, ChunkMutator, ImageProperties, ImageSize, MarginProperties, Modals, Presentation,
         PresentationMetadata, PresentationState, PresentationThemeMetadata, RenderOperation, Slide, SlideBuilder,
         SlideChunk,
     },
@@ -50,6 +50,7 @@ pub struct PresentationBuilderOptions {
     pub allow_mutations: bool,
     pub implicit_slide_ends: bool,
     pub command_prefix: String,
+    pub image_attribute_prefix: String,
     pub incremental_lists: bool,
     pub force_default_theme: bool,
     pub end_slide_shorthand: bool,
@@ -68,6 +69,9 @@ impl PresentationBuilderOptions {
         if let Some(prefix) = options.command_prefix {
             self.command_prefix = prefix;
         }
+        if let Some(prefix) = options.image_attributes_prefix {
+            self.image_attribute_prefix = prefix;
+        }
     }
 }
 
@@ -77,6 +81,7 @@ impl Default for PresentationBuilderOptions {
             allow_mutations: true,
             implicit_slide_ends: false,
             command_prefix: String::default(),
+            image_attribute_prefix: "image:".to_string(),
             incremental_lists: false,
             force_default_theme: false,
             end_slide_shorthand: false,
@@ -253,7 +258,9 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::ThematicBreak => self.process_thematic_break(),
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
             MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines),
-            MarkdownElement::Image { path, .. } => self.push_image_from_path(path)?,
+            MarkdownElement::Image { path, title, source_position } => {
+                self.push_image_from_path(path, title, source_position)?
+            }
         };
         if should_clear_last {
             self.slide_state.last_element = LastElement::Other;
@@ -544,16 +551,25 @@ impl<'a> PresentationBuilder<'a> {
         }
     }
 
-    fn push_image_from_path(&mut self, path: PathBuf) -> Result<(), BuildError> {
+    fn push_image_from_path(
+        &mut self,
+        path: PathBuf,
+        title: String,
+        source_position: SourcePosition,
+    ) -> Result<(), BuildError> {
         let image = self.resources.image(&path)?;
-        self.push_image(image);
-        Ok(())
+        self.push_image(image, title, source_position)
     }
 
-    fn push_image(&mut self, image: Image) {
+    fn push_image(&mut self, image: Image, title: String, source_position: SourcePosition) -> Result<(), BuildError> {
+        let attributes = Self::parse_image_attributes(&title, &self.options.image_attribute_prefix, source_position)?;
+        let size = match attributes.width {
+            Some(percent) => ImageSize::WidthScaled { ratio: percent as f64 / 100.0 },
+            None => ImageSize::Scaled,
+        };
         let properties = ImageProperties {
             z_index: DEFAULT_IMAGE_Z_INDEX,
-            size: Default::default(),
+            size,
             restore_cursor: false,
             background_color: self.theme.default_style.colors.background,
         };
@@ -561,6 +577,7 @@ impl<'a> PresentationBuilder<'a> {
             RenderOperation::RenderImage(image, properties),
             RenderOperation::SetColors(self.theme.default_style.colors.clone()),
         ]);
+        Ok(())
     }
 
     fn push_list(&mut self, list: Vec<ListItem>) {
@@ -849,6 +866,41 @@ impl<'a> PresentationBuilder<'a> {
         }
         flattened_row
     }
+
+    fn parse_image_attributes(
+        input: &str,
+        attribute_prefix: &str,
+        source_position: SourcePosition,
+    ) -> Result<ImageAttributes, BuildError> {
+        let mut attributes = ImageAttributes::default();
+        for attribute in input.split(',') {
+            let Some((prefix, suffix)) = attribute.split_once(attribute_prefix) else { continue };
+            if !prefix.is_empty() || (attribute_prefix.is_empty() && suffix.is_empty()) {
+                continue;
+            }
+            Self::parse_image_attribute(suffix, &mut attributes)
+                .map_err(|e| BuildError::ImageAttributeParse { line: source_position.start.line + 1, error: e })?;
+        }
+        Ok(attributes)
+    }
+
+    fn parse_image_attribute(input: &str, attributes: &mut ImageAttributes) -> Result<(), ImageAttributeError> {
+        let Some((key, value)) = input.split_once(':') else {
+            return Err(ImageAttributeError::AttributeMissing);
+        };
+        match key {
+            "width" | "w" => {
+                let width: u8 =
+                    value.strip_suffix('%').unwrap_or(value).parse().map_err(|_| ImageAttributeError::InvalidWidth)?;
+                if width == 0 || width > 100 {
+                    return Err(ImageAttributeError::InvalidWidth);
+                }
+                attributes.width = Some(width);
+                Ok(())
+            }
+            _ => Err(ImageAttributeError::UnknownAttribute(key.to_string())),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -921,6 +973,9 @@ pub enum BuildError {
 
     #[error("error parsing command at line {line}: {error}")]
     CommandParse { line: usize, error: CommandParseError },
+
+    #[error("error parsing image attribute at line {line}: {error}")]
+    ImageAttributeParse { line: usize, error: ImageAttributeError },
 
     #[error("third party render failed: {0}")]
     ThirdPartyRender(#[from] ThirdPartyRenderError),
@@ -1050,6 +1105,23 @@ impl From<StrictPresentationMetadata> for PresentationMetadata {
         let StrictPresentationMetadata { title, sub_title, author, authors, theme, options } = strict;
         Self { title, sub_title, author, authors, theme, options }
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ImageAttributeError {
+    #[error("width needs to be a number between 1-100")]
+    InvalidWidth,
+
+    #[error("no attribute given")]
+    AttributeMissing,
+
+    #[error("unknown attribute: '{0}'")]
+    UnknownAttribute(String),
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+struct ImageAttributes {
+    width: Option<u8>,
 }
 
 #[cfg(test)]
@@ -1513,5 +1585,27 @@ mod test {
         } else {
             assert!(enabled, "can't execute snippet operation not found");
         }
+    }
+
+    #[rstest]
+    #[case::width("image:width:50", ImageAttributes{width: Some(50)})]
+    #[case::width_percent("image:width:50%", ImageAttributes{width: Some(50)})]
+    #[case::w("image:w:50", ImageAttributes{width: Some(50)})]
+    #[case::w_percent("image:w:50%", ImageAttributes{width: Some(50)})]
+    #[case::nothing("", ImageAttributes{width: None})]
+    #[case::no_prefix("width", ImageAttributes{width: None})]
+    fn image_attributes(#[case] input: &str, #[case] expectation: ImageAttributes) {
+        let attributes =
+            PresentationBuilder::parse_image_attributes(&input, "image:", Default::default()).expect("failed to parse");
+        assert_eq!(attributes, expectation);
+    }
+
+    #[rstest]
+    #[case::width("width:50", ImageAttributes{width: Some(50)})]
+    #[case::empty("", ImageAttributes{width: None})]
+    fn image_attributes_empty_prefix(#[case] input: &str, #[case] expectation: ImageAttributes) {
+        let attributes =
+            PresentationBuilder::parse_image_attributes(input, "", Default::default()).expect("failed to parse");
+        assert_eq!(attributes, expectation);
     }
 }
