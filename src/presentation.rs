@@ -598,7 +598,7 @@ pub(crate) struct ImageProperties {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) enum ImageSize {
     #[default]
-    Scaled,
+    ShrinkIfNeeded,
     Specific(u16, u16),
     WidthScaled {
         ratio: f64,

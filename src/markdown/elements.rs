@@ -368,6 +368,11 @@ pub(crate) struct SnippetAttributes {
 
     /// The groups of lines to highlight.
     pub(crate) highlight_groups: Vec<HighlightGroup>,
+
+    /// The width of the generated image.
+    ///
+    /// Only valid for +render snippets.
+    pub(crate) width: Option<Percent>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -428,6 +433,29 @@ impl Table {
 /// A table row.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct TableRow(pub(crate) Vec<TextBlock>);
+
+/// A percentage.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Percent(pub(crate) u8);
+
+impl Percent {
+    pub(crate) fn as_ratio(&self) -> f64 {
+        self.0 as f64 / 100.0
+    }
+}
+
+impl FromStr for Percent {
+    type Err = PercentParseError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let value: u8 = input.strip_suffix('%').unwrap_or(input).parse().map_err(|_| PercentParseError)?;
+        if (1..=100).contains(&value) { Ok(Percent(value)) } else { Err(PercentParseError) }
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("value must be a number between 1-100")]
+pub struct PercentParseError;
 
 #[cfg(test)]
 mod test {

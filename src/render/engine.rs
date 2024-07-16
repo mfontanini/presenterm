@@ -174,7 +174,7 @@ where
 
         let (width, height) = image.dimensions();
         let (cursor_position, columns, rows) = match properties.size {
-            ImageSize::Scaled => {
+            ImageSize::ShrinkIfNeeded => {
                 let scale = fit_image_to_window(&rect.dimensions, width, height, &starting_position);
                 (CursorPosition { row: starting_position.row, column: scale.start_column }, scale.columns, scale.rows)
             }
