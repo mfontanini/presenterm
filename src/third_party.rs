@@ -1,10 +1,10 @@
 use crate::{
     custom::{default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
-    markdown::elements::{Text, TextBlock},
+    markdown::elements::{Percent, Text, TextBlock},
     media::{image::Image, printer::RegisterImageError},
     presentation::{
-        AsRenderOperations, AsyncPresentationError, AsyncPresentationErrorHolder, ImageProperties, RenderAsync,
-        RenderAsyncState, RenderOperation,
+        AsRenderOperations, AsyncPresentationError, AsyncPresentationErrorHolder, ImageProperties, ImageSize,
+        RenderAsync, RenderAsyncState, RenderOperation,
     },
     processing::builder::DEFAULT_IMAGE_Z_INDEX,
     render::properties::WindowSize,
@@ -53,6 +53,7 @@ impl ThirdPartyRender {
         theme: &PresentationTheme,
         error_holder: AsyncPresentationErrorHolder,
         slide: usize,
+        width: Option<Percent>,
     ) -> Result<RenderOperation, ThirdPartyRenderError> {
         // Note: this is a bit gore; the diffable content interface needs to be improved as it's
         // too restrictive.
@@ -64,6 +65,7 @@ impl ThirdPartyRender {
             error_holder,
             slide,
             diffable_content,
+            width,
         ));
         Ok(RenderOperation::RenderAsync(operation))
     }
@@ -318,6 +320,7 @@ pub(crate) struct RenderThirdParty {
     error_holder: AsyncPresentationErrorHolder,
     slide: usize,
     diffable_content: String,
+    width: Option<Percent>,
 }
 
 impl RenderThirdParty {
@@ -327,8 +330,17 @@ impl RenderThirdParty {
         error_holder: AsyncPresentationErrorHolder,
         slide: usize,
         diffable_content: String,
+        width: Option<Percent>,
     ) -> Self {
-        Self { contents: Default::default(), pending_result, default_colors, error_holder, slide, diffable_content }
+        Self {
+            contents: Default::default(),
+            pending_result,
+            default_colors,
+            error_holder,
+            slide,
+            diffable_content,
+            width,
+        }
     }
 }
 
@@ -360,9 +372,13 @@ impl AsRenderOperations for RenderThirdParty {
     fn as_render_operations(&self, _: &WindowSize) -> Vec<RenderOperation> {
         match &*self.contents.lock().unwrap() {
             Some(image) => {
+                let size = match &self.width {
+                    Some(percent) => ImageSize::WidthScaled { ratio: percent.as_ratio() },
+                    None => Default::default(),
+                };
                 let properties = ImageProperties {
                     z_index: DEFAULT_IMAGE_Z_INDEX,
-                    size: Default::default(),
+                    size,
                     restore_cursor: false,
                     background_color: None,
                 };

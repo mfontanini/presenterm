@@ -4,8 +4,8 @@ use crate::{
     execute::SnippetExecutor,
     markdown::{
         elements::{
-            Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement, Snippet,
-            SnippetLanguage, SourcePosition, Table, TableRow, Text, TextBlock,
+            Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement, Percent,
+            PercentParseError, Snippet, SnippetLanguage, SourcePosition, Table, TableRow, Text, TextBlock,
         },
         text::WeightedTextBlock,
     },
@@ -564,8 +564,8 @@ impl<'a> PresentationBuilder<'a> {
     fn push_image(&mut self, image: Image, title: String, source_position: SourcePosition) -> Result<(), BuildError> {
         let attributes = Self::parse_image_attributes(&title, &self.options.image_attribute_prefix, source_position)?;
         let size = match attributes.width {
-            Some(percent) => ImageSize::WidthScaled { ratio: percent as f64 / 100.0 },
-            None => ImageSize::Scaled,
+            Some(percent) => ImageSize::WidthScaled { ratio: percent.as_ratio() },
+            None => ImageSize::ShrinkIfNeeded,
         };
         let properties = ImageProperties {
             z_index: DEFAULT_IMAGE_Z_INDEX,
@@ -723,7 +723,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_rendered_code(&mut self, code: Snippet) -> Result<(), BuildError> {
-        let Snippet { contents, language, .. } = code;
+        let Snippet { contents, language, attributes } = code;
         let error_holder = self.presentation_state.async_error_holder();
         let request = match language {
             SnippetLanguage::Typst => ThirdPartyRenderRequest::Typst(contents, self.theme.typst.clone()),
@@ -731,7 +731,8 @@ impl<'a> PresentationBuilder<'a> {
             SnippetLanguage::Mermaid => ThirdPartyRenderRequest::Mermaid(contents, self.theme.mermaid.clone()),
             _ => panic!("language {language:?} should not be renderable"),
         };
-        let operation = self.third_party.render(request, &self.theme, error_holder, self.slides.len() + 1)?;
+        let operation =
+            self.third_party.render(request, &self.theme, error_holder, self.slides.len() + 1, attributes.width)?;
         self.chunk_operations.push(operation);
         Ok(())
     }
@@ -890,11 +891,7 @@ impl<'a> PresentationBuilder<'a> {
         };
         match key {
             "width" | "w" => {
-                let width: u8 =
-                    value.strip_suffix('%').unwrap_or(value).parse().map_err(|_| ImageAttributeError::InvalidWidth)?;
-                if width == 0 || width > 100 {
-                    return Err(ImageAttributeError::InvalidWidth);
-                }
+                let width = value.parse().map_err(ImageAttributeError::InvalidWidth)?;
                 attributes.width = Some(width);
                 Ok(())
             }
@@ -1109,8 +1106,8 @@ impl From<StrictPresentationMetadata> for PresentationMetadata {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ImageAttributeError {
-    #[error("width needs to be a number between 1-100")]
-    InvalidWidth,
+    #[error("invalid width: {0}")]
+    InvalidWidth(PercentParseError),
 
     #[error("no attribute given")]
     AttributeMissing,
@@ -1121,7 +1118,7 @@ pub enum ImageAttributeError {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 struct ImageAttributes {
-    width: Option<u8>,
+    width: Option<Percent>,
 }
 
 #[cfg(test)]
@@ -1588,24 +1585,24 @@ mod test {
     }
 
     #[rstest]
-    #[case::width("image:width:50", ImageAttributes{width: Some(50)})]
-    #[case::width_percent("image:width:50%", ImageAttributes{width: Some(50)})]
-    #[case::w("image:w:50", ImageAttributes{width: Some(50)})]
-    #[case::w_percent("image:w:50%", ImageAttributes{width: Some(50)})]
-    #[case::nothing("", ImageAttributes{width: None})]
-    #[case::no_prefix("width", ImageAttributes{width: None})]
-    fn image_attributes(#[case] input: &str, #[case] expectation: ImageAttributes) {
+    #[case::width("image:width:50", Some(50))]
+    #[case::width_percent("image:width:50%", Some(50))]
+    #[case::w("image:w:50", Some(50))]
+    #[case::w_percent("image:w:50%", Some(50))]
+    #[case::nothing("", None)]
+    #[case::no_prefix("width", None)]
+    fn image_attributes(#[case] input: &str, #[case] expectation: Option<u8>) {
         let attributes =
             PresentationBuilder::parse_image_attributes(&input, "image:", Default::default()).expect("failed to parse");
-        assert_eq!(attributes, expectation);
+        assert_eq!(attributes.width, expectation.map(Percent));
     }
 
     #[rstest]
-    #[case::width("width:50", ImageAttributes{width: Some(50)})]
-    #[case::empty("", ImageAttributes{width: None})]
-    fn image_attributes_empty_prefix(#[case] input: &str, #[case] expectation: ImageAttributes) {
+    #[case::width("width:50", Some(50))]
+    #[case::empty("", None)]
+    fn image_attributes_empty_prefix(#[case] input: &str, #[case] expectation: Option<u8>) {
         let attributes =
             PresentationBuilder::parse_image_attributes(input, "", Default::default()).expect("failed to parse");
-        assert_eq!(attributes, expectation);
+        assert_eq!(attributes.width, expectation.map(Percent));
     }
 }

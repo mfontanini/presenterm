@@ -1,4 +1,6 @@
-use super::elements::{Highlight, HighlightGroup, Snippet, SnippetAttributes, SnippetLanguage};
+use super::elements::{
+    Highlight, HighlightGroup, Percent, PercentParseError, Snippet, SnippetAttributes, SnippetLanguage,
+};
 use comrak::nodes::NodeCodeBlock;
 use strum::EnumDiscriminants;
 
@@ -18,6 +20,9 @@ impl CodeBlockParser {
         let attributes = Self::parse_attributes(input)?;
         if attributes.auto_render && !language.supports_auto_render() {
             return Err(CodeBlockParseError::UnsupportedAttribute(language, "rendering"));
+        }
+        if attributes.width.is_some() && !attributes.auto_render {
+            return Err(CodeBlockParseError::NotRenderSnippet("width"));
         }
         Ok((language, attributes))
     }
@@ -43,6 +48,7 @@ impl CodeBlockParser {
                 Attribute::Exec => attributes.execute = true,
                 Attribute::AutoRender => attributes.auto_render = true,
                 Attribute::HighlightedLines(lines) => attributes.highlight_groups = lines,
+                Attribute::Width(width) => attributes.width = Some(width),
             };
             processed_attributes.push(discriminant);
             input = rest;
@@ -62,6 +68,11 @@ impl CodeBlockParser {
                     "line_numbers" => Attribute::LineNumbers,
                     "exec" => Attribute::Exec,
                     "render" => Attribute::AutoRender,
+                    token if token.starts_with("width:") => {
+                        let value = input.split_once("+width:").unwrap().1;
+                        let (width, input) = Self::parse_width(value)?;
+                        return Ok((Some(Attribute::Width(width)), input));
+                    }
                     _ => return Err(CodeBlockParseError::InvalidToken(Self::next_identifier(input).into())),
                 };
                 (Some(attribute), &input[token.len() + 1..])
@@ -127,6 +138,23 @@ impl CodeBlockParser {
             .map_err(|_| CodeBlockParseError::InvalidHighlightedLines(format!("not a number: '{input}'")))
     }
 
+    fn parse_width(input: &str) -> ParseResult<(Percent, &str)> {
+        let mut string_end = input;
+        while let Some(next) = string_end.chars().next() {
+            if !next.is_ascii_digit() {
+                break;
+            }
+            string_end = &string_end[1..];
+        }
+        if let Some('%') = string_end.chars().next() {
+            string_end = &string_end[1..];
+        }
+
+        let length = input.len() - string_end.len();
+        let value = input[0..length].parse().map_err(CodeBlockParseError::InvalidWidth)?;
+        Ok((value, string_end))
+    }
+
     fn skip_whitespace(input: &str) -> &str {
         input.trim_start_matches(' ')
     }
@@ -147,11 +175,17 @@ pub(crate) enum CodeBlockParseError {
     #[error("invalid highlighted lines: {0}")]
     InvalidHighlightedLines(String),
 
+    #[error("invalid width: {0}")]
+    InvalidWidth(PercentParseError),
+
     #[error("duplicate attribute: {0}")]
     DuplicateAttribute(&'static str),
 
     #[error("language {0:?} does not support {1}")]
     UnsupportedAttribute(SnippetLanguage, &'static str),
+
+    #[error("attribute {0} can only be set in +render blocks")]
+    NotRenderSnippet(&'static str),
 }
 
 #[derive(EnumDiscriminants)]
@@ -160,6 +194,7 @@ enum Attribute {
     Exec,
     AutoRender,
     HighlightedLines(Vec<HighlightGroup>),
+    Width(Percent),
 }
 
 #[cfg(test)]
@@ -173,9 +208,13 @@ mod test {
         language
     }
 
+    fn try_parse_attributes(input: &str) -> Result<SnippetAttributes, CodeBlockParseError> {
+        let (_, attributes) = CodeBlockParser::parse_block_info(input)?;
+        Ok(attributes)
+    }
+
     fn parse_attributes(input: &str) -> SnippetAttributes {
-        let (_, attributes) = CodeBlockParser::parse_block_info(input).expect("parse failed");
-        attributes
+        try_parse_attributes(input).expect("parse failed")
     }
 
     #[test]
@@ -251,5 +290,21 @@ mod test {
         assert_eq!(attributes.highlight_groups.len(), 2);
         assert_eq!(attributes.highlight_groups[0], HighlightGroup::new(vec![Range(1..4), Single(5)]));
         assert_eq!(attributes.highlight_groups[1], HighlightGroup::new(vec![Range(6..10)]));
+    }
+
+    #[rstest]
+    #[case::percent("%")]
+    #[case::none("")]
+    fn parse_width(#[case] suffix: &str) {
+        let attributes = parse_attributes(&format!("mermaid +width:50{suffix} +render"));
+        assert!(attributes.auto_render);
+        assert_eq!(attributes.width, Some(Percent(50)));
+    }
+
+    #[test]
+    fn invalid_width() {
+        try_parse_attributes("mermaid +width:50%% +render").expect_err("parse succeeded");
+        try_parse_attributes("mermaid +width: +render").expect_err("parse succeeded");
+        try_parse_attributes("mermaid +width:50%").expect_err("parse succeeded");
     }
 }
