@@ -6,8 +6,9 @@ use crate::{
         image::{Image, ImageSource},
         printer::{ImageResource, ResourceProperties},
     },
-    presentation::{Presentation, RenderOperation},
+    presentation::{Presentation, RenderAsyncState, RenderOperation},
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
+    render::properties::WindowSize,
     third_party::ThirdPartyRender,
     tools::{ExecutionError, ThirdPartyTools},
     MarkdownParser, PresentationTheme, Resources,
@@ -17,12 +18,15 @@ use image::{codecs::png::PngEncoder, DynamicImage, ImageEncoder, ImageError};
 use semver::Version;
 use serde::Serialize;
 use std::{
-    env, fs, io,
+    env, fs, io, iter,
     path::{Path, PathBuf},
     rc::Rc,
+    thread::sleep,
+    time::Duration,
 };
 
 const MINIMUM_EXPORTER_VERSION: Version = Version::new(0, 2, 0);
+const ASYNC_RENDER_WAIT_COUNT: usize = 8;
 
 /// Allows exporting presentations into PDF.
 pub struct Exporter<'a> {
@@ -94,9 +98,10 @@ impl<'a> Exporter<'a> {
         )
         .build(elements)?;
 
+        let async_renders = Self::count_async_render_operations(&presentation);
         let images = Self::build_image_metadata(&mut presentation)?;
         Self::validate_theme_colors(&presentation)?;
-        let commands = Self::build_capture_commands(presentation);
+        let commands = Self::build_capture_commands(presentation, &async_renders);
         let metadata = ExportMetadata { commands, presentation_path: path, images };
         Ok(metadata)
     }
@@ -113,7 +118,7 @@ impl<'a> Exporter<'a> {
         Ok(())
     }
 
-    fn build_capture_commands(mut presentation: Presentation) -> Vec<CaptureCommand> {
+    fn build_capture_commands(mut presentation: Presentation, async_renders: &[usize]) -> Vec<CaptureCommand> {
         let mut commands = Vec::new();
         let slide_chunks: Vec<_> = presentation.iter_slides().map(|slide| slide.iter_chunks().count()).collect();
         let mut next_slide = |commands: &mut Vec<CaptureCommand>| {
@@ -121,7 +126,10 @@ impl<'a> Exporter<'a> {
             commands.push(CaptureCommand::WaitForChange);
             presentation.jump_next();
         };
-        for chunks in slide_chunks {
+        for (chunks, async_renders) in slide_chunks.iter().zip(async_renders) {
+            for _ in 0..*async_renders {
+                commands.extend(iter::repeat(CaptureCommand::WaitForChange).take(ASYNC_RENDER_WAIT_COUNT));
+            }
             for _ in 0..chunks - 1 {
                 next_slide(&mut commands);
             }
@@ -129,6 +137,15 @@ impl<'a> Exporter<'a> {
             next_slide(&mut commands);
         }
         commands
+    }
+
+    fn count_async_render_operations(presentation: &Presentation) -> Vec<usize> {
+        let mut counts = Vec::new();
+        for slide in presentation.iter_slides() {
+            let count = slide.iter_operations().filter(|op| matches!(op, RenderOperation::RenderAsync(_))).count();
+            counts.push(count);
+        }
+        counts
     }
 
     fn build_image_metadata(presentation: &mut Presentation) -> Result<Vec<ImageMetadata>, ExportError> {
@@ -249,11 +266,35 @@ pub(crate) struct ImageReplacer {
 impl ImageReplacer {
     pub(crate) fn replace_presentation_images(&mut self, presentation: &mut Presentation) {
         let callback = |operation: &mut RenderOperation| {
-            let RenderOperation::RenderImage(image, properties) = operation else {
-                return;
+            let images = match operation {
+                RenderOperation::RenderImage(image, properties) => vec![(image.clone(), properties.clone())],
+                RenderOperation::RenderAsync(operation) => {
+                    loop {
+                        match operation.poll_state() {
+                            RenderAsyncState::NotStarted => return,
+                            RenderAsyncState::Rendering { .. } => {
+                                sleep(Duration::from_millis(200));
+                                continue;
+                            }
+                            RenderAsyncState::Rendered | RenderAsyncState::JustFinishedRendering => break,
+                        };
+                    }
+
+                    let mut images = vec![];
+                    let window_size = WindowSize { rows: 0, columns: 0, width: 0, height: 0 };
+                    for operation in operation.as_render_operations(&window_size) {
+                        if let RenderOperation::RenderImage(image, properties) = operation {
+                            images.push((image, properties));
+                        }
+                    }
+                    images
+                }
+                _ => return,
             };
-            let replacement = self.replace_image(image.clone());
-            *operation = RenderOperation::RenderImage(replacement, properties.clone());
+            for (image, properties) in images {
+                let replacement = self.replace_image(image.clone());
+                *operation = RenderOperation::RenderImage(replacement, properties.clone());
+            }
         };
 
         presentation.mutate_operations(callback);
