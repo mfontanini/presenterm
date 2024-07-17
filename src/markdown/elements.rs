@@ -448,14 +448,29 @@ impl FromStr for Percent {
     type Err = PercentParseError;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let value: u8 = input.strip_suffix('%').unwrap_or(input).parse().map_err(|_| PercentParseError)?;
-        if (1..=100).contains(&value) { Ok(Percent(value)) } else { Err(PercentParseError) }
+        let (prefix, suffix) = input.split_once('%').ok_or(PercentParseError::Unit)?;
+        let value: u8 = prefix.parse().map_err(|_| PercentParseError::Value)?;
+        if !(1..=100).contains(&value) {
+            return Err(PercentParseError::Value);
+        }
+        if !suffix.is_empty() {
+            return Err(PercentParseError::Trailer(suffix.into()));
+        }
+        Ok(Percent(value))
     }
 }
 
 #[derive(thiserror::Error, Debug)]
-#[error("value must be a number between 1-100")]
-pub struct PercentParseError;
+pub enum PercentParseError {
+    #[error("value must be a number between 1-100")]
+    Value,
+
+    #[error("no unit provided")]
+    Unit,
+
+    #[error("unexpected: '{0}'")]
+    Trailer(String),
+}
 
 #[cfg(test)]
 mod test {

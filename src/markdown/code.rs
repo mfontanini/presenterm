@@ -139,20 +139,9 @@ impl CodeBlockParser {
     }
 
     fn parse_width(input: &str) -> ParseResult<(Percent, &str)> {
-        let mut string_end = input;
-        while let Some(next) = string_end.chars().next() {
-            if !next.is_ascii_digit() {
-                break;
-            }
-            string_end = &string_end[1..];
-        }
-        if let Some('%') = string_end.chars().next() {
-            string_end = &string_end[1..];
-        }
-
-        let length = input.len() - string_end.len();
-        let value = input[0..length].parse().map_err(CodeBlockParseError::InvalidWidth)?;
-        Ok((value, string_end))
+        let end_index = input.find(' ').unwrap_or(input.len());
+        let value = input[0..end_index].parse().map_err(CodeBlockParseError::InvalidWidth)?;
+        Ok((value, &input[end_index..]))
     }
 
     fn skip_whitespace(input: &str) -> &str {
@@ -292,11 +281,9 @@ mod test {
         assert_eq!(attributes.highlight_groups[1], HighlightGroup::new(vec![Range(6..10)]));
     }
 
-    #[rstest]
-    #[case::percent("%")]
-    #[case::none("")]
-    fn parse_width(#[case] suffix: &str) {
-        let attributes = parse_attributes(&format!("mermaid +width:50{suffix} +render"));
+    #[test]
+    fn parse_width() {
+        let attributes = parse_attributes("mermaid +width:50% +render");
         assert!(attributes.auto_render);
         assert_eq!(attributes.width, Some(Percent(50)));
     }

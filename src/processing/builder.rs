@@ -1585,10 +1585,8 @@ mod test {
     }
 
     #[rstest]
-    #[case::width("image:width:50", Some(50))]
-    #[case::width_percent("image:width:50%", Some(50))]
-    #[case::w("image:w:50", Some(50))]
-    #[case::w_percent("image:w:50%", Some(50))]
+    #[case::width("image:width:50%", Some(50))]
+    #[case::w("image:w:50%", Some(50))]
     #[case::nothing("", None)]
     #[case::no_prefix("width", None)]
     fn image_attributes(#[case] input: &str, #[case] expectation: Option<u8>) {
@@ -1598,7 +1596,7 @@ mod test {
     }
 
     #[rstest]
-    #[case::width("width:50", Some(50))]
+    #[case::width("width:50%", Some(50))]
     #[case::empty("", None)]
     fn image_attributes_empty_prefix(#[case] input: &str, #[case] expectation: Option<u8>) {
         let attributes =
