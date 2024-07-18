@@ -239,6 +239,9 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(path) = cli.config_file.as_ref() {
             args.extend(["--config-file", path]);
         }
+        if cli.enable_snippet_execution {
+            args.push("-x");
+        }
         if cli.export_pdf {
             exporter.export_pdf(&path, &args)?;
         } else {

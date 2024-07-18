@@ -140,7 +140,22 @@ impl Presentation {
         self.current_slide().current_chunk_index()
     }
 
-    /// Render all async render operations in this slide.
+    /// Trigger async render operations in all slides.
+    pub(crate) fn trigger_all_async_renders(&mut self) -> HashSet<usize> {
+        let mut triggered_slides = HashSet::new();
+        for (index, slide) in self.slides.iter_mut().enumerate() {
+            for operation in slide.iter_operations_mut() {
+                if let RenderOperation::RenderAsync(operation) = operation {
+                    if operation.start_render() {
+                        triggered_slides.insert(index);
+                    }
+                }
+            }
+        }
+        triggered_slides
+    }
+
+    /// Trigger async render operations in this slide.
     pub(crate) fn trigger_slide_async_renders(&mut self) -> bool {
         let slide = self.current_slide_mut();
         let mut any_rendered = false;
@@ -193,6 +208,7 @@ impl Presentation {
         }
         slide_state
     }
+
     /// Run a callback through every operation and let it mutate it in place.
     ///
     /// This should be used with care!

@@ -252,7 +252,14 @@ impl<'a> Presenter<'a> {
                     presentation.go_to_slide(current.current_slide_index());
                     presentation.jump_chunk(current.current_chunk());
                 }
-                self.slides_with_pending_async_renders = presentation.slides_with_async_renders().into_iter().collect();
+                self.slides_with_pending_async_renders = match self.options.mode {
+                    PresentMode::Development | PresentMode::Presentation => {
+                        presentation.slides_with_async_renders().into_iter().collect()
+                    }
+                    // Trigger all async renders so we get snippet execution output in the PDF
+                    // file.
+                    PresentMode::Export => presentation.trigger_all_async_renders(),
+                };
                 self.state = self.validate_overflows(presentation);
             }
             Err(e) => {
