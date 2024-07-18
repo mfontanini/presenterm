@@ -10,12 +10,25 @@ use crate::{
 };
 use itertools::Itertools;
 use std::{cell::RefCell, mem, rc::Rc};
-use unicode_width::UnicodeWidthStr;
+
+#[derive(Debug)]
+struct OutputLine {
+    content: String,
+    /// Visible length of the output line, excluding ansi escape codes
+    length: u16,
+}
+
+impl OutputLine {
+    fn new(content: String) -> Self {
+        let stripped = strip_ansi_escapes::strip_str(&content);
+        Self { length: stripped.len() as u16, content }
+    }
+}
 
 #[derive(Debug)]
 struct RunSnippetOperationInner {
     handle: Option<ExecutionHandle>,
-    output_lines: Vec<String>,
+    output_lines: Vec<OutputLine>,
     state: RenderAsyncState,
     max_line_length: u16,
 }
@@ -68,11 +81,10 @@ impl RunSnippetOperation {
         }
     }
 
-    fn render_line(&self, line: String, block_length: u16) -> RenderOperation {
-        let line_len = line.width() as u16;
+    fn render_line(&self, line: &OutputLine, block_length: u16) -> RenderOperation {
         RenderOperation::RenderBlockLine(BlockLine {
-            text: BlockLineText::Preformatted(line),
-            unformatted_length: line_len,
+            text: BlockLineText::Preformatted(line.content.clone()),
+            unformatted_length: line.length,
             block_length,
             alignment: self.alignment.clone(),
         })
@@ -102,11 +114,13 @@ impl AsRenderOperations for RunSnippetOperation {
 
         let block_length = self.block_length.max(inner.max_line_length.saturating_add(1));
         for line in &inner.output_lines {
-            let chunks = line.chars().chunks(dimensions.columns as usize);
-            for chunk in &chunks {
-                operations.push(self.render_line(chunk.collect(), block_length));
-                operations.push(RenderOperation::RenderLineBreak);
-            }
+            // TODO: I am not sure how to approach this properly as I would be cutting through
+            // ansi escapes codes
+            // let chunks = line.content.chars().chunks(dimensions.columns as usize);
+            // for chunk in &chunks {
+            operations.push(self.render_line(line, block_length));
+            operations.push(RenderOperation::RenderLineBreak);
+            // }
         }
         operations.push(RenderOperation::SetColors(self.default_colors.clone()));
         operations
@@ -134,16 +148,18 @@ impl RenderAsync for RunSnippetOperation {
                     Text::new("finished with error", TextStyle::default().colors(self.status_colors.failure.clone()))
                 }
             };
-            let new_lines = mem::take(output);
+            let new_lines = output.iter_mut().map(|l| OutputLine::new(mem::take(l))).collect_vec();
+
             let modified = !new_lines.is_empty();
             let is_finished = status.is_finished();
             drop(state);
 
             let mut max_line_length = 0;
             for line in &new_lines {
-                let width = u16::try_from(line.width()).unwrap_or(u16::MAX);
+                let width = u16::try_from(line.length).unwrap_or(u16::MAX);
                 max_line_length = max_line_length.max(width);
             }
+
             if is_finished {
                 inner.handle.take();
                 inner.state = RenderAsyncState::JustFinishedRendering;
@@ -168,7 +184,7 @@ impl RenderAsync for RunSnippetOperation {
                 true
             }
             Err(e) => {
-                inner.output_lines = vec![e.to_string()];
+                inner.output_lines = vec![OutputLine::new(e.to_string())];
                 inner.state = RenderAsyncState::Rendered;
                 true
             }
