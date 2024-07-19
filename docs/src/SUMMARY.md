@@ -11,6 +11,7 @@
 - [Configuration](./guides/configuration.md)
 - [Code highlighting](./guides/code-highlight.md)
 - [PDF export](./guides/pdf-export.md)
+- [Mermaid](./guides/mermaid.md)
 - [LaTeX and typst](./guides/latex.md)
 
 # Internals

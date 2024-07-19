@@ -37,6 +37,17 @@ typst:
 
 The default is 300 so adjust it and see what works for you.
 
+### Controlling the image size
+
+You can also set the generated image's size on a per code snippet basis by using the `+width` modifier which specifies 
+the width of the image as a percentage of the terminal size.
+
+~~~markdown
+```typst +render +width:50%
+$f(x) = x + 1$
+```
+~~~
+
 ### Customizations
 
 The colors and margin of the generated images can be defined in your theme:

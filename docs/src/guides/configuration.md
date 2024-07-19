@@ -151,6 +151,21 @@ potato: 42
 # Hi
 ```
 
+### image_attributes_prefix
+
+The [image size](basics.html#image-size) prefix (by default `image:`) can be configured to be anything you would want in 
+case you don't like the default one. For example, if you'd like to set the image size by simply doing 
+`![width:50%](path.png)` you would need to set:
+
+```
+---
+options:
+  image_attributes_prefix: ""
+---
+
+![width:50%](path.png)
+```
+
 ## Defaults
 
 Defaults **can only be configured via the configuration file**.
@@ -243,3 +258,78 @@ bindings:
 
 You can choose to override any of them. Keep in mind these are overrides so if for example you change `next`, the 
 default won't apply anymore and only what you've defined will be used.
+
+## Snippet configurations
+
+### Snippet execution
+
+Snippet execution is disabled by default for security reasons. Besides passing in the `-x` command line parameter every 
+time you run _presenterm_, you can also configure this globally for all presentations by setting:
+
+```yaml
+snippet:
+  exec:
+    enable: true
+```
+
+**Use this at your own risk**, especially if you're running someone else's presentations!
+
+### Custom snippet executors
+
+If _presenterm_ doesn't support executing code snippets for your language of choice, please [create an 
+issue](https://github.com/mfontanini/presenterm/issues/new)! Alternatively, you can configure this locally yourself by 
+setting:
+
+```yaml
+snippet:
+  exec:
+    custom:
+      # The keys should be the language identifier you'd use in a code block.
+      c++:
+        # The name of the file that will be created with your snippet's contents.
+        filename: "snippet.cpp"
+
+        # A list of environment variables that should be set before building/running your code.
+        environment:
+          MY_FAVORITE_ENVIRONMENT_VAR: foo
+
+        # A list of commands that will be ran one by one in the same directory as the snippet is in.
+        commands:
+          # Compile if first
+          - ["g++", "-std=c++20", "snippet.cpp", "-o", "snippet"]
+          # Now run it 
+          - ["./snippet"]
+```
+
+The output of all commands will be included in the code snippet execution output so if a command (like the `g++` 
+invocation) was to emit any output, make sure to use whatever flags are needed to mute its output.
+
+Also note that you can override built-in executors in case you want to run them differently (e.g. use `c++23` in the 
+example above).
+
+See more examples in the [executors.yaml](https://github.com/mfontanini/presenterm/blob/master/executors.yaml) file 
+which defines all of the built-in executors. 
+
+### Snippet rendering threads
+
+Because some `+render` code blocks can take some time to be rendered into an image, especially if you're using 
+[mermaid](https://mermaid.js.org/) charts, this is run asychronously. The number of threads used to render these, which 
+defaults to 2, can be configured by setting:
+
+```yaml
+snippet:
+  render:
+    threads: 2
+```
+
+### Mermaid scaling
+
+[mermaid](https://mermaid.js.org/) graphs will use a default scaling of `2` when invoking the mermaid CLI. If you'd like 
+to change this use:
+
+
+```yaml
+mermaid:
+  scale: 2
+```
+
