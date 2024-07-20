@@ -3,7 +3,7 @@ use crate::{
     execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
     markdown::elements::{Snippet, Text, TextBlock},
     presentation::{AsRenderOperations, BlockLine, BlockLineText, RenderAsync, RenderAsyncState, RenderOperation},
-    render::properties::WindowSize,
+    render::{highlighting::AnsiSplitter, properties::WindowSize},
     style::{Colors, TextStyle},
     theme::{Alignment, ExecutionStatusBlockStyle},
     PresentationTheme,
@@ -12,25 +12,10 @@ use itertools::Itertools;
 use std::{cell::RefCell, mem, rc::Rc};
 
 #[derive(Debug)]
-struct OutputLine {
-    content: String,
-    /// Visible length of the output line, excluding ansi escape codes
-    length: u16,
-}
-
-impl OutputLine {
-    fn new(content: String) -> Self {
-        let stripped = strip_ansi_escapes::strip_str(&content);
-        Self { length: stripped.len() as u16, content }
-    }
-}
-
-#[derive(Debug)]
 struct RunSnippetOperationInner {
     handle: Option<ExecutionHandle>,
-    output_lines: Vec<OutputLine>,
+    output_lines: Vec<String>,
     state: RenderAsyncState,
-    max_line_length: u16,
 }
 
 #[derive(Debug)]
@@ -62,12 +47,8 @@ impl RunSnippetOperation {
             Alignment::Left { .. } | Alignment::Right { .. } => block_length,
             Alignment::Center { minimum_size, .. } => block_length.max(*minimum_size),
         };
-        let inner = RunSnippetOperationInner {
-            handle: None,
-            output_lines: Vec::new(),
-            state: RenderAsyncState::default(),
-            max_line_length: 0,
-        };
+        let inner =
+            RunSnippetOperationInner { handle: None, output_lines: Vec::new(), state: RenderAsyncState::default() };
         Self {
             code,
             executor,
@@ -81,10 +62,10 @@ impl RunSnippetOperation {
         }
     }
 
-    fn render_line(&self, line: &OutputLine, block_length: u16) -> RenderOperation {
+    fn render_line(&self, line: &String, unformatted_length: u16, block_length: u16) -> RenderOperation {
         RenderOperation::RenderBlockLine(BlockLine {
-            text: BlockLineText::Preformatted(line.content.clone()),
-            unformatted_length: line.length,
+            text: BlockLineText::Preformatted(line.clone()),
+            unformatted_length,
             block_length,
             alignment: self.alignment.clone(),
         })
@@ -112,16 +93,20 @@ impl AsRenderOperations for RunSnippetOperation {
             RenderOperation::SetColors(self.block_colors.clone()),
         ];
 
-        let block_length = self.block_length.max(inner.max_line_length.saturating_add(1));
-        for line in &inner.output_lines {
-            // TODO: I am not sure how to approach this properly as I would be cutting through
-            // ansi escapes codes
-            // let chunks = line.content.chars().chunks(dimensions.columns as usize);
-            // for chunk in &chunks {
-            operations.push(self.render_line(line, block_length));
+        let lines = inner
+            .output_lines
+            .iter()
+            .flat_map(|l| AnsiSplitter::split_into_lines(l, &self.block_colors, dimensions.columns))
+            .collect_vec();
+
+        let block_length =
+            self.block_length.max(lines.iter().map(|l| l.width).max().unwrap_or(u16::MAX).saturating_add(1));
+
+        for line in &lines {
+            operations.push(self.render_line(&line.content, line.width, block_length));
             operations.push(RenderOperation::RenderLineBreak);
-            // }
         }
+
         operations.push(RenderOperation::SetColors(self.default_colors.clone()));
         operations
     }
@@ -148,7 +133,7 @@ impl RenderAsync for RunSnippetOperation {
                     Text::new("finished with error", TextStyle::default().colors(self.status_colors.failure.clone()))
                 }
             };
-            let new_lines = output.iter_mut().map(|l| OutputLine::new(mem::take(l))).collect_vec();
+            let new_lines = mem::take(output);
 
             let modified = !new_lines.is_empty();
             let is_finished = status.is_finished();
@@ -156,7 +141,7 @@ impl RenderAsync for RunSnippetOperation {
 
             let mut max_line_length = 0;
             for line in &new_lines {
-                let width = u16::try_from(line.length).unwrap_or(u16::MAX);
+                let width = u16::try_from(line.len()).unwrap_or(u16::MAX);
                 max_line_length = max_line_length.max(width);
             }
 
@@ -167,7 +152,6 @@ impl RenderAsync for RunSnippetOperation {
                 inner.state = RenderAsyncState::Rendering { modified };
             }
             inner.output_lines.extend(new_lines);
-            inner.max_line_length = inner.max_line_length.max(max_line_length);
         }
         inner.state.clone()
     }
@@ -184,7 +168,7 @@ impl RenderAsync for RunSnippetOperation {
                 true
             }
             Err(e) => {
-                inner.output_lines = vec![OutputLine::new(e.to_string())];
+                inner.output_lines = vec![e.to_string()];
                 inner.state = RenderAsyncState::Rendered;
                 true
             }
