@@ -234,18 +234,20 @@ impl<'a> StyledTokens<'a> {
 pub(crate) struct AnsiLine {
     /// Full content of line, including ansi codes for styling
     pub(crate) content: String,
-    // TODO: do u16 safely
     /// Represents the visible width of the content, excluding ansi codes
-    pub(crate) width: u16,
+    pub(crate) width: usize,
 }
 
-pub(crate) struct AnsiSplitter;
+pub(crate) struct AnsiSplitter {
+    buffer: String,
+    current_sgr_codes: Vec<String>,
+    reset_str: String,
+    max_width: usize,
+    visible_b_width: usize,
+}
 
 impl AnsiSplitter {
-    // TODO: needs context of all lines to be completely correct
-    pub fn split_into_lines(line: &str, reset_style: &Colors, max_width: u16) -> Vec<AnsiLine> {
-        let parsed = ansi_parser::AnsiParser::ansi_parse(line);
-
+    pub fn new(max_width: usize, reset_style: &Colors) -> Self {
         let mut reset_str = String::new();
 
         if let Some(color) = reset_style.background {
@@ -255,65 +257,85 @@ impl AnsiSplitter {
             reset_str.push_str(&SetForegroundColor(color.into()).to_string())
         }
 
-        let mut current_sgr_codes: Vec<String> = vec![];
+        Self { buffer: String::new(), current_sgr_codes: vec![], reset_str, max_width, visible_b_width: 0 }
+    }
 
+    pub fn split_lines<T>(&mut self, input_lines: T) -> Vec<AnsiLine>
+    where
+        T: std::iter::IntoIterator,
+        T::Item: AsRef<str>,
+    {
         let mut lines: Vec<AnsiLine> = vec![];
-        let mut buffer = String::new();
-        let mut visible_b_width: usize = 0;
 
-        for p in parsed {
-            match p {
-                Output::TextBlock(mut text) => {
-                    while !text.is_empty() {
-                        let mut leftover_char = max_width as usize - visible_b_width;
+        input_lines.into_iter().for_each(|line| {
+            let parsed = ansi_parser::AnsiParser::ansi_parse(line.as_ref());
 
-                        while leftover_char < text.len() && !text.is_char_boundary(leftover_char) {
-                            leftover_char += 1;
-                        }
-
-                        let split_off_index = leftover_char.min(text.len());
-                        let (prev_part, next_part) = text.split_at(split_off_index);
-
-                        // Add to current line
-                        if prev_part.len() > 0 {
-                            buffer.push_str(prev_part);
-                            visible_b_width += prev_part.len();
-                        }
-
-                        // New line
-                        if next_part.len() + visible_b_width > max_width as usize {
-                            lines.push(AnsiLine { content: buffer.clone(), width: visible_b_width as u16 });
-                            buffer.clear();
-                            buffer.push_str(&current_sgr_codes.join(""));
-                            visible_b_width = 0;
-                        }
-
-                        text = next_part;
-                    }
+            for p in parsed {
+                match p {
+                    Output::TextBlock(text) => self.handle_text_block(text, &mut lines),
+                    Output::Escape(s) => self.handle_escape(&s, &mut lines),
                 }
-                Output::Escape(s) => match s {
-                    AnsiSequence::SetGraphicsMode(ref g) => {
-                        let code = match g.first() {
-                            // If it's a reset code, take the reset style
-                            Some(0) => reset_str.to_owned(),
-                            None | Some(_) => s.to_string(),
-                        };
-                        buffer.push_str(&code);
-                        current_sgr_codes.push(code);
-                    }
-                    // TODO: there are interesting render operations that could
-                    // be done here, such as clearing the output block when an erase display occurs
-                    // AS::EraseDisplay => ,
-                    _ => (),
-                },
             }
-        }
 
-        if !buffer.is_empty() {
-            lines.push(AnsiLine { content: buffer, width: visible_b_width as u16 });
-        }
+            if !self.buffer.is_empty() {
+                lines.push(AnsiLine { content: self.buffer.clone(), width: self.visible_b_width });
+                self.buffer.clear();
+            }
+            self.visible_b_width = 0;
+        });
 
         lines
+    }
+
+    fn handle_text_block(&mut self, text: &str, lines: &mut Vec<AnsiLine>) -> () {
+        let mut text = text;
+        while !text.is_empty() {
+            let mut leftover_char = self.max_width - self.visible_b_width;
+
+            while leftover_char < text.len() && !text.is_char_boundary(leftover_char) {
+                leftover_char += 1;
+            }
+
+            let split_off_index = leftover_char.min(text.len());
+            let (prev_part, next_part) = text.split_at(split_off_index);
+
+            // Add to current line
+            if prev_part.len() > 0 {
+                self.buffer.push_str(prev_part);
+                self.visible_b_width += prev_part.len();
+            }
+
+            // New line
+            if next_part.len() + self.visible_b_width > self.max_width {
+                lines.push(AnsiLine { content: self.buffer.clone(), width: self.visible_b_width });
+                self.buffer.clear();
+                self.buffer.push_str(&self.current_sgr_codes.join(""));
+                self.current_sgr_codes.clear();
+                self.visible_b_width = 0;
+            }
+
+            text = next_part;
+        }
+    }
+
+    fn handle_escape(&mut self, s: &AnsiSequence, lines: &mut Vec<AnsiLine>) -> () {
+        match s {
+            AnsiSequence::SetGraphicsMode(ref g) => {
+                let code = match g.first() {
+                    // If it's a reset code, take the reset style
+                    Some(0) => self.reset_str.to_owned(),
+                    None | Some(_) => s.to_string(),
+                };
+                self.buffer.push_str(&code);
+                // TODO: This can done way more clearly.
+                // We only need to keep what changes, not every single state
+                self.current_sgr_codes.push(code);
+            }
+            // TODO: there are interesting render operations that could
+            // be done here, such as clearing the output block when an erase display occurs
+            AnsiSequence::EraseDisplay => lines.clear(),
+            _ => (),
+        }
     }
 }
 

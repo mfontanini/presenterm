@@ -93,17 +93,15 @@ impl AsRenderOperations for RunSnippetOperation {
             RenderOperation::SetColors(self.block_colors.clone()),
         ];
 
-        let lines = inner
-            .output_lines
-            .iter()
-            .flat_map(|l| AnsiSplitter::split_into_lines(l, &self.block_colors, dimensions.columns))
-            .collect_vec();
+        let lines =
+            AnsiSplitter::new(dimensions.columns.into(), &self.block_colors).split_lines(inner.output_lines.iter());
 
-        let block_length =
-            self.block_length.max(lines.iter().map(|l| l.width).max().unwrap_or(u16::MAX).saturating_add(1));
+        let block_length = self.block_length.max(
+            lines.iter().map(|l| l.width.try_into().unwrap_or(u16::MAX)).max().unwrap_or(u16::MAX).saturating_add(1),
+        );
 
         for line in &lines {
-            operations.push(self.render_line(&line.content, line.width, block_length));
+            operations.push(self.render_line(&line.content, line.width.try_into().unwrap_or(u16::MAX), block_length));
             operations.push(RenderOperation::RenderLineBreak);
         }
 
