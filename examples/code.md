@@ -78,22 +78,21 @@ fn main() {
 
 <!-- end_slide -->
 
-Code execution
+Snippet execution
 ===
 
-Run commands from the presentation and display their output dynamically.
+Run code snippets from the presentation and display their output dynamically.
 
-```bash +exec
-for i in $(seq 1 5)
-do
-    echo "hi $i"
-    sleep 0.5
-done
+```python +exec
+/// import time
+for i in range(0, 5):
+    print(f"count is {i}")
+    time.sleep(0.5)
 ```
 
 <!-- end_slide -->
 
-Code execution - `stderr`
+Snippet execution - `stderr`
 ===
 
 Output from `stderr` will also be shown as output.
