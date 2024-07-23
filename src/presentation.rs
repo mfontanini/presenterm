@@ -356,7 +356,7 @@ impl Slide {
     }
 
     fn jump_chunk(&mut self, chunk_index: usize) {
-        self.visible_chunks = (chunk_index + 1).min(self.chunks.len());
+        self.visible_chunks = chunk_index.saturating_add(1).min(self.chunks.len());
         for chunk in self.chunks.iter().take(self.visible_chunks - 1) {
             chunk.apply_all_mutations();
         }
