@@ -5,13 +5,13 @@ bash:
 c++:
   filename: snippet.cpp
   commands:
-    - ["g++", "-std=c++20", "snippet.cpp", "-o", "snippet"]
-    - ["./snippet"]
+    - ["g++", "-std=c++20", "snippet.cpp", "-o", "$pwd/snippet"]
+    - ["$pwd/snippet"]
 c:
   filename: snippet.c
   commands:
-    - ["gcc", "snippet.c", "-o", "snippet"]
-    - ["./snippet"]
+    - ["gcc", "snippet.c", "-o", "$pwd/snippet"]
+    - ["$pwd/snippet"]
 fish:
   filename: script.fish
   commands:
@@ -61,8 +61,8 @@ rust-script:
 rust:
   filename: snippet.rs
   commands:
-    - ["rustc", "--crate-name", "presenterm_snippet", "snippet.rs", "-o", "snippet"]
-    - ["./snippet"]
+    - ["rustc", "--crate-name", "presenterm_snippet", "snippet.rs", "-o", "$pwd/snippet"]
+    - ["$pwd/snippet"]
 sh:
   filename: script.sh
   commands:
