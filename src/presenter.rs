@@ -91,6 +91,11 @@ impl<'a> Presenter<'a> {
         let mut drawer =
             TerminalDrawer::new(io::stdout(), self.image_printer.clone(), self.options.font_size_fallback)?;
         loop {
+            if matches!(self.options.mode, PresentMode::Export) {
+                if let PresenterState::Failure { error, .. } = &self.state {
+                    return Err(PresentationError::Fatal(format!("failed to run presentation: {error}")));
+                }
+            }
             // Poll async renders once before we draw just in case.
             self.poll_async_renders()?;
             self.render(&mut drawer)?;
@@ -425,9 +430,6 @@ pub enum LoadPresentationError {
 pub enum PresentationError {
     #[error(transparent)]
     Render(#[from] RenderError),
-
-    #[error(transparent)]
-    LoadPresentation(#[from] LoadPresentationError),
 
     #[error("io: {0}")]
     Io(#[from] io::Error),

@@ -4,7 +4,7 @@ use std::{
     process::{Command, Output, Stdio},
 };
 
-const MAX_ERROR_LINES: usize = 10;
+const DEFAULT_MAX_ERROR_LINES: usize = 10;
 
 pub(crate) struct ThirdPartyTools;
 
@@ -22,7 +22,7 @@ impl ThirdPartyTools {
     }
 
     pub(crate) fn presenterm_export(args: &[&str]) -> Tool {
-        Tool::new("presenterm-export", args).inherit_stdout()
+        Tool::new("presenterm-export", args).inherit_stdout().max_error_lines(100)
     }
 }
 
@@ -30,13 +30,14 @@ pub(crate) struct Tool {
     command_name: &'static str,
     command: Command,
     stdin: Option<Vec<u8>>,
+    max_error_lines: usize,
 }
 
 impl Tool {
     fn new(command_name: &'static str, args: &[&str]) -> Self {
         let mut command = Command::new(command_name);
         command.args(args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
-        Self { command_name, command, stdin: None }
+        Self { command_name, command, stdin: None, max_error_lines: DEFAULT_MAX_ERROR_LINES }
     }
 
     pub(crate) fn stdin(mut self, stdin: Vec<u8>) -> Self {
@@ -46,6 +47,11 @@ impl Tool {
 
     pub(crate) fn inherit_stdout(mut self) -> Self {
         self.command.stdout(Stdio::inherit());
+        self
+    }
+
+    pub(crate) fn max_error_lines(mut self, value: usize) -> Self {
+        self.max_error_lines = value;
         self
     }
 
@@ -87,7 +93,7 @@ impl Tool {
         if output.status.success() {
             Ok(())
         } else {
-            let stderr = String::from_utf8_lossy(&output.stderr).lines().take(MAX_ERROR_LINES).join("\n");
+            let stderr = String::from_utf8_lossy(&output.stderr).lines().take(self.max_error_lines).join("\n");
             Err(ExecutionError::Execution { command: self.command_name, stderr })
         }
     }

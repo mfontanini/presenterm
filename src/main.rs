@@ -39,7 +39,7 @@ struct Cli {
 
     /// Run in export mode.
     #[clap(long, hide = true)]
-    export: bool,
+    enable_export_mode: bool,
 
     /// Use presentation mode.
     #[clap(short, long, default_value_t = false)]
@@ -157,7 +157,7 @@ fn load_default_theme(config: &Config, themes: &Themes, cli: &Cli) -> Presentati
 }
 
 fn select_graphics_mode(cli: &Cli, config: &Config) -> GraphicsMode {
-    if cli.export || cli.export_pdf || cli.generate_pdf_metadata {
+    if cli.enable_export_mode || cli.export_pdf || cli.generate_pdf_metadata {
         GraphicsMode::AsciiBlocks
     } else {
         let protocol = cli.image_protocol.as_ref().unwrap_or(&config.defaults.image_protocol);
@@ -192,7 +192,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 
     let default_theme = load_default_theme(&config, &themes, &cli);
     let force_default_theme = cli.theme.is_some();
-    let mode = match (cli.present, cli.export) {
+    let mode = match (cli.present, cli.enable_export_mode) {
         (true, _) => PresentMode::Presentation,
         (false, true) => PresentMode::Export,
         (false, false) => PresentMode::Development,
