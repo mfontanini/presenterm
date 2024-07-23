@@ -557,7 +557,7 @@ impl<'a> PresentationBuilder<'a> {
         title: String,
         source_position: SourcePosition,
     ) -> Result<(), BuildError> {
-        let image = self.resources.image(&path)?;
+        let image = self.resources.image(&path).map_err(|e| BuildError::LoadImage(path, e))?;
         self.push_image(image, title, source_position)
     }
 
@@ -938,10 +938,10 @@ enum LastElement {
 /// An error when building a presentation.
 #[derive(thiserror::Error, Debug)]
 pub enum BuildError {
-    #[error("loading image: {0}")]
-    LoadImage(#[from] LoadImageError),
+    #[error("failed to load image '{0}': {1}")]
+    LoadImage(PathBuf, LoadImageError),
 
-    #[error("registering image: {0}")]
+    #[error("failed to register image: {0}")]
     RegisterImage(#[from] RegisterImageError),
 
     #[error("invalid presentation metadata: {0}")]
