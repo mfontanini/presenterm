@@ -43,16 +43,16 @@ where
     /// Render an error.
     pub(crate) fn render_error(&mut self, message: &str, source: &ErrorSource) -> RenderResult {
         let dimensions = WindowSize::current(self.font_size_fallback)?;
-        let center_alignment = Alignment::Center { minimum_size: 0, minimum_margin: Margin::Percent(8) };
-        let (heading_text, alignment) = match source {
-            ErrorSource::Presentation => ("Error loading presentation".to_string(), center_alignment.clone()),
+        let heading_text = match source {
+            ErrorSource::Presentation => "Error loading presentation".to_string(),
             ErrorSource::Slide(slide) => {
-                (format!("Error in slide {slide}"), Alignment::Left { margin: Margin::Percent(25) })
+                format!("Error in slide {slide}")
             }
         };
         let heading = vec![Text::new(heading_text, TextStyle::default().bold()), Text::from(": ")];
         let total_lines = message.lines().count();
         let starting_row = (dimensions.rows / 2).saturating_sub(total_lines as u16 / 2 + 3);
+        let alignment = Alignment::Left { margin: Margin::Percent(25) };
 
         let mut operations = vec![
             RenderOperation::SetColors(Colors {
@@ -61,7 +61,7 @@ where
             }),
             RenderOperation::ClearScreen,
             RenderOperation::JumpToRow { index: starting_row },
-            RenderOperation::RenderText { line: WeightedTextBlock::from(heading), alignment: center_alignment.clone() },
+            RenderOperation::RenderText { line: WeightedTextBlock::from(heading), alignment: alignment.clone() },
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
         ];
