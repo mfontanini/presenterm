@@ -35,7 +35,7 @@ pub(crate) struct Tool {
 impl Tool {
     fn new(command_name: &'static str, args: &[&str]) -> Self {
         let mut command = Command::new(command_name);
-        command.args(args).stdout(Stdio::null()).stderr(Stdio::piped());
+        command.args(args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
         Self { command_name, command, stdin: None }
     }
 
