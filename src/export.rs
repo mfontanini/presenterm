@@ -142,7 +142,8 @@ impl<'a> Exporter<'a> {
     fn count_async_render_operations(presentation: &Presentation) -> Vec<usize> {
         let mut counts = Vec::new();
         for slide in presentation.iter_slides() {
-            let count = slide.iter_operations().filter(|op| matches!(op, RenderOperation::RenderAsync(_))).count();
+            let count =
+                slide.iter_visible_operations().filter(|op| matches!(op, RenderOperation::RenderAsync(_))).count();
             counts.push(count);
         }
         counts
@@ -182,7 +183,7 @@ impl<'a> Exporter<'a> {
 
     fn validate_theme_colors(presentation: &Presentation) -> Result<(), ExportError> {
         for slide in presentation.iter_slides() {
-            for operation in slide.iter_operations() {
+            for operation in slide.iter_visible_operations() {
                 let RenderOperation::SetColors(colors) = operation else {
                     continue;
                 };

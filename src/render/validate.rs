@@ -20,7 +20,7 @@ impl OverflowValidator {
             let mut terminal = Terminal::new(io::Empty::default(), printer.clone()).map_err(RenderError::from)?;
             let options = RenderEngineOptions { validate_overflows: true };
             let engine = RenderEngine::new(&mut terminal, dimensions.clone(), options);
-            match engine.render(slide.iter_operations()) {
+            match engine.render(slide.iter_visible_operations()) {
                 Ok(()) => (),
                 Err(RenderError::HorizontalOverflow) => return Err(OverflowError::Horizontal(index)),
                 Err(RenderError::VerticalOverflow) => return Err(OverflowError::Vertical(index)),

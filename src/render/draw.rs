@@ -36,7 +36,7 @@ where
         let dimensions = WindowSize::current(self.font_size_fallback)?;
         let slide = presentation.current_slide();
         let engine = self.create_engine(dimensions);
-        engine.render(slide.iter_operations())?;
+        engine.render(slide.iter_visible_operations())?;
         Ok(())
     }
 

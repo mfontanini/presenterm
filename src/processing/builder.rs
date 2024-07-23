@@ -1240,9 +1240,9 @@ mod test {
         let presentation = build_presentation(elements);
         for (index, slide) in presentation.iter_slides().enumerate() {
             let clear_screen_count =
-                slide.iter_operations().filter(|op| matches!(op, RenderOperation::ClearScreen)).count();
+                slide.iter_visible_operations().filter(|op| matches!(op, RenderOperation::ClearScreen)).count();
             let set_colors_count =
-                slide.iter_operations().filter(|op| matches!(op, RenderOperation::SetColors(_))).count();
+                slide.iter_visible_operations().filter(|op| matches!(op, RenderOperation::SetColors(_))).count();
             assert_eq!(clear_screen_count, 1, "{clear_screen_count} clear screens in slide {index}");
             assert_eq!(set_colors_count, 1, "{set_colors_count} clear screens in slide {index}");
         }
@@ -1455,7 +1455,7 @@ mod test {
         ];
         let slides = build_presentation(elements).into_slides();
         let first_chunk = &slides[0];
-        let operations = first_chunk.iter_operations().collect::<Vec<_>>();
+        let operations = first_chunk.iter_visible_operations().collect::<Vec<_>>();
         // This is pretty easy to break, refactor soon
         let last_operation = &operations[operations.len() - 4];
         assert!(matches!(last_operation, RenderOperation::RenderLineBreak), "last operation is {last_operation:?}");
@@ -1530,7 +1530,8 @@ mod test {
         assert_eq!(presentation.iter_slides().count(), 2);
 
         let second = presentation.iter_slides().nth(1).unwrap();
-        let before_text = second.iter_operations().take_while(|e| !matches!(e, RenderOperation::RenderText { .. }));
+        let before_text =
+            second.iter_visible_operations().take_while(|e| !matches!(e, RenderOperation::RenderText { .. }));
         let break_count = before_text.filter(|e| matches!(e, RenderOperation::RenderLineBreak)).count();
         assert_eq!(break_count, 1);
     }
@@ -1557,7 +1558,7 @@ mod test {
         let slide = presentation.iter_slides().next().unwrap();
         let mut found_render_block = false;
         let mut found_cant_render_block = false;
-        for operation in slide.iter_operations() {
+        for operation in slide.iter_visible_operations() {
             match operation {
                 RenderOperation::RenderAsync(operation) => {
                     let operation = format!("{operation:?}");

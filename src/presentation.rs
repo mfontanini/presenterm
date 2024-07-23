@@ -159,7 +159,7 @@ impl Presentation {
     pub(crate) fn trigger_slide_async_renders(&mut self) -> bool {
         let slide = self.current_slide_mut();
         let mut any_rendered = false;
-        for operation in slide.iter_operations_mut() {
+        for operation in slide.iter_visible_operations_mut() {
             if let RenderOperation::RenderAsync(operation) = operation {
                 let is_rendered = operation.start_render();
                 any_rendered = any_rendered || is_rendered;
@@ -335,10 +335,18 @@ impl Slide {
     }
 
     pub(crate) fn iter_operations(&self) -> impl Iterator<Item = &RenderOperation> + Clone {
-        self.chunks.iter().take(self.visible_chunks).flat_map(|chunk| chunk.operations.iter()).chain(self.footer.iter())
+        self.chunks.iter().flat_map(|chunk| chunk.operations.iter()).chain(self.footer.iter())
     }
 
     pub(crate) fn iter_operations_mut(&mut self) -> impl Iterator<Item = &mut RenderOperation> {
+        self.chunks.iter_mut().flat_map(|chunk| chunk.operations.iter_mut()).chain(self.footer.iter_mut())
+    }
+
+    pub(crate) fn iter_visible_operations(&self) -> impl Iterator<Item = &RenderOperation> + Clone {
+        self.chunks.iter().take(self.visible_chunks).flat_map(|chunk| chunk.operations.iter()).chain(self.footer.iter())
+    }
+
+    pub(crate) fn iter_visible_operations_mut(&mut self) -> impl Iterator<Item = &mut RenderOperation> {
         self.chunks
             .iter_mut()
             .take(self.visible_chunks)
