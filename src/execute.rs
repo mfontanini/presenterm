@@ -169,11 +169,14 @@ impl CommandsRunner {
 
     fn launch_process(
         &self,
-        commands: Vec<String>,
+        mut commands: Vec<String>,
         env: &HashMap<String, String>,
     ) -> Result<(Child, PipeReader), CodeExecuteError> {
         let (reader, writer) = os_pipe::pipe().map_err(CodeExecuteError::Pipe)?;
         let writer_clone = writer.try_clone().map_err(CodeExecuteError::Pipe)?;
+        for command in &mut commands {
+            *command = command.replace("$pwd", &self.script_directory.path().to_string_lossy());
+        }
         let (command, args) = commands.split_first().expect("no commands");
         let child = process::Command::new(command)
             .args(args)
