@@ -134,6 +134,9 @@ impl<'a> Presenter<'a> {
     }
 
     fn poll_async_renders(&mut self) -> Result<bool, RenderError> {
+        if self.is_displaying_error() {
+            return Ok(false);
+        }
         let current_index = self.state.presentation().current_slide_index();
         if self.slides_with_pending_async_renders.contains(&current_index) {
             let state = self.state.presentation_mut().poll_slide_async_renders();
@@ -186,8 +189,10 @@ impl<'a> Presenter<'a> {
             _ => (),
         };
         if matches!(command, Command::Redraw) {
-            let presentation = mem::take(&mut self.state).into_presentation();
-            self.state = self.validate_overflows(presentation);
+            if !self.is_displaying_error() {
+                let presentation = mem::take(&mut self.state).into_presentation();
+                self.state = self.validate_overflows(presentation);
+            }
             return CommandSideEffect::Redraw;
         }
 
@@ -267,6 +272,10 @@ impl<'a> Presenter<'a> {
                 self.state = PresenterState::failure(e, presentation, ErrorSource::Presentation);
             }
         };
+    }
+
+    fn is_displaying_error(&self) -> bool {
+        matches!(self.state, PresenterState::Failure { .. })
     }
 
     fn validate_overflows(&self, presentation: Presentation) -> PresenterState {
