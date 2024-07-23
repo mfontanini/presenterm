@@ -206,7 +206,7 @@ impl<'a> PresentationBuilder<'a> {
         // If we don't have an rgb color (or we don't have a color at all), we default to a semi
         // transparent dark background.
         let rgba = match color {
-            Some((r, g, b)) => [r, g, b, 230],
+            Some((r, g, b)) => [r, g, b, 255],
             None => [0, 0, 0, 128],
         };
         let mut image = DynamicImage::new_rgba8(1, 1);
