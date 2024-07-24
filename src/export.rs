@@ -111,7 +111,7 @@ impl<'a> Exporter<'a> {
         let presenterm_path = presenterm_path.display().to_string();
         let presentation_path = metadata.presentation_path.display().to_string();
         let metadata = serde_json::to_vec(&metadata).expect("serialization failed");
-        let mut args = vec![&presenterm_path, "--export"];
+        let mut args = vec![&presenterm_path, "--enable-export-mode"];
         args.extend(extra_args);
         args.push(&presentation_path);
         ThirdPartyTools::presenterm_export(&args).stdin(metadata).run()?;
