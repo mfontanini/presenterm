@@ -59,7 +59,9 @@ impl<'a> Exporter<'a> {
     pub fn export_pdf(&mut self, presentation_path: &Path, extra_args: &[&str]) -> Result<(), ExportError> {
         Self::validate_exporter_version()?;
 
+        println!("Analyzing presentation...");
         let metadata = self.generate_metadata(presentation_path)?;
+        println!("Invoking presenterm-export...");
         Self::execute_exporter(metadata, extra_args)?;
         Ok(())
     }
@@ -101,7 +103,7 @@ impl<'a> Exporter<'a> {
         let async_renders = Self::count_async_render_operations(&presentation);
         let images = Self::build_image_metadata(&mut presentation)?;
         Self::validate_theme_colors(&presentation)?;
-        let commands = Self::build_capture_commands(presentation, &async_renders);
+        let commands = Self::build_capture_commands(presentation, async_renders);
         let metadata = ExportMetadata { commands, presentation_path: path, images };
         Ok(metadata)
     }
@@ -118,7 +120,7 @@ impl<'a> Exporter<'a> {
         Ok(())
     }
 
-    fn build_capture_commands(mut presentation: Presentation, async_renders: &[usize]) -> Vec<CaptureCommand> {
+    fn build_capture_commands(mut presentation: Presentation, async_renders: usize) -> Vec<CaptureCommand> {
         let mut commands = Vec::new();
         let slide_chunks: Vec<_> = presentation.iter_slides().map(|slide| slide.iter_chunks().count()).collect();
         let mut next_slide = |commands: &mut Vec<CaptureCommand>| {
@@ -126,10 +128,8 @@ impl<'a> Exporter<'a> {
             commands.push(CaptureCommand::WaitForChange);
             presentation.jump_next();
         };
-        for (chunks, async_renders) in slide_chunks.iter().zip(async_renders) {
-            for _ in 0..*async_renders {
-                commands.extend(iter::repeat(CaptureCommand::WaitForChange).take(ASYNC_RENDER_WAIT_COUNT));
-            }
+        commands.extend(iter::repeat(CaptureCommand::WaitForChange).take(ASYNC_RENDER_WAIT_COUNT * async_renders));
+        for chunks in slide_chunks {
             for _ in 0..chunks - 1 {
                 next_slide(&mut commands);
             }
@@ -139,14 +139,13 @@ impl<'a> Exporter<'a> {
         commands
     }
 
-    fn count_async_render_operations(presentation: &Presentation) -> Vec<usize> {
-        let mut counts = Vec::new();
-        for slide in presentation.iter_slides() {
-            let count =
-                slide.iter_visible_operations().filter(|op| matches!(op, RenderOperation::RenderAsync(_))).count();
-            counts.push(count);
-        }
-        counts
+    fn count_async_render_operations(presentation: &Presentation) -> usize {
+        presentation
+            .iter_slides()
+            .map(|slide| {
+                slide.iter_visible_operations().filter(|op| matches!(op, RenderOperation::RenderAsync(_))).count()
+            })
+            .sum()
     }
 
     fn build_image_metadata(presentation: &mut Presentation) -> Result<Vec<ImageMetadata>, ExportError> {
