@@ -203,11 +203,11 @@ impl<'a> PresentationBuilder<'a> {
             .as_ref()
             .or(self.theme.default_style.colors.background.as_ref())
             .and_then(Color::as_rgb);
-        // If we don't have an rgb color (or we don't have a color at all), we default to a semi
-        // transparent dark background.
+        // If we don't have an rgb color (or we don't have a color at all), we default to a dark
+        // background.
         let rgba = match color {
             Some((r, g, b)) => [r, g, b, 255],
-            None => [0, 0, 0, 128],
+            None => [0, 0, 0, 255],
         };
         let mut image = DynamicImage::new_rgba8(1, 1);
         image.as_mut_rgba8().unwrap().get_pixel_mut(0, 0).0 = rgba;
