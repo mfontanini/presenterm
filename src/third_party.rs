@@ -21,7 +21,6 @@ use std::{
     sync::{Arc, Condvar, Mutex},
     thread,
 };
-use tempfile::tempdir_in;
 
 const DEFAULT_HORIZONTAL_MARGIN: u16 = 5;
 const DEFAULT_VERTICAL_MARGIN: u16 = 7;
@@ -198,7 +197,7 @@ impl Worker {
         if let Some(image) = self.state.lock().unwrap().cache.get(&snippet).cloned() {
             return Ok(image);
         }
-        let workdir = tempdir_in(&self.shared.root_dir)?;
+        let workdir = tempfile::Builder::default().prefix(".presenterm").tempdir()?;
         let output_path = workdir.path().join("output.png");
         let input_path = workdir.path().join("input.mmd");
         fs::write(&input_path, input)?;
@@ -226,7 +225,7 @@ impl Worker {
         input: &str,
         style: &TypstStyle,
     ) -> Result<Image, ThirdPartyRenderError> {
-        let workdir = tempdir_in(&self.shared.root_dir)?;
+        let workdir = tempfile::Builder::default().prefix(".presenterm").tempdir_in(&self.shared.root_dir)?;
         let mut typst_input = Self::generate_page_header(style)?;
         typst_input.push_str(input);
 
