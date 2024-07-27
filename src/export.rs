@@ -6,7 +6,7 @@ use crate::{
         image::{Image, ImageSource},
         printer::{ImageResource, ResourceProperties},
     },
-    presentation::{Presentation, RenderAsyncState, RenderOperation},
+    presentation::{AsRenderOperations, Presentation, RenderAsyncState, RenderOperation},
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     render::properties::WindowSize,
     third_party::ThirdPartyRender,
@@ -266,11 +266,14 @@ pub(crate) struct ImageReplacer {
 impl ImageReplacer {
     pub(crate) fn replace_presentation_images(&mut self, presentation: &mut Presentation) {
         let callback = |operation: &mut RenderOperation| {
-            let images = match operation {
-                RenderOperation::RenderImage(image, properties) => vec![(image.clone(), properties.clone())],
-                RenderOperation::RenderAsync(operation) => {
+            match operation {
+                RenderOperation::RenderImage(image, properties) => {
+                    let replacement = self.replace_image(image.clone());
+                    *operation = RenderOperation::RenderImage(replacement, properties.clone());
+                }
+                RenderOperation::RenderAsync(inner) => {
                     loop {
-                        match operation.poll_state() {
+                        match inner.poll_state() {
                             RenderAsyncState::NotStarted => return,
                             RenderAsyncState::Rendering { .. } => {
                                 sleep(Duration::from_millis(200));
@@ -280,21 +283,22 @@ impl ImageReplacer {
                         };
                     }
 
-                    let mut images = vec![];
                     let window_size = WindowSize { rows: 0, columns: 0, width: 0, height: 0 };
-                    for operation in operation.as_render_operations(&window_size) {
+                    let mut new_operations = Vec::new();
+                    for operation in inner.as_render_operations(&window_size) {
                         if let RenderOperation::RenderImage(image, properties) = operation {
-                            images.push((image, properties));
+                            let image = self.replace_image(image);
+                            new_operations.push(RenderOperation::RenderImage(image, properties));
+                        } else {
+                            new_operations.push(operation);
                         }
                     }
-                    images
+                    // Replace this operation with a new operation that contains the replaced image
+                    // and any other unmodified operations.
+                    *operation = RenderOperation::RenderDynamic(Rc::new(RenderMany(new_operations)));
                 }
-                _ => return,
+                _ => (),
             };
-            for (image, properties) in images {
-                let replacement = self.replace_image(image.clone());
-                *operation = RenderOperation::RenderImage(replacement, properties.clone());
-            }
         };
 
         presentation.mutate_operations(callback);
@@ -329,6 +333,19 @@ impl ImageReplacer {
 impl Default for ImageReplacer {
     fn default() -> Self {
         Self { next_color: 0xffbad3, images: Vec::new() }
+    }
+}
+
+#[derive(Debug)]
+struct RenderMany(Vec<RenderOperation>);
+
+impl AsRenderOperations for RenderMany {
+    fn as_render_operations(&self, _: &WindowSize) -> Vec<RenderOperation> {
+        self.0.clone()
+    }
+
+    fn diffable_content(&self) -> Option<&str> {
+        None
     }
 }
 

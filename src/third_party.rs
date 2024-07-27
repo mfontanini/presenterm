@@ -379,7 +379,7 @@ impl AsRenderOperations for RenderThirdParty {
                     z_index: DEFAULT_IMAGE_Z_INDEX,
                     size,
                     restore_cursor: false,
-                    background_color: None,
+                    background_color: self.default_colors.background,
                 };
 
                 vec![
