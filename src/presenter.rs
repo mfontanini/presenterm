@@ -131,7 +131,12 @@ impl<'a> Presenter<'a> {
         match error_holder.deref() {
             Some(error) => {
                 let presentation = mem::take(&mut self.state).into_presentation();
-                self.state = PresenterState::failure(&error.error, presentation, ErrorSource::Slide(error.slide));
+                self.state = PresenterState::failure(
+                    &error.error,
+                    presentation,
+                    ErrorSource::Slide(error.slide),
+                    FailureMode::Other,
+                );
                 true
             }
             None => false,
@@ -139,7 +144,7 @@ impl<'a> Presenter<'a> {
     }
 
     fn poll_async_renders(&mut self) -> Result<bool, RenderError> {
-        if self.is_displaying_error() {
+        if !matches!(self.state, PresenterState::Failure { .. }) {
             return Ok(false);
         }
         let current_index = self.state.presentation().current_slide_index();
@@ -194,7 +199,7 @@ impl<'a> Presenter<'a> {
             _ => (),
         };
         if matches!(command, Command::Redraw) {
-            if !self.is_displaying_error() {
+            if !self.is_displaying_other_error() {
                 let presentation = mem::take(&mut self.state).into_presentation();
                 self.state = self.validate_overflows(presentation);
             }
@@ -274,24 +279,26 @@ impl<'a> Presenter<'a> {
             }
             Err(e) => {
                 let presentation = mem::take(&mut self.state).into_presentation();
-                self.state = PresenterState::failure(e, presentation, ErrorSource::Presentation);
+                self.state = PresenterState::failure(e, presentation, ErrorSource::Presentation, FailureMode::Other);
             }
         };
     }
 
-    fn is_displaying_error(&self) -> bool {
-        matches!(self.state, PresenterState::Failure { .. })
+    fn is_displaying_other_error(&self) -> bool {
+        matches!(self.state, PresenterState::Failure { mode: FailureMode::Other, .. })
     }
 
     fn validate_overflows(&self, presentation: Presentation) -> PresenterState {
         if self.options.validate_overflows {
             let dimensions = match WindowSize::current(self.options.font_size_fallback) {
                 Ok(dimensions) => dimensions,
-                Err(e) => return PresenterState::failure(e, presentation, ErrorSource::Presentation),
+                Err(e) => {
+                    return PresenterState::failure(e, presentation, ErrorSource::Presentation, FailureMode::Other);
+                }
             };
             match OverflowValidator::validate(&presentation, dimensions) {
                 Ok(()) => PresenterState::Presenting(presentation),
-                Err(e) => PresenterState::failure(e, presentation, ErrorSource::Presentation),
+                Err(e) => PresenterState::failure(e, presentation, ErrorSource::Presentation, FailureMode::Overflow),
             }
         } else {
             PresenterState::Presenting(presentation)
@@ -361,12 +368,18 @@ enum PresenterState {
         error: String,
         presentation: Presentation,
         source: ErrorSource,
+        mode: FailureMode,
     },
 }
 
 impl PresenterState {
-    pub(crate) fn failure<E: Display>(error: E, presentation: Presentation, source: ErrorSource) -> Self {
-        PresenterState::Failure { error: error.to_string(), presentation, source }
+    pub(crate) fn failure<E: Display>(
+        error: E,
+        presentation: Presentation,
+        source: ErrorSource,
+        mode: FailureMode,
+    ) -> Self {
+        PresenterState::Failure { error: error.to_string(), presentation, source, mode }
     }
 
     fn presentation(&self) -> &Presentation {
@@ -398,6 +411,11 @@ impl PresenterState {
             Self::Empty => panic!("state is empty"),
         }
     }
+}
+
+enum FailureMode {
+    Overflow,
+    Other,
 }
 
 /// This presentation mode.
