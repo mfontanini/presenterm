@@ -25,7 +25,7 @@ use std::{
 /// The result of parsing a markdown file.
 pub(crate) type ParseResult<T> = Result<T, ParseError>;
 
-struct ParserOptions(ComrakOptions);
+struct ParserOptions(ComrakOptions<'static>);
 
 impl Default for ParserOptions {
     fn default() -> Self {
@@ -43,7 +43,7 @@ impl Default for ParserOptions {
 /// This takes the contents of a markdown file and parses it into a list of [MarkdownElement].
 pub struct MarkdownParser<'a> {
     arena: &'a Arena<AstNode<'a>>,
-    options: ComrakOptions,
+    options: ComrakOptions<'static>,
 }
 
 impl<'a> MarkdownParser<'a> {
@@ -506,6 +506,9 @@ impl Identifier for NodeValue {
             NodeValue::Math(_) => "math",
             NodeValue::Escaped => "escaped",
             NodeValue::WikiLink(_) => "wiki link",
+            NodeValue::Underline => "underline",
+            NodeValue::SpoileredText => "spoilered text",
+            NodeValue::EscapedTag(_) => "escaped tag",
         }
     }
 }

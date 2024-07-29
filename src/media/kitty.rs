@@ -3,7 +3,7 @@ use crate::style::Color;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use console::{Key, Term};
 use crossterm::{cursor::MoveToColumn, style::SetForegroundColor, QueueableCommand};
-use image::{codecs::gif::GifDecoder, io::Reader, AnimationDecoder, Delay, DynamicImage, EncodableLayout, RgbaImage};
+use image::{codecs::gif::GifDecoder, AnimationDecoder, Delay, DynamicImage, EncodableLayout, ImageReader, RgbaImage};
 use rand::Rng;
 use std::{
     fmt,
@@ -360,7 +360,7 @@ impl KittyPrinter {
             }
             Ok(RawResource::Gif(frames))
         } else {
-            let reader = Reader::new(BufReader::new(file)).with_guessed_format()?;
+            let reader = ImageReader::new(BufReader::new(file)).with_guessed_format()?;
             let image = reader.decode()?;
             Ok(RawResource::Image(image.into_rgba8()))
         }
