@@ -37,6 +37,16 @@ typst:
 
 The default is 300 so adjust it and see what works for you.
 
+### Image paths
+
+If you're including an image inside a _typst_ snippet, you must:
+
+* Use absolute paths, e.g. `#image("/image1.png")`.
+* Place the image in the same or a sub path of the path where the presentation is. That is, if your presentation file is 
+at `/tmp/foo/presentation.md`, you can place images in `/tmp/foo`, and `/tmp/foo/bar` but not under `/tmp/bar`. This is 
+because of the absolute path rule above: the path will be considered to be relative to the presentation file's 
+directory.
+
 ### Controlling the image size
 
 You can also set the generated image's size on a per code snippet basis by using the `+width` modifier which specifies 

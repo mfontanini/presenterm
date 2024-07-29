@@ -339,3 +339,20 @@ block_quote:
 <!-- links -->
 [builtin-themes]: https://github.com/mfontanini/presenterm/tree/master/themes
 [build-rs]: https://github.com/mfontanini/presenterm/blob/master/build.rs
+
+### Extending themes
+
+Custom themes can extend other custom or built in themes. This means it will inherit all the properties of the theme 
+being extended by default.
+
+For example:
+
+```yaml
+extends: dark
+default:
+  colors:
+    background: "000000"
+```
+
+This theme extends the built in _dark_ theme and overrides the background color. This is useful if you find yourself 
+_almost_ liking a built in theme but there's only some properties you don't like.
