@@ -2,10 +2,11 @@
   description = "A terminal slideshow tool";
 
   inputs = {
-    flake-utils.url = "github:numtide/flake-utils";
     flakebox = {
-      url = "github:rustshop/flakebox?rev=41e88a8c6910829ec598ee356325e515de043541";
+      url = "github:rustshop/flakebox?rev=ead24017440df8c5fd75cdb04c16d13c7d6fa50d";
     };
+
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
   outputs = { self, flake-utils, flakebox }:
