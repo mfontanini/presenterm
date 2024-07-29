@@ -340,6 +340,19 @@ block_quote:
 [builtin-themes]: https://github.com/mfontanini/presenterm/tree/master/themes
 [build-rs]: https://github.com/mfontanini/presenterm/blob/master/build.rs
 
+### Mermaid
+
+The [mermaid](https://mermaid.js.org/) graphs can be customized using the following parameters:
+
+* `mermaid.background` the background color passed to the CLI (e.g., `transparent`, `red`, `#F0F0F0`).
+* `mermaid.theme` the [mermaid theme](https://mermaid.js.org/config/theming.html#available-themes) to use.
+
+```yaml
+mermaid:
+  background: transparent
+  theme: dark
+```
+
 ### Extending themes
 
 Custom themes can extend other custom or built in themes. This means it will inherit all the properties of the theme 

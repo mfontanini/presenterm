@@ -597,7 +597,7 @@ pub(crate) enum AuthorPositioning {
     PageBottom,
 }
 
-/// Where to position the author's name in the intro slide.
+/// Typst styles.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct TypstStyle {
     /// The horizontal margin on the generated images.
@@ -611,7 +611,7 @@ pub(crate) struct TypstStyle {
     pub(crate) colors: Colors,
 }
 
-/// Where to position the author's name in the intro slide.
+/// Mermaid styles.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct MermaidStyle {
     /// The mermaidjs theme to use.
