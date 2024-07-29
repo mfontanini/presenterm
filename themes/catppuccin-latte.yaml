@@ -100,3 +100,7 @@ footer:
 modals:
   selection_colors:
     foreground: "209fb5"
+
+mermaid:
+  background: transparent
+  theme: default

@@ -99,3 +99,7 @@ footer:
 modals:
   selection_colors:
     foreground: dark_yellow
+
+mermaid:
+  background: transparent
+  theme: default

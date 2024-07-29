@@ -101,3 +101,7 @@ footer:
 modals:
   selection_colors:
     foreground: "ee9322"
+
+mermaid:
+  background: transparent
+  theme: dark
