@@ -138,17 +138,26 @@ impl Person {
 
 <!-- end_slide -->
 
-Shell code execution
+Snippet execution
 ---
 
-Run commands from the presentation and display their output dynamically.
+Code snippets can be executed:
 
-```bash +exec
-for i in $(seq 1 5)
-do
-    echo "hi $i"
-    sleep 0.5
-done
+* For various languages, including compiled ones.
+* Their output is shown in real time.
+* Unimportant lines can be hidden so they don't clutter what you're trying to convey.
+* By default by pressing `<ctrl-e>`.
+
+```rust +exec
+# use std::thread::sleep;
+# use std::time::Duration;
+fn main() {
+    let names = ["Alice", "Bob", "Eve", "Mallory", "Trent"];
+    for name in names {
+        println!("Hi {name}!");
+        sleep(Duration::from_millis(500));
+    }
+}
 ```
 
 <!-- end_slide -->

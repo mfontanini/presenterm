@@ -1,3 +1,52 @@
+# v0.8.0 - 2024-07-29
+
+## Breaking changes
+
+* Force users to explicitly enable snippet execution ([#276](https://github.com/mfontanini/presenterm/issues/276)) ([#281](https://github.com/mfontanini/presenterm/issues/281)).
+
+## New features
+
+* Code snippet execution for various programming languages ([#253](https://github.com/mfontanini/presenterm/issues/253)) ([#255](https://github.com/mfontanini/presenterm/issues/255)) ([#256](https://github.com/mfontanini/presenterm/issues/256)) ([#258](https://github.com/mfontanini/presenterm/issues/258)) ([#282](https://github.com/mfontanini/presenterm/issues/282)).
+* Allow executing compiled snippets in windows ([#303](https://github.com/mfontanini/presenterm/issues/303)).
+* Add support for hidden lines in code snippets ([#283](https://github.com/mfontanini/presenterm/issues/283)) ([#254](https://github.com/mfontanini/presenterm/issues/254)) - thanks @dmackdev.
+* Support [mermaid](https://mermaid.js.org/) snippet rendering to image via `+render` attribute ([#268](https://github.com/mfontanini/presenterm/issues/268)).
+* Allow scaling images dynamically based on terminal size ([#288](https://github.com/mfontanini/presenterm/issues/288)) ([#291](https://github.com/mfontanini/presenterm/issues/291)).
+* Allow scaling images generated via `+render` code blocks (mermaid, typst, latex) ([#290](https://github.com/mfontanini/presenterm/issues/290)).
+* Show `stderr` output from code execution ([#252](https://github.com/mfontanini/presenterm/issues/252)) - thanks @dmackdev.
+* Wait for code execution process to exit completely ([#250](https://github.com/mfontanini/presenterm/issues/250)) - thanks @dmackdev.
+* Generate images in `+render` code snippets asynchronously ([#273](https://github.com/mfontanini/presenterm/issues/273)) ([#293](https://github.com/mfontanini/presenterm/issues/293)) ([#284](https://github.com/mfontanini/presenterm/issues/284)) ([#279](https://github.com/mfontanini/presenterm/issues/279)).
+* Dim non highlighted code snippet lines ([#287](https://github.com/mfontanini/presenterm/issues/287)).
+* Shrink snippet execution to match code block width ([#286](https://github.com/mfontanini/presenterm/issues/286)).
+* Include code snippet execution output in generated PDF ([#295](https://github.com/mfontanini/presenterm/issues/295)).
+* Cache `+render` block images ([#270](https://github.com/mfontanini/presenterm/issues/270)).
+* Add kotlin script executor ([#257](https://github.com/mfontanini/presenterm/issues/257)) - thanks @dmackdev.
+* Add nushell code execution ([#274](https://github.com/mfontanini/presenterm/issues/274)) ([#275](https://github.com/mfontanini/presenterm/issues/275)) - thanks @PitiBouchon.
+* Add rust-script as a new code executor ([#269](https://github.com/mfontanini/presenterm/issues/269)) - @ZhangHanDong. 
+* Allow custom themes to extend others ([#265](https://github.com/mfontanini/presenterm/issues/265)).
+* Allow jumping fast between slides ([#244](https://github.com/mfontanini/presenterm/issues/244)).
+* Allow explicitly disabling footer in certain slides ([#239](https://github.com/mfontanini/presenterm/issues/239)).
+* Allow using image paths in typst ([#235](https://github.com/mfontanini/presenterm/issues/235)).
+* Add JSON schema for validation,completion,documentation ([#228](https://github.com/mfontanini/presenterm/issues/228)) ([#236](https://github.com/mfontanini/presenterm/issues/236)) - thanks @mikavilpas.
+* Allow having multiple authors ([#227](https://github.com/mfontanini/presenterm/issues/227)).
+
+## Fixes
+
+* Avoid re-rendering code output and auto rendered blocks ([#280](https://github.com/mfontanini/presenterm/issues/280)).
+* Use unicode width to calculate execution output's line len ([#261](https://github.com/mfontanini/presenterm/issues/261)).
+* Display background color behind '\t' in code exec output ([#245](https://github.com/mfontanini/presenterm/issues/245)).
+* Close child process stdin by default ([#297](https://github.com/mfontanini/presenterm/issues/297)).
+
+## Improvements
+
+* Update install instructions for Arch Linux ([#248](https://github.com/mfontanini/presenterm/issues/248)) - thanks @orhun.
+* Fix all clippy warnings ([#231](https://github.com/mfontanini/presenterm/issues/231)) - thanks @mikavilpas.
+* Include strict `_front_matter_parsing` in default config ([#229](https://github.com/mfontanini/presenterm/issues/229)) - thanks @mikavilpas.
+* `CHANGELOG.md` contains clickable links to issues ([#230](https://github.com/mfontanini/presenterm/issues/230)) - thanks @mikavilpas.
+* Add Support for Ruby Code Highlighting ([#226](https://github.com/mfontanini/presenterm/issues/226)) - thanks @pranavrao145.
+* Use ".presenterm" as prefix for tmp files ([#306](https://github.com/mfontanini/presenterm/issues/306)).
+* Add more descriptive error message when loading image fails ([#298](https://github.com/mfontanini/presenterm/issues/298)).
+* Align all error messages to left ([#301](https://github.com/mfontanini/presenterm/issues/301)).
+
 # v0.7.0 - 2024-03-02
 
 ## New features

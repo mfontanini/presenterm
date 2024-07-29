@@ -59,7 +59,7 @@ Code highlighting is supported for the following languages:
 If you would like line numbers to be shown on the left of a code block use the `+line_numbers` switch after specifying
 the language in a code block:
 
-~~~
+~~~markdown
 ```rust +line_numbers
    fn hello_world() {
        println!("Hello world");
@@ -72,7 +72,7 @@ the language in a code block:
 By default, the entire code block will be syntax-highlighted. If instead you only wanted a subset of it to be
 highlighted, you can use braces and a list of either individual lines, or line ranges that you'd want to highlight.
 
-~~~
+~~~markdown
 ```rust {1,3,5-7}
    fn potato() -> u32 {         // 1: highlighted
                                 // 2: not highlighted
@@ -91,7 +91,7 @@ code block are highlighted every time you move to the next/previous slide.
 
 This is achieved by using the separator `|` to indicate what sections of the code will be highlighted at a given time.
 
-~~~
+~~~markdown
 ```rust {1,3|5-7}
    fn potato() -> u32 {
 
@@ -109,25 +109,84 @@ presentations where you can display sections of the code to explain something sp
 
 See this real example of how this looks like.
 
-[![asciicast](https://asciinema.org/a/dpXDXJoJRRX4mQ7V6LdR3rO2z.svg)](https://asciinema.org/a/dpXDXJoJRRX4mQ7V6LdR3rO2z)
+[![asciicast](https://asciinema.org/a/iCf4f6how1Ux3H8GNzksFUczI.svg)](https://asciinema.org/a/iCf4f6how1Ux3H8GNzksFUczI)
 
-### Executing code
+### Executing code blocks
 
-Annotating a shell code block with a `+exec` switch will make it executable. Once you're in a slide that contains an
+Annotating a code block with a `+exec` attribute will make it executable. Once you're in a slide that contains an
 executable block, press `control+e` to execute it. The output of the execution will be displayed on a box below the
 code. The code execution is stateful so if you switch to another slide and then go back, you will still see the output.
 
-~~~
+~~~markdown
 ```bash +exec
 echo hello world
 ```
 ~~~
 
-Note that using `bash`, `zsh`, `fish`, etc, will end up using that specific shell to execute your script.
+Code execution **must be explicitly enabled** by using either:
 
-[![asciicast](https://asciinema.org/a/gnzjXpVSOwOiyUqQvhi0AaHG7.svg)](https://asciinema.org/a/gnzjXpVSOwOiyUqQvhi0AaHG7)
+* The `-x` command line parameter when running _presenterm_.
+* Setting the `snippet.exec.enable` property to `true` in your [_presenterm_ config 
+file](configuration.html#snippet-execution).
+
+---
+
+The list of languages that support execution are:
+
+* bash
+* c++
+* c
+* fish
+* go
+* java
+* js
+* kotlin
+* lua
+* nushell
+* perl
+* python
+* ruby
+* rust-script
+* rust
+* sh
+* zsh
+
+If there's a language that is not in this list and you would like it to be supported, please [create an 
+issue](https://github.com/mfontanini/presenterm/issues/new) providing details on how to compile (if necessary) and run 
+snippets for that language. You can also configure how to run code snippet for a language locally in your [config 
+file](configuration.html#custom-snippet-executors).
+
+[![asciicast](https://asciinema.org/a/BbAY817esxagCgPtnKUwgYnHr.svg)](https://asciinema.org/a/BbAY817esxagCgPtnKUwgYnHr)
 
 > **Note**: because this is spawning a process and executing code, you should use this at your own risk.
+
+### Hiding code lines
+
+When you mark a code snippet as executable via the `+exec` flag, you may not be interested in showing _all the lines_ to 
+your audience, as some of them may not be necessary to convey your point. For example, you may want to hide imports, 
+non-essential functions, initialization of certain variables, etc. For this purpose, _presenterm_ supports a prefix 
+under certain programming languages that let you indicate a line should be executed when running the code but should not 
+be displayed in the presentation.
+
+For example, in the following code snippet only the print statement will be displayed but the entire snippet will be 
+ran:
+
+~~~markdown
+```rust
+# fn main() {
+println!("Hello world!");
+# }
+```
+~~~
+
+Rather than blindly relying on a prefix that may have a meaning in a language, prefixes are chosen on a per language 
+basis. The languages that are supported and their prefix is:
+
+* rust: `# `.
+* python/bash/fish/shell/zsh/kotlin/java/javascript/typescript/c/c++/go: `/// `.
+
+This means that any line in a rust code snippet that starts with `# ` will be hidden, whereas all lines in, say, a 
+golang code snippet that starts with a `/// ` will be hidden.
 
 ### Pre-rendering 
 
@@ -136,4 +195,4 @@ is loaded. The languages that currently support this are _LaTeX_ and _typst_ whe
 transformed into an image, allowing you to define formulas as text in your presentation. This can be done by using the 
 `+render` attribute on a code block.
 
-See the [LaTeX and typst docs](latex.html) for more information.
+See the [LaTeX and typst](latex.html) and [mermaid](mermaid.html) docs for more information.

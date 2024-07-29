@@ -37,10 +37,11 @@ Visit the [documentation][guide-introduction] to get started.
 * Code highlighting for a [wide list of programming languages][guide-code-highlight].
 * [Selective/dynamic][guide-selective-highlight] code highlighting that only highlights portions of code at a time.
 * [Column layouts][guide-layout].
+* [mermaid graph rendering](guide-mermaid).
 * [_LaTeX_ and _typst_ formula rendering][guide-latex].
 * [Introduction slide][guide-intro-slide] that displays the presentation title and your name.
 * [Slide titles][guide-slide-titles].
-* [Shell code execution][guide-code-execute].
+* [Snippet execution][guide-code-execute] for various programming languages.
 * [Export presentations to PDF][guide-pdf-export].
 * [Pause][guide-pauses] portions of your slides.
 * [Custom key bindings][guide-key-bindings].
@@ -63,6 +64,7 @@ See the [introduction page][guide-introduction] to learn more.
 [guide-code-execute]: https://mfontanini.github.io/presenterm/guides/code-highlight.html#executing-code
 [guide-selective-highlight]: https://mfontanini.github.io/presenterm/guides/code-highlight.html#selective-highlighting
 [guide-layout]: https://mfontanini.github.io/presenterm/guides/layout.html
+[guide-mermaid]: https://mfontanini.github.io/presenterm/guides/mermaid.html
 [guide-latex]: https://mfontanini.github.io/presenterm/guides/latex.html
 [guide-pdf-export]: https://mfontanini.github.io/presenterm/guides/pdf-export.html
 [guide-key-bindings]: https://mfontanini.github.io/presenterm/guides/configuration.html#key-bindings
