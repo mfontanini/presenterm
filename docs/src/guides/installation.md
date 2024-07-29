@@ -12,7 +12,7 @@ your system from the [releases](https://github.com/mfontanini/presenterm/release
 Alternatively, download [rust](https://www.rust-lang.org/) and run:
 
 ```shell
-cargo install presenterm
+cargo install --locked presenterm
 ```
 
 ### Latest unreleased version
