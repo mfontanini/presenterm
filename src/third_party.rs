@@ -212,7 +212,7 @@ impl Worker {
             "-t",
             style.theme.as_deref().unwrap_or("default"),
             "-b",
-            style.background.as_deref().unwrap_or("white"),
+            style.background.as_deref().unwrap_or("transparent"),
         ])
         .run()?;
 
