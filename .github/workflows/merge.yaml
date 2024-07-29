@@ -57,7 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install nix
-        uses: DeterminateSystems/nix-installer-action@v4
+        uses: DeterminateSystems/nix-installer-action@v13
       - name: Build
         run: nix build .#dev.presenterm
 
