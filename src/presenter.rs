@@ -144,7 +144,7 @@ impl<'a> Presenter<'a> {
     }
 
     fn poll_async_renders(&mut self) -> Result<bool, RenderError> {
-        if !matches!(self.state, PresenterState::Failure { .. }) {
+        if matches!(self.state, PresenterState::Failure { .. }) {
             return Ok(false);
         }
         let current_index = self.state.presentation().current_slide_index();
