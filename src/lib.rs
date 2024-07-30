@@ -2,6 +2,7 @@
 //!
 //! This is not meant to be used as a crate!
 
+pub(crate) mod ansi;
 pub(crate) mod custom;
 pub(crate) mod demo;
 pub(crate) mod diff;

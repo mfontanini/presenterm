@@ -220,18 +220,23 @@ where
         // Pad this code block with spaces so we get a nice little rectangle.
         let until_right_edge = max_line_length.saturating_sub(*unformatted_length);
         match text {
-            BlockLineText::Preformatted(text) => self.terminal.print_line(text)?,
-            BlockLineText::Weighted(text) => self.render_text(text, alignment)?,
+            BlockLineText::Preformatted(text) => {
+                self.terminal.print_line(text)?;
+                // If this line is longer than the screen, our cursor wrapped around so we need to update
+                // the terminal.
+                if *unformatted_length > max_line_length {
+                    let lines_wrapped = *unformatted_length / max_line_length;
+                    let new_row = self.terminal.cursor_row + lines_wrapped;
+                    self.terminal.sync_cursor_row(new_row)?;
+                }
+                self.terminal.print_line(&" ".repeat(until_right_edge as usize))?;
+            }
+            BlockLineText::Weighted(text) => {
+                let positioning = Positioning { max_line_length, start_column };
+                let text_drawer = TextDrawer::new_block(text, positioning, &self.colors)?;
+                text_drawer.draw(self.terminal)?;
+            }
         };
-        self.terminal.print_line(&" ".repeat(until_right_edge as usize))?;
-
-        // If this line is longer than the screen, our cursor wrapped around so we need to update
-        // the terminal.
-        if *unformatted_length > max_line_length {
-            let lines_wrapped = *unformatted_length / max_line_length;
-            let new_row = self.terminal.cursor_row + lines_wrapped;
-            self.terminal.sync_cursor_row(new_row)?;
-        }
 
         // Restore colors
         self.apply_colors()?;

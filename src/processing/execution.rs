@@ -1,23 +1,26 @@
 use super::separator::{RenderSeparator, SeparatorWidth};
 use crate::{
+    ansi::AnsiSplitter,
     execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
-    markdown::elements::{Snippet, Text, TextBlock},
+    markdown::{
+        elements::{Snippet, Text, TextBlock},
+        text::WeightedTextBlock,
+    },
     presentation::{AsRenderOperations, BlockLine, BlockLineText, RenderAsync, RenderAsyncState, RenderOperation},
     render::properties::WindowSize,
     style::{Colors, TextStyle},
     theme::{Alignment, ExecutionStatusBlockStyle},
     PresentationTheme,
 };
-use itertools::Itertools;
 use std::{cell::RefCell, mem, rc::Rc};
-use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug)]
 struct RunSnippetOperationInner {
     handle: Option<ExecutionHandle>,
-    output_lines: Vec<String>,
+    output_lines: Vec<WeightedTextBlock>,
     state: RenderAsyncState,
     max_line_length: u16,
+    starting_style: TextStyle,
 }
 
 #[derive(Debug)]
@@ -54,6 +57,7 @@ impl RunSnippetOperation {
             output_lines: Vec::new(),
             state: RenderAsyncState::default(),
             max_line_length: 0,
+            starting_style: TextStyle::default(),
         };
         Self {
             code,
@@ -67,20 +71,10 @@ impl RunSnippetOperation {
             state_description: Text::new("running", TextStyle::default().colors(running_colors)).into(),
         }
     }
-
-    fn render_line(&self, line: String, block_length: u16) -> RenderOperation {
-        let line_len = line.width() as u16;
-        RenderOperation::RenderBlockLine(BlockLine {
-            text: BlockLineText::Preformatted(line),
-            unformatted_length: line_len,
-            block_length,
-            alignment: self.alignment.clone(),
-        })
-    }
 }
 
 impl AsRenderOperations for RunSnippetOperation {
-    fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
+    fn as_render_operations(&self, _dimensions: &WindowSize) -> Vec<RenderOperation> {
         let inner = self.inner.borrow();
         if matches!(inner.state, RenderAsyncState::NotStarted) {
             return Vec::new();
@@ -102,11 +96,13 @@ impl AsRenderOperations for RunSnippetOperation {
 
         let block_length = self.block_length.max(inner.max_line_length.saturating_add(1));
         for line in &inner.output_lines {
-            let chunks = line.chars().chunks(dimensions.columns as usize);
-            for chunk in &chunks {
-                operations.push(self.render_line(chunk.collect(), block_length));
-                operations.push(RenderOperation::RenderLineBreak);
-            }
+            operations.push(RenderOperation::RenderBlockLine(BlockLine {
+                text: BlockLineText::Weighted(line.clone()),
+                unformatted_length: line.width() as u16,
+                block_length,
+                alignment: self.alignment.clone(),
+            }));
+            operations.push(RenderOperation::RenderLineBreak);
         }
         operations.push(RenderOperation::SetColors(self.default_colors.clone()));
         operations
@@ -140,10 +136,12 @@ impl RenderAsync for RunSnippetOperation {
             drop(state);
 
             let mut max_line_length = 0;
+            let (new_lines, style) = AnsiSplitter::new(inner.starting_style.clone()).split_lines(&new_lines);
             for line in &new_lines {
                 let width = u16::try_from(line.width()).unwrap_or(u16::MAX);
                 max_line_length = max_line_length.max(width);
             }
+            inner.starting_style = style;
             if is_finished {
                 inner.handle.take();
                 inner.state = RenderAsyncState::JustFinishedRendering;
@@ -168,7 +166,7 @@ impl RenderAsync for RunSnippetOperation {
                 true
             }
             Err(e) => {
-                inner.output_lines = vec![e.to_string()];
+                inner.output_lines = vec![WeightedTextBlock::from(e.to_string())];
                 inner.state = RenderAsyncState::Rendered;
                 true
             }
