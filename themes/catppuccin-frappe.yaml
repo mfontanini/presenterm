@@ -1,3 +1,4 @@
+---
 default:
   margin:
     percent: 8
@@ -48,6 +49,18 @@ intro_slide:
     alignment: center
     colors:
       foreground: "85c1dc"
+  event:
+    alignment: center
+    colors:
+      foreground: "a6d189"
+  location:
+    alignment: center
+    colors:
+      foreground: "85c1dc"
+  date:
+    alignment: center
+    colors:
+      foreground: "e5c890"
   author:
     alignment: center
     colors:

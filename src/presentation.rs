@@ -493,6 +493,18 @@ pub(crate) struct PresentationMetadata {
     #[serde(default)]
     pub(crate) sub_title: Option<String>,
 
+    /// The presentation event.
+    #[serde(default)]
+    pub(crate) event: Option<String>,
+
+    /// The presentation location.
+    #[serde(default)]
+    pub(crate) location: Option<String>,
+
+    /// The presentation date.
+    #[serde(default)]
+    pub(crate) date: Option<String>,
+
     /// The presentation author.
     #[serde(default)]
     pub(crate) author: Option<String>,
@@ -508,6 +520,19 @@ pub(crate) struct PresentationMetadata {
     /// The presentation's options.
     #[serde(default)]
     pub(crate) options: Option<OptionsConfig>,
+}
+
+impl PresentationMetadata {
+    /// Check if this presentation has frontmatter.
+    pub(crate) fn has_frontmatter(&self) -> bool {
+        self.title.is_some()
+            || self.sub_title.is_some()
+            || self.event.is_some()
+            || self.location.is_some()
+            || self.date.is_some()
+            || self.author.is_some()
+            || !self.authors.is_empty()
+    }
 }
 
 /// A presentation's theme metadata.

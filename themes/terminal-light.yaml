@@ -1,3 +1,4 @@
+---
 default:
   margin:
     percent: 8
@@ -47,6 +48,18 @@ intro_slide:
     alignment: center
     colors:
       foreground: dark_blue
+  event:
+    alignment: center
+    colors:
+      foreground: dark_green
+  location:
+    alignment: center
+    colors:
+      foreground: dark_blue
+  date:
+    alignment: center
+    colors:
+      foreground: dark_yellow
   author:
     alignment: center
     colors:
@@ -91,7 +104,7 @@ typst:
     foreground: "212529"
     background: "e9ecef"
 
-footer: 
+footer:
   style: progress_bar
   colors:
     foreground: dark_blue
