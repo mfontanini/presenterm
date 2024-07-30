@@ -35,3 +35,10 @@ sequenceDiagram
 It is recommended to change the `mermaid.scale` parameter until images look big enough and then adjust on an image by 
 image case if necessary using the `+width` attribute. Otherwise, using a small scale and then scaling via `+width` may 
 cause the image to become blurry.
+
+## Theme
+
+The theme of the rendered mermaid diagrams can be changed through the following [theme](themes.html#mermaid) parameters:
+
+* `mermaid.background` the background color passed to the CLI (e.g., `transparent`, `red`, `#F0F0F0`).
+* `mermaid.theme` the [mermaid theme](https://mermaid.js.org/config/theming.html#available-themes) to use.
