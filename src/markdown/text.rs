@@ -207,7 +207,7 @@ impl<'a> WeightedTextRef<'a> {
         Self { text, accumulators, style: self.style }
     }
 
-    fn width(&self) -> usize {
+    pub(crate) fn width(&self) -> usize {
         let last_width = self.accumulators.last().map(|a| a.width).unwrap_or(0);
         let first_width = self.accumulators.first().map(|a| a.width).unwrap_or(0);
         last_width - first_width

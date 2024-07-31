@@ -128,16 +128,34 @@ enum TextFormatFlags {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, SerializeDisplay, DeserializeFromStr)]
-pub(crate) struct Color(crossterm::style::Color);
+pub(crate) enum Color {
+    Black,
+    DarkGrey,
+    Red,
+    DarkRed,
+    Green,
+    DarkGreen,
+    Yellow,
+    DarkYellow,
+    Blue,
+    DarkBlue,
+    Magenta,
+    DarkMagenta,
+    Cyan,
+    DarkCyan,
+    White,
+    Grey,
+    Rgb { r: u8, g: u8, b: u8 },
+}
 
 impl Color {
     pub(crate) fn new(r: u8, g: u8, b: u8) -> Self {
-        Self(crossterm::style::Color::Rgb { r, g, b })
+        Self::Rgb { r, g, b }
     }
 
     pub(crate) fn as_rgb(&self) -> Option<(u8, u8, u8)> {
-        match self.0 {
-            crossterm::style::Color::Rgb { r, g, b } => Some((r, g, b)),
+        match self {
+            Self::Rgb { r, g, b } => Some((*r, *g, *b)),
             _ => None,
         }
     }
@@ -147,27 +165,27 @@ impl FromStr for Color {
     type Err = ParseColorError;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        use crossterm::style::Color as C;
         let output = match input {
-            "black" => Self(C::Black),
-            "white" => Self(C::White),
-            "grey" => Self(C::Grey),
-            "red" => Self(C::Red),
-            "dark_red" => Self(C::DarkRed),
-            "green" => Self(C::Green),
-            "dark_green" => Self(C::DarkGreen),
-            "blue" => Self(C::Blue),
-            "dark_blue" => Self(C::DarkBlue),
-            "yellow" => Self(C::Yellow),
-            "dark_yellow" => Self(C::DarkYellow),
-            "magenta" => Self(C::Magenta),
-            "dark_magenta" => Self(C::DarkMagenta),
-            "cyan" => Self(C::Cyan),
-            "dark_cyan" => Self(C::DarkCyan),
+            "black" => Self::Black,
+            "white" => Self::White,
+            "grey" => Self::Grey,
+            "dark_grey" => Self::DarkGrey,
+            "red" => Self::Red,
+            "dark_red" => Self::DarkRed,
+            "green" => Self::Green,
+            "dark_green" => Self::DarkGreen,
+            "blue" => Self::Blue,
+            "dark_blue" => Self::DarkBlue,
+            "yellow" => Self::Yellow,
+            "dark_yellow" => Self::DarkYellow,
+            "magenta" => Self::Magenta,
+            "dark_magenta" => Self::DarkMagenta,
+            "cyan" => Self::Cyan,
+            "dark_cyan" => Self::DarkCyan,
             // Fallback to hex-encoded rgb
             _ => {
                 let values = <[u8; 3]>::from_hex(input)?;
-                Self(crossterm::style::Color::Rgb { r: values[0], g: values[1], b: values[2] })
+                Self::Rgb { r: values[0], g: values[1], b: values[2] }
             }
         };
         Ok(output)
@@ -176,32 +194,50 @@ impl FromStr for Color {
 
 impl Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use crossterm::style::Color as C;
-        match self.0 {
-            C::Rgb { r, g, b } => write!(f, "{}", hex::encode([r, g, b])),
-            C::Black => write!(f, "black"),
-            C::White => write!(f, "white"),
-            C::Grey => write!(f, "grey"),
-            C::Red => write!(f, "red"),
-            C::DarkRed => write!(f, "dark_red"),
-            C::Green => write!(f, "green"),
-            C::DarkGreen => write!(f, "dark_green"),
-            C::Blue => write!(f, "blue"),
-            C::DarkBlue => write!(f, "dark_blue"),
-            C::Yellow => write!(f, "yellow"),
-            C::DarkYellow => write!(f, "dark_yellow"),
-            C::Magenta => write!(f, "magenta"),
-            C::DarkMagenta => write!(f, "dark_magenta"),
-            C::Cyan => write!(f, "cyan"),
-            C::DarkCyan => write!(f, "dark_cyan"),
-            _ => panic!("unsupported color"),
+        match self {
+            Self::Rgb { r, g, b } => write!(f, "{}", hex::encode([*r, *g, *b])),
+            Self::Black => write!(f, "black"),
+            Self::White => write!(f, "white"),
+            Self::Grey => write!(f, "grey"),
+            Self::DarkGrey => write!(f, "dark_grey"),
+            Self::Red => write!(f, "red"),
+            Self::DarkRed => write!(f, "dark_red"),
+            Self::Green => write!(f, "green"),
+            Self::DarkGreen => write!(f, "dark_green"),
+            Self::Blue => write!(f, "blue"),
+            Self::DarkBlue => write!(f, "dark_blue"),
+            Self::Yellow => write!(f, "yellow"),
+            Self::DarkYellow => write!(f, "dark_yellow"),
+            Self::Magenta => write!(f, "magenta"),
+            Self::DarkMagenta => write!(f, "dark_magenta"),
+            Self::Cyan => write!(f, "cyan"),
+            Self::DarkCyan => write!(f, "dark_cyan"),
         }
     }
 }
 
 impl From<Color> for crossterm::style::Color {
     fn from(value: Color) -> Self {
-        value.0
+        use crossterm::style::Color as C;
+        match value {
+            Color::Black => C::Black,
+            Color::DarkGrey => C::DarkGrey,
+            Color::Red => C::Red,
+            Color::DarkRed => C::DarkRed,
+            Color::Green => C::Green,
+            Color::DarkGreen => C::DarkGreen,
+            Color::Yellow => C::Yellow,
+            Color::DarkYellow => C::DarkYellow,
+            Color::Blue => C::Blue,
+            Color::DarkBlue => C::DarkBlue,
+            Color::Magenta => C::Magenta,
+            Color::DarkMagenta => C::DarkMagenta,
+            Color::Cyan => C::Cyan,
+            Color::DarkCyan => C::DarkCyan,
+            Color::White => C::White,
+            Color::Grey => C::Grey,
+            Color::Rgb { r, g, b } => C::Rgb { r, g, b },
+        }
     }
 }
 

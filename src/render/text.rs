@@ -18,6 +18,7 @@ pub(crate) struct TextDrawer<'a> {
     line: &'a WeightedTextBlock,
     positioning: Positioning,
     default_colors: &'a Colors,
+    extend_block: bool,
 }
 
 impl<'a> TextDrawer<'a> {
@@ -33,7 +34,21 @@ impl<'a> TextDrawer<'a> {
         if text_length > positioning.max_line_length && positioning.max_line_length <= MINIMUM_LINE_LENGTH {
             Err(RenderError::TerminalTooSmall)
         } else {
-            Ok(Self { line, positioning, default_colors })
+            Ok(Self { line, positioning, default_colors, extend_block: false })
+        }
+    }
+
+    pub(crate) fn new_block(
+        line: &'a WeightedTextBlock,
+        positioning: Positioning,
+        default_colors: &'a Colors,
+    ) -> Result<Self, RenderError> {
+        let text_length = line.width() as u16;
+        // If our line doesn't fit and it's just too small then abort
+        if text_length > positioning.max_line_length && positioning.max_line_length <= MINIMUM_LINE_LENGTH {
+            Err(RenderError::TerminalTooSmall)
+        } else {
+            Ok(Self { line, positioning, default_colors, extend_block: true })
         }
     }
 
@@ -46,12 +61,17 @@ impl<'a> TextDrawer<'a> {
     {
         let Positioning { max_line_length, start_column } = self.positioning;
 
+        let mut line_length: u16 = 0;
         for (line_index, line) in self.line.split(max_line_length as usize).enumerate() {
-            terminal.move_to_column(start_column)?;
             if line_index > 0 {
+                self.print_block_background(line_length, max_line_length, terminal)?;
                 terminal.move_down(1)?;
+                line_length = 0;
             }
+            terminal.move_to_column(start_column)?;
             for chunk in line {
+                line_length = line_length.saturating_add(chunk.width() as u16);
+
                 let (text, style) = chunk.into_parts();
                 let text = style.apply(text);
                 terminal.print_styled_line(text)?;
@@ -61,6 +81,26 @@ impl<'a> TextDrawer<'a> {
                 if style != TextStyle::default() {
                     terminal.set_colors(self.default_colors.clone())?;
                 }
+            }
+        }
+        self.print_block_background(line_length, max_line_length, terminal)?;
+        Ok(())
+    }
+
+    fn print_block_background<W>(
+        &self,
+        line_length: u16,
+        max_line_length: u16,
+        terminal: &mut Terminal<W>,
+    ) -> RenderResult
+    where
+        W: TerminalWrite,
+    {
+        if self.extend_block {
+            let remaining = max_line_length.saturating_sub(line_length);
+            if remaining > 0 {
+                let text = " ".repeat(remaining as usize);
+                terminal.print_line(&text)?;
             }
         }
         Ok(())
