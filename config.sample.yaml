@@ -82,4 +82,4 @@ bindings:
   close_modal: ["<esc>"]
 
   # the key binding to close the application.
-  exit: ["<c-c>"]
+  exit: ["<c-c>", "q"]

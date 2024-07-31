@@ -409,7 +409,7 @@ fn default_close_modal_bindings() -> Vec<KeyBinding> {
 }
 
 fn default_exit_bindings() -> Vec<KeyBinding> {
-    make_keybindings(["<c-c>"])
+    make_keybindings(["<c-c>", "q"])
 }
 
 #[cfg(test)]
