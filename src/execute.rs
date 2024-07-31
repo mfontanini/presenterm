@@ -181,7 +181,6 @@ impl CommandsRunner {
         let child = process::Command::new(command)
             .args(args)
             .envs(env)
-            .current_dir(self.script_directory.path())
             .stdin(Stdio::null())
             .stdout(writer)
             .stderr(writer_clone)

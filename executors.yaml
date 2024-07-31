@@ -1,7 +1,7 @@
 bash:
   filename: script.sh
   commands:
-    - ["bash", "script.sh"]
+    - ["bash", "$pwd/script.sh"]
 c++:
   filename: snippet.cpp
   commands:
@@ -15,59 +15,59 @@ c:
 fish:
   filename: script.fish
   commands:
-    - ["fish", "script.fish"]
+    - ["fish", "$pwd/script.fish"]
 go:
   filename: snippet.go
   environment:
     GO11MODULE: off
   commands:
-    - ["go", "run", "snippet.go"]
+    - ["go", "run", "$pwd/snippet.go"]
 java:
   filename: Snippet.java
   commands:
-    - ["java", "Snippet.java"]
+    - ["java", "$pwd/Snippet.java"]
 js:
   filename: snippet.js
   commands:
-    - ["node", "snippet.js"]
+    - ["node", "$pwd/snippet.js"]
 kotlin:
   filename: snippet.kts
   commands:
-    - ["kotlinc", "-script", "script.kts"]
+    - ["kotlinc", "-script", "$pwd/script.kts"]
 lua:
   filename: snippet.lua
   commands:
-    - ["lua", "snippet.lua"]
+    - ["lua", "$pwd/snippet.lua"]
 nushell:
   filename: snippet.nu
   commands:
-    - ["nu", "snippet.nu"]
+    - ["nu", "$pwd/snippet.nu"]
 perl:
   filename: snippet.pl
   commands:
-    - ["perl", "snippet.pl"]
+    - ["perl", "$pwd/snippet.pl"]
 python:
   filename: snippet.py
   commands:
-    - ["python", "-u", "snippet.py"]
+    - ["python", "-u", "$pwd/snippet.py"]
 ruby:
   filename: snippet.rb
   commands:
-    - ["ruby", "snippet.rb"]
+    - ["ruby", "$pwd/snippet.rb"]
 rust-script:
   filename: snippet.rs
   commands:
-    - ["rust-script", "snippet.rs"]
+    - ["rust-script", "$pwd/snippet.rs"]
 rust:
   filename: snippet.rs
   commands:
-    - ["rustc", "--crate-name", "presenterm_snippet", "snippet.rs", "-o", "$pwd/snippet"]
+    - ["rustc", "--crate-name", "presenterm_snippet", "$pwd/snippet.rs", "-o", "$pwd/snippet"]
     - ["$pwd/snippet"]
 sh:
   filename: script.sh
   commands:
-    - ["sh", "script.sh"]
+    - ["sh", "$pwd/script.sh"]
 zsh:
   filename: script.sh
   commands:
-    - ["zsh", "script.sh"]
+    - ["zsh", "$pwd/script.sh"]
