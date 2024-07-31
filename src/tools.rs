@@ -18,7 +18,12 @@ impl ThirdPartyTools {
     }
 
     pub(crate) fn mermaid(args: &[&str]) -> Tool {
-        Tool::new("mmdc", args)
+        let mmdc = if cfg!(windows) {
+            "mmdc.cmd"
+        } else {
+            "mmdc"
+        };
+        Tool::new(mmdc, args)
     }
 
     pub(crate) fn presenterm_export(args: &[&str]) -> Tool {
