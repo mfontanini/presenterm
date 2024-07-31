@@ -283,11 +283,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.footer_context.borrow_mut().author = metadata.author.clone().unwrap_or_default();
         self.set_theme(&metadata.theme)?;
-        if metadata.title.is_some()
-            || metadata.sub_title.is_some()
-            || metadata.author.is_some()
-            || !metadata.authors.is_empty()
-        {
+        if metadata.has_frontmatter() {
             self.push_slide_prelude();
             self.push_intro_slide(metadata);
         }
@@ -336,15 +332,14 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_intro_slide(&mut self, metadata: PresentationMetadata) {
-        let styles = &self.theme.intro_slide;
-        let title = Text::new(
-            metadata.title.unwrap_or_default().clone(),
-            TextStyle::default().bold().colors(styles.title.colors.clone()),
-        );
-        let sub_title = metadata
-            .sub_title
-            .as_ref()
-            .map(|text| Text::new(text.clone(), TextStyle::default().colors(styles.subtitle.colors.clone())));
+        let styles = self.theme.intro_slide.clone();
+        let create_text =
+            |text: Option<String>, style: TextStyle| -> Option<Text> { text.map(|text| Text::new(text, style)) };
+        let title = create_text(metadata.title, TextStyle::default().bold().colors(styles.title.colors));
+        let sub_title = create_text(metadata.sub_title, TextStyle::default().colors(styles.subtitle.colors));
+        let event = create_text(metadata.event, TextStyle::default().colors(styles.event.colors));
+        let location = create_text(metadata.location, TextStyle::default().colors(styles.location.colors));
+        let date = create_text(metadata.date, TextStyle::default().colors(styles.date.colors));
         let authors: Vec<_> = metadata
             .author
             .into_iter()
@@ -355,11 +350,24 @@ impl<'a> PresentationBuilder<'a> {
             self.slide_state.ignore_footer = true;
         }
         self.chunk_operations.push(RenderOperation::JumpToVerticalCenter);
-        self.push_text(TextBlock::from(title), ElementType::PresentationTitle);
-        self.push_line_break();
-        if let Some(text) = sub_title {
-            self.push_text(TextBlock::from(text), ElementType::PresentationSubTitle);
+        if let Some(title) = title {
+            self.push_line(title, ElementType::PresentationTitle);
+        }
+        if let Some(sub_title) = sub_title {
+            self.push_line(sub_title, ElementType::PresentationSubTitle);
+        }
+        if event.is_some() || location.is_some() || date.is_some() {
             self.push_line_break();
+            self.push_line_break();
+            if let Some(event) = event {
+                self.push_line(event, ElementType::PresentationEvent);
+            }
+            if let Some(location) = location {
+                self.push_line(location, ElementType::PresentationLocation);
+            }
+            if let Some(date) = date {
+                self.push_line(date, ElementType::PresentationDate);
+            }
         }
         if !authors.is_empty() {
             match self.theme.intro_slide.author.positioning {
@@ -373,8 +381,7 @@ impl<'a> PresentationBuilder<'a> {
                 }
             };
             for author in authors {
-                self.push_text(TextBlock::from(author), ElementType::PresentationAuthor);
-                self.push_line_break();
+                self.push_line(author, ElementType::PresentationAuthor);
             }
         }
         self.slide_state.title = Some(TextBlock::from("[Introduction]"));
@@ -669,6 +676,11 @@ impl<'a> PresentationBuilder<'a> {
             self.push_line_break();
         }
         self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
+    }
+
+    fn push_line(&mut self, text: Text, element_type: ElementType) {
+        self.push_text(TextBlock::from(text), element_type);
+        self.push_line_break();
     }
 
     fn push_text(&mut self, text: TextBlock, element_type: ElementType) {
@@ -1085,6 +1097,15 @@ struct StrictPresentationMetadata {
     sub_title: Option<String>,
 
     #[serde(default)]
+    event: Option<String>,
+
+    #[serde(default)]
+    location: Option<String>,
+
+    #[serde(default)]
+    date: Option<String>,
+
+    #[serde(default)]
     author: Option<String>,
 
     #[serde(default)]
@@ -1099,8 +1120,9 @@ struct StrictPresentationMetadata {
 
 impl From<StrictPresentationMetadata> for PresentationMetadata {
     fn from(strict: StrictPresentationMetadata) -> Self {
-        let StrictPresentationMetadata { title, sub_title, author, authors, theme, options } = strict;
-        Self { title, sub_title, author, authors, theme, options }
+        let StrictPresentationMetadata { title, sub_title, event, location, date, author, authors, theme, options } =
+            strict;
+        Self { title, sub_title, event, location, date, author, authors, theme, options }
     }
 }
 

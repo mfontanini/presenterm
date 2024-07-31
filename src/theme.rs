@@ -206,6 +206,9 @@ impl PresentationTheme {
             Code => &self.code.alignment,
             PresentationTitle => &self.intro_slide.title.alignment,
             PresentationSubTitle => &self.intro_slide.subtitle.alignment,
+            PresentationEvent => &self.intro_slide.event.alignment,
+            PresentationLocation => &self.intro_slide.location.alignment,
+            PresentationDate => &self.intro_slide.date.alignment,
             PresentationAuthor => &self.intro_slide.author.alignment,
             Table => &self.table,
             BlockQuote => &self.block_quote.alignment,
@@ -335,6 +338,18 @@ pub(crate) struct IntroSlideStyle {
     /// The style of the subtitle line.
     #[serde(default)]
     pub(crate) subtitle: BasicStyle,
+
+    /// The style of the event line.
+    #[serde(default)]
+    pub(crate) event: BasicStyle,
+
+    /// The style of the location line.
+    #[serde(default)]
+    pub(crate) location: BasicStyle,
+
+    /// The style of the date line.
+    #[serde(default)]
+    pub(crate) date: BasicStyle,
 
     /// The style of the author line.
     #[serde(default)]
@@ -580,6 +595,9 @@ pub(crate) enum ElementType {
     Code,
     PresentationTitle,
     PresentationSubTitle,
+    PresentationEvent,
+    PresentationLocation,
+    PresentationDate,
     PresentationAuthor,
     Table,
     BlockQuote,
