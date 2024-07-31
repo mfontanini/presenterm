@@ -90,6 +90,7 @@ impl CommandKeyBindings {
             }
             RenderAsyncOperations => Command::RenderAsyncOperations,
             Exit => Command::Exit,
+            Suspend => Command::Suspend,
             Reload => Command::Reload,
             HardReload => Command::HardReload,
             ToggleSlideIndex => Command::ToggleSlideIndex,
@@ -133,6 +134,7 @@ impl TryFrom<KeyBindingsConfig> for CommandKeyBindings {
             .chain(zip(CommandDiscriminants::LastSlide, config.last_slide))
             .chain(zip(CommandDiscriminants::GoToSlide, config.go_to_slide))
             .chain(zip(CommandDiscriminants::Exit, config.exit))
+            .chain(zip(CommandDiscriminants::Suspend, config.suspend))
             .chain(zip(CommandDiscriminants::HardReload, config.reload))
             .chain(zip(CommandDiscriminants::ToggleSlideIndex, config.toggle_slide_index))
             .chain(zip(CommandDiscriminants::ToggleKeyBindingsConfig, config.toggle_bindings))

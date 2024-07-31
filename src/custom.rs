@@ -330,6 +330,10 @@ pub struct KeyBindingsConfig {
     /// The key binding to close the application.
     #[serde(default = "default_exit_bindings")]
     pub(crate) exit: Vec<KeyBinding>,
+
+    /// The key binding to suspend the application.
+    #[serde(default = "default_suspend_bindings")]
+    pub(crate) suspend: Vec<KeyBinding>,
 }
 
 impl Default for KeyBindingsConfig {
@@ -348,6 +352,7 @@ impl Default for KeyBindingsConfig {
             toggle_bindings: default_toggle_bindings_modal_bindings(),
             close_modal: default_close_modal_bindings(),
             exit: default_exit_bindings(),
+            suspend: default_suspend_bindings(),
         }
     }
 }
@@ -410,6 +415,10 @@ fn default_close_modal_bindings() -> Vec<KeyBinding> {
 
 fn default_exit_bindings() -> Vec<KeyBinding> {
     make_keybindings(["<c-c>", "q"])
+}
+
+fn default_suspend_bindings() -> Vec<KeyBinding> {
+    make_keybindings(["<c-z>"])
 }
 
 #[cfg(test)]

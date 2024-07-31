@@ -110,6 +110,14 @@ impl<W: TerminalWrite> Terminal<W> {
         self.cursor_row += options.rows;
         Ok(())
     }
+
+    pub(crate) fn suspend(&mut self) {
+        self.writer.deinit();
+    }
+
+    pub(crate) fn resume(&mut self) {
+        let _ = self.writer.init();
+    }
 }
 
 impl<W> Drop for Terminal<W>

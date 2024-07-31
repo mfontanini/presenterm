@@ -74,6 +74,9 @@ pub(crate) enum Command {
     /// Exit the presentation.
     Exit,
 
+    /// Suspend the presentation.
+    Suspend,
+
     /// The presentation has changed and needs to be reloaded.
     Reload,
 

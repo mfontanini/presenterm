@@ -35,6 +35,7 @@ console = "0.15.8"
 thiserror = "1"
 unicode-width = "0.1"
 os_pipe = "1.1.5"
+libc = "0.2.155"
 
 [dependencies.syntect]
 version = "5.2"

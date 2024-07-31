@@ -17,7 +17,7 @@ pub(crate) type RenderResult = Result<(), RenderError>;
 
 /// Allows drawing elements in the terminal.
 pub(crate) struct TerminalDrawer<W: TerminalWrite> {
-    terminal: Terminal<W>,
+    pub(crate) terminal: Terminal<W>,
     font_size_fallback: u8,
 }
 

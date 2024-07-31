@@ -1,3 +1,4 @@
+---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/mfontanini/presenterm/master/config-file-schema.json
 defaults:
   # override the terminal font size when in windows or when using sixel.
@@ -83,3 +84,6 @@ bindings:
 
   # the key binding to close the application.
   exit: ["<c-c>", "q"]
+
+  # the key binding to suspend the application.
+  suspend: ["<c-z>"]
