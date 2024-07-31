@@ -253,7 +253,7 @@ bindings:
   close_modal: ["<esc>"]
 
   # the key binding to close the application.
-  exit: ["<c-c>"]
+  exit: ["<c-c>", "q"]
 ```
 
 You can choose to override any of them. Keep in mind these are overrides so if for example you change `next`, the 
