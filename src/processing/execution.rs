@@ -6,7 +6,7 @@ use crate::{
         elements::{Snippet, Text, TextBlock},
         text::WeightedTextBlock,
     },
-    presentation::{AsRenderOperations, BlockLine, BlockLineText, RenderAsync, RenderAsyncState, RenderOperation},
+    presentation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, RenderOperation},
     render::properties::WindowSize,
     style::{Colors, TextStyle},
     theme::{Alignment, ExecutionStatusBlockStyle},
@@ -43,10 +43,10 @@ impl RunSnippetOperation {
         theme: &PresentationTheme,
         block_length: u16,
     ) -> Self {
-        let default_colors = theme.default_style.colors.clone();
-        let block_colors = theme.execution_output.colors.clone();
+        let default_colors = theme.default_style.colors;
+        let block_colors = theme.execution_output.colors;
         let status_colors = theme.execution_output.status.clone();
-        let running_colors = status_colors.running.clone();
+        let running_colors = status_colors.running;
         let alignment = theme.code.alignment.clone().unwrap_or_default();
         let block_length = match &alignment {
             Alignment::Left { .. } | Alignment::Right { .. } => block_length,
@@ -91,20 +91,21 @@ impl AsRenderOperations for RunSnippetOperation {
             RenderOperation::RenderDynamic(Rc::new(separator)),
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
-            RenderOperation::SetColors(self.block_colors.clone()),
+            RenderOperation::SetColors(self.block_colors),
         ];
 
         let block_length = self.block_length.max(inner.max_line_length.saturating_add(1));
         for line in &inner.output_lines {
             operations.push(RenderOperation::RenderBlockLine(BlockLine {
-                text: BlockLineText::Weighted(line.clone()),
-                unformatted_length: line.width() as u16,
+                prefix: "".into(),
+                text: line.clone(),
                 block_length,
                 alignment: self.alignment.clone(),
+                block_color: self.block_colors.background,
             }));
             operations.push(RenderOperation::RenderLineBreak);
         }
-        operations.push(RenderOperation::SetColors(self.default_colors.clone()));
+        operations.push(RenderOperation::SetColors(self.default_colors));
         operations
     }
 
@@ -120,14 +121,12 @@ impl RenderAsync for RunSnippetOperation {
             let mut state = handle.state.lock().unwrap();
             let ExecutionState { output, status } = &mut *state;
             *self.state_description.borrow_mut() = match status {
-                ProcessStatus::Running => {
-                    Text::new("running", TextStyle::default().colors(self.status_colors.running.clone()))
-                }
+                ProcessStatus::Running => Text::new("running", TextStyle::default().colors(self.status_colors.running)),
                 ProcessStatus::Success => {
-                    Text::new("finished", TextStyle::default().colors(self.status_colors.success.clone()))
+                    Text::new("finished", TextStyle::default().colors(self.status_colors.success))
                 }
                 ProcessStatus::Failure => {
-                    Text::new("finished with error", TextStyle::default().colors(self.status_colors.failure.clone()))
+                    Text::new("finished with error", TextStyle::default().colors(self.status_colors.failure))
                 }
             };
             let new_lines = mem::take(output);
@@ -136,7 +135,7 @@ impl RenderAsync for RunSnippetOperation {
             drop(state);
 
             let mut max_line_length = 0;
-            let (new_lines, style) = AnsiSplitter::new(inner.starting_style.clone()).split_lines(&new_lines);
+            let (new_lines, style) = AnsiSplitter::new(inner.starting_style).split_lines(&new_lines);
             for line in &new_lines {
                 let width = u16::try_from(line.width()).unwrap_or(u16::MAX);
                 max_line_length = max_line_length.max(width);
@@ -195,11 +194,7 @@ impl AsRenderOperations for SnippetExecutionDisabledOperation {
         vec![
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderText {
-                line: vec![Text::new(
-                    "snippet execution is disabled",
-                    TextStyle::default().colors(self.colors.clone()),
-                )]
-                .into(),
+                line: vec![Text::new("snippet execution is disabled", TextStyle::default().colors(self.colors))].into(),
                 alignment: self.alignment.clone(),
             },
             RenderOperation::RenderLineBreak,

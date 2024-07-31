@@ -23,7 +23,7 @@ impl AnsiSplitter {
             for p in line.ansi_parse() {
                 match p {
                     Output::TextBlock(text) => {
-                        self.current_line.0.push(Text::new(text, self.current_style.clone()));
+                        self.current_line.0.push(Text::new(text, self.current_style));
                     }
                     Output::Escape(s) => self.handle_escape(&s),
                 }
@@ -70,10 +70,10 @@ impl<'a> GraphicsCode<'a> {
         for value in codes {
             match value {
                 0 => *style = TextStyle::default(),
-                1 => *style = style.clone().bold(),
-                3 => *style = style.clone().italics(),
-                4 => *style = style.clone().underlined(),
-                9 => *style = style.clone().strikethrough(),
+                1 => *style = (*style).bold(),
+                3 => *style = (*style).italics(),
+                4 => *style = (*style).underlined(),
+                9 => *style = (*style).strikethrough(),
                 30 => style.colors.foreground = Some(Color::Black),
                 40 => style.colors.background = Some(Color::Black),
                 31 => style.colors.foreground = Some(Color::Red),

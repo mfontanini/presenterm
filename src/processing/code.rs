@@ -1,16 +1,19 @@
 use super::padding::NumberPadder;
 use crate::{
-    markdown::elements::{HighlightGroup, Snippet},
-    presentation::{AsRenderOperations, BlockLine, BlockLineText, ChunkMutator, RenderOperation},
+    markdown::{
+        elements::{HighlightGroup, Snippet},
+        text::{WeightedText, WeightedTextBlock},
+    },
+    presentation::{AsRenderOperations, BlockLine, ChunkMutator, RenderOperation},
     render::{
         highlighting::{LanguageHighlighter, StyledTokens},
         properties::WindowSize,
     },
+    style::{Color, TextStyle},
     theme::{Alignment, CodeBlockStyle},
     PresentationTheme,
 };
 use std::{cell::RefCell, rc::Rc};
-use syntect::highlighting::Style;
 use unicode_width::UnicodeWidthStr;
 
 pub(crate) struct CodePreparer<'a> {
@@ -76,22 +79,26 @@ impl CodeLine {
 
     pub(crate) fn highlight(
         &self,
-        dim_style: &Style,
+        dim_style: &TextStyle,
         code_highlighter: &mut LanguageHighlighter,
         block_style: &CodeBlockStyle,
-    ) -> String {
-        let mut output = StyledTokens { style: *dim_style, tokens: &self.prefix }.apply_style(block_style);
-        output.push_str(&code_highlighter.highlight_line(&self.code, block_style));
-        output.push_str(&StyledTokens { style: *dim_style, tokens: &self.suffix }.apply_style(block_style));
-        output
+    ) -> WeightedTextBlock {
+        let mut output = code_highlighter.highlight_line(&self.code, block_style).0;
+        output.push(StyledTokens { style: *dim_style, tokens: &self.suffix }.apply_style());
+        output.into()
     }
 
-    pub(crate) fn dim(&self, padding_style: &Style, block_style: &CodeBlockStyle) -> String {
-        let mut output = String::new();
-        for chunk in [&self.prefix, &self.code, &self.suffix] {
-            output.push_str(&StyledTokens { style: *padding_style, tokens: chunk }.apply_style(block_style));
+    pub(crate) fn dim(&self, dim_style: &TextStyle) -> WeightedTextBlock {
+        let mut output = Vec::new();
+        for chunk in [&self.code, &self.suffix] {
+            output.push(StyledTokens { style: *dim_style, tokens: chunk }.apply_style());
         }
-        output
+        output.into()
+    }
+
+    pub(crate) fn dim_prefix(&self, dim_style: &TextStyle) -> WeightedText {
+        let text = StyledTokens { style: *dim_style, tokens: &self.prefix }.apply_style();
+        text.into()
     }
 }
 
@@ -105,11 +112,12 @@ pub(crate) struct HighlightContext {
 
 #[derive(Debug)]
 pub(crate) struct HighlightedLine {
-    pub(crate) highlighted: String,
-    pub(crate) not_highlighted: String,
+    pub(crate) prefix: WeightedText,
+    pub(crate) highlighted: WeightedTextBlock,
+    pub(crate) not_highlighted: WeightedTextBlock,
     pub(crate) line_number: Option<u16>,
-    pub(crate) width: usize,
     pub(crate) context: Rc<RefCell<HighlightContext>>,
+    pub(crate) block_color: Option<Color>,
 }
 
 impl AsRenderOperations for HighlightedLine {
@@ -124,17 +132,18 @@ impl AsRenderOperations for HighlightedLine {
         };
         vec![
             RenderOperation::RenderBlockLine(BlockLine {
-                text: BlockLineText::Preformatted(text),
-                unformatted_length: self.width as u16,
+                prefix: self.prefix.clone(),
+                text,
                 block_length: context.block_length as u16,
                 alignment: context.alignment.clone(),
+                block_color: self.block_color,
             }),
             RenderOperation::RenderLineBreak,
         ]
     }
 
     fn diffable_content(&self) -> Option<&str> {
-        Some(&self.highlighted)
+        None
     }
 }
 

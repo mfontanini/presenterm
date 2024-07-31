@@ -1,12 +1,14 @@
 use super::terminal::{Terminal, TerminalWrite};
 use crate::{
-    markdown::text::WeightedTextBlock,
+    markdown::{
+        elements::Text,
+        text::{WeightedText, WeightedTextBlock},
+    },
     render::{
         draw::{RenderError, RenderResult},
-        layout::{Layout, Positioning},
-        properties::WindowSize,
+        layout::Positioning,
     },
-    style::{Colors, TextStyle},
+    style::{Color, Colors},
 };
 
 const MINIMUM_LINE_LENGTH: u16 = 10;
@@ -15,41 +17,40 @@ const MINIMUM_LINE_LENGTH: u16 = 10;
 ///
 /// This deals with splitting words and doing word wrapping based on the given positioning.
 pub(crate) struct TextDrawer<'a> {
+    prefix: &'a WeightedText,
     line: &'a WeightedTextBlock,
     positioning: Positioning,
+    prefix_length: u16,
     default_colors: &'a Colors,
-    extend_block: bool,
+    draw_block: bool,
+    block_color: Option<Color>,
 }
 
 impl<'a> TextDrawer<'a> {
     pub(crate) fn new(
-        layout: &Layout,
-        line: &'a WeightedTextBlock,
-        dimensions: &WindowSize,
-        default_colors: &'a Colors,
-    ) -> Result<Self, RenderError> {
-        let text_length = line.width() as u16;
-        let positioning = layout.compute(dimensions, text_length);
-        // If our line doesn't fit and it's just too small then abort
-        if text_length > positioning.max_line_length && positioning.max_line_length <= MINIMUM_LINE_LENGTH {
-            Err(RenderError::TerminalTooSmall)
-        } else {
-            Ok(Self { line, positioning, default_colors, extend_block: false })
-        }
-    }
-
-    pub(crate) fn new_block(
+        prefix: &'a WeightedText,
         line: &'a WeightedTextBlock,
         positioning: Positioning,
         default_colors: &'a Colors,
     ) -> Result<Self, RenderError> {
-        let text_length = line.width() as u16;
+        let text_length = (line.width() + prefix.width()) as u16;
         // If our line doesn't fit and it's just too small then abort
         if text_length > positioning.max_line_length && positioning.max_line_length <= MINIMUM_LINE_LENGTH {
             Err(RenderError::TerminalTooSmall)
         } else {
-            Ok(Self { line, positioning, default_colors, extend_block: true })
+            let prefix_length = prefix.width() as u16;
+            let positioning = Positioning {
+                max_line_length: positioning.max_line_length.saturating_sub(prefix_length),
+                start_column: positioning.start_column,
+            };
+            Ok(Self { prefix, line, positioning, prefix_length, default_colors, draw_block: false, block_color: None })
         }
+    }
+
+    pub(crate) fn with_surrounding_block(mut self, block_color: Option<Color>) -> Self {
+        self.draw_block = true;
+        self.block_color = block_color;
+        self
     }
 
     /// Draw text on the given handle.
@@ -59,14 +60,26 @@ impl<'a> TextDrawer<'a> {
     where
         W: TerminalWrite,
     {
-        let Positioning { max_line_length, start_column } = self.positioning;
-
         let mut line_length: u16 = 0;
-        for (line_index, line) in self.line.split(max_line_length as usize).enumerate() {
+
+        // Print the prefix at the beginning of the line.
+        let Text { content, style } = self.prefix.text();
+        terminal.move_to_column(self.positioning.start_column)?;
+        terminal.print_styled_line(style.apply(content))?;
+
+        let start_column = self.positioning.start_column + self.prefix_length;
+        for (line_index, line) in self.line.split(self.positioning.max_line_length as usize).enumerate() {
             if line_index > 0 {
-                self.print_block_background(line_length, max_line_length, terminal)?;
+                // Complete the current line's block to the right before moving down.
+                self.print_block_background(line_length, terminal)?;
                 terminal.move_down(1)?;
                 line_length = 0;
+
+                // Complete the new line in this block to the left where the prefix would be.
+                if self.prefix_length > 0 {
+                    terminal.move_to_column(self.positioning.start_column)?;
+                    self.print_block_background(self.prefix_length, terminal)?;
+                }
             }
             terminal.move_to_column(start_column)?;
             for chunk in line {
@@ -78,27 +91,25 @@ impl<'a> TextDrawer<'a> {
 
                 // Crossterm resets colors if any attributes are set so let's just re-apply colors
                 // if the format has anything on it at all.
-                if style != TextStyle::default() {
-                    terminal.set_colors(self.default_colors.clone())?;
+                if style.has_modifiers() {
+                    terminal.set_colors(*self.default_colors)?;
                 }
             }
         }
-        self.print_block_background(line_length, max_line_length, terminal)?;
+        self.print_block_background(line_length, terminal)?;
         Ok(())
     }
 
-    fn print_block_background<W>(
-        &self,
-        line_length: u16,
-        max_line_length: u16,
-        terminal: &mut Terminal<W>,
-    ) -> RenderResult
+    fn print_block_background<W>(&self, line_length: u16, terminal: &mut Terminal<W>) -> RenderResult
     where
         W: TerminalWrite,
     {
-        if self.extend_block {
-            let remaining = max_line_length.saturating_sub(line_length);
+        if self.draw_block {
+            let remaining = self.positioning.max_line_length.saturating_sub(line_length);
             if remaining > 0 {
+                if let Some(color) = self.block_color {
+                    terminal.set_background_color(color)?;
+                }
                 let text = " ".repeat(remaining as usize);
                 terminal.print_line(&text)?;
             }

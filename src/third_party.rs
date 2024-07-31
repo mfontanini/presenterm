@@ -54,18 +54,8 @@ impl ThirdPartyRender {
         slide: usize,
         width: Option<Percent>,
     ) -> Result<RenderOperation, ThirdPartyRenderError> {
-        // Note: this is a bit gore; the diffable content interface needs to be improved as it's
-        // too restrictive.
-        let diffable_content = format!("{request:?}");
         let result = self.render_pool.render(request);
-        let operation = Rc::new(RenderThirdParty::new(
-            result,
-            theme.default_style.colors.clone(),
-            error_holder,
-            slide,
-            diffable_content,
-            width,
-        ));
+        let operation = Rc::new(RenderThirdParty::new(result, theme.default_style.colors, error_holder, slide, width));
         Ok(RenderOperation::RenderAsync(operation))
     }
 }
@@ -318,7 +308,6 @@ pub(crate) struct RenderThirdParty {
     default_colors: Colors,
     error_holder: AsyncPresentationErrorHolder,
     slide: usize,
-    diffable_content: String,
     width: Option<Percent>,
 }
 
@@ -328,18 +317,9 @@ impl RenderThirdParty {
         default_colors: Colors,
         error_holder: AsyncPresentationErrorHolder,
         slide: usize,
-        diffable_content: String,
         width: Option<Percent>,
     ) -> Self {
-        Self {
-            contents: Default::default(),
-            pending_result,
-            default_colors,
-            error_holder,
-            slide,
-            diffable_content,
-            width,
-        }
+        Self { contents: Default::default(), pending_result, default_colors, error_holder, slide, width }
     }
 }
 
@@ -384,7 +364,7 @@ impl AsRenderOperations for RenderThirdParty {
 
                 vec![
                     RenderOperation::RenderImage(image.clone(), properties),
-                    RenderOperation::SetColors(self.default_colors.clone()),
+                    RenderOperation::SetColors(self.default_colors),
                 ]
             }
             None => {
@@ -398,6 +378,6 @@ impl AsRenderOperations for RenderThirdParty {
     }
 
     fn diffable_content(&self) -> Option<&str> {
-        Some(&self.diffable_content)
+        None
     }
 }

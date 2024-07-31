@@ -1,6 +1,6 @@
 use crate::{
     markdown::elements::TextBlock,
-    presentation::{AsRenderOperations, BlockLine, BlockLineText, RenderOperation},
+    presentation::{AsRenderOperations, BlockLine, RenderOperation},
     render::properties::WindowSize,
     theme::{Alignment, Margin},
 };
@@ -55,9 +55,10 @@ impl AsRenderOperations for RenderSeparator {
             }
         };
         vec![RenderOperation::RenderBlockLine(BlockLine {
-            text: BlockLineText::Weighted(separator.into()),
-            unformatted_length: width as u16,
+            prefix: "".into(),
+            text: separator.into(),
             block_length: width as u16,
+            block_color: None,
             alignment: Alignment::Center { minimum_size: 1, minimum_margin: Margin::Fixed(0) },
         })]
     }
