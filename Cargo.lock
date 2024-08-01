@@ -933,6 +933,7 @@ dependencies = [
  "hex",
  "image",
  "itertools",
+ "libc",
  "merge-struct",
  "once_cell",
  "os_pipe",

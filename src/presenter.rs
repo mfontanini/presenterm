@@ -112,6 +112,10 @@ impl<'a> Presenter<'a> {
                 };
                 match self.apply_command(command) {
                     CommandSideEffect::Exit => return Ok(()),
+                    CommandSideEffect::Suspend => {
+                        self.suspend(&mut drawer);
+                        break;
+                    }
                     CommandSideEffect::Reload => {
                         self.try_reload(path, false);
                         break;
@@ -196,6 +200,7 @@ impl<'a> Presenter<'a> {
                 return CommandSideEffect::Reload;
             }
             Command::Exit => return CommandSideEffect::Exit,
+            Command::Suspend => return CommandSideEffect::Suspend,
             _ => (),
         };
         if matches!(command, Command::Redraw) {
@@ -245,7 +250,7 @@ impl<'a> Presenter<'a> {
                 true
             }
             // These are handled above as they don't require the presentation
-            Command::Reload | Command::HardReload | Command::Exit | Command::Redraw => {
+            Command::Reload | Command::HardReload | Command::Exit | Command::Suspend | Command::Redraw => {
                 panic!("unreachable commands")
             }
         };
@@ -348,10 +353,20 @@ impl<'a> Presenter<'a> {
             other => self.state = other,
         }
     }
+
+    fn suspend(&self, drawer: &mut TerminalDrawer<Stdout>) {
+        #[cfg(unix)]
+        unsafe {
+            drawer.terminal.suspend();
+            libc::raise(libc::SIGTSTP);
+            drawer.terminal.resume();
+        }
+    }
 }
 
 enum CommandSideEffect {
     Exit,
+    Suspend,
     Redraw,
     Reload,
     None,
