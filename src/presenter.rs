@@ -180,7 +180,11 @@ impl<'a> Presenter<'a> {
         };
         // If the screen is too small, simply ignore this. Eventually the user will resize the
         // screen.
-        if matches!(result, Err(RenderError::TerminalTooSmall)) { Ok(()) } else { result }
+        if matches!(result, Err(RenderError::TerminalTooSmall)) {
+            Ok(())
+        } else {
+            result
+        }
     }
 
     fn apply_command(&mut self, command: Command) -> CommandSideEffect {
@@ -249,7 +253,11 @@ impl<'a> Presenter<'a> {
                 panic!("unreachable commands")
             }
         };
-        if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
+        if needs_redraw {
+            CommandSideEffect::Redraw
+        } else {
+            CommandSideEffect::None
+        }
     }
 
     fn try_reload(&mut self, path: &Path, force: bool) {

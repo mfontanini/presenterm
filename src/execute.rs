@@ -10,6 +10,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     fs::File,
     io::{self, BufRead, BufReader, Write},
+    path::{Path, PathBuf},
     process::{self, Child, Stdio},
     sync::{Arc, Mutex},
     thread,
@@ -23,11 +24,13 @@ static EXECUTORS: Lazy<BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>
 #[derive(Debug)]
 pub struct SnippetExecutor {
     executors: BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>,
+    cwd: PathBuf,
 }
 
 impl SnippetExecutor {
     pub fn new(
         custom_executors: BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>,
+        cwd: PathBuf,
     ) -> Result<Self, InvalidSnippetConfig> {
         let mut executors = EXECUTORS.clone();
         executors.extend(custom_executors);
@@ -44,7 +47,7 @@ impl SnippetExecutor {
                 }
             }
         }
-        Ok(Self { executors })
+        Ok(Self { executors, cwd })
     }
 
     pub(crate) fn is_execution_supported(&self, language: &SnippetLanguage) -> bool {
@@ -59,10 +62,14 @@ impl SnippetExecutor {
         let Some(config) = self.executors.get(&code.language) else {
             return Err(CodeExecuteError::UnsupportedExecution);
         };
-        Self::execute_lang(config, code.executable_contents().as_bytes())
+        Self::execute_lang(config, code.executable_contents().as_bytes(), &self.cwd)
     }
 
-    fn execute_lang(config: &LanguageSnippetExecutionConfig, code: &[u8]) -> Result<ExecutionHandle, CodeExecuteError> {
+    fn execute_lang(
+        config: &LanguageSnippetExecutionConfig,
+        code: &[u8],
+        cwd: &Path,
+    ) -> Result<ExecutionHandle, CodeExecuteError> {
         let script_dir =
             tempfile::Builder::default().prefix(".presenterm").tempdir().map_err(CodeExecuteError::TempDir)?;
         let snippet_path = script_dir.path().join(&config.filename);
@@ -72,8 +79,13 @@ impl SnippetExecutor {
         }
 
         let state: Arc<Mutex<ExecutionState>> = Default::default();
-        let reader_handle =
-            CommandsRunner::spawn(state.clone(), script_dir, config.commands.clone(), config.environment.clone());
+        let reader_handle = CommandsRunner::spawn(
+            state.clone(),
+            script_dir,
+            config.commands.clone(),
+            config.environment.clone(),
+            cwd.to_path_buf(),
+        );
         let handle = ExecutionHandle { state, reader_handle };
         Ok(handle)
     }
@@ -81,7 +93,7 @@ impl SnippetExecutor {
 
 impl Default for SnippetExecutor {
     fn default() -> Self {
-        Self::new(Default::default()).expect("initialization failed")
+        Self::new(Default::default(), PathBuf::from("./")).expect("initialization failed")
     }
 }
 
@@ -129,15 +141,16 @@ impl CommandsRunner {
         script_directory: TempDir,
         commands: Vec<Vec<String>>,
         env: HashMap<String, String>,
+        cwd: PathBuf,
     ) -> thread::JoinHandle<()> {
         let reader = Self { state, script_directory };
-        thread::spawn(|| reader.run(commands, env))
+        thread::spawn(|| reader.run(commands, env, cwd))
     }
 
-    fn run(self, commands: Vec<Vec<String>>, env: HashMap<String, String>) {
+    fn run(self, commands: Vec<Vec<String>>, env: HashMap<String, String>, cwd: PathBuf) {
         let mut last_result = true;
         for command in commands {
-            last_result = self.run_command(command, &env);
+            last_result = self.run_command(command, &env, &cwd);
             if !last_result {
                 break;
             }
@@ -149,8 +162,8 @@ impl CommandsRunner {
         self.state.lock().unwrap().status = status;
     }
 
-    fn run_command(&self, command: Vec<String>, env: &HashMap<String, String>) -> bool {
-        let (mut child, reader) = match self.launch_process(command, env) {
+    fn run_command(&self, command: Vec<String>, env: &HashMap<String, String>, cwd: &Path) -> bool {
+        let (mut child, reader) = match self.launch_process(command, env, cwd) {
             Ok(inner) => inner,
             Err(e) => {
                 let mut state = self.state.lock().unwrap();
@@ -171,6 +184,7 @@ impl CommandsRunner {
         &self,
         mut commands: Vec<String>,
         env: &HashMap<String, String>,
+        cwd: &Path,
     ) -> Result<(Child, PipeReader), CodeExecuteError> {
         let (reader, writer) = os_pipe::pipe().map_err(CodeExecuteError::Pipe)?;
         let writer_clone = writer.try_clone().map_err(CodeExecuteError::Pipe)?;
@@ -181,6 +195,7 @@ impl CommandsRunner {
         let child = process::Command::new(command)
             .args(args)
             .envs(env)
+            .current_dir(cwd)
             .stdin(Stdio::null())
             .stdout(writer)
             .stderr(writer_clone)
@@ -318,6 +333,6 @@ echo 'hello world'
 
     #[test]
     fn built_in_executors() {
-        SnippetExecutor::new(Default::default()).expect("invalid default executors");
+        SnippetExecutor::new(Default::default(), PathBuf::from("./")).expect("invalid default executors");
     }
 }
