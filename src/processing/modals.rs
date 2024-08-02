@@ -44,7 +44,7 @@ impl IndexBuilder {
             builder.content.push(title);
         }
         let base_color = theme.modals.colors.merge(&theme.default_style.colors);
-        let selection_style = TextStyle::default().colors(theme.modals.selection_colors.clone()).bold();
+        let selection_style = TextStyle::default().colors(theme.modals.selection_colors).bold();
         let ModalContent { prefix, content, suffix, content_width } = builder.build(base_color);
         let drawer = IndexDrawer {
             prefix,
@@ -88,7 +88,7 @@ impl AsRenderOperations for IndexDrawer {
         for (index, row) in visible_rows {
             let mut row = row.clone();
             if index == current_slide_index {
-                row = row.with_style(self.selection_style.clone());
+                row = row.with_style(self.selection_style);
             }
             let operation = RenderOperation::RenderText { line: row.build(), alignment: Default::default() };
             operations.extend([operation, RenderOperation::RenderLineBreak]);

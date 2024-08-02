@@ -11,9 +11,9 @@ use crate::{
     },
     media::{image::Image, printer::RegisterImageError, register::ImageRegistry},
     presentation::{
-        BlockLine, BlockLineText, ChunkMutator, ImageProperties, ImageSize, MarginProperties, Modals, Presentation,
-        PresentationMetadata, PresentationState, PresentationThemeMetadata, RenderOperation, Slide, SlideBuilder,
-        SlideChunk,
+        AsRenderOperations, BlockLine, ChunkMutator, ImageProperties, ImageSize, MarginProperties, Modals,
+        Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata, RenderOperation, Slide,
+        SlideBuilder, SlideChunk,
     },
     processing::{
         code::{CodePreparer, HighlightContext, HighlightMutator, HighlightedLine},
@@ -22,7 +22,10 @@ use crate::{
         modals::IndexBuilder,
         separator::RenderSeparator,
     },
-    render::highlighting::{CodeHighlighter, HighlightThemeSet},
+    render::{
+        highlighting::{CodeHighlighter, HighlightThemeSet},
+        properties::WindowSize,
+    },
     resource::{LoadImageError, Resources},
     style::{Color, Colors, TextStyle},
     theme::{
@@ -231,7 +234,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_slide_prelude(&mut self) {
-        let colors = self.theme.default_style.colors.clone();
+        let colors = self.theme.default_style.colors;
         self.chunk_operations.extend([
             RenderOperation::SetColors(colors),
             RenderOperation::ClearScreen,
@@ -344,7 +347,7 @@ impl<'a> PresentationBuilder<'a> {
             .author
             .into_iter()
             .chain(metadata.authors)
-            .map(|author| Text::new(author, TextStyle::default().colors(styles.author.colors.clone())))
+            .map(|author| Text::new(author, TextStyle::default().colors(styles.author.colors)))
             .collect();
         if styles.footer == Some(false) {
             self.slide_state.ignore_footer = true;
@@ -484,7 +487,7 @@ impl<'a> PresentationBuilder<'a> {
         }
 
         let style = self.theme.slide_title.clone();
-        let mut text_style = TextStyle::default().colors(style.colors.clone());
+        let mut text_style = TextStyle::default().colors(style.colors);
         if style.bold.unwrap_or_default() {
             text_style = text_style.bold();
         }
@@ -527,7 +530,7 @@ impl<'a> PresentationBuilder<'a> {
             prefix.push(' ');
             text.0.insert(0, Text::from(prefix));
         }
-        let text_style = TextStyle::default().bold().colors(style.colors.clone());
+        let text_style = TextStyle::default().bold().colors(style.colors);
         text.apply_style(&text_style);
 
         self.push_text(text, element_type);
@@ -582,7 +585,7 @@ impl<'a> PresentationBuilder<'a> {
         };
         self.chunk_operations.extend([
             RenderOperation::RenderImage(image, properties),
-            RenderOperation::SetColors(self.theme.default_style.colors.clone()),
+            RenderOperation::SetColors(self.theme.default_style.colors),
         ]);
         Ok(())
     }
@@ -656,26 +659,25 @@ impl<'a> PresentationBuilder<'a> {
                 .colors(Colors { foreground: prefix_color, background: self.theme.block_quote.colors.base.background }),
         );
         let alignment = self.theme.alignment(&ElementType::BlockQuote).clone();
-        let style = TextStyle::default().colors(self.theme.block_quote.colors.base.clone());
+        let style = TextStyle::default().colors(self.theme.block_quote.colors.base);
 
         for line in lines {
-            let line = TextBlock(vec![prefix.clone(), Text::new(line, style.clone())]);
+            let line = TextBlock::from(Text::new(line, style));
             self.chunk_operations.extend([
                 // Print a preformatted empty block so we fill in the line with properly colored
                 // spaces.
-                RenderOperation::SetColors(self.theme.block_quote.colors.base.clone()),
+                RenderOperation::SetColors(self.theme.block_quote.colors.base),
                 RenderOperation::RenderBlockLine(BlockLine {
-                    text: BlockLineText::Preformatted("".into()),
-                    unformatted_length: 0,
+                    prefix: prefix.clone().into(),
+                    text: line.into(),
                     block_length,
                     alignment: alignment.clone(),
+                    block_color: self.theme.block_quote.colors.base.background,
                 }),
-                // Now render our prefix + entire line
-                RenderOperation::RenderText { line: line.into(), alignment: alignment.clone() },
             ]);
             self.push_line_break();
         }
-        self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
+        self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors));
     }
 
     fn push_line(&mut self, text: Text, element_type: ElementType) {
@@ -691,7 +693,7 @@ impl<'a> PresentationBuilder<'a> {
     fn push_aligned_text(&mut self, mut block: TextBlock, alignment: Alignment) {
         for chunk in &mut block.0 {
             if chunk.style.is_code() {
-                chunk.style.colors = self.theme.inline_code.colors.clone();
+                chunk.style.colors = self.theme.inline_code.colors;
             }
         }
         if !block.0.is_empty() {
@@ -706,7 +708,14 @@ impl<'a> PresentationBuilder<'a> {
         self.chunk_operations.push(RenderOperation::RenderLineBreak);
     }
 
+    fn push_differ(&mut self, text: String) {
+        self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(Differ(text))));
+    }
+
     fn push_code(&mut self, code: Snippet) -> Result<(), BuildError> {
+        // TODO this needs to be the only way to diff things
+        self.push_differ(code.contents.clone());
+
         if code.attributes.auto_render {
             return self.push_rendered_code(code);
         }
@@ -716,7 +725,7 @@ impl<'a> PresentationBuilder<'a> {
         for line in lines {
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
         }
-        self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors.clone()));
+        self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors));
         if self.options.allow_mutations && context.borrow().groups.len() > 1 {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
@@ -725,7 +734,7 @@ impl<'a> PresentationBuilder<'a> {
                 self.push_code_execution(code, block_length)?;
             } else {
                 let operation = SnippetExecutionDisabledOperation::new(
-                    self.theme.execution_output.status.failure.clone(),
+                    self.theme.execution_output.status.failure,
                     self.theme.code.alignment.clone().unwrap_or_default(),
                 );
                 self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(operation)))
@@ -758,7 +767,7 @@ impl<'a> PresentationBuilder<'a> {
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let dim_style = {
             let mut highlighter = self.highlighter.language_highlighter(&SnippetLanguage::Rust);
-            highlighter.style_line("//").next().expect("no styles").style
+            highlighter.style_line("//", &self.theme.code).0.first().expect("no styles").style
         };
         let groups = match self.options.allow_mutations {
             true => code.attributes.highlight_groups.clone(),
@@ -774,12 +783,19 @@ impl<'a> PresentationBuilder<'a> {
         let mut output = Vec::new();
         let block_style = &self.theme.code;
         for line in lines.into_iter() {
+            let prefix = line.dim_prefix(&dim_style);
             let highlighted = line.highlight(&dim_style, &mut code_highlighter, block_style);
-            let not_highlighted = line.dim(&dim_style, block_style);
-            let width = line.width();
+            let not_highlighted = line.dim(&dim_style);
             let line_number = line.line_number;
             let context = context.clone();
-            output.push(HighlightedLine { highlighted, not_highlighted, line_number, width, context });
+            output.push(HighlightedLine {
+                prefix,
+                highlighted,
+                not_highlighted,
+                line_number,
+                context,
+                block_color: dim_style.colors.background,
+            });
         }
         (output, context)
     }
@@ -1141,6 +1157,19 @@ pub enum ImageAttributeError {
 #[derive(Clone, Debug, Default, PartialEq)]
 struct ImageAttributes {
     width: Option<Percent>,
+}
+
+#[derive(Debug)]
+struct Differ(String);
+
+impl AsRenderOperations for Differ {
+    fn as_render_operations(&self, _: &WindowSize) -> Vec<RenderOperation> {
+        Vec::new()
+    }
+
+    fn diffable_content(&self) -> Option<&str> {
+        Some(&self.0)
+    }
 }
 
 #[cfg(test)]
@@ -1581,19 +1610,16 @@ mod test {
         let mut found_render_block = false;
         let mut found_cant_render_block = false;
         for operation in slide.iter_visible_operations() {
-            match operation {
-                RenderOperation::RenderAsync(operation) => {
-                    let operation = format!("{operation:?}");
-                    if operation.contains("RunSnippetOperation") {
-                        assert!(enabled);
-                        found_render_block = true;
-                    } else if operation.contains("SnippetExecutionDisabledOperation") {
-                        assert!(!enabled);
-                        found_cant_render_block = true;
-                    }
+            if let RenderOperation::RenderAsync(operation) = operation {
+                let operation = format!("{operation:?}");
+                if operation.contains("RunSnippetOperation") {
+                    assert!(enabled);
+                    found_render_block = true;
+                } else if operation.contains("SnippetExecutionDisabledOperation") {
+                    assert!(!enabled);
+                    found_cant_render_block = true;
                 }
-                _ => (),
-            };
+            }
         }
         if found_render_block {
             assert!(enabled, "snippet execution block found but not enabled");
@@ -1614,7 +1640,7 @@ mod test {
     #[case::no_prefix("width", None)]
     fn image_attributes(#[case] input: &str, #[case] expectation: Option<u8>) {
         let attributes =
-            PresentationBuilder::parse_image_attributes(&input, "image:", Default::default()).expect("failed to parse");
+            PresentationBuilder::parse_image_attributes(input, "image:", Default::default()).expect("failed to parse");
         assert_eq!(attributes.width, expectation.map(Percent));
     }
 

@@ -1,6 +1,6 @@
 use crate::{
     custom::OptionsConfig,
-    markdown::text::WeightedTextBlock,
+    markdown::text::{WeightedText, WeightedTextBlock},
     media::image::Image,
     render::properties::WindowSize,
     style::{Color, Colors},
@@ -554,16 +554,11 @@ pub(crate) struct PresentationThemeMetadata {
 /// A line of preformatted text to be rendered.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct BlockLine {
-    pub(crate) text: BlockLineText,
-    pub(crate) unformatted_length: u16,
+    pub(crate) prefix: WeightedText,
+    pub(crate) text: WeightedTextBlock,
     pub(crate) block_length: u16,
+    pub(crate) block_color: Option<Color>,
     pub(crate) alignment: Alignment,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) enum BlockLineText {
-    Preformatted(String),
-    Weighted(WeightedTextBlock),
 }
 
 /// A render operation.

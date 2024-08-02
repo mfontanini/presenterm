@@ -114,9 +114,8 @@ where
 mod test {
     use super::*;
     use crate::{
-        presentation::{
-            AsRenderOperations, BlockLine, BlockLineText, RenderAsync, RenderAsyncState, Slide, SlideBuilder,
-        },
+        markdown::text::WeightedTextBlock,
+        presentation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, Slide, SlideBuilder},
         render::properties::WindowSize,
         style::{Color, Colors},
         theme::{Alignment, Margin},
@@ -156,10 +155,11 @@ mod test {
     #[case(RenderOperation::RenderText{line: String::from("asd").into(), alignment: Default::default()})]
     #[case(RenderOperation::RenderBlockLine(
         BlockLine{
-            text: BlockLineText::Preformatted("".into()),
+            prefix: "".into(),
+            text: WeightedTextBlock::from("".to_string()),
             alignment: Default::default(),
             block_length: 42,
-            unformatted_length: 1337
+            block_color: None,
         }
     ))]
     #[case(RenderOperation::RenderDynamic(Rc::new(Dynamic)))]

@@ -339,14 +339,14 @@ impl<'a> InlinesParser<'a> {
         let data = node.data.borrow();
         match &data.value {
             NodeValue::Text(text) => {
-                self.pending_text.push(Text::new(text.clone(), style.clone()));
+                self.pending_text.push(Text::new(text.clone(), style));
             }
             NodeValue::Code(code) => {
                 self.pending_text.push(Text::new(code.literal.clone(), TextStyle::default().code()));
             }
-            NodeValue::Strong => self.process_children(node, style.clone().bold())?,
-            NodeValue::Emph => self.process_children(node, style.clone().italics())?,
-            NodeValue::Strikethrough => self.process_children(node, style.clone().strikethrough())?,
+            NodeValue::Strong => self.process_children(node, style.bold())?,
+            NodeValue::Emph => self.process_children(node, style.italics())?,
+            NodeValue::Strikethrough => self.process_children(node, style.strikethrough())?,
             NodeValue::SoftBreak => self.pending_text.push(Text::from(" ")),
             NodeValue::Link(link) => self.pending_text.push(Text::new(link.url.clone(), TextStyle::default().link())),
             NodeValue::LineBreak => {
@@ -381,7 +381,7 @@ impl<'a> InlinesParser<'a> {
 
     fn process_children(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
         for node in node.children() {
-            self.process_node(node, style.clone())?;
+            self.process_node(node, style)?;
         }
         Ok(())
     }

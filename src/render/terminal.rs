@@ -3,7 +3,7 @@ use crate::{
         image::Image,
         printer::{ImagePrinter, PrintImage, PrintImageError, PrintOptions},
     },
-    style::Colors,
+    style::{Color, Colors},
 };
 use crossterm::{
     cursor,
@@ -93,14 +93,13 @@ impl<W: TerminalWrite> Terminal<W> {
         Ok(())
     }
 
-    pub(crate) fn flush(&mut self) -> io::Result<()> {
-        self.writer.flush()?;
+    pub(crate) fn set_background_color(&mut self, color: Color) -> io::Result<()> {
+        self.writer.queue(style::SetBackgroundColor(color.into()))?;
         Ok(())
     }
 
-    pub(crate) fn sync_cursor_row(&mut self, position: u16) -> io::Result<()> {
-        self.cursor_row = position;
-        self.writer.queue(cursor::MoveToRow(position))?;
+    pub(crate) fn flush(&mut self) -> io::Result<()> {
+        self.writer.flush()?;
         Ok(())
     }
 

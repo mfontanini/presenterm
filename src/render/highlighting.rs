@@ -1,19 +1,12 @@
-use crate::{markdown::elements::SnippetLanguage, theme::CodeBlockStyle};
-use crossterm::{
-    style::{SetBackgroundColor, SetForegroundColor},
-    QueueableCommand,
+use crate::{
+    markdown::elements::{SnippetLanguage, Text, TextBlock},
+    style::{Color, TextStyle},
+    theme::CodeBlockStyle,
 };
 use flate2::read::ZlibDecoder;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use std::{
-    cell::RefCell,
-    collections::BTreeMap,
-    fs,
-    io::{self, Write},
-    path::Path,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::BTreeMap, fs, path::Path, rc::Rc};
 use syntect::{
     easy::HighlightLines,
     highlighting::{Style, Theme, ThemeSet},
@@ -182,50 +175,41 @@ pub(crate) struct LanguageHighlighter<'a> {
 }
 
 impl<'a> LanguageHighlighter<'a> {
-    pub(crate) fn highlight_line(&mut self, line: &str, block_style: &CodeBlockStyle) -> String {
-        self.style_line(line).map(|s| s.apply_style(block_style)).collect()
+    pub(crate) fn highlight_line(&mut self, line: &str, block_style: &CodeBlockStyle) -> TextBlock {
+        self.style_line(line, block_style)
     }
 
-    pub(crate) fn style_line<'b>(&mut self, line: &'b str) -> impl Iterator<Item = StyledTokens<'b>> {
-        self.highlighter
+    pub(crate) fn style_line(&mut self, line: &str, block_style: &CodeBlockStyle) -> TextBlock {
+        let texts: Vec<_> = self
+            .highlighter
             .highlight_line(line, &SYNTAX_SET)
             .unwrap()
             .into_iter()
-            .map(|(style, tokens)| StyledTokens { style, tokens })
+            .map(|(style, tokens)| StyledTokens::new(style, tokens, block_style).apply_style())
+            .collect();
+        TextBlock(texts)
     }
 }
 
 pub(crate) struct StyledTokens<'a> {
-    pub(crate) style: Style,
+    pub(crate) style: TextStyle,
     pub(crate) tokens: &'a str,
 }
 
 impl<'a> StyledTokens<'a> {
-    pub(crate) fn apply_style(&self, block_style: &CodeBlockStyle) -> String {
+    pub(crate) fn new(style: Style, tokens: &'a str, block_style: &CodeBlockStyle) -> Self {
         let has_background = block_style.background.unwrap_or(true);
-        let background = has_background.then_some(to_ansi_color(self.style.background)).flatten();
-        let foreground = to_ansi_color(self.style.foreground);
+        let background = parse_color(style.background);
+        let foreground = has_background.then_some(parse_color(style.foreground)).flatten();
+        let mut style = TextStyle::default();
+        style.colors.background = background;
+        style.colors.foreground = foreground;
+        Self { style, tokens }
+    }
 
-        // We do this conversion manually as crossterm will reset the color after styling, and we
-        // want to "keep it open" so that padding also uses this background color.
-        //
-        // Note: these unwraps shouldn't happen as this is an in-memory writer so there's no
-        // fallible IO here.
-        let mut cursor = io::BufWriter::new(Vec::new());
-        if let Some(color) = background {
-            cursor.queue(SetBackgroundColor(color)).unwrap();
-        }
-        if let Some(color) = foreground {
-            cursor.queue(SetForegroundColor(color)).unwrap();
-        }
-        // syntect likes its input to contain \n but we don't want them as we pad text with extra
-        // " " at the end so we get rid of them here.
-        for chunk in self.tokens.split('\n') {
-            cursor.write_all(chunk.as_bytes()).unwrap();
-        }
-
-        cursor.flush().unwrap();
-        String::from_utf8(cursor.into_inner().unwrap()).unwrap()
+    pub(crate) fn apply_style(&self) -> Text {
+        let text: String = self.tokens.split('\n').collect();
+        Text::new(text, self.style)
     }
 }
 
@@ -235,8 +219,7 @@ impl<'a> StyledTokens<'a> {
 pub struct ThemeNotFound;
 
 // This code has been adapted from bat's: https://github.com/sharkdp/bat
-fn to_ansi_color(color: syntect::highlighting::Color) -> Option<crossterm::style::Color> {
-    use crossterm::style::Color;
+fn parse_color(color: syntect::highlighting::Color) -> Option<Color> {
     if color.a == 0 {
         Some(match color.r {
             0x00 => Color::Black,
@@ -247,12 +230,12 @@ fn to_ansi_color(color: syntect::highlighting::Color) -> Option<crossterm::style
             0x05 => Color::DarkMagenta,
             0x06 => Color::DarkCyan,
             0x07 => Color::Grey,
-            n => Color::AnsiValue(n),
+            n => Color::from_ansi(n)?,
         })
     } else if color.a == 1 {
         None
     } else {
-        Some(Color::Rgb { r: color.r, g: color.g, b: color.b })
+        Some(Color::new(color.r, color.g, color.b))
     }
 }
 

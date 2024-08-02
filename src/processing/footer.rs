@@ -54,13 +54,7 @@ impl AsRenderOperations for FooterGenerator {
                 ];
                 for (text, alignment) in [left, center, right].iter().zip(alignments) {
                     if let Some(text) = text {
-                        operations.push(Self::render_template(
-                            text,
-                            &current_slide,
-                            &context,
-                            colors.clone(),
-                            alignment,
-                        ));
+                        operations.push(Self::render_template(text, &current_slide, &context, *colors, alignment));
                     }
                 }
                 operations
@@ -71,7 +65,7 @@ impl AsRenderOperations for FooterGenerator {
                 let progress_ratio = (self.current_slide + 1) as f64 / context.total_slides as f64;
                 let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
                 let bar = character.repeat(columns_ratio as usize);
-                let bar = Text::new(bar, TextStyle::default().colors(colors.clone()));
+                let bar = Text::new(bar, TextStyle::default().colors(*colors));
                 vec![
                     RenderOperation::JumpToBottomRow { index: 0 },
                     RenderOperation::RenderText {

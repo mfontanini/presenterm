@@ -8,7 +8,7 @@ use std::{
 };
 
 /// The style of a piece of text.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct TextStyle {
     flags: u8,
     pub(crate) colors: Colors,
@@ -108,6 +108,11 @@ impl TextStyle {
         styled
     }
 
+    /// Checks whether this style has any modifiers (bold, italics, etc).
+    pub(crate) fn has_modifiers(&self) -> bool {
+        self.flags != 0
+    }
+
     fn add_flag(mut self, flag: TextFormatFlags) -> Self {
         self.flags |= flag as u8;
         self
@@ -158,6 +163,21 @@ impl Color {
             Self::Rgb { r, g, b } => Some((*r, *g, *b)),
             _ => None,
         }
+    }
+
+    pub(crate) fn from_ansi(color: u8) -> Option<Self> {
+        let color = match color {
+            30 | 40 => Color::Black,
+            31 | 41 => Color::Red,
+            32 | 42 => Color::Green,
+            33 | 43 => Color::Yellow,
+            34 | 44 => Color::Blue,
+            35 | 45 => Color::Magenta,
+            36 | 46 => Color::Cyan,
+            37 | 47 => Color::White,
+            _ => return None,
+        };
+        Some(color)
     }
 }
 
@@ -242,7 +262,7 @@ impl From<Color> for crossterm::style::Color {
 }
 
 /// Text colors.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
 pub(crate) struct Colors {
     /// The background color.
     pub(crate) background: Option<Color>,

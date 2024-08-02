@@ -13,8 +13,7 @@ use crate::{
         scale::{fit_image_to_window, scale_image},
     },
     presentation::{
-        AsRenderOperations, BlockLine, BlockLineText, ImageProperties, ImageSize, MarginProperties, RenderAsync,
-        RenderOperation,
+        AsRenderOperations, BlockLine, ImageProperties, ImageSize, MarginProperties, RenderAsync, RenderOperation,
     },
     render::{layout::Positioning, properties::WindowSize},
     style::Colors,
@@ -86,7 +85,7 @@ where
             RenderOperation::RenderText { line, alignment } => self.render_text(line, alignment),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image, properties) => self.render_image(image, properties),
-            RenderOperation::RenderBlockLine(operation) => self.render_preformatted_line(operation),
+            RenderOperation::RenderBlockLine(operation) => self.render_block_line(operation),
             RenderOperation::RenderDynamic(generator) => self.render_dynamic(generator.as_ref()),
             RenderOperation::RenderAsync(generator) => self.render_async(generator.as_ref()),
             RenderOperation::InitColumnLayout { columns } => self.init_column_layout(columns),
@@ -131,12 +130,12 @@ where
     }
 
     fn set_colors(&mut self, colors: &Colors) -> RenderResult {
-        self.colors = colors.clone();
+        self.colors = *colors;
         self.apply_colors()
     }
 
     fn apply_colors(&mut self) -> RenderResult {
-        self.terminal.set_colors(self.colors.clone())?;
+        self.terminal.set_colors(self.colors)?;
         Ok(())
     }
 
@@ -159,7 +158,10 @@ where
 
     fn render_text(&mut self, text: &WeightedTextBlock, alignment: &Alignment) -> RenderResult {
         let layout = self.build_layout(alignment.clone());
-        let text_drawer = TextDrawer::new(&layout, text, self.current_dimensions(), &self.colors)?;
+        let dimensions = self.current_dimensions();
+        let positioning = layout.compute(dimensions, text.width() as u16);
+        let prefix = "".into();
+        let text_drawer = TextDrawer::new(&prefix, text, positioning, &self.colors)?;
         text_drawer.draw(self.terminal)
     }
 
@@ -205,38 +207,22 @@ where
         Ok(())
     }
 
-    fn render_preformatted_line(&mut self, operation: &BlockLine) -> RenderResult {
-        let BlockLine { text, unformatted_length, block_length, alignment } = operation;
+    fn render_block_line(&mut self, operation: &BlockLine) -> RenderResult {
+        let BlockLine { text, block_length, alignment, block_color, prefix } = operation;
         let layout = self.build_layout(alignment.clone());
 
         let dimensions = self.current_dimensions();
         let Positioning { max_line_length, start_column } = layout.compute(dimensions, *block_length);
-        if self.options.validate_overflows && unformatted_length > &max_line_length {
+        if self.options.validate_overflows && text.width() as u16 > max_line_length {
             return Err(RenderError::HorizontalOverflow);
         }
 
         self.terminal.move_to_column(start_column)?;
 
-        // Pad this code block with spaces so we get a nice little rectangle.
-        let until_right_edge = max_line_length.saturating_sub(*unformatted_length);
-        match text {
-            BlockLineText::Preformatted(text) => {
-                self.terminal.print_line(text)?;
-                // If this line is longer than the screen, our cursor wrapped around so we need to update
-                // the terminal.
-                if *unformatted_length > max_line_length {
-                    let lines_wrapped = *unformatted_length / max_line_length;
-                    let new_row = self.terminal.cursor_row + lines_wrapped;
-                    self.terminal.sync_cursor_row(new_row)?;
-                }
-                self.terminal.print_line(&" ".repeat(until_right_edge as usize))?;
-            }
-            BlockLineText::Weighted(text) => {
-                let positioning = Positioning { max_line_length, start_column };
-                let text_drawer = TextDrawer::new_block(text, positioning, &self.colors)?;
-                text_drawer.draw(self.terminal)?;
-            }
-        };
+        let positioning = Positioning { max_line_length, start_column };
+        let text_drawer =
+            TextDrawer::new(prefix, text, positioning, &self.colors)?.with_surrounding_block(*block_color);
+        text_drawer.draw(self.terminal)?;
 
         // Restore colors
         self.apply_colors()?;
