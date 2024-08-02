@@ -141,10 +141,6 @@ impl AsRenderOperations for HighlightedLine {
             RenderOperation::RenderLineBreak,
         ]
     }
-
-    fn diffable_content(&self) -> Option<&str> {
-        None
-    }
 }
 
 #[derive(Debug)]

@@ -376,8 +376,4 @@ impl AsRenderOperations for RenderThirdParty {
             }
         }
     }
-
-    fn diffable_content(&self) -> Option<&str> {
-        None
-    }
 }

@@ -343,10 +343,6 @@ impl AsRenderOperations for RenderMany {
     fn as_render_operations(&self, _: &WindowSize) -> Vec<RenderOperation> {
         self.0.clone()
     }
-
-    fn diffable_content(&self) -> Option<&str> {
-        None
-    }
 }
 
 #[cfg(test)]

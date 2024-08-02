@@ -77,8 +77,4 @@ impl AsRenderOperations for FooterGenerator {
             FooterStyle::Empty => vec![],
         }
     }
-
-    fn diffable_content(&self) -> Option<&str> {
-        None
-    }
 }

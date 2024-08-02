@@ -665,7 +665,9 @@ pub(crate) trait AsRenderOperations: Debug + 'static {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation>;
 
     /// Get the content in this type to diff it against another `AsRenderOperations`.
-    fn diffable_content(&self) -> Option<&str>;
+    fn diffable_content(&self) -> Option<&str> {
+        None
+    }
 }
 
 /// An operation that can be rendered asynchronously.
