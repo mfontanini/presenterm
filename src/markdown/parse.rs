@@ -5,6 +5,7 @@ use crate::{
         elements::{ListItem, ListItemType, MarkdownElement, ParagraphElement, Table, TableRow, Text, TextBlock},
     },
     style::TextStyle,
+    Resources,
 };
 use comrak::{
     arena_tree::Node,
@@ -53,13 +54,14 @@ impl<'a> MarkdownParser<'a> {
     }
 
     /// Parse the contents of a markdown file.
-    pub(crate) fn parse(&self, contents: &str) -> ParseResult<Vec<MarkdownElement>> {
+    pub(crate) fn parse(&self, contents: &str, resources: &mut Resources) -> ParseResult<Vec<MarkdownElement>> {
         let node = parse_document(self.arena, contents, &self.options);
         let mut elements = Vec::new();
         let mut lines_offset = 0;
         for node in node.children() {
-            let mut parsed_elements =
-                self.parse_node(node).map_err(|e| ParseError::new(e.kind, e.sourcepos.offset_lines(lines_offset)))?;
+            let mut parsed_elements = self
+                .parse_node(node, resources)
+                .map_err(|e| ParseError::new(e.kind, e.sourcepos.offset_lines(lines_offset)))?;
             if let Some(MarkdownElement::FrontMatter(contents)) = parsed_elements.first() {
                 lines_offset += contents.lines().count() + 2;
             }
@@ -89,7 +91,7 @@ impl<'a> MarkdownParser<'a> {
         }
     }
 
-    fn parse_node(&self, node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
+    fn parse_node(&self, node: &'a AstNode<'a>, resources: &mut Resources) -> ParseResult<Vec<MarkdownElement>> {
         let data = node.data.borrow();
         let element = match &data.value {
             // Paragraphs are the only ones that can actually yield more than one.
@@ -101,7 +103,7 @@ impl<'a> MarkdownParser<'a> {
                 MarkdownElement::List(items)
             }
             NodeValue::Table(_) => self.parse_table(node)?,
-            NodeValue::CodeBlock(block) => Self::parse_code_block(block, data.sourcepos)?,
+            NodeValue::CodeBlock(block) => Self::parse_code_block(block, data.sourcepos, resources)?,
             NodeValue::ThematicBreak => MarkdownElement::ThematicBreak,
             NodeValue::HtmlBlock(block) => Self::parse_html_block(block, data.sourcepos)?,
             NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => Self::parse_block_quote(node)?,
@@ -163,12 +165,16 @@ impl<'a> MarkdownParser<'a> {
         Ok(MarkdownElement::BlockQuote(lines))
     }
 
-    fn parse_code_block(block: &NodeCodeBlock, sourcepos: Sourcepos) -> ParseResult<MarkdownElement> {
+    fn parse_code_block(
+        block: &NodeCodeBlock,
+        sourcepos: Sourcepos,
+        resources: &mut Resources,
+    ) -> ParseResult<MarkdownElement> {
         if !block.fenced {
             return Err(ParseErrorKind::UnfencedCodeBlock.with_sourcepos(sourcepos));
         }
-        let code =
-            CodeBlockParser::parse(block).map_err(|e| ParseErrorKind::InvalidCodeBlock(e).with_sourcepos(sourcepos))?;
+        let code = CodeBlockParser::parse(block, resources)
+            .map_err(|e| ParseErrorKind::InvalidCodeBlock(e).with_sourcepos(sourcepos))?;
         Ok(MarkdownElement::Snippet(code))
     }
 
@@ -522,7 +528,7 @@ mod test {
 
     fn try_parse(input: &str) -> Result<Vec<MarkdownElement>, ParseError> {
         let arena = Arena::new();
-        MarkdownParser::new(&arena).parse(input)
+        MarkdownParser::new(&arena).parse(input, &mut Resources::default())
     }
 
     fn parse_single(input: &str) -> MarkdownElement {
@@ -811,7 +817,7 @@ mom
 * ![](potato.png)
 ";
         let arena = Arena::new();
-        let result = MarkdownParser::new(&arena).parse(input);
+        let result = MarkdownParser::new(&arena).parse(input, &mut Resources::default());
         let Err(e) = result else {
             panic!("parsing didn't fail");
         };

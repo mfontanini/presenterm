@@ -373,6 +373,20 @@ pub(crate) struct SnippetAttributes {
     ///
     /// Only valid for +render snippets.
     pub(crate) width: Option<Percent>,
+
+    /// File for prepending content
+    pub(crate) prepend_file: Option<FileContentAttributes>,
+
+    /// File for appending content
+    pub(crate) append_file: Option<FileContentAttributes>,
+}
+
+/// Options for adding file contents to code snippets.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FileContentAttributes {
+    pub(crate) path: PathBuf,
+    pub(crate) start_line: Option<usize>,
+    pub(crate) end_line: Option<usize>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

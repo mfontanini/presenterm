@@ -81,12 +81,16 @@ impl<'a> Exporter<'a> {
             Err(e) => return Err(e.into()),
         };
         let version = Version::parse(version.trim()).map_err(|_| ExportError::MinimumVersion)?;
-        if version >= MINIMUM_EXPORTER_VERSION { Ok(()) } else { Err(ExportError::MinimumVersion) }
+        if version >= MINIMUM_EXPORTER_VERSION {
+            Ok(())
+        } else {
+            Err(ExportError::MinimumVersion)
+        }
     }
 
     /// Extract the metadata necessary to make an export.
     fn extract_metadata(&mut self, content: &str, path: &Path) -> Result<ExportMetadata, ExportError> {
-        let elements = self.parser.parse(content)?;
+        let elements = self.parser.parse(content, &mut self.resources)?;
         let path = path.canonicalize().expect("canonicalize");
         let mut presentation = PresentationBuilder::new(
             self.default_theme,

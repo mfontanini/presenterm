@@ -53,7 +53,7 @@ impl<W: TerminalWrite> ThemesDemo<W> {
     pub fn run(mut self) -> Result<(), Box<dyn std::error::Error>> {
         let arena = Default::default();
         let parser = MarkdownParser::new(&arena);
-        let elements = parser.parse(PRESENTATION).expect("broken demo presentation");
+        let elements = parser.parse(PRESENTATION, &mut Resources::default()).expect("broken demo presentation");
         let mut presentations = Vec::new();
         for theme_name in self.themes.presentation.theme_names() {
             let theme = self.themes.presentation.load_by_name(&theme_name).expect("theme not found");
@@ -136,6 +136,6 @@ mod test {
     fn demo_presentation() {
         let arena = Default::default();
         let parser = MarkdownParser::new(&arena);
-        parser.parse(PRESENTATION).expect("broken demo presentation");
+        parser.parse(PRESENTATION, &mut Resources::default()).expect("broken demo presentation");
     }
 }

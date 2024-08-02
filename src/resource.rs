@@ -4,7 +4,7 @@ use crate::{
 };
 use std::{
     collections::HashMap,
-    io,
+    fs, io,
     path::{Path, PathBuf},
 };
 
@@ -12,10 +12,12 @@ use std::{
 ///
 /// All resources are cached so once a specific resource is loaded, looking it up with the same
 /// path will involve an in-memory lookup.
+#[derive(Default)]
 pub struct Resources {
     base_path: PathBuf,
     images: HashMap<PathBuf, Image>,
     themes: HashMap<PathBuf, PresentationTheme>,
+    file_contents: HashMap<PathBuf, String>,
     image_registry: ImageRegistry,
 }
 
@@ -24,7 +26,13 @@ impl Resources {
     ///
     /// Any relative paths will be assumed to be relative to the given base.
     pub fn new<P: Into<PathBuf>>(base_path: P, image_registry: ImageRegistry) -> Self {
-        Self { base_path: base_path.into(), images: Default::default(), themes: Default::default(), image_registry }
+        Self {
+            base_path: base_path.into(),
+            images: Default::default(),
+            themes: Default::default(),
+            file_contents: Default::default(),
+            image_registry,
+        }
     }
 
     /// Get the image at the given path.
@@ -49,6 +57,18 @@ impl Resources {
         let theme = PresentationTheme::from_path(&path)?;
         self.themes.insert(path, theme.clone());
         Ok(theme)
+    }
+
+    /// Get the file contents at the given path.
+    pub(crate) fn file_content<P: AsRef<Path>>(&mut self, path: P) -> Result<String, std::io::Error> {
+        let path = self.base_path.join(path);
+        if let Some(file) = self.file_contents.get(&path) {
+            return Ok(file.clone());
+        }
+
+        let content = fs::read_to_string(&path)?;
+        self.file_contents.insert(path, content.clone());
+        Ok(content)
     }
 
     /// Clears all resources.

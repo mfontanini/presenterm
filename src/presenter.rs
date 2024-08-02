@@ -312,7 +312,7 @@ impl<'a> Presenter<'a> {
 
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
         let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
-        let elements = self.parser.parse(&content)?;
+        let elements = self.parser.parse(&content, &mut self.resources)?;
         let export_mode = matches!(self.options.mode, PresentMode::Export);
         let mut presentation = PresentationBuilder::new(
             self.default_theme,

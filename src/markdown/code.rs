@@ -1,5 +1,10 @@
+use std::{io, path::PathBuf, str::FromStr};
+
+use crate::Resources;
+
 use super::elements::{
-    Highlight, HighlightGroup, Percent, PercentParseError, Snippet, SnippetAttributes, SnippetLanguage,
+    FileContentAttributes, Highlight, HighlightGroup, Percent, PercentParseError, Snippet, SnippetAttributes,
+    SnippetLanguage,
 };
 use comrak::nodes::NodeCodeBlock;
 use strum::EnumDiscriminants;
@@ -9,14 +14,29 @@ pub(crate) type ParseResult<T> = Result<T, CodeBlockParseError>;
 pub(crate) struct CodeBlockParser;
 
 impl CodeBlockParser {
-    pub(crate) fn parse(code_block: &NodeCodeBlock) -> ParseResult<Snippet> {
+    pub(crate) fn parse(code_block: &NodeCodeBlock, resources: &mut Resources) -> ParseResult<Snippet> {
         let (language, attributes) = Self::parse_block_info(&code_block.info)?;
-        let code = Snippet { contents: code_block.literal.clone(), language, attributes };
+
+        let mut content = code_block.literal.clone();
+
+        if let Some(ref file_attr) = attributes.prepend_file {
+            let mut prepend_content = Self::content_from_file(file_attr, resources)?;
+            let _ = prepend_content.push_str(&content);
+            content = prepend_content.to_owned();
+        }
+
+        if let Some(ref file_attr) = attributes.append_file {
+            let append_content = Self::content_from_file(file_attr, resources)?;
+            let _ = content.push_str(&append_content);
+        }
+
+        let code = Snippet { contents: content, language, attributes };
         Ok(code)
     }
 
     fn parse_block_info(input: &str) -> ParseResult<(SnippetLanguage, SnippetAttributes)> {
         let (language, input) = Self::parse_language(input);
+
         let attributes = Self::parse_attributes(input)?;
         if attributes.auto_render && !language.supports_auto_render() {
             return Err(CodeBlockParseError::UnsupportedAttribute(language, "rendering"));
@@ -49,6 +69,8 @@ impl CodeBlockParser {
                 Attribute::AutoRender => attributes.auto_render = true,
                 Attribute::HighlightedLines(lines) => attributes.highlight_groups = lines,
                 Attribute::Width(width) => attributes.width = Some(width),
+                Attribute::PrependFile(file_attr) => attributes.prepend_file = Some(file_attr),
+                Attribute::AppendFile(file_attr) => attributes.append_file = Some(file_attr),
             };
             processed_attributes.push(discriminant);
             input = rest;
@@ -73,6 +95,12 @@ impl CodeBlockParser {
                         let (width, input) = Self::parse_width(value)?;
                         return Ok((Some(Attribute::Width(width)), input));
                     }
+                    attribute if attribute.starts_with("prepend_file(") && attribute.ends_with(")") => {
+                        Attribute::PrependFile(Self::parse_add_text_attribute(input, attribute)?)
+                    }
+                    attribute if attribute.starts_with("append_file(") && attribute.ends_with(")") => {
+                        Attribute::AppendFile(Self::parse_add_text_attribute(input, attribute)?)
+                    }
                     _ => return Err(CodeBlockParseError::InvalidToken(Self::next_identifier(input).into())),
                 };
                 (Some(attribute), &input[token.len() + 1..])
@@ -85,6 +113,24 @@ impl CodeBlockParser {
             None => (None, input),
         };
         Ok((attribute, input))
+    }
+
+    fn parse_add_text_attribute(input: &str, attribute: &str) -> ParseResult<FileContentAttributes> {
+        // TODO: TBD if this is the format we want
+        // TODO: filenames may include ',' breaking this parse
+        let start = attribute.find('(').expect("attribute should have (") + 1;
+        let end = attribute.rfind(')').expect("attribute should have )");
+
+        let content = &attribute[start..end];
+        let mut parts = content.split(',').map(|s| s.trim());
+
+        let path = parts.next().ok_or(CodeBlockParseError::InvalidFileFormat(Self::next_identifier(input).into()))?;
+        let path = PathBuf::from_str(path)
+            .map_err(|_| CodeBlockParseError::InvalidFileFormat(Self::next_identifier(input).into()))?;
+
+        let start_line = parts.next().and_then(|s| s.parse::<usize>().ok());
+        let end_line = parts.next().and_then(|s| s.parse::<usize>().ok());
+        Ok(FileContentAttributes { path, start_line, end_line })
     }
 
     fn parse_highlight_groups(input: &str) -> ParseResult<(Vec<HighlightGroup>, &str)> {
@@ -154,10 +200,25 @@ impl CodeBlockParser {
             None => input,
         }
     }
+
+    fn content_from_file(file_attr: &FileContentAttributes, resources: &mut Resources) -> ParseResult<String> {
+        let prepend_content = resources.file_content(&file_attr.path)?;
+        let lines: Vec<&str> = prepend_content.lines().collect();
+        let total_lines = lines.len();
+        let start_index = file_attr.start_line.unwrap_or(0).min(lines.len()).max(0);
+        let end_index = file_attr.end_line.unwrap_or(total_lines).min(total_lines).max(start_index);
+
+        let contents = lines[start_index..end_index].join("\n");
+
+        return Ok(contents);
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum CodeBlockParseError {
+    #[error(transparent)]
+    Io(#[from] io::Error),
+
     #[error("invalid code attribute: {0}")]
     InvalidToken(String),
 
@@ -166,6 +227,9 @@ pub(crate) enum CodeBlockParseError {
 
     #[error("invalid width: {0}")]
     InvalidWidth(PercentParseError),
+
+    #[error("attribute {0} requires a valid path, optionally a valid start and end number")]
+    InvalidFileFormat(String),
 
     #[error("duplicate attribute: {0}")]
     DuplicateAttribute(&'static str),
@@ -184,6 +248,8 @@ enum Attribute {
     AutoRender,
     HighlightedLines(Vec<HighlightGroup>),
     Width(Percent),
+    PrependFile(FileContentAttributes),
+    AppendFile(FileContentAttributes),
 }
 
 #[cfg(test)]
