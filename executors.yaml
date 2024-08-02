@@ -5,12 +5,12 @@ bash:
 c++:
   filename: snippet.cpp
   commands:
-    - ["g++", "-std=c++20", "snippet.cpp", "-o", "$pwd/snippet"]
+    - ["g++", "-std=c++20", "$pwd/snippet.cpp", "-o", "$pwd/snippet"]
     - ["$pwd/snippet"]
 c:
   filename: snippet.c
   commands:
-    - ["gcc", "snippet.c", "-o", "$pwd/snippet"]
+    - ["gcc", "$pwd/snippet.c", "-o", "$pwd/snippet"]
     - ["$pwd/snippet"]
 fish:
   filename: script.fish
