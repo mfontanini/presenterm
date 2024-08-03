@@ -120,6 +120,7 @@ impl CodeHighlighter {
             Elixir => "ex",
             Elm => "elm",
             Erlang => "erl",
+            File => "txt",
             Fish => "fish",
             Go => "go",
             Haskell => "hs",

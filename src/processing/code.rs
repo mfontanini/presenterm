@@ -13,8 +13,9 @@ use crate::{
     theme::{Alignment, CodeBlockStyle},
     PresentationTheme,
 };
+use serde::Deserialize;
 use serde_with::DeserializeFromStr;
-use std::{cell::RefCell, convert::Infallible, fmt::Write, ops::Range, rc::Rc, str::FromStr};
+use std::{cell::RefCell, convert::Infallible, fmt::Write, ops::Range, path::PathBuf, rc::Rc, str::FromStr};
 use strum::{EnumDiscriminants, EnumIter};
 use unicode_width::UnicodeWidthStr;
 
@@ -206,9 +207,6 @@ impl CodeBlockParser {
     fn parse_block_info(input: &str) -> ParseResult<(SnippetLanguage, SnippetAttributes)> {
         let (language, input) = Self::parse_language(input);
         let attributes = Self::parse_attributes(input)?;
-        if attributes.auto_render && !language.supports_auto_render() {
-            return Err(CodeBlockParseError::UnsupportedAttribute(language, "rendering"));
-        }
         if attributes.width.is_some() && !attributes.auto_render {
             return Err(CodeBlockParseError::NotRenderSnippet("width"));
         }
@@ -358,9 +356,6 @@ pub enum CodeBlockParseError {
     #[error("duplicate attribute: {0}")]
     DuplicateAttribute(&'static str),
 
-    #[error("language {0:?} does not support {1}")]
-    UnsupportedAttribute(SnippetLanguage, &'static str),
-
     #[error("attribute {0} can only be set in +render blocks")]
     NotRenderSnippet(&'static str),
 }
@@ -428,6 +423,7 @@ pub enum SnippetLanguage {
     Elixir,
     Elm,
     Erlang,
+    File,
     Fish,
     Go,
     Haskell,
@@ -470,10 +466,6 @@ pub enum SnippetLanguage {
 }
 
 impl SnippetLanguage {
-    pub(crate) fn supports_auto_render(&self) -> bool {
-        matches!(self, Self::Latex | Self::Typst | Self::Mermaid)
-    }
-
     pub(crate) fn hidden_line_prefix(&self) -> Option<&'static str> {
         use SnippetLanguage::*;
         match self {
@@ -508,6 +500,7 @@ impl FromStr for SnippetLanguage {
             "elixir" => Elixir,
             "elm" => Elm,
             "erlang" => Erlang,
+            "file" => File,
             "fish" => Fish,
             "go" => Go,
             "haskell" => Haskell,
@@ -603,6 +596,12 @@ pub(crate) enum Highlight {
     All,
     Single(u16),
     Range(Range<u16>),
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct ExternalFile {
+    pub(crate) path: PathBuf,
+    pub(crate) language: SnippetLanguage,
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ use crate::{
 };
 use std::{
     collections::HashMap,
-    io,
+    fs, io,
     path::{Path, PathBuf},
 };
 
@@ -16,6 +16,7 @@ pub struct Resources {
     base_path: PathBuf,
     images: HashMap<PathBuf, Image>,
     themes: HashMap<PathBuf, PresentationTheme>,
+    external_snippets: HashMap<PathBuf, String>,
     image_registry: ImageRegistry,
 }
 
@@ -24,7 +25,13 @@ impl Resources {
     ///
     /// Any relative paths will be assumed to be relative to the given base.
     pub fn new<P: Into<PathBuf>>(base_path: P, image_registry: ImageRegistry) -> Self {
-        Self { base_path: base_path.into(), images: Default::default(), themes: Default::default(), image_registry }
+        Self {
+            base_path: base_path.into(),
+            images: Default::default(),
+            themes: Default::default(),
+            external_snippets: Default::default(),
+            image_registry,
+        }
     }
 
     /// Get the image at the given path.
@@ -49,6 +56,18 @@ impl Resources {
         let theme = PresentationTheme::from_path(&path)?;
         self.themes.insert(path, theme.clone());
         Ok(theme)
+    }
+
+    /// Get the external snippet at the given path.
+    pub(crate) fn external_snippet<P: AsRef<Path>>(&mut self, path: P) -> io::Result<String> {
+        let path = self.base_path.join(path);
+        if let Some(contents) = self.external_snippets.get(&path) {
+            return Ok(contents.clone());
+        }
+
+        let contents = fs::read_to_string(&path)?;
+        self.external_snippets.insert(path, contents.clone());
+        Ok(contents)
     }
 
     /// Clears all resources.
