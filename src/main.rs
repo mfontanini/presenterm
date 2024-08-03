@@ -95,7 +95,10 @@ struct Customizations {
     code_executor: SnippetExecutor,
 }
 
-fn load_customizations(config_file_path: Option<PathBuf>) -> Result<Customizations, Box<dyn std::error::Error>> {
+fn load_customizations(
+    config_file_path: Option<PathBuf>,
+    cwd: &Path,
+) -> Result<Customizations, Box<dyn std::error::Error>> {
     let configs_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
         Ok(path) => Path::new(&path).join("presenterm"),
         Err(_) => {
@@ -108,7 +111,7 @@ fn load_customizations(config_file_path: Option<PathBuf>) -> Result<Customizatio
     let themes = load_themes(&configs_path)?;
     let config_file_path = config_file_path.unwrap_or_else(|| configs_path.join("config.yaml"));
     let config = Config::load(&config_file_path)?;
-    let code_executor = SnippetExecutor::new(config.snippet.exec.custom.clone())?;
+    let code_executor = SnippetExecutor::new(config.snippet.exec.custom.clone(), cwd.to_path_buf())?;
     Ok(Customizations { config, themes, code_executor })
 }
 
@@ -187,8 +190,13 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    let path = cli.path.take().unwrap_or_else(|| {
+        Cli::command().error(ErrorKind::MissingRequiredArgument, "no path specified").exit();
+    });
+    let resources_path = path.parent().unwrap_or(Path::new("/"));
+
     let Customizations { config, themes, code_executor } =
-        load_customizations(cli.config_file.clone().map(PathBuf::from))?;
+        load_customizations(cli.config_file.clone().map(PathBuf::from), resources_path)?;
 
     let default_theme = load_default_theme(&config, &themes, &cli);
     let force_default_theme = cli.theme.is_some();
@@ -209,11 +217,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let path = cli.path.take().unwrap_or_else(|| {
-        Cli::command().error(ErrorKind::MissingRequiredArgument, "no path specified").exit();
-    });
     let validate_overflows = overflow_validation(&mode, &config.defaults.validate_overflows) || cli.validate_overflows;
-    let resources_path = path.parent().unwrap_or(Path::new("/"));
     let mut options = make_builder_options(&config, &mode, force_default_theme);
     if cli.enable_snippet_execution {
         options.enable_snippet_execution = true;
