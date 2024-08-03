@@ -130,10 +130,6 @@ mod test {
         fn as_render_operations(&self, _dimensions: &WindowSize) -> Vec<RenderOperation> {
             Vec::new()
         }
-
-        fn diffable_content(&self) -> Option<&str> {
-            None
-        }
     }
 
     impl RenderAsync for Dynamic {

@@ -62,8 +62,4 @@ impl AsRenderOperations for RenderSeparator {
             alignment: Alignment::Center { minimum_size: 1, minimum_margin: Margin::Fixed(0) },
         })]
     }
-
-    fn diffable_content(&self) -> Option<&str> {
-        None
-    }
 }

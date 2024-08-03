@@ -96,11 +96,6 @@ impl AsRenderOperations for IndexDrawer {
         operations.extend(self.suffix.iter().cloned());
         operations
     }
-
-    fn diffable_content(&self) -> Option<&str> {
-        // The index is just a view over the underlying data so it won't change in isolation.
-        None
-    }
 }
 
 #[derive(Default)]
@@ -316,10 +311,6 @@ impl AsRenderOperations for CenterModalContent {
             operations.push(RenderOperation::RenderImage(image.clone(), properties));
         }
         operations
-    }
-
-    fn diffable_content(&self) -> Option<&str> {
-        None
     }
 }
 

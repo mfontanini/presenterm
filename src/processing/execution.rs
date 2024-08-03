@@ -108,10 +108,6 @@ impl AsRenderOperations for RunSnippetOperation {
         operations.push(RenderOperation::SetColors(self.default_colors));
         operations
     }
-
-    fn diffable_content(&self) -> Option<&str> {
-        None
-    }
 }
 
 impl RenderAsync for RunSnippetOperation {
@@ -199,10 +195,6 @@ impl AsRenderOperations for SnippetExecutionDisabledOperation {
             },
             RenderOperation::RenderLineBreak,
         ]
-    }
-
-    fn diffable_content(&self) -> Option<&str> {
-        None
     }
 }
 
