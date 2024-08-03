@@ -1,5 +1,6 @@
 use crate::{
-    markdown::elements::{SnippetLanguage, Text, TextBlock},
+    markdown::elements::{Text, TextBlock},
+    processing::code::SnippetLanguage,
     style::{Color, TextStyle},
     theme::CodeBlockStyle,
 };

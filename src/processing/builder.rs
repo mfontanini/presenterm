@@ -1,11 +1,15 @@
-use super::{code::CodeLine, execution::SnippetExecutionDisabledOperation, modals::KeyBindingsModalBuilder};
+use super::{
+    code::{CodeBlockParseError, CodeBlockParser, CodeLine, Highlight, HighlightGroup, Snippet, SnippetLanguage},
+    execution::SnippetExecutionDisabledOperation,
+    modals::KeyBindingsModalBuilder,
+};
 use crate::{
     custom::{KeyBindingsConfig, OptionsConfig},
     execute::SnippetExecutor,
     markdown::{
         elements::{
-            Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement, Percent,
-            PercentParseError, Snippet, SnippetLanguage, SourcePosition, Table, TableRow, Text, TextBlock,
+            ListItem, ListItemType, MarkdownElement, ParagraphElement, Percent, PercentParseError, SourcePosition,
+            Table, TableRow, Text, TextBlock,
         },
         text::WeightedTextBlock,
     },
@@ -256,7 +260,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::Heading { level, text } => self.push_heading(level, text),
             MarkdownElement::Paragraph(elements) => self.push_paragraph(elements)?,
             MarkdownElement::List(elements) => self.push_list(elements),
-            MarkdownElement::Snippet(code) => self.push_code(code)?,
+            MarkdownElement::Snippet { info, code, source_position } => self.push_code(info, code, source_position)?,
             MarkdownElement::Table(table) => self.push_table(table),
             MarkdownElement::ThematicBreak => self.process_thematic_break(),
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
@@ -712,16 +716,17 @@ impl<'a> PresentationBuilder<'a> {
         self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(Differ(text))));
     }
 
-    fn push_code(&mut self, code: Snippet) -> Result<(), BuildError> {
-        // TODO this needs to be the only way to diff things
-        self.push_differ(code.contents.clone());
+    fn push_code(&mut self, info: String, code: String, source_position: SourcePosition) -> Result<(), BuildError> {
+        let snippet = CodeBlockParser::parse(info, code)
+            .map_err(|error| BuildError::InvalidCode { line: source_position.start.line + 1, error })?;
+        self.push_differ(snippet.contents.clone());
 
-        if code.attributes.auto_render {
-            return self.push_rendered_code(code);
+        if snippet.attributes.auto_render {
+            return self.push_rendered_code(snippet);
         }
-        let lines = CodePreparer::new(&self.theme).prepare(&code);
+        let lines = CodePreparer::new(&self.theme).prepare(&snippet);
         let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
-        let (lines, context) = self.highlight_lines(&code, lines, block_length);
+        let (lines, context) = self.highlight_lines(&snippet, lines, block_length);
         for line in lines {
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
         }
@@ -729,9 +734,9 @@ impl<'a> PresentationBuilder<'a> {
         if self.options.allow_mutations && context.borrow().groups.len() > 1 {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
-        if code.attributes.execute {
+        if snippet.attributes.execute {
             if self.options.enable_snippet_execution {
-                self.push_code_execution(code, block_length)?;
+                self.push_code_execution(snippet, block_length)?;
             } else {
                 let operation = SnippetExecutionDisabledOperation::new(
                     self.theme.execution_output.status.failure,
@@ -978,6 +983,9 @@ pub enum BuildError {
     #[error("invalid theme: {0}")]
     InvalidTheme(#[from] LoadThemeError),
 
+    #[error("invalid code at line {line}: {error}")]
+    InvalidCode { line: usize, error: CodeBlockParseError },
+
     #[error("invalid code highlighter theme: '{0}'")]
     InvalidCodeTheme(String),
 
@@ -1175,7 +1183,6 @@ impl AsRenderOperations for Differ {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::markdown::elements::SnippetAttributes;
     use rstest::rstest;
 
     fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
@@ -1599,11 +1606,11 @@ mod test {
     #[case::enabled(true)]
     #[case::disabled(false)]
     fn snippet_execution(#[case] enabled: bool) {
-        let element = MarkdownElement::Snippet(Snippet {
-            contents: "".into(),
-            language: SnippetLanguage::Rust,
-            attributes: SnippetAttributes { execute: true, ..Default::default() },
-        });
+        let element = MarkdownElement::Snippet {
+            info: "rust +exec".into(),
+            code: "".into(),
+            source_position: Default::default(),
+        };
         let options = PresentationBuilderOptions { enable_snippet_execution: enabled, ..Default::default() };
         let presentation = build_presentation_with_options(vec![element], options);
         let slide = presentation.iter_slides().next().unwrap();

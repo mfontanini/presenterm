@@ -1,9 +1,6 @@
-use super::{code::CodeBlockParseError, elements::SourcePosition};
+use super::elements::SourcePosition;
 use crate::{
-    markdown::{
-        code::CodeBlockParser,
-        elements::{ListItem, ListItemType, MarkdownElement, ParagraphElement, Table, TableRow, Text, TextBlock},
-    },
+    markdown::elements::{ListItem, ListItemType, MarkdownElement, ParagraphElement, Table, TableRow, Text, TextBlock},
     style::TextStyle,
 };
 use comrak::{
@@ -77,13 +74,13 @@ impl<'a> MarkdownParser<'a> {
                 | MarkdownElement::SetexHeading { .. }
                 | MarkdownElement::Heading { .. }
                 | MarkdownElement::Paragraph(_)
-                | MarkdownElement::Image { .. }
                 | MarkdownElement::List(_)
-                | MarkdownElement::Snippet(_)
                 | MarkdownElement::Table(_)
                 | MarkdownElement::ThematicBreak
                 | MarkdownElement::BlockQuote(_) => continue,
-                MarkdownElement::Comment { source_position, .. } => source_position,
+                MarkdownElement::Comment { source_position, .. }
+                | MarkdownElement::Snippet { source_position, .. }
+                | MarkdownElement::Image { source_position, .. } => source_position,
             };
             *position = position.offset_lines(lines_offset);
         }
@@ -167,9 +164,11 @@ impl<'a> MarkdownParser<'a> {
         if !block.fenced {
             return Err(ParseErrorKind::UnfencedCodeBlock.with_sourcepos(sourcepos));
         }
-        let code =
-            CodeBlockParser::parse(block).map_err(|e| ParseErrorKind::InvalidCodeBlock(e).with_sourcepos(sourcepos))?;
-        Ok(MarkdownElement::Snippet(code))
+        Ok(MarkdownElement::Snippet {
+            info: block.info.clone(),
+            code: block.literal.clone(),
+            source_position: sourcepos.into(),
+        })
     }
 
     fn parse_heading(&self, heading: &NodeHeading, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
@@ -437,9 +436,6 @@ pub(crate) enum ParseErrorKind {
     /// We don't support unfenced code blocks.
     UnfencedCodeBlock,
 
-    /// A code block contains invalid attributes.
-    InvalidCodeBlock(CodeBlockParseError),
-
     /// An internal parsing error.
     Internal(String),
 }
@@ -452,7 +448,6 @@ impl Display for ParseErrorKind {
                 write!(f, "unsupported structure in {container}: {element}")
             }
             Self::UnfencedCodeBlock => write!(f, "only fenced code blocks are supported"),
-            Self::InvalidCodeBlock(error) => write!(f, "invalid code block: {error}"),
             Self::Internal(message) => write!(f, "internal error: {message}"),
         }
     }
@@ -516,7 +511,6 @@ impl Identifier for NodeValue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::markdown::elements::SnippetLanguage;
     use rstest::rstest;
     use std::path::Path;
 
@@ -667,29 +661,14 @@ another",
     fn code_block() {
         let parsed = parse_single(
             r"
-```rust
+```rust +exec
 let q = 42;
 ````
 ",
         );
-        let MarkdownElement::Snippet(code) = parsed else { panic!("not a code block: {parsed:?}") };
-        assert_eq!(code.language, SnippetLanguage::Rust);
-        assert_eq!(code.contents, "let q = 42;\n");
-        assert!(!code.attributes.execute);
-    }
-
-    #[test]
-    fn executable_code_block() {
-        let parsed = parse_single(
-            r"
-```bash +exec
-echo hi mom
-````
-",
-        );
-        let MarkdownElement::Snippet(code) = parsed else { panic!("not a code block: {parsed:?}") };
-        assert_eq!(code.language, SnippetLanguage::Bash);
-        assert!(code.attributes.execute);
+        let MarkdownElement::Snippet { info, code, .. } = parsed else { panic!("not a code block: {parsed:?}") };
+        assert_eq!(info, "rust +exec");
+        assert_eq!(code, "let q = 42;\n");
     }
 
     #[test]

@@ -3,10 +3,11 @@ use crate::{
     ansi::AnsiSplitter,
     execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
     markdown::{
-        elements::{Snippet, Text, TextBlock},
+        elements::{Text, TextBlock},
         text::WeightedTextBlock,
     },
     presentation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, RenderOperation},
+    processing::code::Snippet,
     render::properties::WindowSize,
     style::{Colors, TextStyle},
     theme::{Alignment, ExecutionStatusBlockStyle},
