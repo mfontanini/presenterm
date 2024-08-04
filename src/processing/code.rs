@@ -232,6 +232,7 @@ impl CodeBlockParser {
             match attribute {
                 Attribute::LineNumbers => attributes.line_numbers = true,
                 Attribute::Exec => attributes.execute = true,
+                Attribute::ExecReplace => attributes.execute_replace = true,
                 Attribute::AutoRender => attributes.auto_render = true,
                 Attribute::HighlightedLines(lines) => attributes.highlight_groups = lines,
                 Attribute::Width(width) => attributes.width = Some(width),
@@ -253,6 +254,7 @@ impl CodeBlockParser {
                 let attribute = match token {
                     "line_numbers" => Attribute::LineNumbers,
                     "exec" => Attribute::Exec,
+                    "exec_replace" => Attribute::ExecReplace,
                     "render" => Attribute::AutoRender,
                     token if token.starts_with("width:") => {
                         let value = input.split_once("+width:").unwrap().1;
@@ -364,6 +366,7 @@ pub enum CodeBlockParseError {
 enum Attribute {
     LineNumbers,
     Exec,
+    ExecReplace,
     AutoRender,
     HighlightedLines(Vec<HighlightGroup>),
     Width(Percent),
@@ -550,6 +553,10 @@ impl FromStr for SnippetLanguage {
 pub(crate) struct SnippetAttributes {
     /// Whether the snippet is marked as executable.
     pub(crate) execute: bool,
+
+    /// Whether the snippet is marked as an executable block that will be replaced with the output
+    /// of its execution.
+    pub(crate) execute_replace: bool,
 
     /// Whether a snippet is marked to be auto rendered.
     ///

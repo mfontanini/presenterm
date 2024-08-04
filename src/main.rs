@@ -69,6 +69,10 @@ struct Cli {
     #[clap(short = 'x', long)]
     enable_snippet_execution: bool,
 
+    /// Enable code snippet auto execution via `+exec_replace` blocks.
+    #[clap(short = 'X', long)]
+    enable_snippet_execution_replace: bool,
+
     /// The path to the configuration file.
     #[clap(short, long)]
     config_file: Option<String>,
@@ -145,6 +149,7 @@ fn make_builder_options(config: &Config, mode: &PresentMode, force_default_theme
         print_modal_background: false,
         strict_front_matter_parsing: config.options.strict_front_matter_parsing.unwrap_or(true),
         enable_snippet_execution: config.snippet.exec.enable,
+        enable_snippet_execution_replace: config.snippet.exec_replace.enable,
     }
 }
 
@@ -221,6 +226,9 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let mut options = make_builder_options(&config, &mode, force_default_theme);
     if cli.enable_snippet_execution {
         options.enable_snippet_execution = true;
+    }
+    if cli.enable_snippet_execution_replace {
+        options.enable_snippet_execution_replace = true;
     }
     let graphics_mode = select_graphics_mode(&cli, &config);
     let printer = Arc::new(ImagePrinter::new(graphics_mode.clone())?);

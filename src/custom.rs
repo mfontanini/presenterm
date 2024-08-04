@@ -132,6 +132,10 @@ pub struct SnippetConfig {
     #[serde(default)]
     pub exec: SnippetExecConfig,
 
+    /// The properties for snippet execution.
+    #[serde(default)]
+    pub exec_replace: SnippetExecReplaceConfig,
+
     /// The properties for snippet auto rendering.
     #[serde(default)]
     pub render: SnippetRenderConfig,
@@ -146,6 +150,14 @@ pub struct SnippetExecConfig {
     /// Custom snippet executors.
     #[serde(default)]
     pub custom: BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SnippetExecReplaceConfig {
+    /// Whether to enable snippet replace-executions, which automatically run code snippets without
+    /// the user's intervention.
+    pub enable: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
