@@ -1,0 +1,510 @@
+<!DOCTYPE HTML>
+<html lang="en" class="machiatto" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Themes - presenterm documentation</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href=".././theme/catppuccin.css">
+        <link rel="stylesheet" href=".././theme/catppuccin-admonish.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "machiatto";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('machiatto')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../introduction.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="../guides/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="../guides/basics.html"><strong aria-hidden="true">2.</strong> Basics</a></li><li class="chapter-item expanded "><a href="../guides/themes.html" class="active"><strong aria-hidden="true">3.</strong> Themes</a></li><li class="chapter-item expanded "><a href="../guides/layout.html"><strong aria-hidden="true">4.</strong> Layout</a></li><li class="chapter-item expanded "><a href="../guides/configuration.html"><strong aria-hidden="true">5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../guides/code-highlight.html"><strong aria-hidden="true">6.</strong> Code highlighting</a></li><li class="chapter-item expanded "><a href="../guides/pdf-export.html"><strong aria-hidden="true">7.</strong> PDF export</a></li><li class="chapter-item expanded "><a href="../guides/mermaid.html"><strong aria-hidden="true">8.</strong> Mermaid</a></li><li class="chapter-item expanded "><a href="../guides/latex.html"><strong aria-hidden="true">9.</strong> LaTeX and typst</a></li><li class="chapter-item expanded affix "><li class="part-title">Internals</li><li class="chapter-item expanded "><a href="../internals/parse.html"><strong aria-hidden="true">10.</strong> Parse</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><a href="../acknowledgements.html">Acknowledgements</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mocha">Mocha</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="macchiato">Macchiato</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="frappe">Frappé</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="latte">Latte</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">presenterm documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/mfontanini/presenterm" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="themes"><a class="header" href="#themes">Themes</a></h2>
+<p>Themes are defined in the form of yaml files. A few built-in themes are defined in the <a href="https://github.com/mfontanini/presenterm/tree/master/themes">themes</a> 
+directory, but others can be created and referenced directly in every presentation.</p>
+<h3 id="setting-themes"><a class="header" href="#setting-themes">Setting themes</a></h3>
+<p>There's various ways of setting the theme you want in your presentation:</p>
+<h4 id="cli"><a class="header" href="#cli">CLI</a></h4>
+<p>Passing in the <code>--theme</code> parameter when running <em>presenterm</em> to select one of the built-in themes.</p>
+<h4 id="within-the-presentation"><a class="header" href="#within-the-presentation">Within the presentation</a></h4>
+<p>The presentation's markdown file can contain a front matter that specifies the theme to use. This comes in 3 flavors:</p>
+<h5 id="by-name"><a class="header" href="#by-name">By name</a></h5>
+<p>Using a built-in theme name makes your presentation use that one regardless of what the default or what the <code>--theme</code> 
+option specifies:</p>
+<pre><code class="language-yaml">---
+theme:
+  name: dark
+---
+</code></pre>
+<h5 id="by-path"><a class="header" href="#by-path">By path</a></h5>
+<p>You can define a theme file in yaml format somewhere in your filesystem and reference it within the presentation:</p>
+<pre><code class="language-yaml">---
+theme:
+  path: /home/me/Documents/epic-theme.yaml
+---
+</code></pre>
+<h5 id="overrides"><a class="header" href="#overrides">Overrides</a></h5>
+<p>You can partially/completely override the theme in use from within the presentation:</p>
+<pre><code class="language-yaml">---
+theme:
+  override:
+    default:
+      colors:
+        foreground: &quot;beeeff&quot;
+---
+</code></pre>
+<p>This lets you:</p>
+<ol>
+<li>Create a unique style for your presentation without having to go through the process of taking an existing theme, 
+copying somewhere, and changing it when you only expect to use it for that one presentation.</li>
+<li>Iterate quickly on styles given overrides are reloaded whenever you save your presentation file.</li>
+</ol>
+<h2 id="built-in-themes"><a class="header" href="#built-in-themes">Built-in themes</a></h2>
+<p>A few built-in themes are bundled with the application binary, meaning you don't need to have any external files 
+available to use them. These are packed as part of the <a href="https://github.com/mfontanini/presenterm/blob/master/build.rs">build process</a> as a binary blob and are decoded on 
+demand only when used.</p>
+<p>Currently, the following themes are supported:</p>
+<ul>
+<li><code>dark</code>: A dark theme.</li>
+<li><code>light</code>: A light theme.</li>
+<li><code>tokyonight-storm</code>: A theme inspired by the colors used in <a href="https://github.com/folke/tokyonight.nvim">toyonight</a>.</li>
+<li>A set of themes based on the <a href="https://github.com/catppuccin/catppuccin">catppuccin</a> color palette:
+<ul>
+<li><code>catppuccin-latte</code></li>
+<li><code>catppuccin-frappe</code></li>
+<li><code>catppuccin-macchiato</code></li>
+<li><code>catppuccin-mocha</code></li>
+</ul>
+</li>
+<li><code>terminal-dark</code>: A theme that uses your terminals color and looks best if your terminal uses a dark color scheme. This 
+means if your terminal background is e.g. transparent, or uses an image, the presentation will inherit that.</li>
+<li><code>terminal-light</code>: The same as <code>terminal-dark</code> but works best if your terminal uses a light color scheme.</li>
+</ul>
+<h3 id="trying-out-built-in-themes"><a class="header" href="#trying-out-built-in-themes">Trying out built-in themes</a></h3>
+<p>All built-in themes can be tested by using the <code>--list-themes</code> parameter:</p>
+<pre><code class="language-shell">presenterm --list-themes
+</code></pre>
+<p>This will run a presentation where the same content is rendered using a different theme in each slide:</p>
+<p><a href="https://asciinema.org/a/zeV1QloyrLkfBp6rNltvX7Lle"><img src="https://asciinema.org/a/zeV1QloyrLkfBp6rNltvX7Lle.svg" alt="asciicast" /></a></p>
+<h2 id="loading-custom-themes"><a class="header" href="#loading-custom-themes">Loading custom themes</a></h2>
+<p>On startup, <em>presenterm</em> will look into the <code>themes</code> directory under the <a href="configuration.html">configuration directory</a> 
+(e.g. <code>~/.config/presenterm/themes</code> in Linux) and will load any <code>.yaml</code> file as a theme and make it available as if it 
+was a built-in theme. This means you can use it as an argument to the <code>--theme</code> parameter, use it in the <code>theme.name</code> 
+property in a presentation's front matter, etc.</p>
+<h2 id="theme-definition"><a class="header" href="#theme-definition">Theme definition</a></h2>
+<p>This section goes through the structure of the theme files. Have a look at some of the <a href="https://github.com/mfontanini/presenterm/tree/master/themes">existing themes</a> 
+to have an idea of how to structure themes. </p>
+<h3 id="root-elements"><a class="header" href="#root-elements">Root elements</a></h3>
+<p>The root attributes on the theme yaml files specify either:</p>
+<ul>
+<li>A specific type of element in the input markdown or rendered presentation. That is, the slide title, headings, footer, 
+etc.</li>
+<li>A default to be applied as a fallback if no specific style is specified for a particular element.</li>
+</ul>
+<h3 id="alignment"><a class="header" href="#alignment">Alignment</a></h3>
+<p><em>presenterm</em> uses the notion of alignment, just like you would have in a GUI editor, to align text to the left, center, 
+or right. You probably want most elements to be aligned left, <em>some</em> to be aligned on the center, and probably none to 
+the right (but hey, you're free to do so!).</p>
+<p>The following elements support alignment:</p>
+<ul>
+<li>Code blocks.</li>
+<li>Slide titles.</li>
+<li>The title, subtitle, and author elements in the intro slide.</li>
+<li>Tables.</li>
+</ul>
+<h4 id="leftright-alignment"><a class="header" href="#leftright-alignment">Left/right alignment</a></h4>
+<p>Left and right alignments take a margin property which specifies the number of columns to keep between the text and the 
+left/right terminal screen borders. </p>
+<p>The margin can be specified in two ways:</p>
+<h5 id="fixed"><a class="header" href="#fixed">Fixed</a></h5>
+<p>A specific number of characters regardless of the terminal size.</p>
+<pre><code class="language-yaml">alignment: left
+margin:
+  fixed: 5
+</code></pre>
+<h5 id="percent"><a class="header" href="#percent">Percent</a></h5>
+<p>A percentage over the total number of columns in the terminal.</p>
+<pre><code class="language-yaml">alignment: left
+margin:
+  percent: 8
+</code></pre>
+<p>Percent alignment tends to look a bit nicer as it won't change the presentation's look as much when the terminal size 
+changes.</p>
+<h4 id="center-alignment"><a class="header" href="#center-alignment">Center alignment</a></h4>
+<p>Center alignment has 2 properties:</p>
+<ul>
+<li><code>minimum_size</code> which specifies the minimum size you want that element to have. This is normally useful for code blocks 
+as they have a predefined background which you likely want to extend slightly beyond the end of the code on the right.</li>
+<li><code>minimum_margin</code> which specifies the minimum margin you want, using the same structure as <code>margin</code> for left/right 
+alignment. This doesn't play very well with <code>minimum_size</code> but in isolation it specifies the minimum number of columns 
+you want to the left and right of your text.</li>
+</ul>
+<h3 id="colors"><a class="header" href="#colors">Colors</a></h3>
+<p>Every element can have its own background/foreground color using hex notation:</p>
+<pre><code class="language-yaml">default:
+  colors:
+    foreground: &quot;ff0000&quot;
+    background: &quot;00ff00&quot;
+</code></pre>
+<h3 id="default-style"><a class="header" href="#default-style">Default style</a></h3>
+<p>The default style specifies:</p>
+<ul>
+<li>The margin to be applied to all slides.</li>
+<li>The colors to be used for all text.</li>
+</ul>
+<pre><code class="language-yaml">default:
+  margin:
+    percent: 8
+  colors:
+    foreground: &quot;e6e6e6&quot;
+    background: &quot;040312&quot;
+</code></pre>
+<h3 id="intro-slide"><a class="header" href="#intro-slide">Intro slide</a></h3>
+<p>The introductory slide will be rendered if you specify a title, subtitle, or author in the presentation's front matter. 
+This lets you have a less markdown-looking introductory slide that stands out so that it doesn't end up looking too 
+monotonous:</p>
+<pre><code class="language-yaml">---
+title: Presenting from my terminal
+sub_title: Like it's 1990
+author: John Doe
+---
+</code></pre>
+<p>The theme can specify:</p>
+<ul>
+<li>For the title and subtitle, the alignment and colors.</li>
+<li>For the author, the alignment, colors, and positioning (<code>page_bottom</code> and <code>below_title</code>). The first one will push it 
+to the bottom of the screen while the second one will put it right below the title (or subtitle if there is one)</li>
+</ul>
+<p>For example:</p>
+<pre><code class="language-yaml">intro_slide:
+  title:
+    alignment: left
+    margin:
+      percent: 8
+  author:
+    colors:
+      foreground: black
+    positioning: below_title
+</code></pre>
+<h3 id="footer"><a class="header" href="#footer">Footer</a></h3>
+<p>The footer currently comes in 3 flavors:</p>
+<h4 id="none"><a class="header" href="#none">None</a></h4>
+<p>No footer at all!</p>
+<pre><code class="language-yaml">footer:
+  style: empty
+</code></pre>
+<h4 id="progress-bar"><a class="header" href="#progress-bar">Progress bar</a></h4>
+<p>A progress bar that will advance as you move in your presentation. This will by default use a block-looking character to 
+draw the progress bar but you can customize it:</p>
+<pre><code class="language-yaml">footer:
+  style: progress_bar
+
+  # Optional!
+  character: 🚀
+</code></pre>
+<h4 id="template"><a class="header" href="#template">Template</a></h4>
+<p>A template footer that lets you put something on the left, center and/or right of the screen. The template strings have 
+access to <code>{author}</code> as specified in the front matter, <code>{current_slide}</code> and <code>{total_slides}</code> which will point to the 
+current and total number of slides:</p>
+<pre><code class="language-yaml">footer:
+  style: template
+  left: &quot;My name is {author}&quot;
+  center: @myhandle
+  right: &quot;{current_slide} / {total_slides}&quot;
+</code></pre>
+<h3 id="slide-title"><a class="header" href="#slide-title">Slide title</a></h3>
+<p>Slide titles, as specified by using a setext header, has the following properties:</p>
+<ul>
+<li><code>padding_top</code> which specifies the number of rows you want as padding before the text.</li>
+<li><code>padding_bottom</code> which specifies the number of rows you want as padding after the text.</li>
+<li><code>separator</code> which specifies whether you want a horizontal ruler after the text (and the <code>padding_bottom</code>):</li>
+</ul>
+<pre><code class="language-yaml">slide_title:
+  padding_bottom: 1
+  padding_top: 1
+  separator: true
+</code></pre>
+<h3 id="headings"><a class="header" href="#headings">Headings</a></h3>
+<p>Every header type (h1 through h6) can have its own style composed of:</p>
+<ul>
+<li>The prefix you want to use.</li>
+<li>The colors, just like any other element:</li>
+</ul>
+<pre><code class="language-yaml">headings:
+  h1:
+    prefix: &quot;██&quot;
+    colors:
+      foreground: &quot;rgb_(48,133,195)&quot;
+  h2:
+    prefix: &quot;▓▓▓&quot;
+    colors:
+      foreground: &quot;rgb_(168,223,142)&quot;
+</code></pre>
+<h3 id="code-blocks"><a class="header" href="#code-blocks">Code blocks</a></h3>
+<p>The syntax highlighting for code blocks is done via the <a href="https://github.com/trishume/syntect">syntect</a> crate. The list 
+of all the supported built-in <em>syntect</em> themes is the following:</p>
+<ul>
+<li>base16-ocean.dark</li>
+<li>base16-eighties.dark</li>
+<li>base16-mocha.dark</li>
+<li>base16-ocean.light</li>
+<li>InspiredGitHub</li>
+<li>Solarized (dark)</li>
+<li>Solarized (light)</li>
+</ul>
+<p>Besides those and thanks to the work done on the awesome <a href="https://github.com/sharkdp/bat">bat tool</a>, <em>presenterm</em> has 
+access to not only the built-in <em>syntect</em>'s built-in themes but also the ones in <em>bat</em>. Run <code>bat --list-themes</code> to see a 
+list of all of them.</p>
+<p>Code blocks can also have an optional vertical and horizontal padding so your code is not too close to its bounding 
+rectangle:</p>
+<pre><code class="language-yaml">code:
+  theme_name: base16-eighties.dark
+  padding:
+    horizontal: 2
+    vertical: 1
+</code></pre>
+<h4 id="custom-highlighting-themes"><a class="header" href="#custom-highlighting-themes">Custom highlighting themes</a></h4>
+<p>Besides the built-in highlighting themes, you can drop any <code>.tmTheme</code> theme in the <code>themes/highlighting</code> directory under 
+your <a href="configuration.html">configuration directory</a> (e.g. <code>~/.config/presenterm/themes/highlighting</code> in Linux) and they 
+will be loaded automatically when <em>presenterm</em> starts.</p>
+<h3 id="block-quotes"><a class="header" href="#block-quotes">Block quotes</a></h3>
+<p>For block quotes you can specify a string to use as a prefix in every line of quoted text:</p>
+<pre><code class="language-yaml">block_quote:
+  prefix: &quot;▍ &quot;
+</code></pre>
+<!-- links -->
+<h3 id="mermaid"><a class="header" href="#mermaid">Mermaid</a></h3>
+<p>The <a href="https://mermaid.js.org/">mermaid</a> graphs can be customized using the following parameters:</p>
+<ul>
+<li><code>mermaid.background</code> the background color passed to the CLI (e.g., <code>transparent</code>, <code>red</code>, <code>#F0F0F0</code>).</li>
+<li><code>mermaid.theme</code> the <a href="https://mermaid.js.org/config/theming.html#available-themes">mermaid theme</a> to use.</li>
+</ul>
+<pre><code class="language-yaml">mermaid:
+  background: transparent
+  theme: dark
+</code></pre>
+<h3 id="extending-themes"><a class="header" href="#extending-themes">Extending themes</a></h3>
+<p>Custom themes can extend other custom or built in themes. This means it will inherit all the properties of the theme 
+being extended by default.</p>
+<p>For example:</p>
+<pre><code class="language-yaml">extends: dark
+default:
+  colors:
+    background: &quot;000000&quot;
+</code></pre>
+<p>This theme extends the built in <em>dark</em> theme and overrides the background color. This is useful if you find yourself 
+<em>almost</em> liking a built in theme but there's only some properties you don't like.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../guides/basics.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../guides/layout.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../guides/basics.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../guides/layout.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
