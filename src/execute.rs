@@ -2,7 +2,7 @@
 
 use crate::{
     custom::LanguageSnippetExecutionConfig,
-    markdown::elements::{Snippet, SnippetLanguage},
+    processing::code::{Snippet, SnippetLanguage},
 };
 use once_cell::sync::Lazy;
 use os_pipe::PipeReader;
@@ -244,7 +244,7 @@ impl ProcessStatus {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::markdown::elements::SnippetAttributes;
+    use crate::processing::code::SnippetAttributes;
 
     #[test]
     fn shell_code_execution() {

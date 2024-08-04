@@ -1,5 +1,6 @@
 use crate::{
-    markdown::elements::{SnippetLanguage, Text, TextBlock},
+    markdown::elements::{Text, TextBlock},
+    processing::code::SnippetLanguage,
     style::{Color, TextStyle},
     theme::CodeBlockStyle,
 };
@@ -119,6 +120,7 @@ impl CodeHighlighter {
             Elixir => "ex",
             Elm => "elm",
             Erlang => "erl",
+            File => "txt",
             Fish => "fish",
             Go => "go",
             Haskell => "hs",

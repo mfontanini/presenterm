@@ -1,7 +1,5 @@
 use crate::style::TextStyle;
-use serde_with::DeserializeFromStr;
-use std::{convert::Infallible, fmt::Write, iter, ops::Range, path::PathBuf, str::FromStr};
-use strum::EnumIter;
+use std::{iter, path::PathBuf, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 
 /// A markdown element.
@@ -31,7 +29,16 @@ pub(crate) enum MarkdownElement {
     List(Vec<ListItem>),
 
     /// A code snippet.
-    Snippet(Snippet),
+    Snippet {
+        /// The information line that specifies this code's language, attributes, etc.
+        info: String,
+
+        /// The code in this snippet.
+        code: String,
+
+        /// The position in the source file this snippet came from.
+        source_position: SourcePosition,
+    },
 
     /// A table.
     Table(Table),
@@ -173,237 +180,6 @@ pub(crate) enum ListItemType {
     OrderedPeriod,
 }
 
-/// A code snippet.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Snippet {
-    /// The snippet itself.
-    pub(crate) contents: String,
-
-    /// The programming language this snippet is written in.
-    pub(crate) language: SnippetLanguage,
-
-    /// The attributes used for snippet.
-    pub(crate) attributes: SnippetAttributes,
-}
-
-impl Snippet {
-    pub(crate) fn visible_lines(&self) -> impl Iterator<Item = &str> {
-        let prefix = self.language.hidden_line_prefix();
-        self.contents.lines().filter(move |line| !prefix.is_some_and(|prefix| line.starts_with(prefix)))
-    }
-
-    pub(crate) fn executable_contents(&self) -> String {
-        if let Some(prefix) = self.language.hidden_line_prefix() {
-            self.contents.lines().fold(String::new(), |mut output, line| {
-                let line = line.strip_prefix(prefix).unwrap_or(line);
-                let _ = writeln!(output, "{line}");
-                output
-            })
-        } else {
-            self.contents.to_owned()
-        }
-    }
-}
-
-/// The language of a code snippet.
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, DeserializeFromStr)]
-pub enum SnippetLanguage {
-    Ada,
-    Asp,
-    Awk,
-    Bash,
-    BatchFile,
-    C,
-    CMake,
-    Crontab,
-    CSharp,
-    Clojure,
-    Cpp,
-    Css,
-    DLang,
-    Diff,
-    Docker,
-    Dotenv,
-    Elixir,
-    Elm,
-    Erlang,
-    Fish,
-    Go,
-    Haskell,
-    Html,
-    Java,
-    JavaScript,
-    Json,
-    Kotlin,
-    Latex,
-    Lua,
-    Makefile,
-    Mermaid,
-    Markdown,
-    Nix,
-    Nushell,
-    OCaml,
-    Perl,
-    Php,
-    Protobuf,
-    Puppet,
-    Python,
-    R,
-    Ruby,
-    Rust,
-    RustScript,
-    Scala,
-    Shell,
-    Sql,
-    Swift,
-    Svelte,
-    Terraform,
-    TypeScript,
-    Typst,
-    Unknown(String),
-    Xml,
-    Yaml,
-    Vue,
-    Zig,
-    Zsh,
-}
-
-impl SnippetLanguage {
-    pub(crate) fn supports_auto_render(&self) -> bool {
-        matches!(self, Self::Latex | Self::Typst | Self::Mermaid)
-    }
-
-    pub(crate) fn hidden_line_prefix(&self) -> Option<&'static str> {
-        use SnippetLanguage::*;
-        match self {
-            Rust => Some("# "),
-            Python | Bash | Fish | Shell | Zsh | Kotlin | Java | JavaScript | TypeScript | C | Cpp | Go => Some("/// "),
-            _ => None,
-        }
-    }
-}
-
-impl FromStr for SnippetLanguage {
-    type Err = Infallible;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use SnippetLanguage::*;
-        let language = match s {
-            "ada" => Ada,
-            "asp" => Asp,
-            "awk" => Awk,
-            "bash" => Bash,
-            "c" => C,
-            "cmake" => CMake,
-            "crontab" => Crontab,
-            "csharp" => CSharp,
-            "clojure" => Clojure,
-            "cpp" | "c++" => Cpp,
-            "css" => Css,
-            "d" => DLang,
-            "diff" => Diff,
-            "docker" => Docker,
-            "dotenv" => Dotenv,
-            "elixir" => Elixir,
-            "elm" => Elm,
-            "erlang" => Erlang,
-            "fish" => Fish,
-            "go" => Go,
-            "haskell" => Haskell,
-            "html" => Html,
-            "java" => Java,
-            "javascript" | "js" => JavaScript,
-            "json" => Json,
-            "kotlin" => Kotlin,
-            "latex" => Latex,
-            "lua" => Lua,
-            "make" => Makefile,
-            "markdown" => Markdown,
-            "mermaid" => Mermaid,
-            "nix" => Nix,
-            "nushell" | "nu" => Nushell,
-            "ocaml" => OCaml,
-            "perl" => Perl,
-            "php" => Php,
-            "protobuf" => Protobuf,
-            "puppet" => Puppet,
-            "python" => Python,
-            "r" => R,
-            "ruby" => Ruby,
-            "rust" => Rust,
-            "rust-script" => RustScript,
-            "scala" => Scala,
-            "shell" | "sh" => Shell,
-            "sql" => Sql,
-            "svelte" => Svelte,
-            "swift" => Swift,
-            "terraform" => Terraform,
-            "typescript" | "ts" => TypeScript,
-            "typst" => Typst,
-            "xml" => Xml,
-            "yaml" => Yaml,
-            "vue" => Vue,
-            "zig" => Zig,
-            "zsh" => Zsh,
-            other => Unknown(other.to_string()),
-        };
-        Ok(language)
-    }
-}
-
-/// Attributes for code snippets.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct SnippetAttributes {
-    /// Whether the snippet is marked as executable.
-    pub(crate) execute: bool,
-
-    /// Whether a snippet is marked to be auto rendered.
-    ///
-    /// An auto rendered snippet is transformed during parsing, leading to some visual
-    /// representation of it being shown rather than the original code.
-    pub(crate) auto_render: bool,
-
-    /// Whether the snippet should show line numbers.
-    pub(crate) line_numbers: bool,
-
-    /// The groups of lines to highlight.
-    pub(crate) highlight_groups: Vec<HighlightGroup>,
-
-    /// The width of the generated image.
-    ///
-    /// Only valid for +render snippets.
-    pub(crate) width: Option<Percent>,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct HighlightGroup(Vec<Highlight>);
-
-impl HighlightGroup {
-    pub(crate) fn new(highlights: Vec<Highlight>) -> Self {
-        Self(highlights)
-    }
-
-    pub(crate) fn contains(&self, line_number: u16) -> bool {
-        for higlight in &self.0 {
-            match higlight {
-                Highlight::All => return true,
-                Highlight::Single(number) if number == &line_number => return true,
-                Highlight::Range(range) if range.contains(&line_number) => return true,
-                _ => continue,
-            };
-        }
-        false
-    }
-}
-
-/// A highlighted set of lines
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum Highlight {
-    All,
-    Single(u16),
-    Range(Range<u16>),
-}
-
 /// A table.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Table {
@@ -470,83 +246,4 @@ pub enum PercentParseError {
 
     #[error("unexpected: '{0}'")]
     Trailer(String),
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn code_visible_lines_bash() {
-        let contents = r"echo 'hello world'
-/// echo 'this was hidden'
-
-echo '/// is the prefix'
-/// echo 'the prefix is /// '
-echo 'hello again'
-"
-        .to_string();
-
-        let expected = vec!["echo 'hello world'", "", "echo '/// is the prefix'", "echo 'hello again'"];
-        let code = Snippet { contents, language: SnippetLanguage::Bash, attributes: Default::default() };
-        assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
-    }
-
-    #[test]
-    fn code_visible_lines_rust() {
-        let contents = r##"# fn main() {
-println!("Hello world");
-# // The prefix is # .
-# }
-"##
-        .to_string();
-
-        let expected = vec!["println!(\"Hello world\");"];
-        let code = Snippet { contents, language: SnippetLanguage::Rust, attributes: Default::default() };
-        assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
-    }
-
-    #[test]
-    fn code_executable_contents_bash() {
-        let contents = r"echo 'hello world'
-/// echo 'this was hidden'
-
-echo '/// is the prefix'
-/// echo 'the prefix is /// '
-echo 'hello again'
-"
-        .to_string();
-
-        let expected = r"echo 'hello world'
-echo 'this was hidden'
-
-echo '/// is the prefix'
-echo 'the prefix is /// '
-echo 'hello again'
-"
-        .to_string();
-
-        let code = Snippet { contents, language: SnippetLanguage::Bash, attributes: Default::default() };
-        assert_eq!(expected, code.executable_contents());
-    }
-
-    #[test]
-    fn code_executable_contents_rust() {
-        let contents = r##"# fn main() {
-println!("Hello world");
-# // The prefix is # .
-# }
-"##
-        .to_string();
-
-        let expected = r##"fn main() {
-println!("Hello world");
-// The prefix is # .
-}
-"##
-        .to_string();
-
-        let code = Snippet { contents, language: SnippetLanguage::Rust, attributes: Default::default() };
-        assert_eq!(expected, code.executable_contents());
-    }
 }

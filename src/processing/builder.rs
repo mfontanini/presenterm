@@ -1,11 +1,15 @@
-use super::{code::CodeLine, execution::SnippetExecutionDisabledOperation, modals::KeyBindingsModalBuilder};
+use super::{
+    code::{CodeBlockParser, CodeLine, ExternalFile, Highlight, HighlightGroup, Snippet, SnippetLanguage},
+    execution::SnippetExecutionDisabledOperation,
+    modals::KeyBindingsModalBuilder,
+};
 use crate::{
     custom::{KeyBindingsConfig, OptionsConfig},
     execute::SnippetExecutor,
     markdown::{
         elements::{
-            Highlight, HighlightGroup, ListItem, ListItemType, MarkdownElement, ParagraphElement, Percent,
-            PercentParseError, Snippet, SnippetLanguage, SourcePosition, Table, TableRow, Text, TextBlock,
+            ListItem, ListItemType, MarkdownElement, ParagraphElement, Percent, PercentParseError, SourcePosition,
+            Table, TableRow, Text, TextBlock,
         },
         text::WeightedTextBlock,
     },
@@ -256,7 +260,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::Heading { level, text } => self.push_heading(level, text),
             MarkdownElement::Paragraph(elements) => self.push_paragraph(elements)?,
             MarkdownElement::List(elements) => self.push_list(elements),
-            MarkdownElement::Snippet(code) => self.push_code(code)?,
+            MarkdownElement::Snippet { info, code, source_position } => self.push_code(info, code, source_position)?,
             MarkdownElement::Table(table) => self.push_table(table),
             MarkdownElement::ThematicBreak => self.process_thematic_break(),
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
@@ -712,16 +716,20 @@ impl<'a> PresentationBuilder<'a> {
         self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(Differ(text))));
     }
 
-    fn push_code(&mut self, code: Snippet) -> Result<(), BuildError> {
-        // TODO this needs to be the only way to diff things
-        self.push_differ(code.contents.clone());
-
-        if code.attributes.auto_render {
-            return self.push_rendered_code(code);
+    fn push_code(&mut self, info: String, code: String, source_position: SourcePosition) -> Result<(), BuildError> {
+        let mut snippet = CodeBlockParser::parse(info, code)
+            .map_err(|e| BuildError::InvalidCode { line: source_position.start.line + 1, error: e.to_string() })?;
+        if matches!(snippet.language, SnippetLanguage::File) {
+            snippet = self.load_external_snippet(snippet, source_position.clone())?;
         }
-        let lines = CodePreparer::new(&self.theme).prepare(&code);
+        self.push_differ(snippet.contents.clone());
+
+        if snippet.attributes.auto_render {
+            return self.push_rendered_code(snippet, source_position);
+        }
+        let lines = CodePreparer::new(&self.theme).prepare(&snippet);
         let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
-        let (lines, context) = self.highlight_lines(&code, lines, block_length);
+        let (lines, context) = self.highlight_lines(&snippet, lines, block_length);
         for line in lines {
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
         }
@@ -729,9 +737,9 @@ impl<'a> PresentationBuilder<'a> {
         if self.options.allow_mutations && context.borrow().groups.len() > 1 {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
-        if code.attributes.execute {
+        if snippet.attributes.execute {
             if self.options.enable_snippet_execution {
-                self.push_code_execution(code, block_length)?;
+                self.push_code_execution(snippet, block_length)?;
             } else {
                 let operation = SnippetExecutionDisabledOperation::new(
                     self.theme.execution_output.status.failure,
@@ -743,14 +751,39 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_rendered_code(&mut self, code: Snippet) -> Result<(), BuildError> {
+    fn load_external_snippet(
+        &mut self,
+        mut code: Snippet,
+        source_position: SourcePosition,
+    ) -> Result<Snippet, BuildError> {
+        // TODO clean up this repeated thing
+        let line = source_position.start.line + 1;
+        let file: ExternalFile =
+            serde_yaml::from_str(&code.contents).map_err(|e| BuildError::InvalidCode { line, error: e.to_string() })?;
+        let path = file.path;
+        let path_display = path.display();
+        let contents = self
+            .resources
+            .external_snippet(&path)
+            .map_err(|e| BuildError::InvalidCode { line, error: format!("failed to load {path_display}: {e}") })?;
+        code.language = file.language;
+        code.contents = contents;
+        Ok(code)
+    }
+
+    fn push_rendered_code(&mut self, code: Snippet, source_position: SourcePosition) -> Result<(), BuildError> {
         let Snippet { contents, language, attributes } = code;
         let error_holder = self.presentation_state.async_error_holder();
         let request = match language {
             SnippetLanguage::Typst => ThirdPartyRenderRequest::Typst(contents, self.theme.typst.clone()),
             SnippetLanguage::Latex => ThirdPartyRenderRequest::Latex(contents, self.theme.typst.clone()),
             SnippetLanguage::Mermaid => ThirdPartyRenderRequest::Mermaid(contents, self.theme.mermaid.clone()),
-            _ => panic!("language {language:?} should not be renderable"),
+            _ => {
+                return Err(BuildError::InvalidCode {
+                    line: source_position.start.line + 1,
+                    error: format!("language {language:?} doesn't support rendering"),
+                })?;
+            }
         };
         let operation =
             self.third_party.render(request, &self.theme, error_holder, self.slides.len() + 1, attributes.width)?;
@@ -978,6 +1011,9 @@ pub enum BuildError {
     #[error("invalid theme: {0}")]
     InvalidTheme(#[from] LoadThemeError),
 
+    #[error("invalid code at line {line}: {error}")]
+    InvalidCode { line: usize, error: String },
+
     #[error("invalid code highlighter theme: '{0}'")]
     InvalidCodeTheme(String),
 
@@ -1175,7 +1211,6 @@ impl AsRenderOperations for Differ {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::markdown::elements::SnippetAttributes;
     use rstest::rstest;
 
     fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
@@ -1599,11 +1634,11 @@ mod test {
     #[case::enabled(true)]
     #[case::disabled(false)]
     fn snippet_execution(#[case] enabled: bool) {
-        let element = MarkdownElement::Snippet(Snippet {
-            contents: "".into(),
-            language: SnippetLanguage::Rust,
-            attributes: SnippetAttributes { execute: true, ..Default::default() },
-        });
+        let element = MarkdownElement::Snippet {
+            info: "rust +exec".into(),
+            code: "".into(),
+            source_position: Default::default(),
+        };
         let options = PresentationBuilderOptions { enable_snippet_execution: enabled, ..Default::default() };
         let presentation = build_presentation_with_options(vec![element], options);
         let slide = presentation.iter_slides().next().unwrap();
@@ -1651,5 +1686,22 @@ mod test {
         let attributes =
             PresentationBuilder::parse_image_attributes(input, "", Default::default()).expect("failed to parse");
         assert_eq!(attributes.width, expectation.map(Percent));
+    }
+
+    #[test]
+    fn external_snippet() {
+        let temp = tempfile::NamedTempFile::new().expect("failed to create tempfile");
+        let path = temp.path().file_name().expect("no file name").to_string_lossy();
+        let code = format!(
+            r"
+path: {path}
+language: rust"
+        );
+        let elements = vec![MarkdownElement::Snippet {
+            info: "file +line_numbers +exec".into(),
+            code,
+            source_position: Default::default(),
+        }];
+        build_presentation(elements);
     }
 }

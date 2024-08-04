@@ -1,7 +1,7 @@
 use crate::{
     input::user::KeyBinding,
-    markdown::elements::SnippetLanguage,
     media::{emulator::TerminalEmulator, kitty::KittyMode},
+    processing::code::SnippetLanguage,
     GraphicsMode,
 };
 use clap::ValueEnum;
