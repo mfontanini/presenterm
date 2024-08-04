@@ -528,6 +528,10 @@ pub(crate) struct ExecutionStatusBlockStyle {
     /// The colors for the "finished with error" status.
     #[serde(default)]
     pub(crate) failure: Colors,
+
+    /// The colors for the "not started" status.
+    #[serde(default)]
+    pub(crate) not_started: Colors,
 }
 
 /// The style for inline code.

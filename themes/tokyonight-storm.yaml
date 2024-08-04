@@ -35,6 +35,8 @@ execution_output:
       foreground: "9ece6a"
     failure:
       foreground: "f7768e"
+    not_started:
+      foreground: "e0af68"
 
 inline_code:
   colors:
