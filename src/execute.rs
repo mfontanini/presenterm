@@ -56,7 +56,7 @@ impl SnippetExecutor {
 
     /// Execute a piece of code.
     pub(crate) fn execute(&self, code: &Snippet) -> Result<ExecutionHandle, CodeExecuteError> {
-        if !code.attributes.execute {
+        if !code.attributes.execute && !code.attributes.execute_replace {
             return Err(CodeExecuteError::NotExecutableCode);
         }
         let Some(config) = self.executors.get(&code.language) else {

@@ -322,6 +322,14 @@
             }
           ]
         },
+        "exec_replace": {
+          "description": "The properties for snippet execution.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SnippetExecReplaceConfig"
+            }
+          ]
+        },
         "render": {
           "description": "The properties for snippet auto rendering.",
           "allOf": [
@@ -348,6 +356,19 @@
         },
         "enable": {
           "description": "Whether to enable snippet execution.",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SnippetExecReplaceConfig": {
+      "type": "object",
+      "required": [
+        "enable"
+      ],
+      "properties": {
+        "enable": {
+          "description": "Whether to enable snippet replace-executions, which automatically run code snippets without the user's intervention.",
           "type": "boolean"
         }
       },

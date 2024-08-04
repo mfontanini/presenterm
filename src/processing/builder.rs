@@ -1,6 +1,6 @@
 use super::{
     code::{CodeBlockParser, CodeLine, ExternalFile, Highlight, HighlightGroup, Snippet, SnippetLanguage},
-    execution::SnippetExecutionDisabledOperation,
+    execution::{DisplaySeparator, SnippetExecutionDisabledOperation},
     modals::KeyBindingsModalBuilder,
 };
 use crate::{
@@ -16,8 +16,8 @@ use crate::{
     media::{image::Image, printer::RegisterImageError, register::ImageRegistry},
     presentation::{
         AsRenderOperations, BlockLine, ChunkMutator, ImageProperties, ImageSize, MarginProperties, Modals,
-        Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata, RenderOperation, Slide,
-        SlideBuilder, SlideChunk,
+        Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata, RenderAsync, RenderOperation,
+        Slide, SlideBuilder, SlideChunk,
     },
     processing::{
         code::{CodePreparer, HighlightContext, HighlightMutator, HighlightedLine},
@@ -64,6 +64,7 @@ pub struct PresentationBuilderOptions {
     pub print_modal_background: bool,
     pub strict_front_matter_parsing: bool,
     pub enable_snippet_execution: bool,
+    pub enable_snippet_execution_replace: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -95,6 +96,7 @@ impl Default for PresentationBuilderOptions {
             print_modal_background: false,
             strict_front_matter_parsing: true,
             enable_snippet_execution: false,
+            enable_snippet_execution_replace: false,
         }
     }
 }
@@ -726,6 +728,8 @@ impl<'a> PresentationBuilder<'a> {
 
         if snippet.attributes.auto_render {
             return self.push_rendered_code(snippet, source_position);
+        } else if snippet.attributes.execute_replace && self.options.enable_snippet_execution_replace {
+            return self.push_code_execution(snippet, 0, ExecutionMode::ReplaceSnippet);
         }
         let lines = CodePreparer::new(&self.theme).prepare(&snippet);
         let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
@@ -737,9 +741,18 @@ impl<'a> PresentationBuilder<'a> {
         if self.options.allow_mutations && context.borrow().groups.len() > 1 {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
+
+        if snippet.attributes.execute_replace && !self.options.enable_snippet_execution_replace {
+            let operation = SnippetExecutionDisabledOperation::new(
+                self.theme.execution_output.status.failure,
+                self.theme.code.alignment.clone().unwrap_or_default(),
+            );
+            operation.start_render();
+            self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(operation)))
+        }
         if snippet.attributes.execute {
             if self.options.enable_snippet_execution {
-                self.push_code_execution(snippet, block_length)?;
+                self.push_code_execution(snippet, block_length, ExecutionMode::AlongSnippet)?;
             } else {
                 let operation = SnippetExecutionDisabledOperation::new(
                     self.theme.execution_output.status.failure,
@@ -833,11 +846,24 @@ impl<'a> PresentationBuilder<'a> {
         (output, context)
     }
 
-    fn push_code_execution(&mut self, code: Snippet, block_length: usize) -> Result<(), BuildError> {
+    fn push_code_execution(
+        &mut self,
+        code: Snippet,
+        block_length: usize,
+        mode: ExecutionMode,
+    ) -> Result<(), BuildError> {
         if !self.code_executor.is_execution_supported(&code.language) {
             return Err(BuildError::UnsupportedExecution(code.language));
         }
-        let operation = RunSnippetOperation::new(code, self.code_executor.clone(), &self.theme, block_length as u16);
+        let separator = match mode {
+            ExecutionMode::AlongSnippet => DisplaySeparator::On,
+            ExecutionMode::ReplaceSnippet => DisplaySeparator::Off,
+        };
+        let operation =
+            RunSnippetOperation::new(code, self.code_executor.clone(), &self.theme, block_length as u16, separator);
+        if matches!(mode, ExecutionMode::ReplaceSnippet) {
+            operation.start_render();
+        }
         let operation = RenderOperation::RenderAsync(Rc::new(operation));
         self.chunk_operations.push(operation);
         Ok(())
@@ -1043,6 +1069,11 @@ pub enum BuildError {
 
     #[error("language {0:?} does not support execution")]
     UnsupportedExecution(SnippetLanguage),
+}
+
+enum ExecutionMode {
+    AlongSnippet,
+    ReplaceSnippet,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
