@@ -29,11 +29,13 @@ execution_output:
     background: grey
   status:
     running:
-      foreground: "dark_blue"
+      foreground: dark_blue
     success:
-      foreground: "dark_green"
+      foreground: dark_green
     failure:
-      foreground: "dark_red"
+      foreground: dark_red
+    not_started:
+      foreground: dark_yellow
 
 inline_code:
   colors:

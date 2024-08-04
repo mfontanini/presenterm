@@ -47,7 +47,7 @@ impl RunSnippetOperation {
         let default_colors = theme.default_style.colors;
         let block_colors = theme.execution_output.colors;
         let status_colors = theme.execution_output.status.clone();
-        let running_colors = status_colors.running;
+        let not_started_colors = status_colors.not_started;
         let alignment = theme.code.alignment.clone().unwrap_or_default();
         let block_length = match &alignment {
             Alignment::Left { .. } | Alignment::Right { .. } => block_length,
@@ -69,7 +69,7 @@ impl RunSnippetOperation {
             block_length,
             alignment,
             inner: Rc::new(RefCell::new(inner)),
-            state_description: Text::new("running", TextStyle::default().colors(running_colors)).into(),
+            state_description: Text::new("not started", TextStyle::default().colors(not_started_colors)).into(),
         }
     }
 }
@@ -77,9 +77,6 @@ impl RunSnippetOperation {
 impl AsRenderOperations for RunSnippetOperation {
     fn as_render_operations(&self, _dimensions: &WindowSize) -> Vec<RenderOperation> {
         let inner = self.inner.borrow();
-        if matches!(inner.state, RenderAsyncState::NotStarted) {
-            return Vec::new();
-        }
         let description = self.state_description.borrow();
         let heading = TextBlock(vec![" [".into(), description.clone(), "] ".into()]);
         let separator_width = match &self.alignment {
@@ -91,9 +88,11 @@ impl AsRenderOperations for RunSnippetOperation {
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderDynamic(Rc::new(separator)),
             RenderOperation::RenderLineBreak,
-            RenderOperation::RenderLineBreak,
-            RenderOperation::SetColors(self.block_colors),
         ];
+        if matches!(inner.state, RenderAsyncState::NotStarted) {
+            return operations;
+        }
+        operations.extend([RenderOperation::RenderLineBreak, RenderOperation::SetColors(self.block_colors)]);
 
         let block_length = self.block_length.max(inner.max_line_length.saturating_add(1));
         for line in &inner.output_lines {
