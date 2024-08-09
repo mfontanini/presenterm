@@ -470,7 +470,9 @@ impl SnippetLanguage {
         use SnippetLanguage::*;
         match self {
             Rust => Some("# "),
-            Python | Bash | Fish | Shell | Zsh | Kotlin | Java | JavaScript | TypeScript | C | Cpp | Go => Some("/// "),
+            Python | Bash | Fish | Shell | Zsh | Kotlin | Java | JavaScript | TypeScript | C | Cpp | Go | Php => {
+                Some("/// ")
+            }
             _ => None,
         }
     }
