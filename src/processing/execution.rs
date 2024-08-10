@@ -35,6 +35,7 @@ pub(crate) struct RunSnippetOperation {
     alignment: Alignment,
     inner: Rc<RefCell<RunSnippetOperationInner>>,
     state_description: RefCell<Text>,
+    separator: DisplaySeparator,
 }
 
 impl RunSnippetOperation {
@@ -43,6 +44,7 @@ impl RunSnippetOperation {
         executor: Rc<SnippetExecutor>,
         theme: &PresentationTheme,
         block_length: u16,
+        separator: DisplaySeparator,
     ) -> Self {
         let default_colors = theme.default_style.colors;
         let block_colors = theme.execution_output.colors;
@@ -70,25 +72,37 @@ impl RunSnippetOperation {
             alignment,
             inner: Rc::new(RefCell::new(inner)),
             state_description: Text::new("not started", TextStyle::default().colors(not_started_colors)).into(),
+            separator,
         }
     }
+}
+
+#[derive(Debug)]
+pub(crate) enum DisplaySeparator {
+    On,
+    Off,
 }
 
 impl AsRenderOperations for RunSnippetOperation {
     fn as_render_operations(&self, _dimensions: &WindowSize) -> Vec<RenderOperation> {
         let inner = self.inner.borrow();
         let description = self.state_description.borrow();
-        let heading = TextBlock(vec![" [".into(), description.clone(), "] ".into()]);
-        let separator_width = match &self.alignment {
-            Alignment::Left { .. } | Alignment::Right { .. } => SeparatorWidth::FitToWindow,
-            Alignment::Center { .. } => SeparatorWidth::Fixed(self.block_length),
+        let mut operations = match self.separator {
+            DisplaySeparator::On => {
+                let heading = TextBlock(vec![" [".into(), description.clone(), "] ".into()]);
+                let separator_width = match &self.alignment {
+                    Alignment::Left { .. } | Alignment::Right { .. } => SeparatorWidth::FitToWindow,
+                    Alignment::Center { .. } => SeparatorWidth::Fixed(self.block_length),
+                };
+                let separator = RenderSeparator::new(heading, separator_width);
+                vec![
+                    RenderOperation::RenderLineBreak,
+                    RenderOperation::RenderDynamic(Rc::new(separator)),
+                    RenderOperation::RenderLineBreak,
+                ]
+            }
+            DisplaySeparator::Off => vec![],
         };
-        let separator = RenderSeparator::new(heading, separator_width);
-        let mut operations = vec![
-            RenderOperation::RenderLineBreak,
-            RenderOperation::RenderDynamic(Rc::new(separator)),
-            RenderOperation::RenderLineBreak,
-        ];
         if matches!(inner.state, RenderAsyncState::NotStarted) {
             return operations;
         }
