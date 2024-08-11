@@ -1,3 +1,4 @@
+---
 bash:
   filename: script.sh
   commands:
@@ -46,6 +47,10 @@ perl:
   filename: snippet.pl
   commands:
     - ["perl", "$pwd/snippet.pl"]
+php:
+  filename: snippet.php
+  commands:
+    - ["php", "-f", "$pwd/snippet.php"]
 python:
   filename: snippet.py
   commands:
