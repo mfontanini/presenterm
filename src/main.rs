@@ -195,13 +195,17 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let path = cli.path.take().unwrap_or_else(|| {
+    let Some(path) = cli.path.take() else {
         Cli::command().error(ErrorKind::MissingRequiredArgument, "no path specified").exit();
-    });
-    let resources_path = path.parent().unwrap_or(Path::new("/"));
+    };
+    let mut resources_path = path.parent().unwrap_or(Path::new("./")).to_path_buf();
+    if resources_path == Path::new("") {
+        resources_path = "./".into();
+    }
+    let resources_path = resources_path.canonicalize().unwrap_or(resources_path);
 
     let Customizations { config, themes, code_executor } =
-        load_customizations(cli.config_file.clone().map(PathBuf::from), resources_path)?;
+        load_customizations(cli.config_file.clone().map(PathBuf::from), &resources_path)?;
 
     let default_theme = load_default_theme(&config, &themes, &cli);
     let force_default_theme = cli.theme.is_some();
@@ -233,13 +237,13 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let graphics_mode = select_graphics_mode(&cli, &config);
     let printer = Arc::new(ImagePrinter::new(graphics_mode.clone())?);
     let registry = ImageRegistry(printer.clone());
-    let resources = Resources::new(resources_path, registry.clone());
+    let resources = Resources::new(resources_path.clone(), registry.clone());
     let third_party_config = ThirdPartyConfigs {
         typst_ppi: config.typst.ppi.to_string(),
         mermaid_scale: config.mermaid.scale.to_string(),
         threads: config.snippet.render.threads,
     };
-    let third_party = ThirdPartyRender::new(third_party_config, registry, resources_path);
+    let third_party = ThirdPartyRender::new(third_party_config, registry, &resources_path);
     let code_executor = Rc::new(code_executor);
     if cli.export_pdf || cli.generate_pdf_metadata {
         let mut exporter =
