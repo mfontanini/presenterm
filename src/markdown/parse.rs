@@ -347,7 +347,22 @@ impl<'a> InlinesParser<'a> {
             NodeValue::Emph => self.process_children(node, style.italics())?,
             NodeValue::Strikethrough => self.process_children(node, style.strikethrough())?,
             NodeValue::SoftBreak => self.pending_text.push(Text::from(" ")),
-            NodeValue::Link(link) => self.pending_text.push(Text::new(link.url.clone(), TextStyle::default().link())),
+            NodeValue::Link(link) => {
+                let has_label = node.first_child().is_some();
+                if has_label {
+                    self.process_children(node, TextStyle::default().link_label())?;
+                    self.pending_text.push(Text::from(" ("));
+                }
+                self.pending_text.push(Text::new(link.url.clone(), TextStyle::default().link_url()));
+                if !link.title.is_empty() {
+                    self.pending_text.push(Text::from(" \""));
+                    self.pending_text.push(Text::new(link.title.clone(), TextStyle::default().link_title()));
+                    self.pending_text.push(Text::from("\""));
+                }
+                if has_label {
+                    self.pending_text.push(Text::from(")"));
+                }
+            }
             NodeValue::LineBreak => {
                 self.store_pending_text();
                 self.inlines.push(Inline::LineBreak);
@@ -565,10 +580,62 @@ boop
     }
 
     #[test]
-    fn link() {
+    fn link_wo_label_wo_title() {
+        let parsed = parse_single("my [](https://example.com)");
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_chunks =
+            vec![Text::from("my "), Text::new("https://example.com", TextStyle::default().link_url())];
+
+        let expected_elements = &[ParagraphElement::Text(TextBlock(expected_chunks))];
+        assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn link_w_label_wo_title() {
         let parsed = parse_single("my [website](https://example.com)");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        let expected_chunks = vec![Text::from("my "), Text::new("https://example.com", TextStyle::default().link())];
+        let expected_chunks = vec![
+            Text::from("my "),
+            Text::new("website", TextStyle::default().link_label()),
+            Text::from(" ("),
+            Text::new("https://example.com", TextStyle::default().link_url()),
+            Text::from(")"),
+        ];
+
+        let expected_elements = &[ParagraphElement::Text(TextBlock(expected_chunks))];
+        assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn link_wo_label_w_title() {
+        let parsed = parse_single("my [](https://example.com \"Example\")");
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_chunks = vec![
+            Text::from("my "),
+            Text::new("https://example.com", TextStyle::default().link_url()),
+            Text::from(" \""),
+            Text::new("Example", TextStyle::default().link_title()),
+            Text::from("\""),
+        ];
+
+        let expected_elements = &[ParagraphElement::Text(TextBlock(expected_chunks))];
+        assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn link_w_label_w_title() {
+        let parsed = parse_single("my [website](https://example.com \"Example\")");
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_chunks = vec![
+            Text::from("my "),
+            Text::new("website", TextStyle::default().link_label()),
+            Text::from(" ("),
+            Text::new("https://example.com", TextStyle::default().link_url()),
+            Text::from(" \""),
+            Text::new("Example", TextStyle::default().link_title()),
+            Text::from("\""),
+            Text::from(")"),
+        ];
 
         let expected_elements = &[ParagraphElement::Text(TextBlock(expected_chunks))];
         assert_eq!(elements, expected_elements);

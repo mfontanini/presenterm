@@ -40,8 +40,18 @@ impl TextStyle {
         self.add_flag(TextFormatFlags::Underlined)
     }
 
-    /// Indicate this is a link.
-    pub(crate) fn link(self) -> Self {
+    /// Indicate this is a link label.
+    pub(crate) fn link_label(self) -> Self {
+        self.bold()
+    }
+
+    /// Indicate this is a link title.
+    pub(crate) fn link_title(self) -> Self {
+        self.italics()
+    }
+
+    /// Indicate this is a link url.
+    pub(crate) fn link_url(self) -> Self {
         self.italics().underlined()
     }
 
