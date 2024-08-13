@@ -90,6 +90,7 @@ Similar to the syntax used for selective highlighting, dynamic highlighting will
 code block are highlighted every time you move to the next/previous slide.
 
 This is achieved by using the separator `|` to indicate what sections of the code will be highlighted at a given time.
+You can also use `all` to highlight all lines for a particular frame.
 
 ~~~markdown
 ```rust {1,3|5-7}
