@@ -226,6 +226,9 @@ pub struct LanguageSnippetExecutionConfig {
 
     /// The commands to be run when executing snippets for this programming language.
     pub commands: Vec<Vec<String>>,
+
+    /// The prefix to use to hide lines visually but still execute them.
+    pub hidden_line_prefix: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, ValueEnum, JsonSchema)]

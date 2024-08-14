@@ -21,11 +21,12 @@ use unicode_width::UnicodeWidthStr;
 
 pub(crate) struct CodePreparer<'a> {
     theme: &'a PresentationTheme,
+    hidden_line_prefix: Option<&'a str>,
 }
 
 impl<'a> CodePreparer<'a> {
-    pub(crate) fn new(theme: &'a PresentationTheme) -> Self {
-        Self { theme }
+    pub(crate) fn new(theme: &'a PresentationTheme, hidden_line_prefix: Option<&'a str>) -> Self {
+        Self { theme, hidden_line_prefix }
     }
 
     pub(crate) fn prepare(&self, code: &Snippet) -> Vec<CodeLine> {
@@ -48,8 +49,8 @@ impl<'a> CodePreparer<'a> {
         }
 
         let padding = " ".repeat(horizontal_padding as usize);
-        let padder = NumberPadder::new(code.visible_lines().count());
-        for (index, line) in code.visible_lines().enumerate() {
+        let padder = NumberPadder::new(code.visible_lines(self.hidden_line_prefix).count());
+        for (index, line) in code.visible_lines(self.hidden_line_prefix).enumerate() {
             let mut line = line.to_string();
             let mut prefix = padding.clone();
             if code.attributes.line_numbers {
@@ -386,13 +387,18 @@ pub(crate) struct Snippet {
 }
 
 impl Snippet {
-    pub(crate) fn visible_lines(&self) -> impl Iterator<Item = &str> {
-        let prefix = self.language.hidden_line_prefix();
-        self.contents.lines().filter(move |line| !prefix.is_some_and(|prefix| line.starts_with(prefix)))
+    pub(crate) fn visible_lines<'a, 'b>(
+        &'a self,
+        hidden_line_prefix: Option<&'b str>,
+    ) -> impl Iterator<Item = &str> + 'b
+    where
+        'a: 'b,
+    {
+        self.contents.lines().filter(move |line| !hidden_line_prefix.is_some_and(|prefix| line.starts_with(prefix)))
     }
 
-    pub(crate) fn executable_contents(&self) -> String {
-        if let Some(prefix) = self.language.hidden_line_prefix() {
+    pub(crate) fn executable_contents(&self, hidden_line_prefix: Option<&str>) -> String {
+        if let Some(prefix) = hidden_line_prefix {
             self.contents.lines().fold(String::new(), |mut output, line| {
                 let line = line.strip_prefix(prefix).unwrap_or(line);
                 let _ = writeln!(output, "{line}");
@@ -466,19 +472,6 @@ pub enum SnippetLanguage {
     Vue,
     Zig,
     Zsh,
-}
-
-impl SnippetLanguage {
-    pub(crate) fn hidden_line_prefix(&self) -> Option<&'static str> {
-        use SnippetLanguage::*;
-        match self {
-            Rust => Some("# "),
-            Python | Bash | Fish | Shell | Zsh | Kotlin | Java | JavaScript | TypeScript | C | Cpp | Go | Php => {
-                Some("/// ")
-            }
-            _ => None,
-        }
-    }
 }
 
 impl FromStr for SnippetLanguage {
@@ -642,7 +635,7 @@ mod test {
             language: SnippetLanguage::Unknown("".to_string()),
             attributes: SnippetAttributes { line_numbers: true, ..Default::default() },
         };
-        let lines = CodePreparer { theme: &Default::default() }.prepare(&code);
+        let lines = CodePreparer::new(&Default::default(), None).prepare(&code);
         assert_eq!(lines.len(), total_lines);
 
         let mut lines = lines.into_iter().enumerate();
@@ -748,23 +741,7 @@ mod test {
     }
 
     #[test]
-    fn code_visible_lines_bash() {
-        let contents = r"echo 'hello world'
-/// echo 'this was hidden'
-
-echo '/// is the prefix'
-/// echo 'the prefix is /// '
-echo 'hello again'
-"
-        .to_string();
-
-        let expected = vec!["echo 'hello world'", "", "echo '/// is the prefix'", "echo 'hello again'"];
-        let code = Snippet { contents, language: SnippetLanguage::Bash, attributes: Default::default() };
-        assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
-    }
-
-    #[test]
-    fn code_visible_lines_rust() {
+    fn code_visible_lines() {
         let contents = r##"# fn main() {
 println!("Hello world");
 # // The prefix is # .
@@ -774,35 +751,11 @@ println!("Hello world");
 
         let expected = vec!["println!(\"Hello world\");"];
         let code = Snippet { contents, language: SnippetLanguage::Rust, attributes: Default::default() };
-        assert_eq!(expected, code.visible_lines().collect::<Vec<_>>());
+        assert_eq!(expected, code.visible_lines(Some("# ")).collect::<Vec<_>>());
     }
 
     #[test]
-    fn code_executable_contents_bash() {
-        let contents = r"echo 'hello world'
-/// echo 'this was hidden'
-
-echo '/// is the prefix'
-/// echo 'the prefix is /// '
-echo 'hello again'
-"
-        .to_string();
-
-        let expected = r"echo 'hello world'
-echo 'this was hidden'
-
-echo '/// is the prefix'
-echo 'the prefix is /// '
-echo 'hello again'
-"
-        .to_string();
-
-        let code = Snippet { contents, language: SnippetLanguage::Bash, attributes: Default::default() };
-        assert_eq!(expected, code.executable_contents());
-    }
-
-    #[test]
-    fn code_executable_contents_rust() {
+    fn code_executable_contents() {
         let contents = r##"# fn main() {
 println!("Hello world");
 # // The prefix is # .
@@ -818,6 +771,6 @@ println!("Hello world");
         .to_string();
 
         let code = Snippet { contents, language: SnippetLanguage::Rust, attributes: Default::default() };
-        assert_eq!(expected, code.executable_contents());
+        assert_eq!(expected, code.executable_contents(Some("# ")));
     }
 }

@@ -62,7 +62,12 @@ impl SnippetExecutor {
         let Some(config) = self.executors.get(&code.language) else {
             return Err(CodeExecuteError::UnsupportedExecution);
         };
-        Self::execute_lang(config, code.executable_contents().as_bytes(), &self.cwd)
+        let hide_prefix = config.hidden_line_prefix.as_deref();
+        Self::execute_lang(config, code.executable_contents(hide_prefix).as_bytes(), &self.cwd)
+    }
+
+    pub(crate) fn hidden_line_prefix(&self, language: &SnippetLanguage) -> Option<&str> {
+        self.executors.get(language).and_then(|lang| lang.hidden_line_prefix.as_deref())
     }
 
     fn execute_lang(

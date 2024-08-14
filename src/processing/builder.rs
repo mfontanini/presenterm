@@ -731,7 +731,8 @@ impl<'a> PresentationBuilder<'a> {
         } else if snippet.attributes.execute_replace && self.options.enable_snippet_execution_replace {
             return self.push_code_execution(snippet, 0, ExecutionMode::ReplaceSnippet);
         }
-        let lines = CodePreparer::new(&self.theme).prepare(&snippet);
+        let lines =
+            CodePreparer::new(&self.theme, self.code_executor.hidden_line_prefix(&snippet.language)).prepare(&snippet);
         let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
         let (lines, context) = self.highlight_lines(&snippet, lines, block_length);
         for line in lines {
