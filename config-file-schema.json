@@ -247,6 +247,13 @@
         "filename": {
           "description": "The filename to use for the snippet input file.",
           "type": "string"
+        },
+        "hidden_line_prefix": {
+          "description": "The prefix to use to hide lines visually but still execute them.",
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },

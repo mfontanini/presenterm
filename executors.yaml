@@ -3,38 +3,46 @@ bash:
   filename: script.sh
   commands:
     - ["bash", "$pwd/script.sh"]
+  hidden_line_prefix: "/// "
 c++:
   filename: snippet.cpp
   commands:
     - ["g++", "-std=c++20", "$pwd/snippet.cpp", "-o", "$pwd/snippet"]
     - ["$pwd/snippet"]
+  hidden_line_prefix: "/// "
 c:
   filename: snippet.c
   commands:
     - ["gcc", "$pwd/snippet.c", "-o", "$pwd/snippet"]
     - ["$pwd/snippet"]
+  hidden_line_prefix: "/// "
 fish:
   filename: script.fish
   commands:
     - ["fish", "$pwd/script.fish"]
+  hidden_line_prefix: "/// "
 go:
   filename: snippet.go
   environment:
     GO11MODULE: off
   commands:
     - ["go", "run", "$pwd/snippet.go"]
+  hidden_line_prefix: "/// "
 java:
   filename: Snippet.java
   commands:
     - ["java", "$pwd/Snippet.java"]
+  hidden_line_prefix: "/// "
 js:
   filename: snippet.js
   commands:
     - ["node", "$pwd/snippet.js"]
+  hidden_line_prefix: "/// "
 kotlin:
   filename: snippet.kts
   commands:
     - ["kotlinc", "-script", "$pwd/script.kts"]
+  hidden_line_prefix: "/// "
 lua:
   filename: snippet.lua
   commands:
@@ -51,10 +59,12 @@ php:
   filename: snippet.php
   commands:
     - ["php", "-f", "$pwd/snippet.php"]
+  hidden_line_prefix: "/// "
 python:
   filename: snippet.py
   commands:
     - ["python", "-u", "$pwd/snippet.py"]
+  hidden_line_prefix: "/// "
 ruby:
   filename: snippet.rb
   commands:
@@ -63,16 +73,20 @@ rust-script:
   filename: snippet.rs
   commands:
     - ["rust-script", "$pwd/snippet.rs"]
+  hidden_line_prefix: "# "
 rust:
   filename: snippet.rs
   commands:
     - ["rustc", "--crate-name", "presenterm_snippet", "$pwd/snippet.rs", "-o", "$pwd/snippet"]
     - ["$pwd/snippet"]
+  hidden_line_prefix: "# "
 sh:
   filename: script.sh
   commands:
     - ["sh", "$pwd/script.sh"]
+  hidden_line_prefix: "/// "
 zsh:
   filename: script.sh
   commands:
     - ["zsh", "$pwd/script.sh"]
+  hidden_line_prefix: "/// "
