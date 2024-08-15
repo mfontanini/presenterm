@@ -69,6 +69,7 @@ intro_slide:
     colors:
       foreground: "9ece6a"
     positioning: page_bottom
+  footer: false
 
 headings:
   h1:

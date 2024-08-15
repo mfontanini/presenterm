@@ -68,6 +68,7 @@ intro_slide:
     colors:
       foreground: "bac2de"
     positioning: page_bottom
+  footer: false
 
 headings:
   h1:
