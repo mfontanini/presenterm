@@ -290,7 +290,17 @@ impl<'a> PresentationBuilder<'a> {
         if let Some(options) = metadata.options.take() {
             self.options.merge(options);
         }
-        self.footer_context.borrow_mut().author = metadata.author.clone().unwrap_or_default();
+
+        {
+            let mut footer_context = self.footer_context.borrow_mut();
+            footer_context.title = metadata.title.clone().unwrap_or_default();
+            footer_context.sub_title = metadata.sub_title.clone().unwrap_or_default();
+            footer_context.location = metadata.location.clone().unwrap_or_default();
+            footer_context.event = metadata.event.clone().unwrap_or_default();
+            footer_context.date = metadata.date.clone().unwrap_or_default();
+            footer_context.author = metadata.author.clone().unwrap_or_default();
+        }
+
         self.set_theme(&metadata.theme)?;
         if metadata.has_frontmatter() {
             self.push_slide_prelude();

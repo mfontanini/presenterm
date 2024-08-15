@@ -12,6 +12,11 @@ use unicode_width::UnicodeWidthStr;
 pub(crate) struct FooterContext {
     pub(crate) total_slides: usize,
     pub(crate) author: String,
+    pub(crate) title: String,
+    pub(crate) sub_title: String,
+    pub(crate) event: String,
+    pub(crate) location: String,
+    pub(crate) date: String,
 }
 
 #[derive(Debug)]
@@ -32,6 +37,11 @@ impl FooterGenerator {
         let contents = template
             .replace("{current_slide}", current_slide)
             .replace("{total_slides}", &context.total_slides.to_string())
+            .replace("{title}", &context.title)
+            .replace("{sub_title}", &context.sub_title)
+            .replace("{event}", &context.event)
+            .replace("{location}", &context.location)
+            .replace("{date}", &context.date)
             .replace("{author}", &context.author);
         let text = Text::new(contents, TextStyle::default().colors(colors));
         RenderOperation::RenderText { line: vec![text].into(), alignment }
