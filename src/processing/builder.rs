@@ -8,8 +8,8 @@ use crate::{
     execute::SnippetExecutor,
     markdown::{
         elements::{
-            ListItem, ListItemType, MarkdownElement, ParagraphElement, Percent, PercentParseError, SourcePosition,
-            Table, TableRow, Text, TextBlock,
+            ListItem, ListItemType, MarkdownElement, Percent, PercentParseError, SourcePosition, Table, TableRow, Text,
+            TextBlock,
         },
         text::WeightedTextBlock,
     },
@@ -553,17 +553,10 @@ impl<'a> PresentationBuilder<'a> {
         self.push_line_break();
     }
 
-    fn push_paragraph(&mut self, elements: Vec<ParagraphElement>) -> Result<(), BuildError> {
-        for element in elements {
-            match element {
-                ParagraphElement::Text(text) => {
-                    self.push_text(text, ElementType::Paragraph);
-                    self.push_line_break();
-                }
-                ParagraphElement::LineBreak => {
-                    // Line breaks are already pushed after every text chunk.
-                }
-            };
+    fn push_paragraph(&mut self, lines: Vec<TextBlock>) -> Result<(), BuildError> {
+        for text in lines {
+            self.push_text(text, ElementType::Paragraph);
+            self.push_line_break();
         }
         Ok(())
     }
@@ -1652,7 +1645,7 @@ mod test {
         let elements = vec![
             MarkdownElement::Paragraph(vec![]),
             MarkdownElement::ThematicBreak,
-            MarkdownElement::Paragraph(vec![ParagraphElement::Text("hi".into())]),
+            MarkdownElement::Paragraph(vec!["hi".into()]),
         ];
         let presentation = build_presentation_with_options(elements, options);
         assert_eq!(presentation.iter_slides().count(), 2);

@@ -17,8 +17,8 @@ pub(crate) enum MarkdownElement {
     /// A normal heading.
     Heading { level: u8, text: TextBlock },
 
-    /// A paragraph, composed of text and line breaks.
-    Paragraph(Vec<ParagraphElement>),
+    /// A paragraph composed by a list of lines.
+    Paragraph(Vec<TextBlock>),
 
     /// An image.
     Image { path: PathBuf, title: String, source_position: SourcePosition },
@@ -82,20 +82,6 @@ impl From<comrak::nodes::LineColumn> for LineColumn {
     fn from(position: comrak::nodes::LineColumn) -> Self {
         Self { line: position.line, column: position.column }
     }
-}
-
-/// The components that make up a paragraph.
-///
-/// This does not map one-to-one with the commonmark spec and only handles text (including its
-/// style) and line breaks. Any other inlines that could show up on a paragraph, such as images,
-/// are a [MarkdownElement] on their own.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum ParagraphElement {
-    /// A block of text.
-    Text(TextBlock),
-
-    /// A line break.
-    LineBreak,
 }
 
 /// A block of text.

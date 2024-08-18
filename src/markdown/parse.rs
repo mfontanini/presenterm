@@ -1,6 +1,6 @@
 use super::elements::SourcePosition;
 use crate::{
-    markdown::elements::{ListItem, ListItemType, MarkdownElement, ParagraphElement, Table, TableRow, Text, TextBlock},
+    markdown::elements::{ListItem, ListItemType, MarkdownElement, Table, TableRow, Text, TextBlock},
     style::TextStyle,
 };
 use comrak::{
@@ -186,8 +186,8 @@ impl<'a> MarkdownParser<'a> {
         let mut paragraph_elements = Vec::new();
         for inline in inlines {
             match inline {
-                Inline::Text(text) => paragraph_elements.push(ParagraphElement::Text(text)),
-                Inline::LineBreak => paragraph_elements.push(ParagraphElement::LineBreak),
+                Inline::Text(text) => paragraph_elements.push(text),
+                Inline::LineBreak => (),
                 Inline::Image { path, title } => {
                     if !paragraph_elements.is_empty() {
                         elements.push(MarkdownElement::Paragraph(mem::take(&mut paragraph_elements)));
@@ -575,7 +575,7 @@ boop
             Text::new("strikethrough", TextStyle::default().strikethrough()),
         ];
 
-        let expected_elements = &[ParagraphElement::Text(TextBlock(expected_chunks))];
+        let expected_elements = &[TextBlock(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -586,7 +586,7 @@ boop
         let expected_chunks =
             vec![Text::from("my "), Text::new("https://example.com", TextStyle::default().link_url())];
 
-        let expected_elements = &[ParagraphElement::Text(TextBlock(expected_chunks))];
+        let expected_elements = &[TextBlock(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -602,7 +602,7 @@ boop
             Text::from(")"),
         ];
 
-        let expected_elements = &[ParagraphElement::Text(TextBlock(expected_chunks))];
+        let expected_elements = &[TextBlock(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -618,7 +618,7 @@ boop
             Text::from("\""),
         ];
 
-        let expected_elements = &[ParagraphElement::Text(TextBlock(expected_chunks))];
+        let expected_elements = &[TextBlock(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -637,7 +637,7 @@ boop
             Text::from(")"),
         ];
 
-        let expected_elements = &[ParagraphElement::Text(TextBlock(expected_chunks))];
+        let expected_elements = &[TextBlock(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -715,13 +715,11 @@ another",
         assert_eq!(parsed.len(), 2);
 
         let MarkdownElement::Paragraph(elements) = &parsed[0] else { panic!("not a line break: {parsed:?}") };
-        assert_eq!(elements.len(), 3);
+        assert_eq!(elements.len(), 2);
 
         let expected_chunks = &[Text::from("some text"), Text::from(" "), Text::from("with line breaks")];
-        let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };
+        let text = &elements[0];
         assert_eq!(text.0, expected_chunks);
-        assert!(matches!(&elements[1], ParagraphElement::LineBreak));
-        assert!(matches!(&elements[2], ParagraphElement::Text(_)));
     }
 
     #[test]
@@ -745,7 +743,7 @@ let q = 42;
         let expected_chunks = &[Text::from("some "), Text::new("inline code", TextStyle::default().code())];
         assert_eq!(elements.len(), 1);
 
-        let ParagraphElement::Text(text) = &elements[0] else { panic!("non-text in paragraph") };
+        let text = &elements[0];
         assert_eq!(text.0, expected_chunks);
     }
 
