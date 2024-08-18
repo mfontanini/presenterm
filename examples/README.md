@@ -40,3 +40,12 @@ A few template variables, such as `current_slide` and `total_slides` can be used
 presentation.
 
 [![asciicast](https://asciinema.org/a/DLpBDpCbEp5pSrNZ2Vh4mmIY1.svg)](https://asciinema.org/a/DLpBDpCbEp5pSrNZ2Vh4mmIY1)
+
+# Columns
+
+[Source](/examples/columns.md)
+
+This example shows how column layouts and pauses interact with each other. Note that the image shows up as pixels 
+because asciinema doesn't support these and it will otherwise look like a normal image if your terminal supports images.
+
+[![asciicast](https://asciinema.org/a/x2tTDt0BIesvOXeal3UpdzMHp.svg)](https://asciinema.org/a/x2tTDt0BIesvOXeal3UpdzMHp)
