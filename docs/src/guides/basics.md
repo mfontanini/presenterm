@@ -152,7 +152,7 @@ If you really would prefer to use thematic breaks (`---`) to delimit slides, you
 
 ### Jumping to the vertical center
 
-The command `jump_to_vertical_center` lets you jump to the middle of the page vertically. This is useful in combination 
+The command `jump_to_middle` lets you jump to the middle of the page vertically. This is useful in combination
 with slide titles to create separator slides:
 
 ```markdown
