@@ -6,7 +6,7 @@ pub(crate) struct NumberPadder {
 
 impl NumberPadder {
     pub(crate) fn new(upper_bound: usize) -> Self {
-        let width = upper_bound.ilog10() as usize + 1;
+        let width = upper_bound.checked_ilog10().map(|log| log as usize + 1).unwrap_or_default();
         Self { width }
     }
 
@@ -36,5 +36,10 @@ mod test {
         let padder = NumberPadder::new(*max);
         let rendered: Vec<_> = numbers.iter().map(|n| padder.pad_right(*n)).collect();
         assert_eq!(rendered, expected);
+    }
+
+    #[test]
+    fn zero_count() {
+        NumberPadder::new(0);
     }
 }
