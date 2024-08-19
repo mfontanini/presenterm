@@ -37,7 +37,7 @@ Visit the [documentation][guide-introduction] to get started.
 * Code highlighting for a [wide list of programming languages][guide-code-highlight].
 * [Selective/dynamic][guide-selective-highlight] code highlighting that only highlights portions of code at a time.
 * [Column layouts][guide-layout].
-* [mermaid graph rendering](guide-mermaid).
+* [mermaid graph rendering][guide-mermaid].
 * [_LaTeX_ and _typst_ formula rendering][guide-latex].
 * [Introduction slide][guide-intro-slide] that displays the presentation title and your name.
 * [Slide titles][guide-slide-titles].
