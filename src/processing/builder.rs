@@ -8,8 +8,8 @@ use crate::{
     execute::SnippetExecutor,
     markdown::{
         elements::{
-            ListItem, ListItemType, MarkdownElement, ParagraphElement, Percent, PercentParseError, SourcePosition,
-            Table, TableRow, Text, TextBlock,
+            ListItem, ListItemType, MarkdownElement, Percent, PercentParseError, SourcePosition, Table, TableRow, Text,
+            TextBlock,
         },
         text::WeightedTextBlock,
     },
@@ -553,17 +553,10 @@ impl<'a> PresentationBuilder<'a> {
         self.push_line_break();
     }
 
-    fn push_paragraph(&mut self, elements: Vec<ParagraphElement>) -> Result<(), BuildError> {
-        for element in elements {
-            match element {
-                ParagraphElement::Text(text) => {
-                    self.push_text(text, ElementType::Paragraph);
-                    self.push_line_break();
-                }
-                ParagraphElement::LineBreak => {
-                    // Line breaks are already pushed after every text chunk.
-                }
-            };
+    fn push_paragraph(&mut self, lines: Vec<TextBlock>) -> Result<(), BuildError> {
+        for text in lines {
+            self.push_text(text, ElementType::Paragraph);
+            self.push_line_break();
         }
         Ok(())
     }
@@ -665,7 +658,7 @@ impl<'a> PresentationBuilder<'a> {
         }
     }
 
-    fn push_block_quote(&mut self, lines: Vec<String>) {
+    fn push_block_quote(&mut self, lines: Vec<TextBlock>) {
         let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
         let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0) as u16;
         let prefix_color = self.theme.block_quote.colors.prefix.or(self.theme.block_quote.colors.base.foreground);
@@ -675,22 +668,19 @@ impl<'a> PresentationBuilder<'a> {
                 .colors(Colors { foreground: prefix_color, background: self.theme.block_quote.colors.base.background }),
         );
         let alignment = self.theme.alignment(&ElementType::BlockQuote).clone();
-        let style = TextStyle::default().colors(self.theme.block_quote.colors.base);
 
-        for line in lines {
-            let line = TextBlock::from(Text::new(line, style));
-            self.chunk_operations.extend([
-                // Print a preformatted empty block so we fill in the line with properly colored
-                // spaces.
-                RenderOperation::SetColors(self.theme.block_quote.colors.base),
-                RenderOperation::RenderBlockLine(BlockLine {
-                    prefix: prefix.clone().into(),
-                    text: line.into(),
-                    block_length,
-                    alignment: alignment.clone(),
-                    block_color: self.theme.block_quote.colors.base.background,
-                }),
-            ]);
+        for mut line in lines {
+            // Apply our colors to each chunk in this line.
+            for text in &mut line.0 {
+                text.style.colors = self.theme.block_quote.colors.base;
+            }
+            self.chunk_operations.push(RenderOperation::RenderBlockLine(BlockLine {
+                prefix: prefix.clone().into(),
+                text: line.into(),
+                block_length,
+                alignment: alignment.clone(),
+                block_color: self.theme.block_quote.colors.base.background,
+            }));
             self.push_line_break();
         }
         self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors));
@@ -1652,7 +1642,7 @@ mod test {
         let elements = vec![
             MarkdownElement::Paragraph(vec![]),
             MarkdownElement::ThematicBreak,
-            MarkdownElement::Paragraph(vec![ParagraphElement::Text("hi".into())]),
+            MarkdownElement::Paragraph(vec!["hi".into()]),
         ];
         let presentation = build_presentation_with_options(elements, options);
         assert_eq!(presentation.iter_slides().count(), 2);
