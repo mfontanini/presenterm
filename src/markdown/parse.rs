@@ -10,12 +10,11 @@ use comrak::{
         Ast, AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList, NodeValue,
         Sourcepos,
     },
-    parse_document, Arena, ComrakOptions, ListStyleType,
+    parse_document, Arena, ComrakOptions,
 };
 use std::{
     cell::RefCell,
     fmt::{self, Debug, Display},
-    io::BufWriter,
     mem,
 };
 
@@ -101,7 +100,7 @@ impl<'a> MarkdownParser<'a> {
             NodeValue::CodeBlock(block) => Self::parse_code_block(block, data.sourcepos)?,
             NodeValue::ThematicBreak => MarkdownElement::ThematicBreak,
             NodeValue::HtmlBlock(block) => Self::parse_html_block(block, data.sourcepos)?,
-            NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => Self::parse_block_quote(node)?,
+            NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => self.parse_block_quote(node)?,
             other => return Err(ParseErrorKind::UnsupportedElement(other.identifier()).with_sourcepos(data.sourcepos)),
         };
         Ok(vec![element])
@@ -131,33 +130,20 @@ impl<'a> MarkdownParser<'a> {
         Ok(MarkdownElement::Comment { comment: block.into(), source_position: sourcepos.into() })
     }
 
-    fn parse_block_quote(node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
-        // This renders the contents of this block quote AST as commonmark, given we otherwise
-        // would need to either do this outselves or pull the raw block contents off of the
-        // original raw string and that also isn't great.
-        let mut buffer = BufWriter::new(Vec::new());
-        let mut options = ParserOptions::default().0;
-        options.render.list_style = ListStyleType::Star;
-        format_commonmark(node, &options, &mut buffer)
-            .map_err(|e| ParseErrorKind::Internal(e.to_string()).with_sourcepos(node.data.borrow().sourcepos))?;
-
-        let buffer = buffer.into_inner().expect("unwrapping writer failed");
-        let mut lines = Vec::new();
-        for line in String::from_utf8_lossy(&buffer).lines() {
-            let line = match line.find('>') {
-                Some(index) => line[index + 1..].trim(),
-                None => line,
-            };
-            let mut line = line.to_string();
-            // `format_commonmark` escapes these symbols so we un-escape them.
-            for escape in &["\\*", "\\!", "\\[", "\\]", "\\#", "\\`", "\\<", "\\>"] {
-                if line.contains(escape) {
-                    line = line.replace(escape, &escape[1..]);
-                }
+    fn parse_block_quote(&self, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
+        let mut elements = Vec::new();
+        let inlines = InlinesParser::new(self.arena, SoftBreak::Newline, StringifyImages::Yes).parse(node)?;
+        for inline in inlines {
+            match inline {
+                Inline::Text(text) => elements.push(text),
+                Inline::LineBreak => elements.push(TextBlock::from("")),
+                Inline::Image { .. } => {}
             }
-            lines.push(line);
         }
-        Ok(MarkdownElement::BlockQuote(lines))
+        if elements.last() == Some(&TextBlock::from("")) {
+            elements.pop();
+        }
+        Ok(MarkdownElement::BlockQuote(elements))
     }
 
     fn parse_code_block(block: &NodeCodeBlock, sourcepos: Sourcepos) -> ParseResult<MarkdownElement> {
@@ -182,7 +168,7 @@ impl<'a> MarkdownParser<'a> {
 
     fn parse_paragraph(&self, node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
         let mut elements = Vec::new();
-        let inlines = InlinesParser::new(self.arena).parse(node)?;
+        let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No).parse(node)?;
         let mut paragraph_elements = Vec::new();
         for inline in inlines {
             match inline {
@@ -207,7 +193,7 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn parse_text(&self, node: &'a AstNode<'a>) -> ParseResult<TextBlock> {
-        let inlines = InlinesParser::new(self.arena).parse(node)?;
+        let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No).parse(node)?;
         let mut chunks = Vec::new();
         for inline in inlines {
             match inline {
@@ -310,15 +296,27 @@ impl<'a> MarkdownParser<'a> {
     }
 }
 
+enum SoftBreak {
+    Newline,
+    Space,
+}
+
+enum StringifyImages {
+    Yes,
+    No,
+}
+
 struct InlinesParser<'a> {
     inlines: Vec<Inline>,
     pending_text: Vec<Text>,
     arena: &'a Arena<AstNode<'a>>,
+    soft_break: SoftBreak,
+    stringify_images: StringifyImages,
 }
 
 impl<'a> InlinesParser<'a> {
-    fn new(arena: &'a Arena<AstNode<'a>>) -> Self {
-        Self { inlines: Vec::new(), pending_text: Vec::new(), arena }
+    fn new(arena: &'a Arena<AstNode<'a>>, soft_break: SoftBreak, stringify_images: StringifyImages) -> Self {
+        Self { inlines: Vec::new(), pending_text: Vec::new(), arena, soft_break, stringify_images }
     }
 
     fn parse(mut self, node: &'a AstNode<'a>) -> ParseResult<Vec<Inline>> {
@@ -334,7 +332,7 @@ impl<'a> InlinesParser<'a> {
         }
     }
 
-    fn process_node(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
+    fn process_node(&mut self, node: &'a AstNode<'a>, parent: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
         let data = node.data.borrow();
         match &data.value {
             NodeValue::Text(text) => {
@@ -346,7 +344,14 @@ impl<'a> InlinesParser<'a> {
             NodeValue::Strong => self.process_children(node, style.bold())?,
             NodeValue::Emph => self.process_children(node, style.italics())?,
             NodeValue::Strikethrough => self.process_children(node, style.strikethrough())?,
-            NodeValue::SoftBreak => self.pending_text.push(Text::from(" ")),
+            NodeValue::SoftBreak => {
+                match self.soft_break {
+                    SoftBreak::Newline => {
+                        self.store_pending_text();
+                    }
+                    SoftBreak::Space => self.pending_text.push(Text::from(" ")),
+                };
+            }
             NodeValue::Link(link) => {
                 let has_label = node.first_child().is_some();
                 if has_label {
@@ -368,6 +373,10 @@ impl<'a> InlinesParser<'a> {
                 self.inlines.push(Inline::LineBreak);
             }
             NodeValue::Image(link) => {
+                if matches!(self.stringify_images, StringifyImages::Yes) {
+                    self.pending_text.push(Text::from(format!("![{}]({})", link.title, link.url)));
+                    return Ok(());
+                }
                 self.store_pending_text();
 
                 // The image "title" contains inlines so we create a dummy paragraph node that
@@ -385,6 +394,30 @@ impl<'a> InlinesParser<'a> {
                 let title = String::from_utf8_lossy(&buffer).trim_end().to_string();
                 self.inlines.push(Inline::Image { path: link.url.clone(), title });
             }
+            NodeValue::Paragraph => {
+                self.process_children(node, style)?;
+                self.store_pending_text();
+                if matches!(parent.data.borrow().value, NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_)) {
+                    self.inlines.push(Inline::LineBreak);
+                }
+            }
+            NodeValue::List(_) => {
+                self.process_children(node, style)?;
+                self.store_pending_text();
+                self.inlines.push(Inline::LineBreak);
+            }
+            NodeValue::Item(item) => {
+                match (item.list_type, item.delimiter) {
+                    (ListType::Bullet, _) => self.pending_text.push(Text::from("* ")),
+                    (ListType::Ordered, ListDelimType::Period) => {
+                        self.pending_text.push(Text::from(format!("{}. ", item.start)))
+                    }
+                    (ListType::Ordered, ListDelimType::Paren) => {
+                        self.pending_text.push(Text::from(format!("{}) ", item.start)))
+                    }
+                };
+                self.process_children(node, style)?;
+            }
             other => {
                 return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.identifier() }
                     .with_sourcepos(data.sourcepos));
@@ -393,9 +426,9 @@ impl<'a> InlinesParser<'a> {
         Ok(())
     }
 
-    fn process_children(&mut self, node: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
-        for node in node.children() {
-            self.process_node(node, style)?;
+    fn process_children(&mut self, root: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
+        for node in root.children() {
+            self.process_node(node, root, style)?;
         }
         Ok(())
     }
@@ -793,20 +826,38 @@ let q = 42;
     fn block_quote() {
         let parsed = parse_single(
             r#"
-> bar!@#$%^&*()[]'"{}-=`~,.<>/?
-> foo
+> foo **is not** bar
+> ![](hehe.png) test ![](potato.png)
 > 
 > * a
 > * b
+>
+> 1. a
+> 2. b
+>
+> 1) a
+> 2) b
 "#,
         );
         let MarkdownElement::BlockQuote(lines) = parsed else { panic!("not a block quote: {parsed:?}") };
-        assert_eq!(lines.len(), 5);
-        assert_eq!(lines[0], "bar!@#$%^&*()[]'\"{}-=`~,.<>/?");
-        assert_eq!(lines[1], "foo");
-        assert_eq!(lines[2], "");
-        assert_eq!(lines[3], "* a");
-        assert_eq!(lines[4], "* b");
+        assert_eq!(lines.len(), 11);
+        assert_eq!(
+            lines[0],
+            TextBlock(vec![Text::from("foo "), Text::new("is not", TextStyle::default().bold()), Text::from(" bar")])
+        );
+        assert_eq!(
+            lines[1],
+            TextBlock(vec![Text::from("![](hehe.png)"), Text::from(" test "), Text::from("![](potato.png)")])
+        );
+        assert_eq!(lines[2], TextBlock::from(""));
+        assert_eq!(lines[3], TextBlock(vec![Text::from("* "), Text::from("a")]));
+        assert_eq!(lines[4], TextBlock(vec![Text::from("* "), Text::from("b")]));
+        assert_eq!(lines[5], TextBlock::from(""));
+        assert_eq!(lines[6], TextBlock(vec![Text::from("1. "), Text::from("a")]));
+        assert_eq!(lines[7], TextBlock(vec![Text::from("2. "), Text::from("b")]));
+        assert_eq!(lines[8], TextBlock::from(""));
+        assert_eq!(lines[9], TextBlock(vec![Text::from("1) "), Text::from("a")]));
+        assert_eq!(lines[10], TextBlock(vec![Text::from("2) "), Text::from("b")]));
     }
 
     #[test]
@@ -823,11 +874,11 @@ foo
         );
         let MarkdownElement::BlockQuote(lines) = parsed else { panic!("not a block quote: {parsed:?}") };
         assert_eq!(lines.len(), 5);
-        assert_eq!(lines[0], "bar");
-        assert_eq!(lines[1], "foo");
-        assert_eq!(lines[2], "");
-        assert_eq!(lines[3], "* a");
-        assert_eq!(lines[4], "* b");
+        assert_eq!(lines[0], TextBlock::from("bar"));
+        assert_eq!(lines[1], TextBlock::from("foo"));
+        assert_eq!(lines[2], TextBlock::from(""));
+        assert_eq!(lines[3], TextBlock(vec![Text::from("* "), Text::from("a")]));
+        assert_eq!(lines[4], TextBlock(vec![Text::from("* "), Text::from("b")]));
     }
 
     #[test]

@@ -49,8 +49,8 @@ pub(crate) enum MarkdownElement {
     /// An HTML comment.
     Comment { comment: String, source_position: SourcePosition },
 
-    /// A quote.
-    BlockQuote(Vec<String>),
+    /// A block quote containing a list of lines.
+    BlockQuote(Vec<TextBlock>),
 }
 
 #[derive(Clone, Debug, Default)]
