@@ -60,7 +60,7 @@ impl<'a> CodePreparer<'a> {
             }
             line.push('\n');
             let line_number = Some(index as u16 + 1);
-            lines.push(CodeLine { prefix, code: line, suffix: padding.clone(), line_number });
+            lines.push(CodeLine { prefix, code: line, right_padding_length: padding.len() as u16, line_number });
         }
     }
 }
@@ -68,35 +68,29 @@ impl<'a> CodePreparer<'a> {
 pub(crate) struct CodeLine {
     pub(crate) prefix: String,
     pub(crate) code: String,
-    pub(crate) suffix: String,
+    pub(crate) right_padding_length: u16,
     pub(crate) line_number: Option<u16>,
 }
 
 impl CodeLine {
     pub(crate) fn empty() -> Self {
-        Self { prefix: String::new(), code: "\n".into(), suffix: String::new(), line_number: None }
+        Self { prefix: String::new(), code: "\n".into(), right_padding_length: 0, line_number: None }
     }
 
     pub(crate) fn width(&self) -> usize {
-        self.prefix.width() + self.code.width() + self.suffix.width()
+        self.prefix.width() + self.code.width() + self.right_padding_length as usize
     }
 
     pub(crate) fn highlight(
         &self,
-        dim_style: &TextStyle,
         code_highlighter: &mut LanguageHighlighter,
         block_style: &CodeBlockStyle,
     ) -> WeightedTextBlock {
-        let mut output = code_highlighter.highlight_line(&self.code, block_style).0;
-        output.push(StyledTokens { style: *dim_style, tokens: &self.suffix }.apply_style());
-        output.into()
+        code_highlighter.highlight_line(&self.code, block_style).0.into()
     }
 
     pub(crate) fn dim(&self, dim_style: &TextStyle) -> WeightedTextBlock {
-        let mut output = Vec::new();
-        for chunk in [&self.code, &self.suffix] {
-            output.push(StyledTokens { style: *dim_style, tokens: chunk }.apply_style());
-        }
+        let output = vec![StyledTokens { style: *dim_style, tokens: &self.code }.apply_style()];
         output.into()
     }
 
@@ -117,6 +111,7 @@ pub(crate) struct HighlightContext {
 #[derive(Debug)]
 pub(crate) struct HighlightedLine {
     pub(crate) prefix: WeightedText,
+    pub(crate) right_padding_length: u16,
     pub(crate) highlighted: WeightedTextBlock,
     pub(crate) not_highlighted: WeightedTextBlock,
     pub(crate) line_number: Option<u16>,
@@ -137,6 +132,7 @@ impl AsRenderOperations for HighlightedLine {
         vec![
             RenderOperation::RenderBlockLine(BlockLine {
                 prefix: self.prefix.clone(),
+                right_padding_length: self.right_padding_length,
                 repeat_prefix_on_wrap: false,
                 text,
                 block_length: context.block_length as u16,

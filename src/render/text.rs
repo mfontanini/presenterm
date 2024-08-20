@@ -18,6 +18,7 @@ const MINIMUM_LINE_LENGTH: u16 = 10;
 /// This deals with splitting words and doing word wrapping based on the given positioning.
 pub(crate) struct TextDrawer<'a> {
     prefix: &'a WeightedText,
+    right_padding_length: u16,
     line: &'a WeightedTextBlock,
     positioning: Positioning,
     prefix_length: u16,
@@ -30,22 +31,27 @@ pub(crate) struct TextDrawer<'a> {
 impl<'a> TextDrawer<'a> {
     pub(crate) fn new(
         prefix: &'a WeightedText,
+        right_padding_length: u16,
         line: &'a WeightedTextBlock,
         positioning: Positioning,
         default_colors: &'a Colors,
     ) -> Result<Self, RenderError> {
-        let text_length = (line.width() + prefix.width()) as u16;
+        let text_length = (line.width() + prefix.width() + right_padding_length as usize) as u16;
         // If our line doesn't fit and it's just too small then abort
         if text_length > positioning.max_line_length && positioning.max_line_length <= MINIMUM_LINE_LENGTH {
             Err(RenderError::TerminalTooSmall)
         } else {
             let prefix_length = prefix.width() as u16;
             let positioning = Positioning {
-                max_line_length: positioning.max_line_length.saturating_sub(prefix_length),
+                max_line_length: positioning
+                    .max_line_length
+                    .saturating_sub(prefix_length)
+                    .saturating_sub(right_padding_length),
                 start_column: positioning.start_column,
             };
             Ok(Self {
                 prefix,
+                right_padding_length,
                 line,
                 positioning,
                 prefix_length,
@@ -127,7 +133,8 @@ impl<'a> TextDrawer<'a> {
         W: TerminalWrite,
     {
         if self.draw_block {
-            let remaining = self.positioning.max_line_length.saturating_sub(line_length);
+            let remaining =
+                self.positioning.max_line_length.saturating_sub(line_length).saturating_add(self.right_padding_length);
             if remaining > 0 {
                 if let Some(color) = self.block_color {
                     terminal.set_background_color(color)?;
