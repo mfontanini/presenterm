@@ -555,6 +555,7 @@ pub(crate) struct PresentationThemeMetadata {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct BlockLine {
     pub(crate) prefix: WeightedText,
+    pub(crate) repeat_prefix_on_wrap: bool,
     pub(crate) text: WeightedTextBlock,
     pub(crate) block_length: u16,
     pub(crate) block_color: Option<Color>,
