@@ -673,6 +673,9 @@ impl<'a> PresentationBuilder<'a> {
             // Apply our colors to each chunk in this line.
             for text in &mut line.0 {
                 text.style.colors = self.theme.block_quote.colors.base;
+                if text.style.is_code() {
+                    text.style.colors = self.theme.inline_code.colors;
+                }
             }
             self.chunk_operations.push(RenderOperation::RenderBlockLine(BlockLine {
                 prefix: prefix.clone().into(),
