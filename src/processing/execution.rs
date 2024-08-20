@@ -112,6 +112,7 @@ impl AsRenderOperations for RunSnippetOperation {
         for line in &inner.output_lines {
             operations.push(RenderOperation::RenderBlockLine(BlockLine {
                 prefix: "".into(),
+                right_padding_length: 0,
                 repeat_prefix_on_wrap: false,
                 text: line.clone(),
                 block_length,

@@ -679,6 +679,7 @@ impl<'a> PresentationBuilder<'a> {
             }
             self.chunk_operations.push(RenderOperation::RenderBlockLine(BlockLine {
                 prefix: prefix.clone().into(),
+                right_padding_length: 0,
                 repeat_prefix_on_wrap: true,
                 text: line.into(),
                 block_length,
@@ -835,12 +836,13 @@ impl<'a> PresentationBuilder<'a> {
         let block_style = &self.theme.code;
         for line in lines.into_iter() {
             let prefix = line.dim_prefix(&dim_style);
-            let highlighted = line.highlight(&dim_style, &mut code_highlighter, block_style);
+            let highlighted = line.highlight(&mut code_highlighter, block_style);
             let not_highlighted = line.dim(&dim_style);
             let line_number = line.line_number;
             let context = context.clone();
             output.push(HighlightedLine {
                 prefix,
+                right_padding_length: line.right_padding_length,
                 highlighted,
                 not_highlighted,
                 line_number,

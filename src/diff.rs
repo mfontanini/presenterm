@@ -152,6 +152,7 @@ mod test {
     #[case(RenderOperation::RenderBlockLine(
         BlockLine{
             prefix: "".into(),
+            right_padding_length: 0,
             repeat_prefix_on_wrap: false,
             text: WeightedTextBlock::from("".to_string()),
             alignment: Default::default(),

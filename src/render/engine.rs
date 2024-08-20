@@ -161,7 +161,7 @@ where
         let dimensions = self.current_dimensions();
         let positioning = layout.compute(dimensions, text.width() as u16);
         let prefix = "".into();
-        let text_drawer = TextDrawer::new(&prefix, text, positioning, &self.colors)?;
+        let text_drawer = TextDrawer::new(&prefix, 0, text, positioning, &self.colors)?;
         text_drawer.draw(self.terminal)
     }
 
@@ -208,7 +208,15 @@ where
     }
 
     fn render_block_line(&mut self, operation: &BlockLine) -> RenderResult {
-        let BlockLine { text, block_length, alignment, block_color, prefix, repeat_prefix_on_wrap } = operation;
+        let BlockLine {
+            text,
+            block_length,
+            alignment,
+            block_color,
+            prefix,
+            right_padding_length,
+            repeat_prefix_on_wrap,
+        } = operation;
         let layout = self.build_layout(alignment.clone());
 
         let dimensions = self.current_dimensions();
@@ -220,7 +228,7 @@ where
         self.terminal.move_to_column(start_column)?;
 
         let positioning = Positioning { max_line_length, start_column };
-        let text_drawer = TextDrawer::new(prefix, text, positioning, &self.colors)?
+        let text_drawer = TextDrawer::new(prefix, *right_padding_length, text, positioning, &self.colors)?
             .with_surrounding_block(*block_color)
             .repeat_prefix_on_wrap(*repeat_prefix_on_wrap);
         text_drawer.draw(self.terminal)?;
