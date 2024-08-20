@@ -1,7 +1,10 @@
 use crate::{
     markdown::elements::TextBlock,
     presentation::{AsRenderOperations, BlockLine, RenderOperation},
-    render::properties::WindowSize,
+    render::{
+        layout::{Layout, Positioning},
+        properties::WindowSize,
+    },
     theme::{Alignment, Margin},
 };
 use std::rc::Rc;
@@ -9,6 +12,7 @@ use std::rc::Rc;
 #[derive(Clone, Debug, Default)]
 pub(crate) enum SeparatorWidth {
     Fixed(u16),
+
     #[default]
     FitToWindow,
 }
@@ -35,7 +39,12 @@ impl AsRenderOperations for RenderSeparator {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let character = "—";
         let width = match self.width {
-            SeparatorWidth::Fixed(width) => width as usize,
+            SeparatorWidth::Fixed(width) => {
+                let Positioning { max_line_length, .. } =
+                    Layout::new(Alignment::Center { minimum_margin: Margin::Fixed(0), minimum_size: 0 })
+                        .compute(dimensions, width);
+                max_line_length.min(width) as usize
+            }
             SeparatorWidth::FitToWindow => dimensions.columns as usize,
         };
         let separator = match self.heading.width() == 0 {
