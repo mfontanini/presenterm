@@ -56,6 +56,7 @@ impl AsRenderOperations for RenderSeparator {
         };
         vec![RenderOperation::RenderBlockLine(BlockLine {
             prefix: "".into(),
+            repeat_prefix_on_wrap: false,
             text: separator.into(),
             block_length: width as u16,
             block_color: None,

@@ -24,6 +24,7 @@ pub(crate) struct TextDrawer<'a> {
     default_colors: &'a Colors,
     draw_block: bool,
     block_color: Option<Color>,
+    repeat_prefix: bool,
 }
 
 impl<'a> TextDrawer<'a> {
@@ -43,13 +44,27 @@ impl<'a> TextDrawer<'a> {
                 max_line_length: positioning.max_line_length.saturating_sub(prefix_length),
                 start_column: positioning.start_column,
             };
-            Ok(Self { prefix, line, positioning, prefix_length, default_colors, draw_block: false, block_color: None })
+            Ok(Self {
+                prefix,
+                line,
+                positioning,
+                prefix_length,
+                default_colors,
+                draw_block: false,
+                block_color: None,
+                repeat_prefix: false,
+            })
         }
     }
 
     pub(crate) fn with_surrounding_block(mut self, block_color: Option<Color>) -> Self {
         self.draw_block = true;
         self.block_color = block_color;
+        self
+    }
+
+    pub(crate) fn repeat_prefix_on_wrap(mut self, value: bool) -> Self {
+        self.repeat_prefix = value;
         self
     }
 
@@ -63,9 +78,12 @@ impl<'a> TextDrawer<'a> {
         let mut line_length: u16 = 0;
 
         // Print the prefix at the beginning of the line.
-        let Text { content, style } = self.prefix.text();
+        let styled_prefix = {
+            let Text { content, style } = self.prefix.text();
+            style.apply(content)
+        };
         terminal.move_to_column(self.positioning.start_column)?;
-        terminal.print_styled_line(style.apply(content))?;
+        terminal.print_styled_line(styled_prefix.clone())?;
 
         let start_column = self.positioning.start_column + self.prefix_length;
         for (line_index, line) in self.line.split(self.positioning.max_line_length as usize).enumerate() {
@@ -78,7 +96,11 @@ impl<'a> TextDrawer<'a> {
                 // Complete the new line in this block to the left where the prefix would be.
                 if self.prefix_length > 0 {
                     terminal.move_to_column(self.positioning.start_column)?;
-                    self.print_block_background(self.prefix_length, terminal)?;
+                    if self.repeat_prefix {
+                        terminal.print_styled_line(styled_prefix.clone())?;
+                    } else {
+                        self.print_block_background(self.prefix_length, terminal)?;
+                    }
                 }
             }
             terminal.move_to_column(start_column)?;

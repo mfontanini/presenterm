@@ -679,6 +679,7 @@ impl<'a> PresentationBuilder<'a> {
             }
             self.chunk_operations.push(RenderOperation::RenderBlockLine(BlockLine {
                 prefix: prefix.clone().into(),
+                repeat_prefix_on_wrap: true,
                 text: line.into(),
                 block_length,
                 alignment: alignment.clone(),
