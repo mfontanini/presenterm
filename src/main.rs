@@ -8,7 +8,8 @@ use presenterm::{
     ValidateOverflows,
 };
 use std::{
-    env, io,
+    env::{self, current_dir},
+    io,
     path::{Path, PathBuf},
     rc::Rc,
     sync::Arc,
@@ -193,6 +194,16 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         let schema = schemars::schema_for!(Config);
         serde_json::to_writer_pretty(io::stdout(), &schema).map_err(|e| format!("failed to write schema: {e}"))?;
         return Ok(());
+    } else if cli.acknowledgements {
+        display_acknowledgements();
+        return Ok(());
+    } else if cli.list_themes {
+        let Customizations { config, themes, .. } =
+            load_customizations(cli.config_file.clone().map(PathBuf::from), &current_dir()?)?;
+        let bindings = config.bindings.try_into()?;
+        let demo = ThemesDemo::new(themes, bindings, io::stdout())?;
+        demo.run()?;
+        return Ok(());
     }
 
     let Some(path) = cli.path.take() else {
@@ -216,15 +227,6 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     };
     let arena = Arena::new();
     let parser = MarkdownParser::new(&arena);
-    if cli.acknowledgements {
-        display_acknowledgements();
-        return Ok(());
-    } else if cli.list_themes {
-        let bindings = config.bindings.try_into()?;
-        let demo = ThemesDemo::new(themes, bindings, io::stdout())?;
-        demo.run()?;
-        return Ok(());
-    }
 
     let validate_overflows = overflow_validation(&mode, &config.defaults.validate_overflows) || cli.validate_overflows;
     let mut options = make_builder_options(&config, &mode, force_default_theme);
