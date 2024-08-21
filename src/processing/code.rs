@@ -51,7 +51,7 @@ impl<'a> CodePreparer<'a> {
         let padding = " ".repeat(horizontal_padding as usize);
         let padder = NumberPadder::new(code.visible_lines(self.hidden_line_prefix).count());
         for (index, line) in code.visible_lines(self.hidden_line_prefix).enumerate() {
-            let mut line = line.to_string();
+            let mut line = line.replace('\t', "    ");
             let mut prefix = padding.clone();
             if code.attributes.line_numbers {
                 let line_number = index + 1;
@@ -769,5 +769,12 @@ println!("Hello world");
 
         let code = Snippet { contents, language: SnippetLanguage::Rust, attributes: Default::default() };
         assert_eq!(expected, code.executable_contents(Some("# ")));
+    }
+
+    #[test]
+    fn tabs_in_snippet() {
+        let snippet = Snippet { contents: "\thi".into(), language: SnippetLanguage::C, attributes: Default::default() };
+        let lines = CodePreparer::new(&Default::default(), None).prepare(&snippet);
+        assert_eq!(lines[0].code, "    hi\n");
     }
 }
