@@ -474,12 +474,7 @@ pub(crate) enum FooterStyle {
 
 impl Default for FooterStyle {
     fn default() -> Self {
-        Self::Template {
-            left: Some("{current_slide} / {total_slides}".to_string()),
-            center: None,
-            right: None,
-            colors: Colors::default(),
-        }
+        Self::Template { left: None, center: None, right: None, colors: Colors::default() }
     }
 }
 
