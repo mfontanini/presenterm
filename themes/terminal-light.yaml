@@ -67,6 +67,7 @@ intro_slide:
     colors:
       foreground: black
     positioning: page_bottom
+  footer: false
 
 headings:
   h1:
@@ -107,9 +108,8 @@ typst:
     background: "e9ecef"
 
 footer:
-  style: progress_bar
-  colors:
-    foreground: dark_blue
+  style: template
+  right: "{current_slide} / {total_slides}"
 
 modals:
   selection_colors:
