@@ -152,6 +152,7 @@ impl CodeHighlighter {
             Swift => "swift",
             Svelte => "svelte",
             Terraform => "tf",
+            Toml => "toml",
             TypeScript => "ts",
             Typst => "txt",
             // default to plain text so we get the same look&feel
