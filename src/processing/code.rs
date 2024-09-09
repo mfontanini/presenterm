@@ -232,6 +232,7 @@ impl CodeBlockParser {
                 Attribute::Exec => attributes.execute = true,
                 Attribute::ExecReplace => attributes.execute_replace = true,
                 Attribute::AutoRender => attributes.auto_render = true,
+                Attribute::NoMargin => attributes.no_margin = true,
                 Attribute::HighlightedLines(lines) => attributes.highlight_groups = lines,
                 Attribute::Width(width) => attributes.width = Some(width),
             };
@@ -254,6 +255,7 @@ impl CodeBlockParser {
                     "exec" => Attribute::Exec,
                     "exec_replace" => Attribute::ExecReplace,
                     "render" => Attribute::AutoRender,
+                    "no_margin" => Attribute::NoMargin,
                     token if token.starts_with("width:") => {
                         let value = input.split_once("+width:").unwrap().1;
                         let (width, input) = Self::parse_width(value)?;
@@ -368,6 +370,7 @@ enum Attribute {
     AutoRender,
     HighlightedLines(Vec<HighlightGroup>),
     Width(Percent),
+    NoMargin,
 }
 
 /// A code snippet.
@@ -387,7 +390,7 @@ impl Snippet {
     pub(crate) fn visible_lines<'a, 'b>(
         &'a self,
         hidden_line_prefix: Option<&'b str>,
-    ) -> impl Iterator<Item = &str> + 'b
+    ) -> impl Iterator<Item = &'a str> + 'b
     where
         'a: 'b,
     {
@@ -568,6 +571,9 @@ pub(crate) struct SnippetAttributes {
     ///
     /// Only valid for +render snippets.
     pub(crate) width: Option<Percent>,
+
+    /// Whether to add no margin to a snippet.
+    pub(crate) no_margin: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

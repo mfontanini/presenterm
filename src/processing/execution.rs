@@ -45,12 +45,12 @@ impl RunSnippetOperation {
         theme: &PresentationTheme,
         block_length: u16,
         separator: DisplaySeparator,
+        alignment: Alignment,
     ) -> Self {
         let default_colors = theme.default_style.colors;
         let block_colors = theme.execution_output.colors;
         let status_colors = theme.execution_output.status.clone();
         let not_started_colors = status_colors.not_started;
-        let alignment = theme.code.alignment.clone().unwrap_or_default();
         let block_length = match &alignment {
             Alignment::Left { .. } | Alignment::Right { .. } => block_length,
             Alignment::Center { minimum_size, .. } => block_length.max(*minimum_size),
@@ -108,7 +108,13 @@ impl AsRenderOperations for RunSnippetOperation {
         }
         operations.extend([RenderOperation::RenderLineBreak, RenderOperation::SetColors(self.block_colors)]);
 
-        let block_length = self.block_length.max(inner.max_line_length.saturating_add(1));
+        let has_margin = match &self.alignment {
+            Alignment::Left { margin } => !margin.is_empty(),
+            Alignment::Right { margin } => !margin.is_empty(),
+            Alignment::Center { minimum_margin, minimum_size } => !minimum_margin.is_empty() || minimum_size != &0,
+        };
+        let block_length =
+            if has_margin { self.block_length.max(inner.max_line_length) } else { inner.max_line_length };
         for line in &inner.output_lines {
             operations.push(RenderOperation::RenderBlockLine(BlockLine {
                 prefix: "".into(),
