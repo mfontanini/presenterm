@@ -1,3 +1,9 @@
+use crossterm::{
+    cursor,
+    terminal::{self, disable_raw_mode, enable_raw_mode},
+    ExecutableCommand,
+};
+
 use super::separator::{RenderSeparator, SeparatorWidth};
 use crate::{
     ansi::AnsiSplitter,
@@ -8,12 +14,18 @@ use crate::{
     },
     presentation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, RenderOperation},
     processing::code::Snippet,
-    render::properties::WindowSize,
+    render::{properties::WindowSize, terminal::should_hide_cursor},
     style::{Colors, TextStyle},
-    theme::{Alignment, ExecutionStatusBlockStyle},
+    theme::{Alignment, ExecutionStatusBlockStyle, Margin},
     PresentationTheme,
 };
-use std::{cell::RefCell, mem, rc::Rc};
+use std::{
+    cell::RefCell,
+    io::{self},
+    mem,
+    ops::Deref,
+    rc::Rc,
+};
 
 #[derive(Debug)]
 struct RunSnippetOperationInner {
@@ -176,7 +188,7 @@ impl RenderAsync for RunSnippetOperation {
         if !matches!(inner.state, RenderAsyncState::NotStarted) {
             return false;
         }
-        match self.executor.execute(&self.code) {
+        match self.executor.execute_async(&self.code) {
             Ok(handle) => {
                 inner.handle = Some(handle);
                 inner.state = RenderAsyncState::Rendering { modified: false };
@@ -224,6 +236,80 @@ impl RenderAsync for SnippetExecutionDisabledOperation {
     fn start_render(&self) -> bool {
         let was_started = mem::replace(&mut *self.started.borrow_mut(), true);
         !was_started
+    }
+
+    fn poll_state(&self) -> RenderAsyncState {
+        RenderAsyncState::Rendered
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RunAcquireTerminalCodeSnippet {
+    snippet: Snippet,
+    executor: Rc<SnippetExecutor>,
+    error_message: RefCell<Option<Vec<String>>>,
+    error_colors: Colors,
+}
+
+impl RunAcquireTerminalCodeSnippet {
+    pub(crate) fn new(snippet: Snippet, executor: Rc<SnippetExecutor>, error_colors: Colors) -> Self {
+        Self { snippet, executor, error_message: Default::default(), error_colors }
+    }
+}
+
+impl RunAcquireTerminalCodeSnippet {
+    fn invoke(&self) -> Result<(), String> {
+        let mut stdout = io::stdout();
+        stdout
+            .execute(terminal::LeaveAlternateScreen)
+            .and_then(|_| disable_raw_mode())
+            .map_err(|e| format!("failed to deinit terminal: {e}"))?;
+
+        // save result for later, but first reinit the terminal
+        let result = self.executor.execute_sync(&self.snippet).map_err(|e| format!("failed to run snippet: {e}"));
+
+        stdout
+            .execute(terminal::EnterAlternateScreen)
+            .and_then(|_| enable_raw_mode())
+            .map_err(|e| format!("failed to reinit terminal: {e}"))?;
+        if should_hide_cursor() {
+            stdout.execute(cursor::Hide).map_err(|e| e.to_string())?;
+        }
+        result
+    }
+}
+
+impl AsRenderOperations for RunAcquireTerminalCodeSnippet {
+    fn as_render_operations(&self, _dimensions: &WindowSize) -> Vec<RenderOperation> {
+        let error_message = self.error_message.borrow();
+        match error_message.deref() {
+            Some(lines) => {
+                let mut ops = vec![RenderOperation::RenderLineBreak];
+                for line in lines {
+                    ops.extend([
+                        RenderOperation::RenderText {
+                            line: vec![Text::new(line, TextStyle::default().colors(self.error_colors))].into(),
+                            alignment: Alignment::Left { margin: Margin::Percent(25) },
+                        },
+                        RenderOperation::RenderLineBreak,
+                    ]);
+                }
+                ops
+            }
+            None => Vec::new(),
+        }
+    }
+}
+
+impl RenderAsync for RunAcquireTerminalCodeSnippet {
+    fn start_render(&self) -> bool {
+        if let Err(e) = self.invoke() {
+            let lines = e.lines().map(ToString::to_string).collect();
+            *self.error_message.borrow_mut() = Some(lines);
+        } else {
+            *self.error_message.borrow_mut() = None;
+        }
+        true
     }
 
     fn poll_state(&self) -> RenderAsyncState {

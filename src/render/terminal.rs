@@ -128,7 +128,7 @@ where
     }
 }
 
-fn should_hide_cursor() -> bool {
+pub(crate) fn should_hide_cursor() -> bool {
     // WezTerm on Windows fails to display images if we've hidden the cursor so we **always** hide it
     // unless we're on WezTerm on Windows.
     let term = std::env::var("TERM_PROGRAM");

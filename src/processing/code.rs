@@ -233,6 +233,7 @@ impl CodeBlockParser {
                 Attribute::ExecReplace => attributes.execute_replace = true,
                 Attribute::AutoRender => attributes.auto_render = true,
                 Attribute::NoMargin => attributes.no_margin = true,
+                Attribute::AcquireTerminal => attributes.acquire_terminal = true,
                 Attribute::HighlightedLines(lines) => attributes.highlight_groups = lines,
                 Attribute::Width(width) => attributes.width = Some(width),
             };
@@ -256,6 +257,7 @@ impl CodeBlockParser {
                     "exec_replace" => Attribute::ExecReplace,
                     "render" => Attribute::AutoRender,
                     "no_margin" => Attribute::NoMargin,
+                    "acquire_terminal" => Attribute::AcquireTerminal,
                     token if token.starts_with("width:") => {
                         let value = input.split_once("+width:").unwrap().1;
                         let (width, input) = Self::parse_width(value)?;
@@ -371,6 +373,7 @@ enum Attribute {
     HighlightedLines(Vec<HighlightGroup>),
     Width(Percent),
     NoMargin,
+    AcquireTerminal,
 }
 
 /// A code snippet.
@@ -574,6 +577,9 @@ pub(crate) struct SnippetAttributes {
 
     /// Whether to add no margin to a snippet.
     pub(crate) no_margin: bool,
+
+    /// Whether this code snippet acquires the terminal when ran.
+    pub(crate) acquire_terminal: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
