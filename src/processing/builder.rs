@@ -33,7 +33,8 @@ use crate::{
     resource::{LoadImageError, Resources},
     style::{Color, Colors, TextStyle},
     theme::{
-        Alignment, AuthorPositioning, ElementType, LoadThemeError, Margin, PresentationTheme, PresentationThemeSet,
+        Alignment, AuthorPositioning, CodeBlockStyle, ElementType, LoadThemeError, Margin, PresentationTheme,
+        PresentationThemeSet,
     },
     third_party::{ThirdPartyRender, ThirdPartyRenderError, ThirdPartyRenderRequest},
 };
@@ -817,9 +818,10 @@ impl<'a> PresentationBuilder<'a> {
         block_length: usize,
     ) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
+        let style = self.code_style(code);
         let dim_style = {
             let mut highlighter = self.highlighter.language_highlighter(&SnippetLanguage::Rust);
-            highlighter.style_line("//", &self.theme.code).0.first().expect("no styles").style
+            highlighter.style_line("//", &style).0.first().expect("no styles").style
         };
         let groups = match self.options.allow_mutations {
             true => code.attributes.highlight_groups.clone(),
@@ -829,14 +831,13 @@ impl<'a> PresentationBuilder<'a> {
             groups,
             current: 0,
             block_length,
-            alignment: self.theme.alignment(&ElementType::Code),
+            alignment: style.alignment.clone().unwrap_or_default(),
         }));
 
         let mut output = Vec::new();
-        let block_style = &self.theme.code;
         for line in lines.into_iter() {
             let prefix = line.dim_prefix(&dim_style);
-            let highlighted = line.highlight(&mut code_highlighter, block_style);
+            let highlighted = line.highlight(&mut code_highlighter, &style);
             let not_highlighted = line.dim(&dim_style);
             let line_number = line.line_number;
             let context = context.clone();
@@ -853,6 +854,21 @@ impl<'a> PresentationBuilder<'a> {
         (output, context)
     }
 
+    fn code_style(&self, snippet: &Snippet) -> CodeBlockStyle {
+        let mut style = self.theme.code.clone();
+        if snippet.attributes.no_margin {
+            style.alignment = match style.alignment {
+                Some(Alignment::Center { .. }) => {
+                    Some(Alignment::Center { minimum_size: 0, minimum_margin: Margin::default() })
+                }
+                Some(Alignment::Left { .. }) => Some(Alignment::Left { margin: Margin::default() }),
+                Some(Alignment::Right { .. }) => Some(Alignment::Right { margin: Margin::default() }),
+                None => None,
+            };
+        }
+        style
+    }
+
     fn push_code_execution(
         &mut self,
         code: Snippet,
@@ -866,8 +882,15 @@ impl<'a> PresentationBuilder<'a> {
             ExecutionMode::AlongSnippet => DisplaySeparator::On,
             ExecutionMode::ReplaceSnippet => DisplaySeparator::Off,
         };
-        let operation =
-            RunSnippetOperation::new(code, self.code_executor.clone(), &self.theme, block_length as u16, separator);
+        let alignment = self.code_style(&code).alignment.unwrap_or_default();
+        let operation = RunSnippetOperation::new(
+            code,
+            self.code_executor.clone(),
+            &self.theme,
+            block_length as u16,
+            separator,
+            alignment,
+        );
         if matches!(mode, ExecutionMode::ReplaceSnippet) {
             operation.start_render();
         }

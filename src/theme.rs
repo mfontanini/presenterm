@@ -570,6 +570,10 @@ impl Margin {
             }
         }
     }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        matches!(self, Self::Fixed(0) | Self::Percent(0))
+    }
 }
 
 impl Default for Margin {
