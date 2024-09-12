@@ -27,6 +27,8 @@ use std::{
     rc::Rc,
 };
 
+const MINIMUM_SEPARATOR_WIDTH: u16 = 32;
+
 #[derive(Debug)]
 struct RunSnippetOperationInner {
     handle: Option<ExecutionHandle>,
@@ -104,7 +106,9 @@ impl AsRenderOperations for RunSnippetOperation {
                 let heading = TextBlock(vec![" [".into(), description.clone(), "] ".into()]);
                 let separator_width = match &self.alignment {
                     Alignment::Left { .. } | Alignment::Right { .. } => SeparatorWidth::FitToWindow,
-                    Alignment::Center { .. } => SeparatorWidth::Fixed(self.block_length),
+                    // We need a minimum here otherwise if the code/block length is too narrow, the separator is
+                    // word-wrapped and looks bad.
+                    Alignment::Center { .. } => SeparatorWidth::Fixed(self.block_length.max(MINIMUM_SEPARATOR_WIDTH)),
                 };
                 let separator = RenderSeparator::new(heading, separator_width);
                 vec![

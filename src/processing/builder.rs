@@ -856,7 +856,7 @@ impl<'a> PresentationBuilder<'a> {
 
     fn code_style(&self, snippet: &Snippet) -> CodeBlockStyle {
         let mut style = self.theme.code.clone();
-        if snippet.attributes.no_margin {
+        if snippet.attributes.no_background {
             style.alignment = match style.alignment {
                 Some(Alignment::Center { .. }) => {
                     Some(Alignment::Center { minimum_size: 0, minimum_margin: Margin::default() })
@@ -865,6 +865,7 @@ impl<'a> PresentationBuilder<'a> {
                 Some(Alignment::Right { .. }) => Some(Alignment::Right { margin: Margin::default() }),
                 None => None,
             };
+            style.background = Some(false);
         }
         style
     }
