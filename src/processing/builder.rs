@@ -1,6 +1,6 @@
 use super::{
     code::{CodeBlockParser, CodeLine, ExternalFile, Highlight, HighlightGroup, Snippet, SnippetLanguage},
-    execution::{DisplaySeparator, SnippetExecutionDisabledOperation},
+    execution::{DisplaySeparator, RunAcquireTerminalCodeSnippet, SnippetExecutionDisabledOperation},
     modals::KeyBindingsModalBuilder,
 };
 use crate::{
@@ -877,6 +877,16 @@ impl<'a> PresentationBuilder<'a> {
     ) -> Result<(), BuildError> {
         if !self.code_executor.is_execution_supported(&code.language) {
             return Err(BuildError::UnsupportedExecution(code.language));
+        }
+        if code.attributes.acquire_terminal {
+            let operation = RunAcquireTerminalCodeSnippet::new(
+                code,
+                self.code_executor.clone(),
+                self.theme.execution_output.status.failure,
+            );
+            let operation = RenderOperation::RenderAsync(Rc::new(operation));
+            self.chunk_operations.push(operation);
+            return Ok(());
         }
         let separator = match mode {
             ExecutionMode::AlongSnippet => DisplaySeparator::On,
