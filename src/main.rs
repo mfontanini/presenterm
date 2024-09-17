@@ -260,6 +260,9 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         if cli.enable_snippet_execution {
             args.push("-x");
         }
+        if cli.enable_snippet_execution_replace {
+            args.push("-X");
+        }
         if cli.export_pdf {
             exporter.export_pdf(&path, &args)?;
         } else {
