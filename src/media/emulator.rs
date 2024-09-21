@@ -1,5 +1,5 @@
 use super::kitty::local_mode_supported;
-use crate::{media::kitty::KittyMode, GraphicsMode};
+use crate::{GraphicsMode, media::kitty::KittyMode};
 use std::env;
 use strum::IntoEnumIterator;
 

@@ -1,4 +1,5 @@
 use crate::{
+    ImageRegistry, PresentationTheme,
     custom::{default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
     markdown::elements::{Percent, Text, TextBlock},
     media::{image::Image, printer::RegisterImageError},
@@ -11,7 +12,6 @@ use crate::{
     style::{Color, Colors, TextStyle},
     theme::{Alignment, MermaidStyle, TypstStyle},
     tools::{ExecutionError, ThirdPartyTools},
-    ImageRegistry, PresentationTheme,
 };
 use std::{
     collections::{HashMap, VecDeque},

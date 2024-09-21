@@ -1,4 +1,4 @@
-use clap::{error::ErrorKind, CommandFactory, Parser};
+use clap::{CommandFactory, Parser, error::ErrorKind};
 use comrak::Arena;
 use directories::ProjectDirs;
 use presenterm::{

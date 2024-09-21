@@ -1,11 +1,11 @@
 use crossterm::{
-    cursor,
+    ExecutableCommand, cursor,
     terminal::{self, disable_raw_mode, enable_raw_mode},
-    ExecutableCommand,
 };
 
 use super::separator::{RenderSeparator, SeparatorWidth};
 use crate::{
+    PresentationTheme,
     ansi::AnsiSplitter,
     execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
     markdown::{
@@ -17,7 +17,6 @@ use crate::{
     render::{properties::WindowSize, terminal::should_hide_cursor},
     style::{Colors, TextStyle},
     theme::{Alignment, ExecutionStatusBlockStyle, Margin},
-    PresentationTheme,
 };
 use std::{
     cell::RefCell,

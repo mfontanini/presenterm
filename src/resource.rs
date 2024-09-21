@@ -7,9 +7,9 @@ use std::{
     fs, io, mem,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
-        mpsc::{channel, Receiver, Sender},
         Arc,
+        atomic::{AtomicBool, Ordering},
+        mpsc::{Receiver, Sender, channel},
     },
     thread,
     time::{Duration, SystemTime},

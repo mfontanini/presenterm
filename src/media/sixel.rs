@@ -1,7 +1,7 @@
 use super::printer::{
     CreatePrinterError, PrintImage, PrintImageError, PrintOptions, RegisterImageError, ResourceProperties,
 };
-use image::{imageops::FilterType, DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, imageops::FilterType};
 use sixel_rs::{
     encoder::{Encoder, QuickFrameBuilder},
     optflags::EncodePolicy,

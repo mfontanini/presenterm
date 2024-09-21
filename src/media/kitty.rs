@@ -1,9 +1,9 @@
 use super::printer::{PrintImage, PrintImageError, PrintOptions, RegisterImageError, ResourceProperties};
 use crate::style::Color;
-use base64::{engine::general_purpose::STANDARD, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD};
 use console::{Key, Term};
-use crossterm::{cursor::MoveToColumn, style::SetForegroundColor, QueueableCommand};
-use image::{codecs::gif::GifDecoder, AnimationDecoder, Delay, DynamicImage, EncodableLayout, ImageReader, RgbaImage};
+use crossterm::{QueueableCommand, cursor::MoveToColumn, style::SetForegroundColor};
+use image::{AnimationDecoder, Delay, DynamicImage, EncodableLayout, ImageReader, RgbaImage, codecs::gif::GifDecoder};
 use rand::Rng;
 use std::{
     fmt,
@@ -12,7 +12,7 @@ use std::{
     path::{Path, PathBuf},
     sync::atomic::{AtomicU32, Ordering},
 };
-use tempfile::{tempdir, NamedTempFile, TempDir};
+use tempfile::{NamedTempFile, TempDir, tempdir};
 
 const IMAGE_PLACEHOLDER: &str = "\u{10EEEE}";
 const DIACRITICS: &[u32] = &[

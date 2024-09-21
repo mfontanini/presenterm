@@ -1,4 +1,5 @@
 use crate::{
+    MarkdownParser, PresentationTheme, Resources,
     custom::KeyBindingsConfig,
     execute::SnippetExecutor,
     markdown::parse::ParseError,
@@ -11,10 +12,9 @@ use crate::{
     render::properties::WindowSize,
     third_party::ThirdPartyRender,
     tools::{ExecutionError, ThirdPartyTools},
-    MarkdownParser, PresentationTheme, Resources,
 };
-use base64::{engine::general_purpose::STANDARD, Engine};
-use image::{codecs::png::PngEncoder, DynamicImage, ImageEncoder, ImageError};
+use base64::{Engine, engine::general_purpose::STANDARD};
+use image::{DynamicImage, ImageEncoder, ImageError, codecs::png::PngEncoder};
 use semver::Version;
 use serde::Serialize;
 use std::{

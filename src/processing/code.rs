@@ -1,5 +1,6 @@
 use super::padding::NumberPadder;
 use crate::{
+    PresentationTheme,
     markdown::{
         elements::{Percent, PercentParseError},
         text::{WeightedText, WeightedTextBlock},
@@ -11,7 +12,6 @@ use crate::{
     },
     style::{Color, TextStyle},
     theme::{Alignment, CodeBlockStyle},
-    PresentationTheme,
 };
 use serde::Deserialize;
 use serde_with::DeserializeFromStr;
@@ -622,8 +622,8 @@ pub(crate) struct ExternalFile {
 #[cfg(test)]
 mod test {
     use super::*;
-    use rstest::rstest;
     use Highlight::*;
+    use rstest::rstest;
 
     fn parse_language(input: &str) -> SnippetLanguage {
         let (language, _) = CodeBlockParser::parse_block_info(input).expect("parse failed");
@@ -725,10 +725,13 @@ mod test {
     #[test]
     fn highlight_line_range() {
         let attributes = parse_attributes("bash {   1, 2-4,6 ,  all , 10 - 12  }");
-        assert_eq!(
-            attributes.highlight_groups,
-            &[HighlightGroup::new(vec![Single(1), Range(2..5), Single(6), All, Range(10..13)])]
-        );
+        assert_eq!(attributes.highlight_groups, &[HighlightGroup::new(vec![
+            Single(1),
+            Range(2..5),
+            Single(6),
+            All,
+            Range(10..13)
+        ])]);
     }
 
     #[test]
