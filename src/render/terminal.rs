@@ -6,10 +6,9 @@ use crate::{
     style::{Color, Colors},
 };
 use crossterm::{
-    cursor,
+    QueueableCommand, cursor,
     style::{self, StyledContent},
     terminal::{self},
-    QueueableCommand,
 };
 use std::{
     io::{self, Write},

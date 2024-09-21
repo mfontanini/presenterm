@@ -1,4 +1,5 @@
 use crate::{
+    ImageRegistry, MarkdownParser, PresentationBuilderOptions, PresentationTheme, Resources, Themes, ThirdPartyRender,
     execute::SnippetExecutor,
     input::{
         source::Command,
@@ -8,7 +9,6 @@ use crate::{
     presentation::Presentation,
     processing::builder::{BuildError, PresentationBuilder},
     render::{draw::TerminalDrawer, terminal::TerminalWrite},
-    ImageRegistry, MarkdownParser, PresentationBuilderOptions, PresentationTheme, Resources, Themes, ThirdPartyRender,
 };
 use std::{io, rc::Rc};
 

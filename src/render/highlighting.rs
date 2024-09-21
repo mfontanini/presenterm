@@ -9,10 +9,10 @@ use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::{cell::RefCell, collections::BTreeMap, fs, path::Path, rc::Rc};
 use syntect::{
+    LoadingError,
     easy::HighlightLines,
     highlighting::{Style, Theme, ThemeSet},
     parsing::SyntaxSet,
-    LoadingError,
 };
 
 static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(|| {

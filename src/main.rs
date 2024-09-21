@@ -1,4 +1,4 @@
-use clap::{error::ErrorKind, CommandFactory, Parser};
+use clap::{CommandFactory, Parser, error::ErrorKind};
 use comrak::Arena;
 use directories::ProjectDirs;
 use presenterm::{
@@ -270,7 +270,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", serde_json::to_string_pretty(&meta)?);
         }
     } else {
-        let commands = CommandSource::new(&path, config.bindings.clone())?;
+        let commands = CommandSource::new(config.bindings.clone())?;
         options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty { .. });
 
         let options = PresenterOptions {

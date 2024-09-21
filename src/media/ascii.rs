@@ -1,10 +1,10 @@
 use super::printer::{PrintImage, PrintImageError, PrintOptions, RegisterImageError, ResourceProperties};
 use crossterm::{
+    QueueableCommand,
     cursor::{MoveRight, MoveToColumn},
     style::{Color, Stylize},
-    QueueableCommand,
 };
-use image::{imageops::FilterType, DynamicImage, GenericImageView, Pixel, Rgba};
+use image::{DynamicImage, GenericImageView, Pixel, Rgba, imageops::FilterType};
 use itertools::Itertools;
 use std::{fs, ops::Deref};
 

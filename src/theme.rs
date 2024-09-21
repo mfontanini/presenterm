@@ -676,7 +676,7 @@ pub enum LoadThemeError {
 #[cfg(test)]
 mod test {
     use super::*;
-    use tempfile::{tempdir, TempDir};
+    use tempfile::{TempDir, tempdir};
 
     fn write_theme(name: &str, theme: PresentationTheme, directory: &TempDir) {
         let theme = serde_yaml::to_string(&theme).unwrap();

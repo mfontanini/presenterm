@@ -1,6 +1,6 @@
 use super::printer::{PrintImage, PrintImageError, PrintOptions, RegisterImageError, ResourceProperties};
-use base64::{engine::general_purpose::STANDARD, Engine};
-use image::{codecs::png::PngEncoder, GenericImageView, ImageEncoder};
+use base64::{Engine, engine::general_purpose::STANDARD};
+use image::{GenericImageView, ImageEncoder, codecs::png::PngEncoder};
 use std::{env, fs, path::Path};
 
 pub(crate) struct ItermResource {

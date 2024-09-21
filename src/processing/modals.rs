@@ -1,4 +1,5 @@
 use crate::{
+    PresentationTheme,
     custom::KeyBindingsConfig,
     input::user::KeyBinding,
     markdown::{
@@ -13,7 +14,6 @@ use crate::{
     render::properties::WindowSize,
     style::{Colors, TextStyle},
     theme::Margin,
-    PresentationTheme,
 };
 use std::{iter, rc::Rc};
 use unicode_width::UnicodeWidthStr;

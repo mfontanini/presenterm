@@ -4,13 +4,14 @@ use crate::{
     style::TextStyle,
 };
 use comrak::{
+    Arena, ComrakOptions,
     arena_tree::Node,
     format_commonmark,
     nodes::{
         Ast, AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList, NodeValue,
         Sourcepos,
     },
-    parse_document, Arena, ComrakOptions,
+    parse_document,
 };
 use std::{
     cell::RefCell,

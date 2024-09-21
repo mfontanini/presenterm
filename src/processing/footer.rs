@@ -76,13 +76,10 @@ impl AsRenderOperations for FooterGenerator {
                 let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
                 let bar = character.repeat(columns_ratio as usize);
                 let bar = Text::new(bar, TextStyle::default().colors(*colors));
-                vec![
-                    RenderOperation::JumpToBottomRow { index: 0 },
-                    RenderOperation::RenderText {
-                        line: vec![bar].into(),
-                        alignment: Alignment::Left { margin: Margin::Fixed(0) },
-                    },
-                ]
+                vec![RenderOperation::JumpToBottomRow { index: 0 }, RenderOperation::RenderText {
+                    line: vec![bar].into(),
+                    alignment: Alignment::Left { margin: Margin::Fixed(0) },
+                }]
             }
             FooterStyle::Empty => vec![],
         }
