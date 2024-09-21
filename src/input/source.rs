@@ -1,10 +1,7 @@
-use super::{
-    fs::PresentationFileWatcher,
-    user::{CommandKeyBindings, KeyBindingsValidationError, UserInput},
-};
+use super::user::{CommandKeyBindings, KeyBindingsValidationError, UserInput};
 use crate::custom::KeyBindingsConfig;
 use serde::Deserialize;
-use std::{io, path::PathBuf, time::Duration};
+use std::{io, time::Duration};
 use strum::EnumDiscriminants;
 
 /// The source of commands.
@@ -12,29 +9,24 @@ use strum::EnumDiscriminants;
 /// This expects user commands as well as watches over the presentation file to reload if it that
 /// happens.
 pub struct CommandSource {
-    watcher: PresentationFileWatcher,
     user_input: UserInput,
 }
 
 impl CommandSource {
     /// Create a new command source over the given presentation path.
-    pub fn new<P: Into<PathBuf>>(
-        presentation_path: P,
-        config: KeyBindingsConfig,
-    ) -> Result<Self, KeyBindingsValidationError> {
-        let watcher = PresentationFileWatcher::new(presentation_path);
+    pub fn new(config: KeyBindingsConfig) -> Result<Self, KeyBindingsValidationError> {
         let bindings = CommandKeyBindings::try_from(config)?;
-        Ok(Self { watcher, user_input: UserInput::new(bindings) })
+        Ok(Self { user_input: UserInput::new(bindings) })
     }
 
     /// Try to get the next command.
     ///
     /// This attempts to get a command and returns `Ok(None)` on timeout.
     pub(crate) fn try_next_command(&mut self) -> io::Result<Option<Command>> {
-        if let Some(command) = self.user_input.poll_next_command(Duration::from_millis(250))? {
-            return Ok(Some(command));
-        };
-        if self.watcher.has_modifications()? { Ok(Some(Command::Reload)) } else { Ok(None) }
+        match self.user_input.poll_next_command(Duration::from_millis(250))? {
+            Some(command) => Ok(Some(command)),
+            None => Ok(None),
+        }
     }
 }
 

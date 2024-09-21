@@ -85,6 +85,9 @@ impl<'a> Presenter<'a> {
 
     /// Run a presentation.
     pub fn present(mut self, path: &Path) -> Result<(), PresentationError> {
+        if matches!(self.options.mode, PresentMode::Development) {
+            self.resources.watch_presentation_file(path.to_path_buf());
+        }
         self.state = PresenterState::Presenting(Presentation::from(vec![]));
         self.try_reload(path, true);
 
@@ -104,11 +107,18 @@ impl<'a> Presenter<'a> {
                 if self.poll_async_renders()? {
                     self.render(&mut drawer)?;
                 }
-                let Some(command) = self.commands.try_next_command()? else {
-                    if self.check_async_error() {
-                        break;
-                    }
-                    continue;
+
+                let command = match self.commands.try_next_command()? {
+                    Some(command) => command,
+                    _ => match self.resources.resources_modified() {
+                        true => Command::Reload,
+                        false => {
+                            if self.check_async_error() {
+                                break;
+                            }
+                            continue;
+                        }
+                    },
                 };
                 match self.apply_command(command) {
                     CommandSideEffect::Exit => return Ok(()),
@@ -262,6 +272,7 @@ impl<'a> Presenter<'a> {
             return;
         }
         self.slides_with_pending_async_renders.clear();
+        self.resources.clear_watches();
         match self.load_presentation(path) {
             Ok(mut presentation) => {
                 let current = self.state.presentation();
@@ -280,6 +291,7 @@ impl<'a> Presenter<'a> {
                     // file.
                     PresentMode::Export => presentation.trigger_all_async_renders(),
                 };
+
                 self.state = self.validate_overflows(presentation);
             }
             Err(e) => {
