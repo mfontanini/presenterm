@@ -72,7 +72,7 @@ ruby:
 rust-script:
   filename: snippet.rs
   commands:
-    - ["rust-script", "$pwd/snippet.rs"]
+    - ["rust-script", "--debug", "$pwd/snippet.rs"]
   hidden_line_prefix: "# "
 rust:
   filename: snippet.rs
