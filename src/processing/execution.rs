@@ -246,21 +246,45 @@ impl RenderAsync for SnippetExecutionDisabledOperation {
     }
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct RunAcquireTerminalCodeSnippet {
-    snippet: Snippet,
-    executor: Rc<SnippetExecutor>,
-    error_message: RefCell<Option<Vec<String>>>,
-    error_colors: Colors,
+#[derive(Default, Clone)]
+enum AcquireTerminalSnippetState {
+    #[default]
+    NotStarted,
+    Success,
+    Failure(Vec<String>),
 }
 
-impl RunAcquireTerminalCodeSnippet {
-    pub(crate) fn new(snippet: Snippet, executor: Rc<SnippetExecutor>, error_colors: Colors) -> Self {
-        Self { snippet, executor, error_message: Default::default(), error_colors }
+impl std::fmt::Debug for AcquireTerminalSnippetState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotStarted => write!(f, "NotStarted"),
+            Self::Success => write!(f, "Success"),
+            Self::Failure(_) => write!(f, "Failure"),
+        }
     }
 }
 
-impl RunAcquireTerminalCodeSnippet {
+#[derive(Clone, Debug)]
+pub(crate) struct RunAcquireTerminalSnippet {
+    snippet: Snippet,
+    block_length: u16,
+    executor: Rc<SnippetExecutor>,
+    colors: ExecutionStatusBlockStyle,
+    state: RefCell<AcquireTerminalSnippetState>,
+}
+
+impl RunAcquireTerminalSnippet {
+    pub(crate) fn new(
+        snippet: Snippet,
+        executor: Rc<SnippetExecutor>,
+        colors: ExecutionStatusBlockStyle,
+        block_length: u16,
+    ) -> Self {
+        Self { snippet, block_length, executor, colors, state: Default::default() }
+    }
+}
+
+impl RunAcquireTerminalSnippet {
     fn invoke(&self) -> Result<(), String> {
         let mut stdout = io::stdout();
         stdout
@@ -282,35 +306,53 @@ impl RunAcquireTerminalCodeSnippet {
     }
 }
 
-impl AsRenderOperations for RunAcquireTerminalCodeSnippet {
+impl AsRenderOperations for RunAcquireTerminalSnippet {
     fn as_render_operations(&self, _dimensions: &WindowSize) -> Vec<RenderOperation> {
-        let error_message = self.error_message.borrow();
-        match error_message.deref() {
-            Some(lines) => {
-                let mut ops = vec![RenderOperation::RenderLineBreak];
-                for line in lines {
-                    ops.extend([
-                        RenderOperation::RenderText {
-                            line: vec![Text::new(line, TextStyle::default().colors(self.error_colors))].into(),
-                            alignment: Alignment::Left { margin: Margin::Percent(25) },
-                        },
-                        RenderOperation::RenderLineBreak,
-                    ]);
-                }
-                ops
+        let state = self.state.borrow();
+        let separator_text = match state.deref() {
+            AcquireTerminalSnippetState::NotStarted => {
+                Text::new("not started", TextStyle::colored(self.colors.not_started))
             }
-            None => Vec::new(),
+            AcquireTerminalSnippetState::Success => Text::new("finished", TextStyle::colored(self.colors.success)),
+            AcquireTerminalSnippetState::Failure(_) => {
+                Text::new("finished with error", TextStyle::colored(self.colors.failure))
+            }
+        };
+
+        let heading = TextBlock(vec![" [".into(), separator_text, "] ".into()]);
+        let separator_width = SeparatorWidth::Fixed(self.block_length.max(MINIMUM_SEPARATOR_WIDTH));
+        let separator = RenderSeparator::new(heading, separator_width);
+        let mut ops = vec![
+            RenderOperation::RenderLineBreak,
+            RenderOperation::RenderDynamic(Rc::new(separator)),
+            RenderOperation::RenderLineBreak,
+        ];
+        if let AcquireTerminalSnippetState::Failure(lines) = state.deref() {
+            ops.push(RenderOperation::RenderLineBreak);
+            for line in lines {
+                ops.extend([
+                    RenderOperation::RenderText {
+                        line: vec![Text::new(line, TextStyle::default().colors(self.colors.failure))].into(),
+                        alignment: Alignment::Left { margin: Margin::Percent(25) },
+                    },
+                    RenderOperation::RenderLineBreak,
+                ]);
+            }
         }
+        ops
     }
 }
 
-impl RenderAsync for RunAcquireTerminalCodeSnippet {
+impl RenderAsync for RunAcquireTerminalSnippet {
     fn start_render(&self) -> bool {
+        if !matches!(*self.state.borrow(), AcquireTerminalSnippetState::NotStarted) {
+            return false;
+        }
         if let Err(e) = self.invoke() {
             let lines = e.lines().map(ToString::to_string).collect();
-            *self.error_message.borrow_mut() = Some(lines);
+            *self.state.borrow_mut() = AcquireTerminalSnippetState::Failure(lines);
         } else {
-            *self.error_message.borrow_mut() = None;
+            *self.state.borrow_mut() = AcquireTerminalSnippetState::Success;
         }
         true
     }

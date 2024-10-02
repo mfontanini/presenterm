@@ -15,6 +15,10 @@ pub(crate) struct TextStyle {
 }
 
 impl TextStyle {
+    pub(crate) fn colored(colors: Colors) -> Self {
+        Self { flags: Default::default(), colors }
+    }
+
     /// Add bold to this style.
     pub(crate) fn bold(self) -> Self {
         self.add_flag(TextFormatFlags::Bold)
