@@ -1,3 +1,65 @@
+# v0.9.0 - 2024-10-04
+
+## Breaking changes
+
+* Default themes now no longer use a progress bar based footer. Instead they use indicator of the current page number 
+and the total number of pages. If you'd like to preserve the old behavior, you can override the theme by using 
+`footer.style = progress_bar` in [your 
+theme](https://mfontanini.github.io/presenterm/guides/themes.html#setting-themes).
+* Links that include a title (e.g. `[my title](http://example.com)`) now have their title rendered as well. Removing a 
+link's title will make it look the same as they used to.
+
+## New features
+
+* Use "template" footer in built-in themes ([#358](https://github.com/mfontanini/presenterm/issues/358)).
+* Allow including external code snippets ([#328](https://github.com/mfontanini/presenterm/issues/328)) 
+  ([#372](https://github.com/mfontanini/presenterm/issues/372)).
+* Add `+no_background` property to remove background from code blocks 
+  ([#363](https://github.com/mfontanini/presenterm/issues/363)) 
+  ([#368](https://github.com/mfontanini/presenterm/issues/368)).
+* Show colored output from snippet execution output ([#316](https://github.com/mfontanini/presenterm/issues/316)).
+* Style markdown inside block quotes ([#350](https://github.com/mfontanini/presenterm/issues/350)) 
+  ([#351](https://github.com/mfontanini/presenterm/issues/351)).
+* Allow using all intro slide variables in footer template 
+  ([#338](https://github.com/mfontanini/presenterm/issues/338)).
+* Include hidden line prefix in executors file ([#337](https://github.com/mfontanini/presenterm/issues/337)).
+* Show link labels and titles ([#334](https://github.com/mfontanini/presenterm/issues/334)).
+* Add `+exec_replace` which executes snippets and replaces them with their output 
+  ([#330](https://github.com/mfontanini/presenterm/issues/330)) 
+  ([#371](https://github.com/mfontanini/presenterm/issues/371)).
+* Always show snippet execution bar ([#329](https://github.com/mfontanini/presenterm/issues/329)).
+* Handle suspend signal (SIGTSTP) ([#318](https://github.com/mfontanini/presenterm/issues/318)).
+* Allow closing with `q` ([#321](https://github.com/mfontanini/presenterm/issues/321)).
+* Add event, location, and date labels in intro slide ([#317](https://github.com/mfontanini/presenterm/issues/317)).
+* Use transparent background in mermaid charts ([#314](https://github.com/mfontanini/presenterm/issues/314)).
+* Add `+acquire_terminal` to acquire the terminal when running snippets 
+  ([#366](https://github.com/mfontanini/presenterm/issues/366))
+  ([#376](https://github.com/mfontanini/presenterm/pull/376)).
+* Add PHP executor ([#332](https://github.com/mfontanini/presenterm/issues/332)).
+* Add Racket syntax highlighting ([#367](https://github.com/mfontanini/presenterm/issues/367)).
+* Add TOML highlighting ([#361](https://github.com/mfontanini/presenterm/issues/361)).
+
+## Fixes
+
+* Wrap code snippets if they don't fit in terminal ([#320](https://github.com/mfontanini/presenterm/issues/320)).
+* Allow list-themes/acknowledgements to run without path ([#359](https://github.com/mfontanini/presenterm/issues/359)).
+* Translate tabs in code snippets to 4 spaces ([#356](https://github.com/mfontanini/presenterm/issues/356)).
+* Add padding to right of code block wrapped lines ([#354](https://github.com/mfontanini/presenterm/issues/354)).
+* Don't wrap code snippet separator line ([#353](https://github.com/mfontanini/presenterm/issues/353)).
+* Show block quote prefix when wrapping ([#352](https://github.com/mfontanini/presenterm/issues/352)).
+* Don't crash on code block with only hidden-line-prefixed lines 
+  ([#347](https://github.com/mfontanini/presenterm/issues/347)).
+* Canonicalize resources path ([#333](https://github.com/mfontanini/presenterm/issues/333)).
+* Execute script relative to current working directory ([#323](https://github.com/mfontanini/presenterm/issues/323)).
+* Support rendering mermaid charts on windows ([#319](https://github.com/mfontanini/presenterm/issues/319)).
+
+## Improvements
+
+* Add example on how column layouts and pauses interact ([#348](https://github.com/mfontanini/presenterm/issues/348)).
+* Rename `jump_to_vertical_center` -> `jump_to_middle` in docs 
+  ([#342](https://github.com/mfontanini/presenterm/issues/342)).
+* Document `all` snippet highlighting keyword ([#335](https://github.com/mfontanini/presenterm/issues/335)).
+
 # v0.8.0 - 2024-07-29
 
 ## Breaking changes
