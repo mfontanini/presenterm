@@ -47,6 +47,7 @@ Code highlighting is supported for the following languages:
 * sql
 * swift
 * svelte
+* toml
 * terraform
 * typescript
 * xml
@@ -112,11 +113,30 @@ See this real example of how this looks like.
 
 [![asciicast](https://asciinema.org/a/iCf4f6how1Ux3H8GNzksFUczI.svg)](https://asciinema.org/a/iCf4f6how1Ux3H8GNzksFUczI)
 
+### Including external code snippets
+
+The `file` snippet type can be used to specify an external code snippet that will be included and highlighted as usual. 
+
+~~~markdown
+```file +exec +line_numbers
+path: snippet.rs
+language: rust
+```
+~~~
+
+### Showing a snippet without a background
+
+Using the `+no_background` flag will cause the snippet to have no background. This is useful when combining it with the 
+`+exec_replace` flag described further down.
+
+## Snippet execution
+
 ### Executing code blocks
 
-Annotating a code block with a `+exec` attribute will make it executable. Once you're in a slide that contains an
-executable block, press `control+e` to execute it. The output of the execution will be displayed on a box below the
-code. The code execution is stateful so if you switch to another slide and then go back, you will still see the output.
+Annotating a code block with a `+exec` attribute will make it executable. Pressing `control+e` when viewing a slide that 
+contains an executable block, the code in the snippet will be executed and the output of the execution will be displayed 
+on a box below it. The code execution is stateful so if you switch to another slide and then go back, you will still see 
+the output.
 
 ~~~markdown
 ```bash +exec
@@ -145,10 +165,12 @@ The list of languages that support execution are:
 * lua
 * nushell
 * perl
+* php
 * python
 * ruby
-* rust-script
 * rust
+* rust-script: this highlights as normal Rust but uses [rust-script](https://rust-script.org/) to execute the snippet so 
+it lets you use dependencies.
 * sh
 * zsh
 
@@ -160,6 +182,46 @@ file](configuration.html#custom-snippet-executors).
 [![asciicast](https://asciinema.org/a/BbAY817esxagCgPtnKUwgYnHr.svg)](https://asciinema.org/a/BbAY817esxagCgPtnKUwgYnHr)
 
 > **Note**: because this is spawning a process and executing code, you should use this at your own risk.
+
+### Executing and replacing
+
+Similar to `+exec`, `+exec_replace` causes a snippet to be executable but:
+
+* Execution happens automatically without user intervention.
+* The snippet will be automatically replaced with its execution output.
+
+This can be useful to run programs that generate some form of ASCII art that you'd like to generate dynamically.
+
+[![asciicast](https://asciinema.org/a/hklQARZKb5sP5mavL4cGgbYXD.svg)](https://asciinema.org/a/hklQARZKb5sP5mavL4cGgbYXD)
+
+Because of the risk involved in `+exec_replace`, where code gets automatically executed when running a presentation, 
+this requires users to explicitly opt in to it. This can be done by either passing in the `-X` command line parameter
+or setting the `snippet.exec_replace.enable` flag in your configuration file to `true`. 
+
+### Executing snippets that need a TTY
+
+If you're trying to execute a program like `top` that needs to run on a TTY as it renders text, clears the screen, etc, 
+you can use the `+acquire_terminal` modifier on a code already marked as executable with `+exec`. Executing snippets 
+tagged with these two attributes will cause _presenterm_ to suspend execution, the snippet will be invoked giving it the 
+raw terminal to do whatever it needs, and upon its completion _presenterm_ will resume its execution.
+
+[![asciicast](https://asciinema.org/a/AHfuJorCNRR8ZEnfwQSDR5vPT.svg)](https://asciinema.org/a/AHfuJorCNRR8ZEnfwQSDR5vPT)
+
+### Styled execution output
+
+Snippets that generate output which contains escape codes that change the colors or styling of the text will be parsed 
+and displayed respecting those styles. Do note that you may need to force certain tools to use colored output as they 
+will likely not use it by default.
+
+For example, to get colored output when invoking `ls` you can use:
+
+~~~markdown
+```bash +exec
+ls /tmp --color=always
+```
+~~~
+
+The parameter or way to enable this will depend on the tool being invoked.
 
 ### Hiding code lines
 
@@ -192,8 +254,8 @@ golang code snippet that starts with a `/// ` will be hidden.
 ### Pre-rendering 
 
 Some languages support pre-rendering. This means the code block is transformed into something else when the presentation 
-is loaded. The languages that currently support this are _LaTeX_ and _typst_ where the contents of the code block is 
-transformed into an image, allowing you to define formulas as text in your presentation. This can be done by using the 
-`+render` attribute on a code block.
+is loaded. The languages that currently support this are _mermaid_, _LaTeX_, and _typst_ where the contents of the code 
+block is transformed into an image, allowing you to define formulas as text in your presentation. This can be done by 
+using the `+render` attribute on a code block.
 
 See the [LaTeX and typst](latex.html) and [mermaid](mermaid.html) docs for more information.

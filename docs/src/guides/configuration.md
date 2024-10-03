@@ -254,6 +254,9 @@ bindings:
 
   # the key binding to close the application.
   exit: ["<c-c>", "q"]
+
+  # the key binding to suspend the application.
+  suspend: ["<c-z>"]
 ```
 
 You can choose to override any of them. Keep in mind these are overrides so if for example you change `next`, the 
@@ -263,8 +266,9 @@ default won't apply anymore and only what you've defined will be used.
 
 ### Snippet execution
 
-Snippet execution is disabled by default for security reasons. Besides passing in the `-x` command line parameter every 
-time you run _presenterm_, you can also configure this globally for all presentations by setting:
+[Snippet execution](code-highlight.html#executing-code-blocks) is disabled by default for security reasons. Besides 
+passing in the `-x` command line parameter every time you run _presenterm_, you can also configure this globally for all 
+presentations by setting:
 
 ```yaml
 snippet:
@@ -273,6 +277,21 @@ snippet:
 ```
 
 **Use this at your own risk**, especially if you're running someone else's presentations!
+
+### Snippet execution + replace
+
+[Snippet execution + replace](code-highlight.html#executing-and-replacing) is disabled by default for security reasons. 
+Similar to `+exec`, this can be enabled by passing in the `-X` command line parameter or configuring it globally by 
+setting:
+
+```yaml
+snippet:
+  exec_replace:
+    enable: true
+```
+
+**Use this at your own risk**. This will cause _presenterm_ to execute code without user intervention so don't blindly 
+enable this and open a presentation unless you trust its origin!
 
 ### Custom snippet executors
 
@@ -292,6 +311,10 @@ snippet:
         # A list of environment variables that should be set before building/running your code.
         environment:
           MY_FAVORITE_ENVIRONMENT_VAR: foo
+
+        # A prefix that indicates a line that starts with it should not be visible but should be executed if the
+        # snippet is marked with `+exec`.
+        hidden_line_prefix: "/// "
 
         # A list of commands that will be ran one by one in the same directory as the snippet is in.
         commands:
