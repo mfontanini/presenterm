@@ -1,6 +1,6 @@
 use super::{
     code::{CodeBlockParser, CodeLine, ExternalFile, Highlight, HighlightGroup, Snippet, SnippetLanguage},
-    execution::{DisplaySeparator, RunAcquireTerminalCodeSnippet, SnippetExecutionDisabledOperation},
+    execution::{DisplaySeparator, RunAcquireTerminalSnippet, SnippetExecutionDisabledOperation},
     modals::KeyBindingsModalBuilder,
 };
 use crate::{
@@ -880,10 +880,16 @@ impl<'a> PresentationBuilder<'a> {
             return Err(BuildError::UnsupportedExecution(code.language));
         }
         if code.attributes.acquire_terminal {
-            let operation = RunAcquireTerminalCodeSnippet::new(
+            let block_length = block_length as u16;
+            let block_length = match self.theme.code.alignment.clone().unwrap_or_default() {
+                Alignment::Left { .. } | Alignment::Right { .. } => block_length,
+                Alignment::Center { minimum_size, .. } => block_length.max(minimum_size),
+            };
+            let operation = RunAcquireTerminalSnippet::new(
                 code,
                 self.code_executor.clone(),
-                self.theme.execution_output.status.failure,
+                self.theme.execution_output.status.clone(),
+                block_length,
             );
             let operation = RenderOperation::RenderAsync(Rc::new(operation));
             self.chunk_operations.push(operation);
