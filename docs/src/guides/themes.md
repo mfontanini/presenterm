@@ -249,9 +249,17 @@ footer:
 
 #### Template
 
-A template footer that lets you put something on the left, center and/or right of the screen. The template strings have 
-access to `{author}` as specified in the front matter, `{current_slide}` and `{total_slides}` which will point to the 
-current and total number of slides:
+A template footer that lets you put something on the left, center and/or right of the screen. The template strings
+can reference `{current_slide}` and `{total_slides}` which will be replaced with the current and total number of slides.
+
+Besides those special variables, any of the attributes defined in the front matter can also be used:
+
+* `title`.
+* `sub_title`.
+* `event`.
+* `location`.
+* `date`.
+* `author`.
 
 ```yaml
 footer:

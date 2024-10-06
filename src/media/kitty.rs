@@ -415,7 +415,7 @@ struct ControlCommand<'a, D> {
     tmux: bool,
 }
 
-impl<'a, D: fmt::Display> fmt::Display for ControlCommand<'a, D> {
+impl<D: fmt::Display> fmt::Display for ControlCommand<'_, D> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.tmux {
             write!(f, "\x1bPtmux;\x1b")?;
