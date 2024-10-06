@@ -178,7 +178,7 @@ pub(crate) struct LanguageHighlighter<'a> {
     highlighter: HighlightLines<'a>,
 }
 
-impl<'a> LanguageHighlighter<'a> {
+impl LanguageHighlighter<'_> {
     pub(crate) fn highlight_line(&mut self, line: &str, block_style: &CodeBlockStyle) -> TextBlock {
         self.style_line(line, block_style)
     }

@@ -52,7 +52,7 @@ impl AnsiSplitter {
 
 struct GraphicsCode<'a>(&'a [u8]);
 
-impl<'a> GraphicsCode<'a> {
+impl GraphicsCode<'_> {
     fn update(&self, style: &mut TextStyle) {
         // RGB mode
         let codes = self.0;
