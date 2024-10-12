@@ -900,10 +900,16 @@ impl<'a> PresentationBuilder<'a> {
             ExecutionMode::ReplaceSnippet => DisplaySeparator::Off,
         };
         let alignment = self.code_style(&code).alignment.unwrap_or_default();
+        let default_colors = self.theme.default_style.colors;
+        let mut execution_output_style = self.theme.execution_output.clone();
+        if code.attributes.no_background {
+            execution_output_style.colors.background = None;
+        }
         let operation = RunSnippetOperation::new(
             code,
             self.code_executor.clone(),
-            &self.theme,
+            default_colors,
+            execution_output_style,
             block_length as u16,
             separator,
             alignment,
