@@ -8,6 +8,7 @@ use once_cell::sync::Lazy;
 use os_pipe::PipeReader;
 use std::{
     collections::{BTreeMap, HashMap},
+    fmt::{self, Debug},
     fs::File,
     io::{self, BufRead, BufReader, Write},
     path::{Path, PathBuf},
@@ -21,7 +22,6 @@ static EXECUTORS: Lazy<BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>
     Lazy::new(|| serde_yaml::from_slice(include_bytes!("../executors.yaml")).expect("executors.yaml is broken"));
 
 /// Allows executing code.
-#[derive(Debug)]
 pub struct SnippetExecutor {
     executors: BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>,
     cwd: PathBuf,
@@ -123,6 +123,12 @@ impl SnippetExecutor {
 impl Default for SnippetExecutor {
     fn default() -> Self {
         Self::new(Default::default(), PathBuf::from("./")).expect("initialization failed")
+    }
+}
+
+impl Debug for SnippetExecutor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "SnippetExecutor {{ .. }}")
     }
 }
 

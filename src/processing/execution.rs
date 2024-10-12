@@ -1,11 +1,5 @@
-use crossterm::{
-    ExecutableCommand, cursor,
-    terminal::{self, disable_raw_mode, enable_raw_mode},
-};
-
 use super::separator::{RenderSeparator, SeparatorWidth};
 use crate::{
-    PresentationTheme,
     ansi::AnsiSplitter,
     execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
     markdown::{
@@ -16,7 +10,11 @@ use crate::{
     processing::code::Snippet,
     render::{properties::WindowSize, terminal::should_hide_cursor},
     style::{Colors, TextStyle},
-    theme::{Alignment, ExecutionStatusBlockStyle, Margin},
+    theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle, Margin},
+};
+use crossterm::{
+    ExecutableCommand, cursor,
+    terminal::{self, disable_raw_mode, enable_raw_mode},
 };
 use std::{
     cell::RefCell,
@@ -55,14 +53,14 @@ impl RunSnippetOperation {
     pub(crate) fn new(
         code: Snippet,
         executor: Rc<SnippetExecutor>,
-        theme: &PresentationTheme,
+        default_colors: Colors,
+        execution_output_style: ExecutionOutputBlockStyle,
         block_length: u16,
         separator: DisplaySeparator,
         alignment: Alignment,
     ) -> Self {
-        let default_colors = theme.default_style.colors;
-        let block_colors = theme.execution_output.colors;
-        let status_colors = theme.execution_output.status.clone();
+        let block_colors = execution_output_style.colors;
+        let status_colors = execution_output_style.status.clone();
         let not_started_colors = status_colors.not_started;
         let block_length = match &alignment {
             Alignment::Left { .. } | Alignment::Right { .. } => block_length,
@@ -121,7 +119,11 @@ impl AsRenderOperations for RunSnippetOperation {
         if matches!(inner.state, RenderAsyncState::NotStarted) {
             return operations;
         }
-        operations.extend([RenderOperation::RenderLineBreak, RenderOperation::SetColors(self.block_colors)]);
+        operations.push(RenderOperation::RenderLineBreak);
+
+        if self.block_colors.background.is_some() {
+            operations.push(RenderOperation::SetColors(self.block_colors));
+        }
 
         let has_margin = match &self.alignment {
             Alignment::Left { margin } => !margin.is_empty(),
