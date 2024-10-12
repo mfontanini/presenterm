@@ -1,0 +1,315 @@
+<!DOCTYPE HTML>
+<html lang="en" class="machiatto" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Layout - presenterm documentation</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href=".././theme/catppuccin.css">
+        <link rel="stylesheet" href=".././theme/catppuccin-admonish.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "machiatto";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('machiatto')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../introduction.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Guides</li><li class="chapter-item expanded "><a href="../guides/installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="../guides/basics.html"><strong aria-hidden="true">2.</strong> Basics</a></li><li class="chapter-item expanded "><a href="../guides/themes.html"><strong aria-hidden="true">3.</strong> Themes</a></li><li class="chapter-item expanded "><a href="../guides/layout.html" class="active"><strong aria-hidden="true">4.</strong> Layout</a></li><li class="chapter-item expanded "><a href="../guides/configuration.html"><strong aria-hidden="true">5.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="../guides/code-highlight.html"><strong aria-hidden="true">6.</strong> Code highlighting</a></li><li class="chapter-item expanded "><a href="../guides/pdf-export.html"><strong aria-hidden="true">7.</strong> PDF export</a></li><li class="chapter-item expanded "><a href="../guides/mermaid.html"><strong aria-hidden="true">8.</strong> Mermaid</a></li><li class="chapter-item expanded "><a href="../guides/latex.html"><strong aria-hidden="true">9.</strong> LaTeX and typst</a></li><li class="chapter-item expanded affix "><li class="part-title">Internals</li><li class="chapter-item expanded "><a href="../internals/parse.html"><strong aria-hidden="true">10.</strong> Parse</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><a href="../acknowledgements.html">Acknowledgements</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mocha">Mocha</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="macchiato">Macchiato</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="frappe">Frappé</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="latte">Latte</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">presenterm documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/mfontanini/presenterm" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="layouts"><a class="header" href="#layouts">Layouts</a></h2>
+<p><em>presenterm</em> currently supports a column layout that lets you split parts of your slides into column. This allows you to 
+put text on one side, and code/images on the other, or really organize markdown into columns in any way you want.</p>
+<p>This is done by using commands, just like <code>pause</code> and <code>end_slide</code>, in the form of HTML comments. This section describes 
+how to use those.</p>
+<h3 id="wait-why-not-html"><a class="header" href="#wait-why-not-html">Wait, why not HTML?</a></h3>
+<p>While markdown <em>can</em> contain HTML tags (beyond comments!) and we <em>could</em> represent this using divs with alignment, I 
+don't really want to:</p>
+<ol>
+<li>Deal with HTML and all the implications this would have. e.g. nesting many divs together and all the chaos that would 
+bring to the rendering code.</li>
+<li>Require people to write HTML when we have such a narrow use-case for it here: we only want column layouts.</li>
+</ol>
+<p>Because of this, <em>presenterm</em> doesn't let you use HTML and instead has a custom way of specifying column layouts.</p>
+<h3 id="column-layout"><a class="header" href="#column-layout">Column layout</a></h3>
+<p>The way to specify column layouts is by first creating a layout, and then telling <em>presenterm</em> you want to enter each of 
+the column in it as you write your presentation.</p>
+<h4 id="defining-layouts"><a class="header" href="#defining-layouts">Defining layouts</a></h4>
+<p>Defining a layout is done via the <code>column_layout</code> command, in the form of an HTML comment:</p>
+<pre><code class="language-html">&lt;!-- column_layout: [3, 2] --&gt;
+</code></pre>
+<p>This defines a layout with 2 columns where:</p>
+<ul>
+<li>The total number of &quot;size units&quot; is <code>3 + 2 = 5</code>. You can think of this as the terminal screen being split into 5 
+pieces vertically.</li>
+<li>The first column takes 3 out of those 5 pieces/units, or in other words 60% of the terminal screen.</li>
+<li>The second column takes 2 out of those 5 pieces/units, or in other words 40% of the terminal screen.</li>
+</ul>
+<p>You can use any number of columns and with as many units you want on each of them. This lets you decide how to structure
+the presentation in a fairly straightforward way.</p>
+<h4 id="using-columns"><a class="header" href="#using-columns">Using columns</a></h4>
+<p>Once a layout is defined, you just need to specify that you want to enter a column before writing any text to it by 
+using the <code>column</code> command:</p>
+<pre><code class="language-html">&lt;!-- column: 0 --&gt;
+</code></pre>
+<p>Now all the markdown you write will be placed on the first column until you either:</p>
+<ul>
+<li>Reset the layout by using the <code>reset_layout</code> command.</li>
+<li>The slide ends.</li>
+<li>You jump into another column by using the <code>column</code> command again.</li>
+</ul>
+<h3 id="example"><a class="header" href="#example">Example</a></h3>
+<p>The following example puts all of this together by defining 2 columns, one with some code and bullet points, another one 
+with an image, and some extra text at the bottom that's not tied to any columns.</p>
+<pre><code class="language-markdown">Layout example
+==============
+
+&lt;!-- column_layout: [2, 1] --&gt;
+
+&lt;!-- column: 0 --&gt;
+
+This is some code I like:
+
+```rust
+fn potato() -&gt; u32 {
+    42
+}
+```
+
+Things I like about it:
+1. Potato
+2. Rust
+3. The image on the right
+
+&lt;!-- column: 1 --&gt;
+
+![](examples/doge.png)
+
+_Picture by Alexis Bailey / CC BY-NC 4.0_
+
+&lt;!-- reset_layout --&gt;
+
+Because we just reset the layout, this text is now below both of the columns.
+</code></pre>
+<p>This would render the following way:</p>
+<p><img src="../assets/layouts.png" alt="" /></p>
+<h3 id="other-uses"><a class="header" href="#other-uses">Other uses</a></h3>
+<p>Besides organizing your slides into columns, you can use column layouts to center a piece of your slide. For example, if 
+you want a certain portion of your slide to be centered, you could define a column layout like <code>[1, 3, 1]</code> and then only 
+write content into the middle column. This would make your content take up the center 60% of the screen.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../guides/themes.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../guides/configuration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../guides/themes.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../guides/configuration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
