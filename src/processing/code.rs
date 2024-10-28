@@ -1,6 +1,5 @@
 use super::padding::NumberPadder;
 use crate::{
-    PresentationTheme,
     markdown::{
         elements::{Percent, PercentParseError},
         text::{WeightedText, WeightedTextBlock},
@@ -12,6 +11,7 @@ use crate::{
     },
     style::{Color, TextStyle},
     theme::{Alignment, CodeBlockStyle},
+    PresentationTheme,
 };
 use serde::Deserialize;
 use serde_with::DeserializeFromStr;
@@ -438,6 +438,7 @@ pub enum SnippetLanguage {
     File,
     Fish,
     Go,
+    GraphQL,
     Haskell,
     Html,
     Java,
@@ -506,6 +507,7 @@ impl FromStr for SnippetLanguage {
             "file" => File,
             "fish" => Fish,
             "go" => Go,
+            "graphql" => GraphQL,
             "haskell" => Haskell,
             "html" => Html,
             "java" => Java,
@@ -622,8 +624,8 @@ pub(crate) struct ExternalFile {
 #[cfg(test)]
 mod test {
     use super::*;
-    use Highlight::*;
     use rstest::rstest;
+    use Highlight::*;
 
     fn parse_language(input: &str) -> SnippetLanguage {
         let (language, _) = CodeBlockParser::parse_block_info(input).expect("parse failed");
@@ -725,13 +727,10 @@ mod test {
     #[test]
     fn highlight_line_range() {
         let attributes = parse_attributes("bash {   1, 2-4,6 ,  all , 10 - 12  }");
-        assert_eq!(attributes.highlight_groups, &[HighlightGroup::new(vec![
-            Single(1),
-            Range(2..5),
-            Single(6),
-            All,
-            Range(10..13)
-        ])]);
+        assert_eq!(
+            attributes.highlight_groups,
+            &[HighlightGroup::new(vec![Single(1), Range(2..5), Single(6), All, Range(10..13)])]
+        );
     }
 
     #[test]
