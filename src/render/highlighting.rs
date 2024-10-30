@@ -152,6 +152,7 @@ impl CodeHighlighter {
             Sql => "sql",
             Swift => "swift",
             Svelte => "svelte",
+            Tcl => "tcl",
             Terraform => "tf",
             Toml => "toml",
             TypeScript => "ts",
