@@ -159,6 +159,7 @@ impl CodeHighlighter {
             Typst => "txt",
             // default to plain text so we get the same look&feel
             Unknown(_) => "txt",
+            Verilog => "v",
             Vue => "vue",
             Xml => "xml",
             Yaml => "yaml",
