@@ -123,6 +123,7 @@ impl CodeHighlighter {
             File => "txt",
             Fish => "fish",
             Go => "go",
+            GraphQL => "graphql",
             Haskell => "hs",
             Html => "html",
             Java => "java",
