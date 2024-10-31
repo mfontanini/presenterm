@@ -544,7 +544,7 @@ impl FromStr for SnippetLanguage {
             "typst" => Typst,
             "xml" => Xml,
             "yaml" => Yaml,
-            "v" => Verilog,
+            "verilog" => Verilog,
             "vue" => Vue,
             "zig" => Zig,
             "zsh" => Zsh,
