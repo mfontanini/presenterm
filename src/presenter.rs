@@ -1,3 +1,7 @@
+use clap::ValueEnum;
+use schemars::JsonSchema;
+use serde::Deserialize;
+
 use crate::{
     custom::KeyBindingsConfig,
     diff::PresentationDiffer,
@@ -35,6 +39,13 @@ pub struct PresenterOptions {
     pub font_size_fallback: u8,
     pub bindings: KeyBindingsConfig,
     pub validate_overflows: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, ValueEnum, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum SpeakerNotesMode {
+    Publisher,
+    Receiver,
 }
 
 /// A slideshow presenter.
@@ -194,7 +205,11 @@ impl<'a> Presenter<'a> {
         };
         // If the screen is too small, simply ignore this. Eventually the user will resize the
         // screen.
-        if matches!(result, Err(RenderError::TerminalTooSmall)) { Ok(()) } else { result }
+        if matches!(result, Err(RenderError::TerminalTooSmall)) {
+            Ok(())
+        } else {
+            result
+        }
     }
 
     fn apply_command(&mut self, command: Command) -> CommandSideEffect {
@@ -264,7 +279,11 @@ impl<'a> Presenter<'a> {
                 panic!("unreachable commands")
             }
         };
-        if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
+        if needs_redraw {
+            CommandSideEffect::Redraw
+        } else {
+            CommandSideEffect::None
+        }
     }
 
     fn try_reload(&mut self, path: &Path, force: bool) {

@@ -1,11 +1,11 @@
-use clap::{CommandFactory, Parser, error::ErrorKind};
+use clap::{error::ErrorKind, CommandFactory, Parser};
 use comrak::Arena;
 use directories::ProjectDirs;
 use presenterm::{
     CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
     MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter,
-    PresenterOptions, Resources, SnippetExecutor, Themes, ThemesDemo, ThirdPartyConfigs, ThirdPartyRender,
-    ValidateOverflows,
+    PresenterOptions, Resources, SnippetExecutor, SpeakerNotesMode, Themes, ThemesDemo, ThirdPartyConfigs,
+    ThirdPartyRender, ValidateOverflows,
 };
 use std::{
     env::{self, current_dir},
@@ -77,6 +77,9 @@ struct Cli {
     /// The path to the configuration file.
     #[clap(short, long)]
     config_file: Option<String>,
+
+    #[clap(short, long)]
+    speaker_notes_mode: Option<SpeakerNotesMode>,
 }
 
 fn create_splash() -> String {
@@ -151,6 +154,7 @@ fn make_builder_options(config: &Config, mode: &PresentMode, force_default_theme
         strict_front_matter_parsing: config.options.strict_front_matter_parsing.unwrap_or(true),
         enable_snippet_execution: config.snippet.exec.enable,
         enable_snippet_execution_replace: config.snippet.exec_replace.enable,
+        speaker_notes_mode: config.options.speaker_notes_mode.clone(),
     }
 }
 
@@ -272,6 +276,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     } else {
         let commands = CommandSource::new(config.bindings.clone())?;
         options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty { .. });
+        options.speaker_notes_mode = cli.speaker_notes_mode;
 
         let options = PresenterOptions {
             builder_options: options,

@@ -37,6 +37,7 @@ use crate::{
         PresentationThemeSet,
     },
     third_party::{ThirdPartyRender, ThirdPartyRenderError, ThirdPartyRenderRequest},
+    SpeakerNotesMode,
 };
 use image::DynamicImage;
 use serde::Deserialize;
@@ -66,6 +67,7 @@ pub struct PresentationBuilderOptions {
     pub strict_front_matter_parsing: bool,
     pub enable_snippet_execution: bool,
     pub enable_snippet_execution_replace: bool,
+    pub speaker_notes_mode: Option<SpeakerNotesMode>,
 }
 
 impl PresentationBuilderOptions {
@@ -98,6 +100,7 @@ impl Default for PresentationBuilderOptions {
             strict_front_matter_parsing: true,
             enable_snippet_execution: false,
             enable_snippet_execution_replace: false,
+            speaker_notes_mode: None,
         }
     }
 }
@@ -237,7 +240,11 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.slide_state.needs_enter_column = false;
         let last_valid = matches!(last, RenderOperation::EnterColumn { .. } | RenderOperation::ExitLayout);
-        if last_valid { Ok(()) } else { Err(BuildError::NotInsideColumn) }
+        if last_valid {
+            Ok(())
+        } else {
+            Err(BuildError::NotInsideColumn)
+        }
     }
 
     fn push_slide_prelude(&mut self) {
@@ -254,6 +261,12 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_element(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
+        if matches!(self.options.speaker_notes_mode, Some(SpeakerNotesMode::Receiver)) {
+            if let MarkdownElement::Comment { comment, source_position } = element {
+                self.process_comment(comment, source_position)?
+            }
+            return Ok(());
+        }
         let should_clear_last = !matches!(element, MarkdownElement::List(_) | MarkdownElement::Comment { .. });
         match element {
             // This one is processed before everything else as it affects how the rest of the
@@ -457,6 +470,12 @@ impl<'a> PresentationBuilder<'a> {
             }
             CommentCommand::NoFooter => {
                 self.slide_state.ignore_footer = true;
+            }
+            CommentCommand::SpeakerNote(note) => {
+                if let Some(SpeakerNotesMode::Receiver) = self.options.speaker_notes_mode {
+                    self.push_text(note.into(), ElementType::Paragraph);
+                    self.push_line_break();
+                }
             }
         };
         // Don't push line breaks for any comments.
@@ -1145,6 +1164,7 @@ enum CommentCommand {
     JumpToMiddle,
     IncrementalLists(bool),
     NoFooter,
+    SpeakerNote(String),
 }
 
 impl FromStr for CommentCommand {
@@ -1561,11 +1581,10 @@ mod test {
     #[test]
     fn iterate_list_starting_from_other() {
         let list = ListIterator::new(
-            vec![ListItem { depth: 0, contents: "0".into(), item_type: ListItemType::Unordered }, ListItem {
-                depth: 0,
-                contents: "1".into(),
-                item_type: ListItemType::Unordered,
-            }],
+            vec![
+                ListItem { depth: 0, contents: "0".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 0, contents: "1".into(), item_type: ListItemType::Unordered },
+            ],
             3,
         );
         let expected_indexes = [3, 4];
@@ -1652,10 +1671,10 @@ mod test {
 
     #[test]
     fn implicit_slide_ends_with_front_matter() {
-        let elements =
-            vec![MarkdownElement::FrontMatter("theme:\n name: light".into()), MarkdownElement::SetexHeading {
-                text: "hi".into(),
-            }];
+        let elements = vec![
+            MarkdownElement::FrontMatter("theme:\n name: light".into()),
+            MarkdownElement::SetexHeading { text: "hi".into() },
+        ];
         let options = PresentationBuilderOptions { implicit_slide_ends: true, ..Default::default() };
         let slides = build_presentation_with_options(elements, options).into_slides();
         assert_eq!(slides.len(), 1);
