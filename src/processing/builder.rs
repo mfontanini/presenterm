@@ -452,6 +452,18 @@ impl<'a> PresentationBuilder<'a> {
             Ok(comment) => comment,
             Err(error) => return Err(BuildError::CommandParse { line: source_position.start.line + 1, error }),
         };
+
+        if let Some(SpeakerNotesMode::Receiver) = self.options.speaker_notes_mode {
+            match comment {
+                CommentCommand::SpeakerNote(note) => {
+                    self.push_text(note.into(), ElementType::Paragraph);
+                }
+                CommentCommand::EndSlide => self.terminate_slide(),
+                _ => {}
+            }
+            return Ok(());
+        }
+
         match comment {
             CommentCommand::Pause => self.process_pause(),
             CommentCommand::EndSlide => self.terminate_slide(),
@@ -492,12 +504,7 @@ impl<'a> PresentationBuilder<'a> {
             CommentCommand::NoFooter => {
                 self.slide_state.ignore_footer = true;
             }
-            CommentCommand::SpeakerNote(note) => {
-                if let Some(SpeakerNotesMode::Receiver) = self.options.speaker_notes_mode {
-                    self.push_text(note.into(), ElementType::Paragraph);
-                    self.push_line_break();
-                }
-            }
+            CommentCommand::SpeakerNote(_) => {}
         };
         // Don't push line breaks for any comments.
         self.slide_state.ignore_element_line_break = true;
