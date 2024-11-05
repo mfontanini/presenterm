@@ -17,7 +17,7 @@ use crate::{
     presentation::{
         AsRenderOperations, BlockLine, ChunkMutator, ImageProperties, ImageSize, MarginProperties, Modals,
         Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata, RenderAsync, RenderOperation,
-        Slide, SlideBuilder, SlideChunk,
+        Slide, SlideBuilder, SlideChunk, SpeakerNoteChannel,
     },
     processing::{
         code::{CodePreparer, HighlightContext, HighlightMutator, HighlightedLine},
@@ -39,6 +39,7 @@ use crate::{
     third_party::{ThirdPartyRender, ThirdPartyRenderError, ThirdPartyRenderRequest},
     SpeakerNotesMode,
 };
+use iceoryx2::{node::NodeBuilder, prelude::ServiceName, service::ipc};
 use image::DynamicImage;
 use serde::Deserialize;
 use std::{borrow::Cow, cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
@@ -142,6 +143,26 @@ impl<'a> PresentationBuilder<'a> {
         bindings_config: KeyBindingsConfig,
         options: PresentationBuilderOptions,
     ) -> Self {
+        let presentation_state = PresentationState::default();
+
+        if let Some(mode) = &options.speaker_notes_mode {
+            let node = NodeBuilder::new().create::<ipc::Service>().unwrap();
+            let service_name: ServiceName = "SpeakerNoteEventService".try_into().unwrap();
+            let speaker_note_channel = match mode {
+                SpeakerNotesMode::Publisher => {
+                    let event = node.service_builder(&service_name).event().open_or_create().unwrap();
+                    let notifier = event.notifier_builder().create().unwrap();
+                    SpeakerNoteChannel::Notifier(notifier)
+                }
+                SpeakerNotesMode::Receiver => {
+                    let event = node.service_builder(&service_name).event().open_or_create().unwrap();
+                    let listener = event.listener_builder().create().unwrap();
+                    SpeakerNoteChannel::Listener(listener)
+                }
+            };
+
+            presentation_state.set_channel(speaker_note_channel);
+        }
         Self {
             slide_chunks: Vec::new(),
             chunk_operations: Vec::new(),
@@ -153,7 +174,7 @@ impl<'a> PresentationBuilder<'a> {
             resources,
             third_party,
             slide_state: Default::default(),
-            presentation_state: Default::default(),
+            presentation_state,
             footer_context: Default::default(),
             themes,
             index_builder: Default::default(),

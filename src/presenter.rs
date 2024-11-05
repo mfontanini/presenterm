@@ -115,6 +115,11 @@ impl<'a> Presenter<'a> {
             self.render(&mut drawer)?;
 
             loop {
+                if let Some(idx) = self.state.presentation().listen_for_speaker_note_evt() {
+                    self.apply_command(Command::GoToSlide(idx as u32));
+                    break;
+                }
+
                 if self.poll_async_renders()? {
                     self.render(&mut drawer)?;
                 }
