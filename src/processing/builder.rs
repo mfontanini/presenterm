@@ -286,6 +286,7 @@ impl<'a> PresentationBuilder<'a> {
             if let MarkdownElement::Comment { comment, source_position } = element {
                 self.process_comment(comment, source_position)?
             }
+            self.slide_state.ignore_element_line_break = true;
             return Ok(());
         }
         let should_clear_last = !matches!(element, MarkdownElement::List(_) | MarkdownElement::Comment { .. });
@@ -457,6 +458,7 @@ impl<'a> PresentationBuilder<'a> {
             match comment {
                 CommentCommand::SpeakerNote(note) => {
                     self.push_text(note.into(), ElementType::Paragraph);
+                    self.push_line_break();
                 }
                 CommentCommand::EndSlide => self.terminate_slide(),
                 _ => {}
