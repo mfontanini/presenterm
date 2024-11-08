@@ -17,7 +17,7 @@ use crate::{
     presentation::{
         AsRenderOperations, BlockLine, ChunkMutator, ImageProperties, ImageSize, MarginProperties, Modals,
         Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata, RenderAsync, RenderOperation,
-        Slide, SlideBuilder, SlideChunk, SpeakerNoteChannel,
+        Slide, SlideBuilder, SlideChunk,
     },
     processing::{
         code::{CodePreparer, HighlightContext, HighlightMutator, HighlightedLine},
@@ -37,9 +37,7 @@ use crate::{
         PresentationThemeSet,
     },
     third_party::{ThirdPartyRender, ThirdPartyRenderError, ThirdPartyRenderRequest},
-    SpeakerNotesMode,
 };
-use iceoryx2::{node::NodeBuilder, prelude::ServiceName, service::ipc};
 use image::DynamicImage;
 use serde::Deserialize;
 use std::{borrow::Cow, cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
@@ -68,7 +66,7 @@ pub struct PresentationBuilderOptions {
     pub strict_front_matter_parsing: bool,
     pub enable_snippet_execution: bool,
     pub enable_snippet_execution_replace: bool,
-    pub speaker_notes_mode: Option<SpeakerNotesMode>,
+    pub render_speaker_notes_only: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -101,7 +99,7 @@ impl Default for PresentationBuilderOptions {
             strict_front_matter_parsing: true,
             enable_snippet_execution: false,
             enable_snippet_execution_replace: false,
-            speaker_notes_mode: None,
+            render_speaker_notes_only: false,
         }
     }
 }
@@ -143,26 +141,6 @@ impl<'a> PresentationBuilder<'a> {
         bindings_config: KeyBindingsConfig,
         options: PresentationBuilderOptions,
     ) -> Self {
-        let presentation_state = PresentationState::default();
-
-        if let Some(mode) = &options.speaker_notes_mode {
-            let node = NodeBuilder::new().create::<ipc::Service>().unwrap();
-            let service_name: ServiceName = "SpeakerNoteEventService".try_into().unwrap();
-            let speaker_note_channel = match mode {
-                SpeakerNotesMode::Publisher => {
-                    let event = node.service_builder(&service_name).event().open_or_create().unwrap();
-                    let notifier = event.notifier_builder().create().unwrap();
-                    SpeakerNoteChannel::Notifier(notifier)
-                }
-                SpeakerNotesMode::Receiver => {
-                    let event = node.service_builder(&service_name).event().open_or_create().unwrap();
-                    let listener = event.listener_builder().create().unwrap();
-                    SpeakerNoteChannel::Listener(listener)
-                }
-            };
-
-            presentation_state.set_channel(speaker_note_channel);
-        }
         Self {
             slide_chunks: Vec::new(),
             chunk_operations: Vec::new(),
@@ -174,7 +152,7 @@ impl<'a> PresentationBuilder<'a> {
             resources,
             third_party,
             slide_state: Default::default(),
-            presentation_state,
+            presentation_state: Default::default(),
             footer_context: Default::default(),
             themes,
             index_builder: Default::default(),
@@ -282,7 +260,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn process_element(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
-        if matches!(self.options.speaker_notes_mode, Some(SpeakerNotesMode::Receiver)) {
+        if self.options.render_speaker_notes_only {
             if let MarkdownElement::Comment { comment, source_position } = element {
                 self.process_comment(comment, source_position)?
             }
@@ -454,7 +432,7 @@ impl<'a> PresentationBuilder<'a> {
             Err(error) => return Err(BuildError::CommandParse { line: source_position.start.line + 1, error }),
         };
 
-        if let Some(SpeakerNotesMode::Receiver) = self.options.speaker_notes_mode {
+        if self.options.render_speaker_notes_only {
             match comment {
                 CommentCommand::SpeakerNote(note) => {
                     self.push_text(note.into(), ElementType::Paragraph);

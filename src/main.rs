@@ -1,12 +1,15 @@
-use clap::{error::ErrorKind, CommandFactory, Parser};
+use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use comrak::Arena;
 use directories::ProjectDirs;
+use iceoryx2::{node::NodeBuilder, prelude::ServiceName, service::ipc};
 use presenterm::{
     CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
     MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter,
-    PresenterOptions, Resources, SnippetExecutor, SpeakerNotesMode, Themes, ThemesDemo, ThirdPartyConfigs,
+    PresenterOptions, Resources, SnippetExecutor, SpeakerNoteChannel, Themes, ThemesDemo, ThirdPartyConfigs,
     ThirdPartyRender, ValidateOverflows,
 };
+use schemars::JsonSchema;
+use serde::Deserialize;
 use std::{
     env::{self, current_dir},
     io,
@@ -16,6 +19,13 @@ use std::{
 };
 
 const DEFAULT_THEME: &str = "dark";
+
+#[derive(Clone, Copy, Debug, Deserialize, ValueEnum, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum SpeakerNotesMode {
+    Publisher,
+    Receiver,
+}
 
 /// Run slideshows from your terminal.
 #[derive(Parser)]
@@ -141,7 +151,12 @@ fn display_acknowledgements() {
     println!("{}", String::from_utf8_lossy(acknowledgements));
 }
 
-fn make_builder_options(config: &Config, mode: &PresentMode, force_default_theme: bool) -> PresentationBuilderOptions {
+fn make_builder_options(
+    config: &Config,
+    mode: &PresentMode,
+    force_default_theme: bool,
+    speaker_notes_mode: Option<SpeakerNotesMode>,
+) -> PresentationBuilderOptions {
     PresentationBuilderOptions {
         allow_mutations: !matches!(mode, PresentMode::Export),
         implicit_slide_ends: config.options.implicit_slide_ends.unwrap_or_default(),
@@ -154,7 +169,7 @@ fn make_builder_options(config: &Config, mode: &PresentMode, force_default_theme
         strict_front_matter_parsing: config.options.strict_front_matter_parsing.unwrap_or(true),
         enable_snippet_execution: config.snippet.exec.enable,
         enable_snippet_execution_replace: config.snippet.exec_replace.enable,
-        speaker_notes_mode: config.options.speaker_notes_mode.clone(),
+        render_speaker_notes_only: speaker_notes_mode.is_some_and(|mode| matches!(mode, SpeakerNotesMode::Receiver)),
     }
 }
 
@@ -191,6 +206,27 @@ fn overflow_validation(mode: &PresentMode, config: &ValidateOverflows) -> bool {
         (ValidateOverflows::WhenDeveloping, PresentMode::Development) => true,
         _ => false,
     }
+}
+
+fn create_speaker_notes_channel(
+    speaker_notes_mode: SpeakerNotesMode,
+) -> Result<SpeakerNoteChannel, Box<dyn std::error::Error>> {
+    let node = NodeBuilder::new().create::<ipc::Service>()?;
+    // TODO: Use a service name that incorporates presenterm and/or the presentation filename/title?
+    let service_name: ServiceName = "SpeakerNoteEventService".try_into()?;
+    let speaker_note_channel = match speaker_notes_mode {
+        SpeakerNotesMode::Publisher => {
+            let event = node.service_builder(&service_name).event().open_or_create()?;
+            let notifier = event.notifier_builder().create()?;
+            SpeakerNoteChannel::Notifier(notifier)
+        }
+        SpeakerNotesMode::Receiver => {
+            let event = node.service_builder(&service_name).event().open_or_create()?;
+            let listener = event.listener_builder().create()?;
+            SpeakerNoteChannel::Listener(listener)
+        }
+    };
+    Ok(speaker_note_channel)
 }
 
 fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
@@ -233,7 +269,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let parser = MarkdownParser::new(&arena);
 
     let validate_overflows = overflow_validation(&mode, &config.defaults.validate_overflows) || cli.validate_overflows;
-    let mut options = make_builder_options(&config, &mode, force_default_theme);
+    let mut options = make_builder_options(&config, &mode, force_default_theme, cli.speaker_notes_mode);
     if cli.enable_snippet_execution {
         options.enable_snippet_execution = true;
     }
@@ -276,7 +312,8 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     } else {
         let commands = CommandSource::new(config.bindings.clone())?;
         options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty { .. });
-        options.speaker_notes_mode = cli.speaker_notes_mode;
+
+        let speaker_notes_channel = cli.speaker_notes_mode.map(create_speaker_notes_channel).transpose()?;
 
         let options = PresenterOptions {
             builder_options: options,
@@ -295,6 +332,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             themes,
             printer,
             options,
+            speaker_notes_channel,
         );
         presenter.present(&path)?;
     }

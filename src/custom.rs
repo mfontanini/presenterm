@@ -2,7 +2,7 @@ use crate::{
     input::user::KeyBinding,
     media::{emulator::TerminalEmulator, kitty::KittyMode},
     processing::code::SnippetLanguage,
-    GraphicsMode, SpeakerNotesMode,
+    GraphicsMode,
 };
 use clap::ValueEnum;
 use schemars::JsonSchema;
@@ -123,7 +123,6 @@ pub struct OptionsConfig {
 
     /// Whether to be strict about parsing the presentation's front matter.
     pub strict_front_matter_parsing: Option<bool>,
-    pub speaker_notes_mode: Option<SpeakerNotesMode>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]

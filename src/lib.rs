@@ -29,7 +29,7 @@ pub use crate::{
     input::source::CommandSource,
     markdown::parse::MarkdownParser,
     media::{graphics::GraphicsMode, printer::ImagePrinter, register::ImageRegistry},
-    presenter::{PresentMode, Presenter, PresenterOptions, SpeakerNotesMode},
+    presenter::{PresentMode, Presenter, PresenterOptions, SpeakerNoteChannel},
     processing::builder::{PresentationBuilderOptions, Themes},
     render::highlighting::{CodeHighlighter, HighlightThemeSet},
     resource::Resources,

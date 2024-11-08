@@ -6,11 +6,6 @@ use crate::{
     style::{Color, Colors},
     theme::{Alignment, Margin, PresentationTheme},
 };
-use iceoryx2::{
-    port::{listener::Listener, notifier::Notifier},
-    prelude::EventId,
-    service::ipc::Service,
-};
 use serde::Deserialize;
 use std::{
     cell::RefCell,
@@ -33,12 +28,6 @@ pub(crate) struct Presentation {
     slides: Vec<Slide>,
     modals: Modals,
     pub(crate) state: PresentationState,
-}
-
-#[derive(Debug)]
-pub enum SpeakerNoteChannel {
-    Notifier(Notifier<Service>),
-    Listener(Listener<Service>),
 }
 
 impl Presentation {
@@ -264,10 +253,6 @@ impl Presentation {
             false
         }
     }
-
-    pub(crate) fn listen_for_speaker_note_evt(&self) -> Option<usize> {
-        self.state.listen_for_speaker_note_evt()
-    }
 }
 
 impl From<Vec<Slide>> for Presentation {
@@ -289,7 +274,6 @@ pub(crate) type AsyncPresentationErrorHolder = Arc<Mutex<Option<AsyncPresentatio
 pub(crate) struct PresentationStateInner {
     current_slide_index: usize,
     async_error_holder: AsyncPresentationErrorHolder,
-    pub(crate) channel: Option<SpeakerNoteChannel>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -308,22 +292,6 @@ impl PresentationState {
 
     fn set_current_slide_index(&self, value: usize) {
         self.inner.deref().borrow_mut().current_slide_index = value;
-        if let Some(SpeakerNoteChannel::Notifier(notifier)) = &self.inner.deref().borrow().channel {
-            notifier.notify_with_custom_event_id(EventId::new(value)).unwrap();
-        }
-    }
-
-    pub(crate) fn set_channel(&self, speaker_note_channel: SpeakerNoteChannel) {
-        self.inner.deref().borrow_mut().channel = Some(speaker_note_channel);
-    }
-
-    fn listen_for_speaker_note_evt(&self) -> Option<usize> {
-        if let Some(SpeakerNoteChannel::Listener(listener)) = &self.inner.deref().borrow().channel {
-            if let Some(evt) = listener.try_wait_one().unwrap() {
-                return Some(evt.as_value() + 1);
-            }
-        }
-        None
     }
 }
 

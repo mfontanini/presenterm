@@ -1,6 +1,8 @@
-use clap::ValueEnum;
-use schemars::JsonSchema;
-use serde::Deserialize;
+use iceoryx2::{
+    port::{listener::Listener, notifier::Notifier},
+    prelude::EventId,
+    service::ipc::Service,
+};
 
 use crate::{
     custom::KeyBindingsConfig,
@@ -41,11 +43,10 @@ pub struct PresenterOptions {
     pub validate_overflows: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, ValueEnum, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum SpeakerNotesMode {
-    Publisher,
-    Receiver,
+#[derive(Debug)]
+pub enum SpeakerNoteChannel {
+    Notifier(Notifier<Service>),
+    Listener(Listener<Service>),
 }
 
 /// A slideshow presenter.
@@ -63,6 +64,7 @@ pub struct Presenter<'a> {
     image_printer: Arc<ImagePrinter>,
     themes: Themes,
     options: PresenterOptions,
+    speaker_notes_channel: Option<SpeakerNoteChannel>,
 }
 
 impl<'a> Presenter<'a> {
@@ -78,6 +80,7 @@ impl<'a> Presenter<'a> {
         themes: Themes,
         image_printer: Arc<ImagePrinter>,
         options: PresenterOptions,
+        speaker_notes_channel: Option<SpeakerNoteChannel>,
     ) -> Self {
         Self {
             default_theme,
@@ -91,6 +94,7 @@ impl<'a> Presenter<'a> {
             image_printer,
             themes,
             options,
+            speaker_notes_channel,
         }
     }
 
@@ -115,9 +119,11 @@ impl<'a> Presenter<'a> {
             self.render(&mut drawer)?;
 
             loop {
-                if let Some(idx) = self.state.presentation().listen_for_speaker_note_evt() {
-                    self.apply_command(Command::GoToSlide(idx as u32));
-                    break;
+                if let Some(SpeakerNoteChannel::Listener(listener)) = self.speaker_notes_channel.as_mut() {
+                    if let Some(evt) = listener.try_wait_one().unwrap() {
+                        self.apply_command(Command::GoToSlide(evt.as_value() as u32));
+                        break;
+                    }
                 }
 
                 if self.poll_async_renders()? {
@@ -151,6 +157,10 @@ impl<'a> Presenter<'a> {
                     }
                     CommandSideEffect::None => (),
                 };
+            }
+            if let Some(SpeakerNoteChannel::Notifier(notifier)) = self.speaker_notes_channel.as_mut() {
+                let current_slide_idx = self.state.presentation().current_slide_index();
+                notifier.notify_with_custom_event_id(EventId::new(current_slide_idx + 1)).unwrap();
             }
         }
     }
