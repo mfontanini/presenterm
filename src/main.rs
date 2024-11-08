@@ -214,14 +214,13 @@ fn create_speaker_notes_channel(
     let node = NodeBuilder::new().create::<ipc::Service>()?;
     // TODO: Use a service name that incorporates presenterm and/or the presentation filename/title?
     let service_name: ServiceName = "SpeakerNoteEventService".try_into()?;
+    let event = node.service_builder(&service_name).event().open_or_create()?;
     let speaker_note_channel = match speaker_notes_mode {
         SpeakerNotesMode::Publisher => {
-            let event = node.service_builder(&service_name).event().open_or_create()?;
             let notifier = event.notifier_builder().create()?;
             SpeakerNoteChannel::Notifier(notifier)
         }
         SpeakerNotesMode::Receiver => {
-            let event = node.service_builder(&service_name).event().open_or_create()?;
             let listener = event.listener_builder().create()?;
             SpeakerNoteChannel::Listener(listener)
         }
