@@ -6,13 +6,14 @@ theme:
       background: false
 ---
 
-# Code styling
+Code styling
+===
 
 This presentation shows how to:
 
-- Left-align code blocks.
-- Have code blocks without background.
-- Execute code snippets.
+* Left-align code blocks.
+* Have code blocks without background.
+* Execute code snippets.
 
 ```rust
 pub struct Greeter {
@@ -34,11 +35,10 @@ fn main() {
 }
 ```
 
-<!-- speaker_note: These are speaker notes on slide 1. -->
-
 <!-- end_slide -->
 
-# Column layouts
+Column layouts
+===
 
 The same code as the one before but split into two columns to split the API definition with its usage:
 
@@ -76,11 +76,10 @@ fn main() {
 }
 ```
 
-<!-- speaker_note: These are speaker notes on slide 2. -->
-
 <!-- end_slide -->
 
-# Snippet execution
+Snippet execution
+===
 
 Run code snippets from the presentation and display their output dynamically.
 
@@ -91,11 +90,10 @@ for i in range(0, 5):
     time.sleep(0.5)
 ```
 
-<!-- speaker_note: These are speaker notes on slide 3. -->
-
 <!-- end_slide -->
 
-# Snippet execution - `stderr`
+Snippet execution - `stderr`
+===
 
 Output from `stderr` will also be shown as output.
 
@@ -108,5 +106,3 @@ echo "This is a successful command again"
 sleep 0.5
 man # Missing argument
 ```
-
-<!-- speaker_note: These are speaker notes on slide 4. -->
