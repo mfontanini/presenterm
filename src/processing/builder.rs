@@ -261,9 +261,15 @@ impl<'a> PresentationBuilder<'a> {
 
     fn process_element(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
         if self.options.render_speaker_notes_only {
-            if let MarkdownElement::Comment { comment, source_position } = element {
-                self.process_comment(comment, source_position)?
+            match element {
+                MarkdownElement::Comment { comment, source_position } => {
+                    self.process_comment(comment, source_position)?
+                }
+                MarkdownElement::SetexHeading { text } => self.push_slide_title(text),
+                _ => {}
             }
+            // Allows us to start the next speaker slide when a title is pushed and implicit_slide_ends is enabled.
+            self.slide_state.last_element = LastElement::Other;
             self.slide_state.ignore_element_line_break = true;
             return Ok(());
         }
