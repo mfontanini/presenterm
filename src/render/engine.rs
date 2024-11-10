@@ -162,7 +162,9 @@ where
         let positioning = layout.compute(dimensions, text.width() as u16);
         let prefix = "".into();
         let text_drawer = TextDrawer::new(&prefix, 0, text, positioning, &self.colors)?;
-        text_drawer.draw(self.terminal)
+        text_drawer.draw(self.terminal)?;
+        // Restore colors
+        self.apply_colors()
     }
 
     fn render_line_break(&mut self) -> RenderResult {
