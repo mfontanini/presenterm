@@ -31,6 +31,7 @@ serde_json = "1.0"
 serde_with = "3.6"
 strum = { version = "0.26", features = ["derive"] }
 tempfile = "3.10"
+tl = "0.7"
 console = "0.15.8"
 thiserror = "1"
 unicode-width = "0.2"

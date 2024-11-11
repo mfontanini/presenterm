@@ -65,6 +65,18 @@ impl TextStyle {
         self
     }
 
+    /// Set the background color for this text style.
+    pub(crate) fn bg_color(mut self, color: Color) -> Self {
+        self.colors.background = Some(color);
+        self
+    }
+
+    /// Set the foreground color for this text style.
+    pub(crate) fn fg_color(mut self, color: Color) -> Self {
+        self.colors.foreground = Some(color);
+        self
+    }
+
     /// Check whether this text style is bold.
     pub(crate) fn is_bold(&self) -> bool {
         self.has_flag(TextFormatFlags::Bold)

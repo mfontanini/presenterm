@@ -1,4 +1,7 @@
-use super::elements::SourcePosition;
+use super::{
+    elements::SourcePosition,
+    html::{HtmlInline, HtmlParser, ParseHtmlError},
+};
 use crate::{
     markdown::elements::{ListItem, ListItemType, MarkdownElement, Table, TableRow, Text, TextBlock},
     style::TextStyle,
@@ -100,7 +103,7 @@ impl<'a> MarkdownParser<'a> {
             NodeValue::Table(_) => self.parse_table(node)?,
             NodeValue::CodeBlock(block) => Self::parse_code_block(block, data.sourcepos)?,
             NodeValue::ThematicBreak => MarkdownElement::ThematicBreak,
-            NodeValue::HtmlBlock(block) => Self::parse_html_block(block, data.sourcepos)?,
+            NodeValue::HtmlBlock(block) => self.parse_html_block(block, data.sourcepos)?,
             NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => self.parse_block_quote(node)?,
             other => return Err(ParseErrorKind::UnsupportedElement(other.identifier()).with_sourcepos(data.sourcepos)),
         };
@@ -119,7 +122,7 @@ impl<'a> MarkdownParser<'a> {
         Ok(MarkdownElement::FrontMatter(contents.into()))
     }
 
-    fn parse_html_block(block: &NodeHtmlBlock, sourcepos: Sourcepos) -> ParseResult<MarkdownElement> {
+    fn parse_html_block(&self, block: &NodeHtmlBlock, sourcepos: Sourcepos) -> ParseResult<MarkdownElement> {
         let block = block.literal.trim();
         let start_tag = "<!--";
         let end_tag = "-->";
@@ -333,7 +336,12 @@ impl<'a> InlinesParser<'a> {
         }
     }
 
-    fn process_node(&mut self, node: &'a AstNode<'a>, parent: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
+    fn process_node(
+        &mut self,
+        node: &'a AstNode<'a>,
+        parent: &'a AstNode<'a>,
+        style: TextStyle,
+    ) -> ParseResult<Option<HtmlStyle>> {
         let data = node.data.borrow();
         match &data.value {
             NodeValue::Text(text) => {
@@ -350,7 +358,7 @@ impl<'a> InlinesParser<'a> {
                     SoftBreak::Newline => {
                         self.store_pending_text();
                     }
-                    SoftBreak::Space => self.pending_text.push(Text::from(" ")),
+                    SoftBreak::Space => self.pending_text.push(Text::new(" ", style)),
                 };
             }
             NodeValue::Link(link) => {
@@ -376,7 +384,7 @@ impl<'a> InlinesParser<'a> {
             NodeValue::Image(link) => {
                 if matches!(self.stringify_images, StringifyImages::Yes) {
                     self.pending_text.push(Text::from(format!("![{}]({})", link.title, link.url)));
-                    return Ok(());
+                    return Ok(None);
                 }
                 self.store_pending_text();
 
@@ -419,20 +427,47 @@ impl<'a> InlinesParser<'a> {
                 };
                 self.process_children(node, style)?;
             }
+            NodeValue::HtmlInline(html) => {
+                let html_inline = HtmlParser::default()
+                    .parse(html)
+                    .map_err(|e| ParseErrorKind::InvalidHtml(e).with_sourcepos(data.sourcepos))?;
+                match html_inline {
+                    HtmlInline::OpenSpan { style } => return Ok(Some(HtmlStyle::Add(style))),
+                    HtmlInline::CloseSpan => return Ok(Some(HtmlStyle::Remove)),
+                };
+            }
             other => {
                 return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.identifier() }
                     .with_sourcepos(data.sourcepos));
             }
         };
-        Ok(())
+        Ok(None)
     }
 
-    fn process_children(&mut self, root: &'a AstNode<'a>, style: TextStyle) -> ParseResult<()> {
+    fn process_children(&mut self, root: &'a AstNode<'a>, base_style: TextStyle) -> ParseResult<()> {
+        let mut html_styles = Vec::new();
+        let mut style = base_style;
         for node in root.children() {
-            self.process_node(node, root, style)?;
+            if let Some(html_style) = self.process_node(node, root, style)? {
+                match html_style {
+                    HtmlStyle::Add(style) => html_styles.push(style),
+                    HtmlStyle::Remove => {
+                        html_styles.pop();
+                    }
+                };
+                style = base_style;
+                for html_style in html_styles.iter().rev() {
+                    style.merge(html_style);
+                }
+            }
         }
         Ok(())
     }
+}
+
+enum HtmlStyle {
+    Add(TextStyle),
+    Remove,
 }
 
 enum Inline {
@@ -485,6 +520,9 @@ pub(crate) enum ParseErrorKind {
     /// We don't support unfenced code blocks.
     UnfencedCodeBlock,
 
+    /// Invalid HTML was found.
+    InvalidHtml(ParseHtmlError),
+
     /// An internal parsing error.
     Internal(String),
 }
@@ -497,6 +535,7 @@ impl Display for ParseErrorKind {
                 write!(f, "unsupported structure in {container}: {element}")
             }
             Self::UnfencedCodeBlock => write!(f, "only fenced code blocks are supported"),
+            Self::InvalidHtml(inner) => write!(f, "invalid HTML: {inner}"),
             Self::Internal(message) => write!(f, "internal error: {message}"),
         }
     }
@@ -559,6 +598,8 @@ impl Identifier for NodeValue {
 
 #[cfg(test)]
 mod test {
+    use crate::style::Color;
+
     use super::*;
     use rstest::rstest;
     use std::path::Path;
@@ -607,6 +648,23 @@ boop
             Text::new("italics", TextStyle::default().italics().bold()),
             Text::from(", "),
             Text::new("strikethrough", TextStyle::default().strikethrough()),
+        ];
+
+        let expected_elements = &[TextBlock(expected_chunks)];
+        assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn html_inlines() {
+        let parsed = parse_single(
+            "hi<span style=\"color: red\">red<span style=\"background-color: blue\">blue<span style=\"color: yellow\">yellow</span></span></span>",
+        );
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_chunks = vec![
+            Text::from("hi"),
+            Text::new("red", TextStyle::default().fg_color(Color::Red)),
+            Text::new("blue", TextStyle::default().fg_color(Color::Red).bg_color(Color::Blue)),
+            Text::new("yellow", TextStyle::default().fg_color(Color::Yellow).bg_color(Color::Blue)),
         ];
 
         let expected_elements = &[TextBlock(expected_chunks)];
