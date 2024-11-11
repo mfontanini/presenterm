@@ -12,13 +12,13 @@ pub(crate) enum MarkdownElement {
     FrontMatter(String),
 
     /// A setex heading.
-    SetexHeading { text: TextBlock },
+    SetexHeading { text: Line },
 
     /// A normal heading.
-    Heading { level: u8, text: TextBlock },
+    Heading { level: u8, text: Line },
 
     /// A paragraph composed by a list of lines.
-    Paragraph(Vec<TextBlock>),
+    Paragraph(Vec<Line>),
 
     /// An image.
     Image { path: PathBuf, title: String, source_position: SourcePosition },
@@ -50,7 +50,7 @@ pub(crate) enum MarkdownElement {
     Comment { comment: String, source_position: SourcePosition },
 
     /// A block quote containing a list of lines.
-    BlockQuote(Vec<TextBlock>),
+    BlockQuote(Vec<Line>),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -84,13 +84,13 @@ impl From<comrak::nodes::LineColumn> for LineColumn {
     }
 }
 
-/// A block of text.
+/// A text line.
 ///
 /// Text is represented as a series of chunks, each with their own formatting.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub(crate) struct TextBlock(pub(crate) Vec<Text>);
+pub(crate) struct Line(pub(crate) Vec<Text>);
 
-impl TextBlock {
+impl Line {
     /// Get the total width for this text.
     pub(crate) fn width(&self) -> usize {
         self.0.iter().map(|text| text.content.width()).sum()
@@ -104,7 +104,7 @@ impl TextBlock {
     }
 }
 
-impl<T: Into<Text>> From<T> for TextBlock {
+impl<T: Into<Text>> From<T> for Line {
     fn from(text: T) -> Self {
         Self(vec![text.into()])
     }
@@ -147,7 +147,7 @@ pub(crate) struct ListItem {
     pub(crate) depth: u8,
 
     /// The contents of this list item.
-    pub(crate) contents: TextBlock,
+    pub(crate) contents: Line,
 
     /// The type of list item.
     pub(crate) item_type: ListItemType,
@@ -185,7 +185,7 @@ impl Table {
     /// Iterates all the text entries in a column.
     ///
     /// This includes the header.
-    pub(crate) fn iter_column(&self, column: usize) -> impl Iterator<Item = &TextBlock> {
+    pub(crate) fn iter_column(&self, column: usize) -> impl Iterator<Item = &Line> {
         let header_element = &self.header.0[column];
         let row_elements = self.rows.iter().map(move |row| &row.0[column]);
         iter::once(header_element).chain(row_elements)
@@ -194,7 +194,7 @@ impl Table {
 
 /// A table row.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct TableRow(pub(crate) Vec<TextBlock>);
+pub(crate) struct TableRow(pub(crate) Vec<Line>);
 
 /// A percentage.
 #[derive(Clone, Debug, PartialEq, Eq)]

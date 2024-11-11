@@ -1,7 +1,7 @@
 use crate::{
     ImageRegistry, PresentationTheme,
     custom::{default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
-    markdown::elements::{Percent, Text, TextBlock},
+    markdown::elements::{Line, Percent, Text},
     media::{image::Image, printer::RegisterImageError},
     presentation::{
         AsRenderOperations, AsyncPresentationError, AsyncPresentationErrorHolder, ImageProperties, ImageSize,
@@ -368,7 +368,7 @@ impl AsRenderOperations for RenderThirdParty {
                 ]
             }
             None => {
-                let text = TextBlock::from(Text::new("Loading...", TextStyle::default().bold()));
+                let text = Line::from(Text::new("Loading...", TextStyle::default().bold()));
                 vec![RenderOperation::RenderText {
                     line: text.into(),
                     alignment: Alignment::Center { minimum_margin: Default::default(), minimum_size: 0 },

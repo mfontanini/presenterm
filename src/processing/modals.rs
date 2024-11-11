@@ -3,8 +3,8 @@ use crate::{
     custom::KeyBindingsConfig,
     input::user::KeyBinding,
     markdown::{
-        elements::{Text, TextBlock},
-        text::WeightedTextBlock,
+        elements::{Line, Text},
+        text::WeightedLine,
     },
     media::image::Image,
     presentation::{
@@ -22,12 +22,12 @@ static MODAL_Z_INDEX: i32 = -1;
 
 #[derive(Default)]
 pub(crate) struct IndexBuilder {
-    titles: Vec<TextBlock>,
+    titles: Vec<Line>,
     background: Option<Image>,
 }
 
 impl IndexBuilder {
-    pub(crate) fn add_title(&mut self, title: TextBlock) {
+    pub(crate) fn add_title(&mut self, title: Line) {
         self.titles.push(title);
     }
 
@@ -133,7 +133,7 @@ impl KeyBindingsModalBuilder {
         operations
     }
 
-    fn build_line(label: &str, bindings: &[KeyBinding]) -> TextBlock {
+    fn build_line(label: &str, bindings: &[KeyBinding]) -> Line {
         let mut text = vec![Text::new(label, TextStyle::default().bold()), ": ".into()];
         for (index, binding) in bindings.iter().enumerate() {
             if index > 0 {
@@ -141,13 +141,13 @@ impl KeyBindingsModalBuilder {
             }
             text.push(Text::new(binding.to_string(), TextStyle::default().italics()));
         }
-        TextBlock(text)
+        Line(text)
     }
 }
 
 struct ModalBuilder {
     heading: String,
-    content: Vec<TextBlock>,
+    content: Vec<Line>,
 }
 
 impl ModalBuilder {
@@ -156,7 +156,7 @@ impl ModalBuilder {
     }
 
     fn build(self, colors: Colors) -> ModalContent {
-        let longest_line = self.content.iter().map(TextBlock::width).max().unwrap_or(0) as u16;
+        let longest_line = self.content.iter().map(Line::width).max().unwrap_or(0) as u16;
         let longest_line = longest_line.max(self.heading.len() as u16);
         // Ensure we have a minimum width so it doesn't look too narrow.
         let longest_line = longest_line.max(12);
@@ -240,11 +240,11 @@ impl ContentRow {
         self
     }
 
-    fn build(self) -> WeightedTextBlock {
+    fn build(self) -> WeightedLine {
         let mut chunks = self.content;
         chunks.insert(0, self.prefix);
         chunks.push(self.suffix);
-        WeightedTextBlock::from(chunks)
+        WeightedLine::from(chunks)
     }
 }
 
@@ -261,7 +261,7 @@ impl Border {
         let mut line = String::from(opening);
         line.push_str(&"─".repeat(content_length.saturating_sub(2) as usize));
         line.push(closing);
-        let horizontal_border = WeightedTextBlock::from(vec![Text::from(line)]);
+        let horizontal_border = WeightedLine::from(vec![Text::from(line)]);
         [
             RenderOperation::RenderText { line: horizontal_border.clone(), alignment: Default::default() },
             RenderOperation::RenderLineBreak,

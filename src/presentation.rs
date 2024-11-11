@@ -1,6 +1,6 @@
 use crate::{
     custom::OptionsConfig,
-    markdown::text::{WeightedText, WeightedTextBlock},
+    markdown::text::{WeightedLine, WeightedText},
     media::image::Image,
     render::properties::WindowSize,
     style::{Color, Colors},
@@ -557,7 +557,7 @@ pub(crate) struct BlockLine {
     pub(crate) prefix: WeightedText,
     pub(crate) right_padding_length: u16,
     pub(crate) repeat_prefix_on_wrap: bool,
-    pub(crate) text: WeightedTextBlock,
+    pub(crate) text: WeightedLine,
     pub(crate) block_length: u16,
     pub(crate) block_color: Option<Color>,
     pub(crate) alignment: Alignment,
@@ -589,7 +589,7 @@ pub(crate) enum RenderOperation {
     JumpToBottomRow { index: u16 },
 
     /// Render text.
-    RenderText { line: WeightedTextBlock, alignment: Alignment },
+    RenderText { line: WeightedLine, alignment: Alignment },
 
     /// Render a line break.
     RenderLineBreak,

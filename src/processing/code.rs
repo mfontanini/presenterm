@@ -3,7 +3,7 @@ use crate::{
     PresentationTheme,
     markdown::{
         elements::{Percent, PercentParseError},
-        text::{WeightedText, WeightedTextBlock},
+        text::{WeightedLine, WeightedText},
     },
     presentation::{AsRenderOperations, BlockLine, ChunkMutator, RenderOperation},
     render::{
@@ -85,11 +85,11 @@ impl CodeLine {
         &self,
         code_highlighter: &mut LanguageHighlighter,
         block_style: &CodeBlockStyle,
-    ) -> WeightedTextBlock {
+    ) -> WeightedLine {
         code_highlighter.highlight_line(&self.code, block_style).0.into()
     }
 
-    pub(crate) fn dim(&self, dim_style: &TextStyle) -> WeightedTextBlock {
+    pub(crate) fn dim(&self, dim_style: &TextStyle) -> WeightedLine {
         let output = vec![StyledTokens { style: *dim_style, tokens: &self.code }.apply_style()];
         output.into()
     }
@@ -112,8 +112,8 @@ pub(crate) struct HighlightContext {
 pub(crate) struct HighlightedLine {
     pub(crate) prefix: WeightedText,
     pub(crate) right_padding_length: u16,
-    pub(crate) highlighted: WeightedTextBlock,
-    pub(crate) not_highlighted: WeightedTextBlock,
+    pub(crate) highlighted: WeightedLine,
+    pub(crate) not_highlighted: WeightedLine,
     pub(crate) line_number: Option<u16>,
     pub(crate) context: Rc<RefCell<HighlightContext>>,
     pub(crate) block_color: Option<Color>,

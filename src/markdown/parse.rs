@@ -3,7 +3,7 @@ use super::{
     html::{HtmlInline, HtmlParser, ParseHtmlError},
 };
 use crate::{
-    markdown::elements::{ListItem, ListItemType, MarkdownElement, Table, TableRow, Text, TextBlock},
+    markdown::elements::{Line, ListItem, ListItemType, MarkdownElement, Table, TableRow, Text},
     style::TextStyle,
 };
 use comrak::{
@@ -140,11 +140,11 @@ impl<'a> MarkdownParser<'a> {
         for inline in inlines {
             match inline {
                 Inline::Text(text) => elements.push(text),
-                Inline::LineBreak => elements.push(TextBlock::from("")),
+                Inline::LineBreak => elements.push(Line::from("")),
                 Inline::Image { .. } => {}
             }
         }
-        if elements.last() == Some(&TextBlock::from("")) {
+        if elements.last() == Some(&Line::from("")) {
             elements.pop();
         }
         Ok(MarkdownElement::BlockQuote(elements))
@@ -196,7 +196,7 @@ impl<'a> MarkdownParser<'a> {
         Ok(elements)
     }
 
-    fn parse_text(&self, node: &'a AstNode<'a>) -> ParseResult<TextBlock> {
+    fn parse_text(&self, node: &'a AstNode<'a>) -> ParseResult<Line> {
         let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No).parse(node)?;
         let mut chunks = Vec::new();
         for inline in inlines {
@@ -208,7 +208,7 @@ impl<'a> MarkdownParser<'a> {
                 }
             };
         }
-        Ok(TextBlock(chunks))
+        Ok(Line(chunks))
     }
 
     fn parse_list(&self, root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
@@ -332,7 +332,7 @@ impl<'a> InlinesParser<'a> {
     fn store_pending_text(&mut self) {
         let chunks = mem::take(&mut self.pending_text);
         if !chunks.is_empty() {
-            self.inlines.push(Inline::Text(TextBlock(chunks)));
+            self.inlines.push(Inline::Text(Line(chunks)));
         }
     }
 
@@ -471,7 +471,7 @@ enum HtmlStyle {
 }
 
 enum Inline {
-    Text(TextBlock),
+    Text(Line),
     Image { path: String, title: String },
     LineBreak,
 }
@@ -650,7 +650,7 @@ boop
             Text::new("strikethrough", TextStyle::default().strikethrough()),
         ];
 
-        let expected_elements = &[TextBlock(expected_chunks)];
+        let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -667,7 +667,7 @@ boop
             Text::new("yellow", TextStyle::default().fg_color(Color::Yellow).bg_color(Color::Blue)),
         ];
 
-        let expected_elements = &[TextBlock(expected_chunks)];
+        let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -678,7 +678,7 @@ boop
         let expected_chunks =
             vec![Text::from("my "), Text::new("https://example.com", TextStyle::default().link_url())];
 
-        let expected_elements = &[TextBlock(expected_chunks)];
+        let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -694,7 +694,7 @@ boop
             Text::from(")"),
         ];
 
-        let expected_elements = &[TextBlock(expected_chunks)];
+        let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -710,7 +710,7 @@ boop
             Text::from("\""),
         ];
 
-        let expected_elements = &[TextBlock(expected_chunks)];
+        let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -729,7 +729,7 @@ boop
             Text::from(")"),
         ];
 
-        let expected_elements = &[TextBlock(expected_chunks)];
+        let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -902,21 +902,21 @@ let q = 42;
         assert_eq!(lines.len(), 11);
         assert_eq!(
             lines[0],
-            TextBlock(vec![Text::from("foo "), Text::new("is not", TextStyle::default().bold()), Text::from(" bar")])
+            Line(vec![Text::from("foo "), Text::new("is not", TextStyle::default().bold()), Text::from(" bar")])
         );
         assert_eq!(
             lines[1],
-            TextBlock(vec![Text::from("![](hehe.png)"), Text::from(" test "), Text::from("![](potato.png)")])
+            Line(vec![Text::from("![](hehe.png)"), Text::from(" test "), Text::from("![](potato.png)")])
         );
-        assert_eq!(lines[2], TextBlock::from(""));
-        assert_eq!(lines[3], TextBlock(vec![Text::from("* "), Text::from("a")]));
-        assert_eq!(lines[4], TextBlock(vec![Text::from("* "), Text::from("b")]));
-        assert_eq!(lines[5], TextBlock::from(""));
-        assert_eq!(lines[6], TextBlock(vec![Text::from("1. "), Text::from("a")]));
-        assert_eq!(lines[7], TextBlock(vec![Text::from("2. "), Text::from("b")]));
-        assert_eq!(lines[8], TextBlock::from(""));
-        assert_eq!(lines[9], TextBlock(vec![Text::from("1) "), Text::from("a")]));
-        assert_eq!(lines[10], TextBlock(vec![Text::from("2) "), Text::from("b")]));
+        assert_eq!(lines[2], Line::from(""));
+        assert_eq!(lines[3], Line(vec![Text::from("* "), Text::from("a")]));
+        assert_eq!(lines[4], Line(vec![Text::from("* "), Text::from("b")]));
+        assert_eq!(lines[5], Line::from(""));
+        assert_eq!(lines[6], Line(vec![Text::from("1. "), Text::from("a")]));
+        assert_eq!(lines[7], Line(vec![Text::from("2. "), Text::from("b")]));
+        assert_eq!(lines[8], Line::from(""));
+        assert_eq!(lines[9], Line(vec![Text::from("1) "), Text::from("a")]));
+        assert_eq!(lines[10], Line(vec![Text::from("2) "), Text::from("b")]));
     }
 
     #[test]
@@ -933,11 +933,11 @@ foo
         );
         let MarkdownElement::BlockQuote(lines) = parsed else { panic!("not a block quote: {parsed:?}") };
         assert_eq!(lines.len(), 5);
-        assert_eq!(lines[0], TextBlock::from("bar"));
-        assert_eq!(lines[1], TextBlock::from("foo"));
-        assert_eq!(lines[2], TextBlock::from(""));
-        assert_eq!(lines[3], TextBlock(vec![Text::from("* "), Text::from("a")]));
-        assert_eq!(lines[4], TextBlock(vec![Text::from("* "), Text::from("b")]));
+        assert_eq!(lines[0], Line::from("bar"));
+        assert_eq!(lines[1], Line::from("foo"));
+        assert_eq!(lines[2], Line::from(""));
+        assert_eq!(lines[3], Line(vec![Text::from("* "), Text::from("a")]));
+        assert_eq!(lines[4], Line(vec![Text::from("* "), Text::from("b")]));
     }
 
     #[test]
