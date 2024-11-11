@@ -1,5 +1,6 @@
 use super::user::{CommandKeyBindings, KeyBindingsValidationError, UserInput};
 use crate::custom::KeyBindingsConfig;
+use iceoryx2::{port::listener::Listener, service::ipc::Service};
 use serde::Deserialize;
 use std::{io, time::Duration};
 use strum::EnumDiscriminants;
@@ -10,19 +11,29 @@ use strum::EnumDiscriminants;
 /// happens.
 pub struct CommandSource {
     user_input: UserInput,
+    speaker_notes_event_receiver: Option<Listener<Service>>,
 }
 
 impl CommandSource {
     /// Create a new command source over the given presentation path.
-    pub fn new(config: KeyBindingsConfig) -> Result<Self, KeyBindingsValidationError> {
+    pub fn new(
+        config: KeyBindingsConfig,
+        speaker_notes_event_receiver: Option<Listener<Service>>,
+    ) -> Result<Self, KeyBindingsValidationError> {
         let bindings = CommandKeyBindings::try_from(config)?;
-        Ok(Self { user_input: UserInput::new(bindings) })
+        Ok(Self { user_input: UserInput::new(bindings), speaker_notes_event_receiver })
     }
 
     /// Try to get the next command.
     ///
     /// This attempts to get a command and returns `Ok(None)` on timeout.
     pub(crate) fn try_next_command(&mut self) -> io::Result<Option<Command>> {
+        if let Some(receiver) = self.speaker_notes_event_receiver.as_mut() {
+            // TODO: Handle Err instead of unwrap.
+            if let Some(evt) = receiver.try_wait_one().unwrap() {
+                return Ok(Some(Command::GoToSlide(evt.as_value() as u32)));
+            }
+        }
         match self.user_input.poll_next_command(Duration::from_millis(250))? {
             Some(command) => Ok(Some(command)),
             None => Ok(None),
