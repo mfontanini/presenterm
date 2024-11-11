@@ -3,7 +3,7 @@ use super::{
     terminal::{Terminal, TerminalWrite},
 };
 use crate::{
-    markdown::{elements::Text, text::WeightedTextBlock},
+    markdown::{elements::Text, text::WeightedLine},
     media::printer::{ImagePrinter, PrintImageError},
     presentation::{Presentation, RenderOperation},
     render::properties::WindowSize,
@@ -61,13 +61,13 @@ where
             }),
             RenderOperation::ClearScreen,
             RenderOperation::JumpToRow { index: starting_row },
-            RenderOperation::RenderText { line: WeightedTextBlock::from(heading), alignment: alignment.clone() },
+            RenderOperation::RenderText { line: WeightedLine::from(heading), alignment: alignment.clone() },
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
         ];
         for line in message.lines() {
             let error = vec![Text::from(line)];
-            let op = RenderOperation::RenderText { line: WeightedTextBlock::from(error), alignment: alignment.clone() };
+            let op = RenderOperation::RenderText { line: WeightedLine::from(error), alignment: alignment.clone() };
             operations.extend([op, RenderOperation::RenderLineBreak]);
         }
         let engine = self.create_engine(dimensions);

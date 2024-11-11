@@ -1,5 +1,5 @@
 use crate::{
-    markdown::elements::{Text, TextBlock},
+    markdown::elements::{Line, Text},
     processing::code::SnippetLanguage,
     style::{Color, TextStyle},
     theme::CodeBlockStyle,
@@ -182,11 +182,11 @@ pub(crate) struct LanguageHighlighter<'a> {
 }
 
 impl LanguageHighlighter<'_> {
-    pub(crate) fn highlight_line(&mut self, line: &str, block_style: &CodeBlockStyle) -> TextBlock {
+    pub(crate) fn highlight_line(&mut self, line: &str, block_style: &CodeBlockStyle) -> Line {
         self.style_line(line, block_style)
     }
 
-    pub(crate) fn style_line(&mut self, line: &str, block_style: &CodeBlockStyle) -> TextBlock {
+    pub(crate) fn style_line(&mut self, line: &str, block_style: &CodeBlockStyle) -> Line {
         let texts: Vec<_> = self
             .highlighter
             .highlight_line(line, &SYNTAX_SET)
@@ -194,7 +194,7 @@ impl LanguageHighlighter<'_> {
             .into_iter()
             .map(|(style, tokens)| StyledTokens::new(style, tokens, block_style).apply_style())
             .collect();
-        TextBlock(texts)
+        Line(texts)
     }
 }
 

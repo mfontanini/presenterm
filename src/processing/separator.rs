@@ -1,5 +1,5 @@
 use crate::{
-    markdown::elements::TextBlock,
+    markdown::elements::Line,
     presentation::{AsRenderOperations, BlockLine, RenderOperation},
     render::{
         layout::{Layout, Positioning},
@@ -19,12 +19,12 @@ pub(crate) enum SeparatorWidth {
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct RenderSeparator {
-    heading: TextBlock,
+    heading: Line,
     width: SeparatorWidth,
 }
 
 impl RenderSeparator {
-    pub(crate) fn new<S: Into<TextBlock>>(heading: S, width: SeparatorWidth) -> Self {
+    pub(crate) fn new<S: Into<Line>>(heading: S, width: SeparatorWidth) -> Self {
         Self { heading: heading.into(), width }
     }
 }
@@ -48,12 +48,12 @@ impl AsRenderOperations for RenderSeparator {
             SeparatorWidth::FitToWindow => dimensions.columns as usize,
         };
         let separator = match self.heading.width() == 0 {
-            true => TextBlock::from(character.repeat(width)),
+            true => Line::from(character.repeat(width)),
             false => {
                 let width = width.saturating_sub(self.heading.width());
                 let (dashes_len, remainder) = (width / 2, width % 2);
                 let mut dashes = character.repeat(dashes_len);
-                let mut line = TextBlock::from(dashes.clone());
+                let mut line = Line::from(dashes.clone());
                 line.0.extend(self.heading.0.iter().cloned());
 
                 if remainder > 0 {

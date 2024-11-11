@@ -2,7 +2,7 @@ use super::terminal::{Terminal, TerminalWrite};
 use crate::{
     markdown::{
         elements::Text,
-        text::{WeightedText, WeightedTextBlock},
+        text::{WeightedLine, WeightedText},
     },
     render::{
         draw::{RenderError, RenderResult},
@@ -19,7 +19,7 @@ const MINIMUM_LINE_LENGTH: u16 = 10;
 pub(crate) struct TextDrawer<'a> {
     prefix: &'a WeightedText,
     right_padding_length: u16,
-    line: &'a WeightedTextBlock,
+    line: &'a WeightedLine,
     positioning: Positioning,
     prefix_length: u16,
     default_colors: &'a Colors,
@@ -32,7 +32,7 @@ impl<'a> TextDrawer<'a> {
     pub(crate) fn new(
         prefix: &'a WeightedText,
         right_padding_length: u16,
-        line: &'a WeightedTextBlock,
+        line: &'a WeightedLine,
         positioning: Positioning,
         default_colors: &'a Colors,
     ) -> Result<Self, RenderError> {

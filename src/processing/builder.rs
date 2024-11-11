@@ -8,10 +8,10 @@ use crate::{
     execute::SnippetExecutor,
     markdown::{
         elements::{
-            ListItem, ListItemType, MarkdownElement, Percent, PercentParseError, SourcePosition, Table, TableRow, Text,
-            TextBlock,
+            Line, ListItem, ListItemType, MarkdownElement, Percent, PercentParseError, SourcePosition, Table, TableRow,
+            Text,
         },
-        text::WeightedTextBlock,
+        text::WeightedLine,
     },
     media::{image::Image, printer::RegisterImageError, register::ImageRegistry},
     presentation::{
@@ -30,7 +30,7 @@ use crate::{
         highlighting::{CodeHighlighter, HighlightThemeSet},
         properties::WindowSize,
     },
-    resource::{LoadImageError, Resources},
+    resource::Resources,
     style::{Color, Colors, TextStyle},
     theme::{
         Alignment, AuthorPositioning, CodeBlockStyle, ElementType, LoadThemeError, Margin, PresentationTheme,
@@ -377,8 +377,7 @@ impl<'a> PresentationBuilder<'a> {
             self.push_line(sub_title, ElementType::PresentationSubTitle);
         }
         if event.is_some() || location.is_some() || date.is_some() {
-            self.push_line_break();
-            self.push_line_break();
+            self.push_line_breaks(2);
             if let Some(event) = event {
                 self.push_line(event, ElementType::PresentationEvent);
             }
@@ -392,9 +391,7 @@ impl<'a> PresentationBuilder<'a> {
         if !authors.is_empty() {
             match self.theme.intro_slide.author.positioning {
                 AuthorPositioning::BelowTitle => {
-                    self.push_line_break();
-                    self.push_line_break();
-                    self.push_line_break();
+                    self.push_line_breaks(3);
                 }
                 AuthorPositioning::PageBottom => {
                     self.chunk_operations.push(RenderOperation::JumpToBottomRow { index: authors.len() as u16 - 1 });
@@ -404,7 +401,7 @@ impl<'a> PresentationBuilder<'a> {
                 self.push_line(author, ElementType::PresentationAuthor);
             }
         }
-        self.slide_state.title = Some(TextBlock::from("[Introduction]"));
+        self.slide_state.title = Some(Line::from("[Introduction]"));
         self.terminate_slide();
     }
 
@@ -416,7 +413,7 @@ impl<'a> PresentationBuilder<'a> {
         let comment = comment.trim_start_matches(&self.options.command_prefix);
         let comment = match comment.parse::<CommentCommand>() {
             Ok(comment) => comment,
-            Err(error) => return Err(BuildError::CommandParse { line: source_position.start.line + 1, error }),
+            Err(error) => return Err(BuildError::CommandParse { source_position, error }),
         };
         match comment {
             CommentCommand::Pause => self.process_pause(),
@@ -494,7 +491,7 @@ impl<'a> PresentationBuilder<'a> {
         self.slide_chunks.push(SlideChunk::new(chunk_operations, mutators));
     }
 
-    fn push_slide_title(&mut self, mut text: TextBlock) {
+    fn push_slide_title(&mut self, mut text: Line) {
         if self.options.implicit_slide_ends && !matches!(self.slide_state.last_element, LastElement::None) {
             self.terminate_slide();
         }
@@ -516,9 +513,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         text.apply_style(&text_style);
 
-        for _ in 0..style.padding_top.unwrap_or(0) {
-            self.push_line_break();
-        }
+        self.push_line_breaks(style.padding_top.unwrap_or(0) as usize);
         self.push_text(text, ElementType::SlideTitle);
         self.push_line_break();
 
@@ -532,7 +527,7 @@ impl<'a> PresentationBuilder<'a> {
         self.slide_state.ignore_element_line_break = true;
     }
 
-    fn push_heading(&mut self, level: u8, mut text: TextBlock) {
+    fn push_heading(&mut self, level: u8, mut text: Line) {
         let (element_type, style) = match level {
             1 => (ElementType::Heading1, &self.theme.headings.h1),
             2 => (ElementType::Heading2, &self.theme.headings.h2),
@@ -554,7 +549,7 @@ impl<'a> PresentationBuilder<'a> {
         self.push_line_break();
     }
 
-    fn push_paragraph(&mut self, lines: Vec<TextBlock>) -> Result<(), BuildError> {
+    fn push_paragraph(&mut self, lines: Vec<Line>) -> Result<(), BuildError> {
         for text in lines {
             self.push_text(text, ElementType::Paragraph);
             self.push_line_break();
@@ -577,7 +572,11 @@ impl<'a> PresentationBuilder<'a> {
         title: String,
         source_position: SourcePosition,
     ) -> Result<(), BuildError> {
-        let image = self.resources.image(&path).map_err(|e| BuildError::LoadImage(path, e))?;
+        let image = self.resources.image(&path).map_err(|e| BuildError::LoadImage {
+            path,
+            source_position,
+            error: e.to_string(),
+        })?;
         self.push_image(image, title, source_position)
     }
 
@@ -659,7 +658,7 @@ impl<'a> PresentationBuilder<'a> {
         }
     }
 
-    fn push_block_quote(&mut self, lines: Vec<TextBlock>) {
+    fn push_block_quote(&mut self, lines: Vec<Line>) {
         let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
         let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0) as u16;
         let prefix_color = self.theme.block_quote.colors.prefix.or(self.theme.block_quote.colors.base.foreground);
@@ -693,31 +692,33 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_line(&mut self, text: Text, element_type: ElementType) {
-        self.push_text(TextBlock::from(text), element_type);
+        self.push_text(Line::from(text), element_type);
         self.push_line_break();
     }
 
-    fn push_text(&mut self, text: TextBlock, element_type: ElementType) {
+    fn push_text(&mut self, text: Line, element_type: ElementType) {
         let alignment = self.theme.alignment(&element_type);
         self.push_aligned_text(text, alignment);
     }
 
-    fn push_aligned_text(&mut self, mut block: TextBlock, alignment: Alignment) {
+    fn push_aligned_text(&mut self, mut block: Line, alignment: Alignment) {
         for chunk in &mut block.0 {
             if chunk.style.is_code() {
                 chunk.style.colors = self.theme.inline_code.colors;
             }
         }
         if !block.0.is_empty() {
-            self.chunk_operations.push(RenderOperation::RenderText {
-                line: WeightedTextBlock::from(block),
-                alignment: alignment.clone(),
-            });
+            self.chunk_operations
+                .push(RenderOperation::RenderText { line: WeightedLine::from(block), alignment: alignment.clone() });
         }
     }
 
     fn push_line_break(&mut self) {
         self.chunk_operations.push(RenderOperation::RenderLineBreak);
+    }
+
+    fn push_line_breaks(&mut self, count: usize) {
+        self.chunk_operations.extend(iter::repeat(RenderOperation::RenderLineBreak).take(count));
     }
 
     fn push_differ(&mut self, text: String) {
@@ -726,9 +727,9 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_code(&mut self, info: String, code: String, source_position: SourcePosition) -> Result<(), BuildError> {
         let mut snippet = CodeBlockParser::parse(info, code)
-            .map_err(|e| BuildError::InvalidCode { line: source_position.start.line + 1, error: e.to_string() })?;
+            .map_err(|e| BuildError::InvalidCode { source_position, error: e.to_string() })?;
         if matches!(snippet.language, SnippetLanguage::File) {
-            snippet = self.load_external_snippet(snippet, source_position.clone())?;
+            snippet = self.load_external_snippet(snippet, source_position)?;
         }
         self.push_differ(snippet.contents.clone());
 
@@ -776,16 +777,14 @@ impl<'a> PresentationBuilder<'a> {
         mut code: Snippet,
         source_position: SourcePosition,
     ) -> Result<Snippet, BuildError> {
-        // TODO clean up this repeated thing
-        let line = source_position.start.line + 1;
-        let file: ExternalFile =
-            serde_yaml::from_str(&code.contents).map_err(|e| BuildError::InvalidCode { line, error: e.to_string() })?;
+        let file: ExternalFile = serde_yaml::from_str(&code.contents)
+            .map_err(|e| BuildError::InvalidCode { source_position, error: e.to_string() })?;
         let path = file.path;
         let path_display = path.display();
-        let contents = self
-            .resources
-            .external_snippet(&path)
-            .map_err(|e| BuildError::InvalidCode { line, error: format!("failed to load {path_display}: {e}") })?;
+        let contents = self.resources.external_snippet(&path).map_err(|e| BuildError::InvalidCode {
+            source_position,
+            error: format!("failed to load {path_display}: {e}"),
+        })?;
         code.language = file.language;
         code.contents = contents;
         Ok(code)
@@ -800,7 +799,7 @@ impl<'a> PresentationBuilder<'a> {
             SnippetLanguage::Mermaid => ThirdPartyRenderRequest::Mermaid(contents, self.theme.mermaid.clone()),
             _ => {
                 return Err(BuildError::InvalidCode {
-                    line: source_position.start.line + 1,
+                    source_position,
                     error: format!("language {language:?} doesn't support rendering"),
                 })?;
             }
@@ -965,7 +964,7 @@ impl<'a> PresentationBuilder<'a> {
         self.push_text(flattened_header, ElementType::Table);
         self.push_line_break();
 
-        let mut separator = TextBlock(Vec::new());
+        let mut separator = Line(Vec::new());
         for (index, width) in widths.iter().enumerate() {
             let mut contents = String::new();
             let mut margin = 1;
@@ -990,8 +989,8 @@ impl<'a> PresentationBuilder<'a> {
         }
     }
 
-    fn prepare_table_row(row: TableRow, widths: &[usize]) -> TextBlock {
-        let mut flattened_row = TextBlock(Vec::new());
+    fn prepare_table_row(row: TableRow, widths: &[usize]) -> Line {
+        let mut flattened_row = Line(Vec::new());
         for (column, text) in row.0.into_iter().enumerate() {
             if column > 0 {
                 flattened_row.0.push(Text::from(" │ "));
@@ -1020,7 +1019,7 @@ impl<'a> PresentationBuilder<'a> {
                 continue;
             }
             Self::parse_image_attribute(suffix, &mut attributes)
-                .map_err(|e| BuildError::ImageAttributeParse { line: source_position.start.line + 1, error: e })?;
+                .map_err(|e| BuildError::ImageAttributeParse { source_position, error: e })?;
         }
         Ok(attributes)
     }
@@ -1049,7 +1048,7 @@ struct SlideState {
     last_element: LastElement,
     incremental_lists: Option<bool>,
     layout: LayoutState,
-    title: Option<TextBlock>,
+    title: Option<Line>,
 }
 
 #[derive(Debug, Default)]
@@ -1078,8 +1077,8 @@ enum LastElement {
 /// An error when building a presentation.
 #[derive(thiserror::Error, Debug)]
 pub enum BuildError {
-    #[error("failed to load image '{0}': {1}")]
-    LoadImage(PathBuf, LoadImageError),
+    #[error("could not load image '{path}' at {source_position}: {error}")]
+    LoadImage { path: PathBuf, source_position: SourcePosition, error: String },
 
     #[error("failed to register image: {0}")]
     RegisterImage(#[from] RegisterImageError),
@@ -1090,8 +1089,8 @@ pub enum BuildError {
     #[error("invalid theme: {0}")]
     InvalidTheme(#[from] LoadThemeError),
 
-    #[error("invalid code at line {line}: {error}")]
-    InvalidCode { line: usize, error: String },
+    #[error("invalid code at {source_position}: {error}")]
+    InvalidCode { source_position: SourcePosition, error: String },
 
     #[error("invalid code highlighter theme: '{0}'")]
     InvalidCodeTheme(String),
@@ -1111,11 +1110,11 @@ pub enum BuildError {
     #[error("need to enter layout column explicitly using `column` command")]
     NotInsideColumn,
 
-    #[error("error parsing command at line {line}: {error}")]
-    CommandParse { line: usize, error: CommandParseError },
+    #[error("invalid command at {source_position}: {error}")]
+    CommandParse { source_position: SourcePosition, error: CommandParseError },
 
-    #[error("error parsing image attribute at line {line}: {error}")]
-    ImageAttributeParse { line: usize, error: ImageAttributeError },
+    #[error("invalid image attribute at {source_position}: {error}")]
+    ImageAttributeParse { source_position: SourcePosition, error: ImageAttributeError },
 
     #[error("third party render failed: {0}")]
     ThirdPartyRender(#[from] ThirdPartyRenderError),
@@ -1403,9 +1402,9 @@ mod test {
     fn prelude_appears_once() {
         let elements = vec![
             MarkdownElement::FrontMatter("author: bob".to_string()),
-            MarkdownElement::Heading { text: TextBlock::from("hello"), level: 1 },
+            MarkdownElement::Heading { text: Line::from("hello"), level: 1 },
             build_end_slide(),
-            MarkdownElement::Heading { text: TextBlock::from("bye"), level: 1 },
+            MarkdownElement::Heading { text: Line::from("bye"), level: 1 },
         ];
         let presentation = build_presentation(elements);
         for (index, slide) in presentation.iter_slides().enumerate() {
@@ -1422,9 +1421,9 @@ mod test {
     fn slides_start_with_one_newline() {
         let elements = vec![
             MarkdownElement::FrontMatter("author: bob".to_string()),
-            MarkdownElement::Heading { text: TextBlock::from("hello"), level: 1 },
+            MarkdownElement::Heading { text: Line::from("hello"), level: 1 },
             build_end_slide(),
-            MarkdownElement::Heading { text: TextBlock::from("bye"), level: 1 },
+            MarkdownElement::Heading { text: Line::from("bye"), level: 1 },
         ];
         let presentation = build_presentation(elements);
         assert_eq!(presentation.iter_slides().count(), 3);
@@ -1443,8 +1442,8 @@ mod test {
     #[test]
     fn table() {
         let elements = vec![MarkdownElement::Table(Table {
-            header: TableRow(vec![TextBlock::from("key"), TextBlock::from("value"), TextBlock::from("other")]),
-            rows: vec![TableRow(vec![TextBlock::from("potato"), TextBlock::from("bar"), TextBlock::from("yes")])],
+            header: TableRow(vec![Line::from("key"), Line::from("value"), Line::from("other")]),
+            rows: vec![TableRow(vec![Line::from("potato"), Line::from("bar"), Line::from("yes")])],
         })];
         let slides = build_presentation(elements).into_slides();
         let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
