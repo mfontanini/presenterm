@@ -30,7 +30,7 @@ use crate::{
         highlighting::{CodeHighlighter, HighlightThemeSet},
         properties::WindowSize,
     },
-    resource::{LoadImageError, Resources},
+    resource::Resources,
     style::{Color, Colors, TextStyle},
     theme::{
         Alignment, AuthorPositioning, CodeBlockStyle, ElementType, LoadThemeError, Margin, PresentationTheme,
@@ -413,7 +413,7 @@ impl<'a> PresentationBuilder<'a> {
         let comment = comment.trim_start_matches(&self.options.command_prefix);
         let comment = match comment.parse::<CommentCommand>() {
             Ok(comment) => comment,
-            Err(error) => return Err(BuildError::CommandParse { line: source_position.start.line + 1, error }),
+            Err(error) => return Err(BuildError::CommandParse { source_position, error }),
         };
         match comment {
             CommentCommand::Pause => self.process_pause(),
@@ -572,7 +572,11 @@ impl<'a> PresentationBuilder<'a> {
         title: String,
         source_position: SourcePosition,
     ) -> Result<(), BuildError> {
-        let image = self.resources.image(&path).map_err(|e| BuildError::LoadImage(path, e))?;
+        let image = self.resources.image(&path).map_err(|e| BuildError::LoadImage {
+            path,
+            source_position,
+            error: e.to_string(),
+        })?;
         self.push_image(image, title, source_position)
     }
 
@@ -723,9 +727,9 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_code(&mut self, info: String, code: String, source_position: SourcePosition) -> Result<(), BuildError> {
         let mut snippet = CodeBlockParser::parse(info, code)
-            .map_err(|e| BuildError::InvalidCode { line: source_position.start.line + 1, error: e.to_string() })?;
+            .map_err(|e| BuildError::InvalidCode { source_position, error: e.to_string() })?;
         if matches!(snippet.language, SnippetLanguage::File) {
-            snippet = self.load_external_snippet(snippet, source_position.clone())?;
+            snippet = self.load_external_snippet(snippet, source_position)?;
         }
         self.push_differ(snippet.contents.clone());
 
@@ -773,16 +777,14 @@ impl<'a> PresentationBuilder<'a> {
         mut code: Snippet,
         source_position: SourcePosition,
     ) -> Result<Snippet, BuildError> {
-        // TODO clean up this repeated thing
-        let line = source_position.start.line + 1;
-        let file: ExternalFile =
-            serde_yaml::from_str(&code.contents).map_err(|e| BuildError::InvalidCode { line, error: e.to_string() })?;
+        let file: ExternalFile = serde_yaml::from_str(&code.contents)
+            .map_err(|e| BuildError::InvalidCode { source_position, error: e.to_string() })?;
         let path = file.path;
         let path_display = path.display();
-        let contents = self
-            .resources
-            .external_snippet(&path)
-            .map_err(|e| BuildError::InvalidCode { line, error: format!("failed to load {path_display}: {e}") })?;
+        let contents = self.resources.external_snippet(&path).map_err(|e| BuildError::InvalidCode {
+            source_position,
+            error: format!("failed to load {path_display}: {e}"),
+        })?;
         code.language = file.language;
         code.contents = contents;
         Ok(code)
@@ -797,7 +799,7 @@ impl<'a> PresentationBuilder<'a> {
             SnippetLanguage::Mermaid => ThirdPartyRenderRequest::Mermaid(contents, self.theme.mermaid.clone()),
             _ => {
                 return Err(BuildError::InvalidCode {
-                    line: source_position.start.line + 1,
+                    source_position,
                     error: format!("language {language:?} doesn't support rendering"),
                 })?;
             }
@@ -1017,7 +1019,7 @@ impl<'a> PresentationBuilder<'a> {
                 continue;
             }
             Self::parse_image_attribute(suffix, &mut attributes)
-                .map_err(|e| BuildError::ImageAttributeParse { line: source_position.start.line + 1, error: e })?;
+                .map_err(|e| BuildError::ImageAttributeParse { source_position, error: e })?;
         }
         Ok(attributes)
     }
@@ -1075,8 +1077,8 @@ enum LastElement {
 /// An error when building a presentation.
 #[derive(thiserror::Error, Debug)]
 pub enum BuildError {
-    #[error("failed to load image '{0}': {1}")]
-    LoadImage(PathBuf, LoadImageError),
+    #[error("could not load image '{path}' at {source_position}: {error}")]
+    LoadImage { path: PathBuf, source_position: SourcePosition, error: String },
 
     #[error("failed to register image: {0}")]
     RegisterImage(#[from] RegisterImageError),
@@ -1087,8 +1089,8 @@ pub enum BuildError {
     #[error("invalid theme: {0}")]
     InvalidTheme(#[from] LoadThemeError),
 
-    #[error("invalid code at line {line}: {error}")]
-    InvalidCode { line: usize, error: String },
+    #[error("invalid code at {source_position}: {error}")]
+    InvalidCode { source_position: SourcePosition, error: String },
 
     #[error("invalid code highlighter theme: '{0}'")]
     InvalidCodeTheme(String),
@@ -1108,11 +1110,11 @@ pub enum BuildError {
     #[error("need to enter layout column explicitly using `column` command")]
     NotInsideColumn,
 
-    #[error("error parsing command at line {line}: {error}")]
-    CommandParse { line: usize, error: CommandParseError },
+    #[error("invalid command at {source_position}: {error}")]
+    CommandParse { source_position: SourcePosition, error: CommandParseError },
 
-    #[error("error parsing image attribute at line {line}: {error}")]
-    ImageAttributeParse { line: usize, error: ImageAttributeError },
+    #[error("invalid image attribute at {source_position}: {error}")]
+    ImageAttributeParse { source_position: SourcePosition, error: ImageAttributeError },
 
     #[error("third party render failed: {0}")]
     ThirdPartyRender(#[from] ThirdPartyRenderError),

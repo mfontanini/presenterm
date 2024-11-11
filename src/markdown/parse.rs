@@ -60,8 +60,8 @@ impl<'a> MarkdownParser<'a> {
         for node in node.children() {
             let mut parsed_elements =
                 self.parse_node(node).map_err(|e| ParseError::new(e.kind, e.sourcepos.offset_lines(lines_offset)))?;
-            if let Some(MarkdownElement::FrontMatter(contents)) = parsed_elements.first() {
-                lines_offset += contents.lines().count() + 2;
+            if let NodeValue::FrontMatter(contents) = &node.data.borrow().value {
+                lines_offset += contents.lines().count();
             }
             // comrak ignores the lines in the front matter so we need to offset this ourselves.
             Self::adjust_source_positions(parsed_elements.iter_mut(), lines_offset);
@@ -111,7 +111,7 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn parse_front_matter(contents: &str) -> ParseResult<MarkdownElement> {
-        // Remote leading and trailing delimiters before parsing. This is quite poopy but hey, it
+        // Remove leading and trailing delimiters before parsing. This is quite poopy but hey, it
         // works.
         let contents = contents.strip_prefix("---\n").unwrap_or(contents);
         let contents = contents.strip_prefix("---\r\n").unwrap_or(contents);
@@ -498,7 +498,7 @@ pub struct ParseError {
 
 impl Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "parse error at {}:{}: {}", self.sourcepos.start.line, self.sourcepos.start.column, self.kind)
+        write!(f, "parse error at {}: {}", self.sourcepos, self.kind)
     }
 }
 
@@ -969,7 +969,7 @@ mom
         let Err(e) = result else {
             panic!("parsing didn't fail");
         };
-        assert_eq!(e.sourcepos.start.line, 5);
+        assert_eq!(e.sourcepos.start.line, 6);
         assert_eq!(e.sourcepos.start.column, 3);
     }
 
@@ -985,7 +985,7 @@ mom
 ",
         );
         let MarkdownElement::Comment { source_position, .. } = &parsed[1] else { panic!("not a comment") };
-        assert_eq!(source_position.start.line, 5);
+        assert_eq!(source_position.start.line, 6);
         assert_eq!(source_position.start.column, 1);
     }
 

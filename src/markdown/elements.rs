@@ -1,5 +1,5 @@
 use crate::style::TextStyle;
-use std::{iter, path::PathBuf, str::FromStr};
+use std::{fmt, iter, path::PathBuf, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 
 /// A markdown element.
@@ -53,14 +53,20 @@ pub(crate) enum MarkdownElement {
     BlockQuote(Vec<Line>),
 }
 
-#[derive(Clone, Debug, Default)]
-pub(crate) struct SourcePosition {
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SourcePosition {
     pub(crate) start: LineColumn,
+}
+
+impl fmt::Display for SourcePosition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.start.line, self.start.column)
+    }
 }
 
 impl SourcePosition {
     pub(crate) fn offset_lines(&self, offset: usize) -> SourcePosition {
-        let mut output = self.clone();
+        let mut output = *self;
         output.start.line += offset;
         output
     }
@@ -72,7 +78,7 @@ impl From<comrak::nodes::Sourcepos> for SourcePosition {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct LineColumn {
     pub(crate) line: usize,
     pub(crate) column: usize,
