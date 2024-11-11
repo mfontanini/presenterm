@@ -181,7 +181,11 @@ impl<'a> PresentationBuilder<'a> {
         }
         for element in elements {
             self.slide_state.ignore_element_line_break = false;
-            self.process_element(element)?;
+            if self.options.render_speaker_notes_only {
+                self.process_element_for_speaker_notes_mode(element)?;
+            } else {
+                self.process_element_for_presentation_mode(element)?;
+            }
             self.validate_last_operation()?;
             if !self.slide_state.ignore_element_line_break {
                 self.push_line_break();
@@ -259,20 +263,7 @@ impl<'a> PresentationBuilder<'a> {
         self.push_line_break();
     }
 
-    fn process_element(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
-        if self.options.render_speaker_notes_only {
-            match element {
-                MarkdownElement::Comment { comment, source_position } => {
-                    self.process_comment(comment, source_position)?
-                }
-                MarkdownElement::SetexHeading { text } => self.push_slide_title(text),
-                _ => {}
-            }
-            // Allows us to start the next speaker slide when a title is pushed and implicit_slide_ends is enabled.
-            self.slide_state.last_element = LastElement::Other;
-            self.slide_state.ignore_element_line_break = true;
-            return Ok(());
-        }
+    fn process_element_for_presentation_mode(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
         let should_clear_last = !matches!(element, MarkdownElement::List(_) | MarkdownElement::Comment { .. });
         match element {
             // This one is processed before everything else as it affects how the rest of the
@@ -294,6 +285,18 @@ impl<'a> PresentationBuilder<'a> {
         if should_clear_last {
             self.slide_state.last_element = LastElement::Other;
         }
+        Ok(())
+    }
+
+    fn process_element_for_speaker_notes_mode(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
+        match element {
+            MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
+            MarkdownElement::SetexHeading { text } => self.push_slide_title(text),
+            _ => {}
+        }
+        // Allows us to start the next speaker slide when a title is pushed and implicit_slide_ends is enabled.
+        self.slide_state.last_element = LastElement::Other;
+        self.slide_state.ignore_element_line_break = true;
         Ok(())
     }
 
