@@ -377,8 +377,7 @@ impl<'a> PresentationBuilder<'a> {
             self.push_line(sub_title, ElementType::PresentationSubTitle);
         }
         if event.is_some() || location.is_some() || date.is_some() {
-            self.push_line_break();
-            self.push_line_break();
+            self.push_line_breaks(2);
             if let Some(event) = event {
                 self.push_line(event, ElementType::PresentationEvent);
             }
@@ -392,9 +391,7 @@ impl<'a> PresentationBuilder<'a> {
         if !authors.is_empty() {
             match self.theme.intro_slide.author.positioning {
                 AuthorPositioning::BelowTitle => {
-                    self.push_line_break();
-                    self.push_line_break();
-                    self.push_line_break();
+                    self.push_line_breaks(3);
                 }
                 AuthorPositioning::PageBottom => {
                     self.chunk_operations.push(RenderOperation::JumpToBottomRow { index: authors.len() as u16 - 1 });
@@ -516,9 +513,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         text.apply_style(&text_style);
 
-        for _ in 0..style.padding_top.unwrap_or(0) {
-            self.push_line_break();
-        }
+        self.push_line_breaks(style.padding_top.unwrap_or(0) as usize);
         self.push_text(text, ElementType::SlideTitle);
         self.push_line_break();
 
@@ -716,6 +711,10 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_line_break(&mut self) {
         self.chunk_operations.push(RenderOperation::RenderLineBreak);
+    }
+
+    fn push_line_breaks(&mut self, count: usize) {
+        self.chunk_operations.extend(iter::repeat(RenderOperation::RenderLineBreak).take(count));
     }
 
     fn push_differ(&mut self, text: String) {
