@@ -65,6 +65,10 @@ python:
   commands:
     - ["python", "-u", "$pwd/snippet.py"]
   hidden_line_prefix: "/// "
+r:
+  filename: snippet.R
+  commands:
+    - ["Rscript", "$pwd/snippet.R"]
 ruby:
   filename: snippet.rb
   commands:
