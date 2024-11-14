@@ -466,6 +466,9 @@ impl<'a> PresentationBuilder<'a> {
             // Ignore any multi line comment; those are assumed to be user comments
             // Ignore any line that doesn't start with the selected prefix.
             true
+        } else if comment.trim().starts_with("vim:") {
+            // ignore vim: commands
+            true
         } else {
             // Ignore vim-like code folding tags
             let comment = comment.trim();
@@ -1664,6 +1667,8 @@ mod test {
     #[case::multiline("hello\nworld")]
     #[case::many_open_braces("{{{")]
     #[case::many_close_braces("}}}")]
+    #[case::vim_command("vim: hi")]
+    #[case::padded_vim_command("vim: hi")]
     fn ignore_comments(#[case] comment: &str) {
         let element = MarkdownElement::Comment { comment: comment.into(), source_position: Default::default() };
         build_presentation(vec![element]);
