@@ -1,4 +1,4 @@
-use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
+use clap::{CommandFactory, Parser, ValueEnum, error::ErrorKind};
 use comrak::Arena;
 use directories::ProjectDirs;
 use iceoryx2::{

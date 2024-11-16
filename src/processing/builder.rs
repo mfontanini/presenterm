@@ -243,11 +243,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.slide_state.needs_enter_column = false;
         let last_valid = matches!(last, RenderOperation::EnterColumn { .. } | RenderOperation::ExitLayout);
-        if last_valid {
-            Ok(())
-        } else {
-            Err(BuildError::NotInsideColumn)
-        }
+        if last_valid { Ok(()) } else { Err(BuildError::NotInsideColumn) }
     }
 
     fn push_slide_prelude(&mut self) {
@@ -1598,10 +1594,11 @@ mod test {
     #[test]
     fn iterate_list_starting_from_other() {
         let list = ListIterator::new(
-            vec![
-                ListItem { depth: 0, contents: "0".into(), item_type: ListItemType::Unordered },
-                ListItem { depth: 0, contents: "1".into(), item_type: ListItemType::Unordered },
-            ],
+            vec![ListItem { depth: 0, contents: "0".into(), item_type: ListItemType::Unordered }, ListItem {
+                depth: 0,
+                contents: "1".into(),
+                item_type: ListItemType::Unordered,
+            }],
             3,
         );
         let expected_indexes = [3, 4];
@@ -1688,10 +1685,10 @@ mod test {
 
     #[test]
     fn implicit_slide_ends_with_front_matter() {
-        let elements = vec![
-            MarkdownElement::FrontMatter("theme:\n name: light".into()),
-            MarkdownElement::SetexHeading { text: "hi".into() },
-        ];
+        let elements =
+            vec![MarkdownElement::FrontMatter("theme:\n name: light".into()), MarkdownElement::SetexHeading {
+                text: "hi".into(),
+            }];
         let options = PresentationBuilderOptions { implicit_slide_ends: true, ..Default::default() };
         let slides = build_presentation_with_options(elements, options).into_slides();
         assert_eq!(slides.len(), 1);
