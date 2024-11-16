@@ -19,8 +19,8 @@ simply run _presenterm_ with the `--export-pdf` parameter to generate the output
 presenterm --export-pdf examples/demo.md
 ```
 
-The output PDF will be placed in `examples/demo.pdf`. The size of each page will depend on the size of your terminal so 
-make sure to adjust accordingly before running the command above.
+The output PDF will be placed in `examples/demo.pdf`. **The size of each page will depend on the size of your terminal**
+so make sure to adjust accordingly before running the command above. 
 
 > Note: if you're using a separate virtual env to install _presenterm-export_ just make sure you activate it before 
 > running _presenterm_ with the `--export-pdf` parameter.
