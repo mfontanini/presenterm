@@ -92,6 +92,9 @@ where
             RenderOperation::EnterColumn { column } => self.enter_column(*column),
             RenderOperation::ExitLayout => self.exit_layout(),
         }?;
+        if let LayoutState::EnteredColumn { column, columns } = &mut self.layout {
+            columns[*column].current_row = self.terminal.cursor_row;
+        };
         self.max_modified_row = self.max_modified_row.max(self.terminal.cursor_row);
         Ok(())
     }
@@ -260,33 +263,35 @@ where
         if !matches!(self.layout, LayoutState::Default) {
             self.exit_layout()?;
         }
-        let columns = columns.iter().copied().map(u16::from).collect();
-        let current_position = self.terminal.cursor_row;
-        self.layout = LayoutState::InitializedColumn { columns, start_row: current_position };
+        let columns = columns
+            .iter()
+            .map(|width| Column { width: *width as u16, current_row: self.terminal.cursor_row })
+            .collect();
+        self.layout = LayoutState::InitializedColumn { columns };
         Ok(())
     }
 
     fn enter_column(&mut self, column_index: usize) -> RenderResult {
-        let (columns, start_row) = match mem::take(&mut self.layout) {
+        let columns = match mem::take(&mut self.layout) {
             LayoutState::Default => return Err(RenderError::InvalidLayoutEnter),
             LayoutState::InitializedColumn { columns, .. } | LayoutState::EnteredColumn { columns, .. }
                 if column_index >= columns.len() =>
             {
                 return Err(RenderError::InvalidLayoutEnter);
             }
-            LayoutState::InitializedColumn { columns, start_row } => (columns, start_row),
-            LayoutState::EnteredColumn { columns, start_row, .. } => {
+            LayoutState::InitializedColumn { columns } => columns,
+            LayoutState::EnteredColumn { columns, .. } => {
                 // Pop this one and start clean
                 self.pop_margin()?;
-                (columns, start_row)
+                columns
             }
         };
-        let total_column_units: u16 = columns.iter().sum();
-        let column_units_before: u16 = columns.iter().take(column_index).sum();
+        let total_column_units: u16 = columns.iter().map(|c| c.width).sum();
+        let column_units_before: u16 = columns.iter().take(column_index).map(|c| c.width).sum();
         let current_rect = self.current_rect();
         let unit_width = current_rect.dimensions.columns as f64 / total_column_units as f64;
         let start_column = current_rect.start_column + (unit_width * column_units_before as f64) as u16;
-        let new_column_count = (total_column_units - columns[column_index]) * unit_width as u16;
+        let new_column_count = (total_column_units - columns[column_index].width) * unit_width as u16;
         let new_size = current_rect.dimensions.shrink_columns(new_column_count);
         let mut dimensions = WindowRect { dimensions: new_size, start_column };
         // Shrink every column's right edge except for last
@@ -299,8 +304,8 @@ where
         }
 
         self.window_rects.push(dimensions);
-        self.layout = LayoutState::EnteredColumn { columns, start_row };
-        self.terminal.move_to_row(start_row)?;
+        self.terminal.move_to_row(columns[column_index].current_row)?;
+        self.layout = LayoutState::EnteredColumn { column: column_index, columns };
         Ok(())
     }
 
@@ -326,13 +331,17 @@ enum LayoutState {
     #[default]
     Default,
     InitializedColumn {
-        columns: Vec<u16>,
-        start_row: u16,
+        columns: Vec<Column>,
     },
     EnteredColumn {
-        columns: Vec<u16>,
-        start_row: u16,
+        column: usize,
+        columns: Vec<Column>,
     },
+}
+
+struct Column {
+    width: u16,
+    current_row: u16,
 }
 
 #[derive(Clone, Debug)]
