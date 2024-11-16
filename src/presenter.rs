@@ -1,6 +1,7 @@
-use iceoryx2::{port::notifier::Notifier, prelude::EventId, service::ipc::Service};
+use iceoryx2::{port::publisher::Publisher, service::ipc::Service};
 
 use crate::{
+    SpeakerNotesCommand,
     custom::KeyBindingsConfig,
     diff::PresentationDiffer,
     execute::SnippetExecutor,
@@ -54,7 +55,7 @@ pub struct Presenter<'a> {
     image_printer: Arc<ImagePrinter>,
     themes: Themes,
     options: PresenterOptions,
-    speaker_notes_event_publisher: Option<Notifier<Service>>,
+    speaker_notes_event_publisher: Option<Publisher<Service, SpeakerNotesCommand, ()>>,
 }
 
 impl<'a> Presenter<'a> {
@@ -70,7 +71,7 @@ impl<'a> Presenter<'a> {
         themes: Themes,
         image_printer: Arc<ImagePrinter>,
         options: PresenterOptions,
-        speaker_notes_event_publisher: Option<Notifier<Service>>,
+        speaker_notes_event_publisher: Option<Publisher<Service, SpeakerNotesCommand, ()>>,
     ) -> Self {
         Self {
             default_theme,
@@ -142,8 +143,11 @@ impl<'a> Presenter<'a> {
                 };
             }
             if let Some(publisher) = self.speaker_notes_event_publisher.as_mut() {
-                let current_slide_idx = self.state.presentation().current_slide_index();
-                publisher.notify_with_custom_event_id(EventId::new(current_slide_idx + 1)).unwrap();
+                let current_slide_idx = self.state.presentation().current_slide_index() as u32;
+                // TODO: Replace unwraps.
+                let sample = publisher.loan_uninit().unwrap();
+                let sample = sample.write_payload(SpeakerNotesCommand::GoToSlide(current_slide_idx + 1));
+                sample.send().unwrap();
             }
         }
     }

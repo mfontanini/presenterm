@@ -4,13 +4,13 @@ use directories::ProjectDirs;
 use iceoryx2::{
     node::NodeBuilder,
     prelude::ServiceName,
-    service::{ipc::Service, port_factory::event::PortFactory},
+    service::{builder::publish_subscribe::Builder, ipc::Service},
 };
 use presenterm::{
     CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
     MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter,
-    PresenterOptions, Resources, SnippetExecutor, Themes, ThemesDemo, ThirdPartyConfigs, ThirdPartyRender,
-    ValidateOverflows,
+    PresenterOptions, Resources, SnippetExecutor, SpeakerNotesCommand, Themes, ThemesDemo, ThirdPartyConfigs,
+    ThirdPartyRender, ValidateOverflows,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -212,10 +212,16 @@ fn overflow_validation(mode: &PresentMode, config: &ValidateOverflows) -> bool {
     }
 }
 
-fn create_speaker_notes_service() -> Result<PortFactory<Service>, Box<dyn std::error::Error>> {
+fn create_speaker_notes_service_builder()
+-> Result<Builder<SpeakerNotesCommand, (), Service>, Box<dyn std::error::Error>> {
     // TODO: Use a service name that incorporates presenterm and/or the presentation filename/title?
     let service_name: ServiceName = "SpeakerNoteEventService".try_into()?;
-    Ok(NodeBuilder::new().create::<Service>()?.service_builder(&service_name).event().open_or_create()?)
+    let service = NodeBuilder::new()
+        .create::<Service>()?
+        .service_builder(&service_name)
+        .publish_subscribe::<SpeakerNotesCommand>()
+        .max_publishers(1);
+    Ok(service)
 }
 
 fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
@@ -300,7 +306,8 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         let speaker_notes_event_receiver = if let Some(SpeakerNotesMode::Receiver) = cli.speaker_notes_mode {
-            Some(create_speaker_notes_service()?.listener_builder().create()?)
+            let receiver = create_speaker_notes_service_builder()?.open()?.subscriber_builder().create()?;
+            Some(receiver)
         } else {
             None
         };
@@ -308,7 +315,8 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty { .. });
 
         let speaker_notes_event_publisher = if let Some(SpeakerNotesMode::Publisher) = cli.speaker_notes_mode {
-            Some(create_speaker_notes_service()?.notifier_builder().create()?)
+            let publisher = create_speaker_notes_service_builder()?.create()?.publisher_builder().create()?;
+            Some(publisher)
         } else {
             None
         };

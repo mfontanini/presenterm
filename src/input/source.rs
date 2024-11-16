@@ -1,6 +1,9 @@
-use super::user::{CommandKeyBindings, KeyBindingsValidationError, UserInput};
+use super::{
+    speaker_notes::SpeakerNotesCommand,
+    user::{CommandKeyBindings, KeyBindingsValidationError, UserInput},
+};
 use crate::custom::KeyBindingsConfig;
-use iceoryx2::{port::listener::Listener, service::ipc::Service};
+use iceoryx2::{port::subscriber::Subscriber, service::ipc::Service};
 use serde::Deserialize;
 use std::{io, time::Duration};
 use strum::EnumDiscriminants;
@@ -11,14 +14,14 @@ use strum::EnumDiscriminants;
 /// happens.
 pub struct CommandSource {
     user_input: UserInput,
-    speaker_notes_event_receiver: Option<Listener<Service>>,
+    speaker_notes_event_receiver: Option<Subscriber<Service, SpeakerNotesCommand, ()>>,
 }
 
 impl CommandSource {
     /// Create a new command source over the given presentation path.
     pub fn new(
         config: KeyBindingsConfig,
-        speaker_notes_event_receiver: Option<Listener<Service>>,
+        speaker_notes_event_receiver: Option<Subscriber<Service, SpeakerNotesCommand, ()>>,
     ) -> Result<Self, KeyBindingsValidationError> {
         let bindings = CommandKeyBindings::try_from(config)?;
         Ok(Self { user_input: UserInput::new(bindings), speaker_notes_event_receiver })
@@ -30,8 +33,12 @@ impl CommandSource {
     pub(crate) fn try_next_command(&mut self) -> io::Result<Option<Command>> {
         if let Some(receiver) = self.speaker_notes_event_receiver.as_mut() {
             // TODO: Handle Err instead of unwrap.
-            if let Some(evt) = receiver.try_wait_one().unwrap() {
-                return Ok(Some(Command::GoToSlide(evt.as_value() as u32)));
+            if let Some(msg) = receiver.receive().unwrap() {
+                match msg.payload() {
+                    SpeakerNotesCommand::GoToSlide(idx) => {
+                        return Ok(Some(Command::GoToSlide(*idx)));
+                    }
+                }
             }
         }
         match self.user_input.poll_next_command(Duration::from_millis(250))? {
