@@ -3,7 +3,6 @@ use comrak::Arena;
 use directories::ProjectDirs;
 use iceoryx2::{
     node::NodeBuilder,
-    prelude::ServiceName,
     service::{builder::publish_subscribe::Builder, ipc::Service},
 };
 use presenterm::{
@@ -212,10 +211,11 @@ fn overflow_validation(mode: &PresentMode, config: &ValidateOverflows) -> bool {
     }
 }
 
-fn create_speaker_notes_service_builder()
--> Result<Builder<SpeakerNotesCommand, (), Service>, Box<dyn std::error::Error>> {
-    // TODO: Use a service name that incorporates presenterm and/or the presentation filename/title?
-    let service_name: ServiceName = "SpeakerNoteEventService".try_into()?;
+fn create_speaker_notes_service_builder(
+    presentation_path: &Path,
+) -> Result<Builder<SpeakerNotesCommand, (), Service>, Box<dyn std::error::Error>> {
+    let file_name = presentation_path.file_name().expect("failed to resolve presentation file name").to_string_lossy();
+    let service_name = format!("presenterm/{}", file_name).as_str().try_into()?;
     let service = NodeBuilder::new()
         .create::<Service>()?
         .service_builder(&service_name)
@@ -306,7 +306,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         let speaker_notes_event_receiver = if let Some(SpeakerNotesMode::Receiver) = cli.speaker_notes_mode {
-            let receiver = create_speaker_notes_service_builder()?.open()?.subscriber_builder().create()?;
+            let receiver = create_speaker_notes_service_builder(&path)?.open()?.subscriber_builder().create()?;
             Some(receiver)
         } else {
             None
@@ -315,7 +315,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty { .. });
 
         let speaker_notes_event_publisher = if let Some(SpeakerNotesMode::Publisher) = cli.speaker_notes_mode {
-            let publisher = create_speaker_notes_service_builder()?.create()?.publisher_builder().create()?;
+            let publisher = create_speaker_notes_service_builder(&path)?.create()?.publisher_builder().create()?;
             Some(publisher)
         } else {
             None
