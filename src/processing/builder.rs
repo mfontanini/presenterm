@@ -438,18 +438,14 @@ impl<'a> PresentationBuilder<'a> {
         };
 
         if self.options.render_speaker_notes_only {
-            match comment {
-                CommentCommand::SpeakerNote(note) => {
-                    self.push_text(note.into(), ElementType::Paragraph);
-                    self.push_line_break();
-                }
-                CommentCommand::EndSlide => self.terminate_slide(),
-                _ => {}
-            }
-            return Ok(());
+            self.process_comment_command_speaker_notes_mode(comment)
+        } else {
+            self.process_comment_command_presentation_mode(comment)
         }
+    }
 
-        match comment {
+    fn process_comment_command_presentation_mode(&mut self, comment_command: CommentCommand) -> Result<(), BuildError> {
+        match comment_command {
             CommentCommand::Pause => self.process_pause(),
             CommentCommand::EndSlide => self.terminate_slide(),
             CommentCommand::NewLine => self.push_line_break(),
@@ -493,6 +489,21 @@ impl<'a> PresentationBuilder<'a> {
         };
         // Don't push line breaks for any comments.
         self.slide_state.ignore_element_line_break = true;
+        Ok(())
+    }
+
+    fn process_comment_command_speaker_notes_mode(
+        &mut self,
+        comment_command: CommentCommand,
+    ) -> Result<(), BuildError> {
+        match comment_command {
+            CommentCommand::SpeakerNote(note) => {
+                self.push_text(note.into(), ElementType::Paragraph);
+                self.push_line_break();
+            }
+            CommentCommand::EndSlide => self.terminate_slide(),
+            _ => {}
+        }
         Ok(())
     }
 
