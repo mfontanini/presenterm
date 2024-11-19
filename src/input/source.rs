@@ -2,10 +2,10 @@ use super::{
     speaker_notes::SpeakerNotesCommand,
     user::{CommandKeyBindings, KeyBindingsValidationError, UserInput},
 };
-use crate::custom::KeyBindingsConfig;
+use crate::{custom::KeyBindingsConfig, presenter::PresentationError};
 use iceoryx2::{port::subscriber::Subscriber, service::ipc::Service};
 use serde::Deserialize;
-use std::{io, time::Duration};
+use std::time::Duration;
 use strum::EnumDiscriminants;
 
 /// The source of commands.
@@ -30,10 +30,9 @@ impl CommandSource {
     /// Try to get the next command.
     ///
     /// This attempts to get a command and returns `Ok(None)` on timeout.
-    pub(crate) fn try_next_command(&mut self) -> io::Result<Option<Command>> {
+    pub(crate) fn try_next_command(&mut self) -> Result<Option<Command>, PresentationError> {
         if let Some(receiver) = self.speaker_notes_event_receiver.as_mut() {
-            // TODO: Handle Err instead of unwrap.
-            if let Some(msg) = receiver.receive().unwrap() {
+            if let Some(msg) = receiver.receive()? {
                 match msg.payload() {
                     SpeakerNotesCommand::GoToSlide(idx) => {
                         return Ok(Some(Command::GoToSlide(*idx)));

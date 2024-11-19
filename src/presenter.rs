@@ -1,5 +1,8 @@
 use iceoryx2::{
-    port::publisher::{Publisher, PublisherLoanError, PublisherSendError},
+    port::{
+        publisher::{Publisher, PublisherLoanError, PublisherSendError},
+        subscriber::SubscriberReceiveError,
+    },
     service::ipc::Service,
 };
 
@@ -502,4 +505,7 @@ pub enum PresentationError {
 
     #[error(transparent)]
     SpeakerNotesSend(#[from] PublisherSendError),
+
+    #[error(transparent)]
+    SpeakerNotesReceive(#[from] SubscriberReceiveError),
 }
