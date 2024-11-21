@@ -214,7 +214,10 @@ fn overflow_validation(mode: &PresentMode, config: &ValidateOverflows) -> bool {
 fn create_speaker_notes_service_builder(
     presentation_path: &Path,
 ) -> Result<Builder<SpeakerNotesCommand, (), Service>, Box<dyn std::error::Error>> {
-    let file_name = presentation_path.file_name().expect("failed to resolve presentation file name").to_string_lossy();
+    let file_name = presentation_path
+        .file_name()
+        .ok_or(Cli::command().error(ErrorKind::InvalidValue, "failed to resolve presentation file name"))?
+        .to_string_lossy();
     let service_name = format!("presenterm/{file_name}").as_str().try_into()?;
     let service = NodeBuilder::new()
         .create::<Service>()?
