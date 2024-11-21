@@ -133,7 +133,14 @@ impl<'a> Presenter<'a> {
                     },
                 };
                 match self.apply_command(command) {
-                    CommandSideEffect::Exit => return Ok(()),
+                    CommandSideEffect::Exit => {
+                        if let Some(publisher) = self.speaker_notes_event_publisher.as_mut() {
+                            let sample = publisher.loan_uninit()?;
+                            let sample = sample.write_payload(SpeakerNotesCommand::Exit);
+                            sample.send()?;
+                        }
+                        return Ok(());
+                    }
                     CommandSideEffect::Suspend => {
                         self.suspend(&mut drawer);
                         break;

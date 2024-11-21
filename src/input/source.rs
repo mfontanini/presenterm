@@ -37,6 +37,7 @@ impl CommandSource {
                     SpeakerNotesCommand::GoToSlide(idx) => {
                         return Ok(Some(Command::GoToSlide(*idx)));
                     }
+                    SpeakerNotesCommand::Exit => return Ok(Some(Command::Exit)),
                 }
             }
         }
