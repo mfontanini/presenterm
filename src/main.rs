@@ -215,7 +215,7 @@ fn create_speaker_notes_service_builder(
     presentation_path: &Path,
 ) -> Result<Builder<SpeakerNotesCommand, (), Service>, Box<dyn std::error::Error>> {
     let file_name = presentation_path.file_name().expect("failed to resolve presentation file name").to_string_lossy();
-    let service_name = format!("presenterm/{}", file_name).as_str().try_into()?;
+    let service_name = format!("presenterm/{file_name}").as_str().try_into()?;
     let service = NodeBuilder::new()
         .create::<Service>()?
         .service_builder(&service_name)
