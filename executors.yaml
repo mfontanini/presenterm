@@ -94,3 +94,8 @@ zsh:
   commands:
     - ["zsh", "$pwd/script.sh"]
   hidden_line_prefix: "/// "
+csharp:
+  filename: snippet.cs
+  commands:
+    - ["dotnet-script", "$pwd/snippet.cs"]
+  hidden_line_prefix: "/// "
