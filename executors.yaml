@@ -7,13 +7,13 @@ bash:
 c++:
   filename: snippet.cpp
   commands:
-    - ["g++", "-std=c++20", "$pwd/snippet.cpp", "-o", "$pwd/snippet"]
+    - ["g++", "-std=c++20", "-fdiagnostics-color=always", "$pwd/snippet.cpp", "-o", "$pwd/snippet"]
     - ["$pwd/snippet"]
   hidden_line_prefix: "/// "
 c:
   filename: snippet.c
   commands:
-    - ["gcc", "$pwd/snippet.c", "-o", "$pwd/snippet"]
+    - ["gcc", "$pwd/snippet.c", "-fdiagnostics-color=always", "-o", "$pwd/snippet"]
     - ["$pwd/snippet"]
   hidden_line_prefix: "/// "
 fish:
@@ -81,7 +81,7 @@ rust-script:
 rust:
   filename: snippet.rs
   commands:
-    - ["rustc", "--crate-name", "presenterm_snippet", "$pwd/snippet.rs", "-o", "$pwd/snippet"]
+    - ["rustc", "--crate-name", "presenterm_snippet", "$pwd/snippet.rs", "-o", "$pwd/snippet", "--color", "always"]
     - ["$pwd/snippet"]
   hidden_line_prefix: "# "
 sh:
