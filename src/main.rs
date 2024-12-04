@@ -348,6 +348,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn main() {
+    iceoryx2::prelude::set_log_level(iceoryx2::prelude::LogLevel::Error);
     let cli = Cli::parse();
     if let Err(e) = run(cli) {
         eprintln!("{e}");
