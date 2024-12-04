@@ -3,7 +3,10 @@ use comrak::Arena;
 use directories::ProjectDirs;
 use iceoryx2::{
     node::NodeBuilder,
-    service::{builder::publish_subscribe::Builder, ipc::Service},
+    service::{
+        builder::publish_subscribe::{Builder, PublishSubscribeCreateError, PublishSubscribeOpenError},
+        ipc::Service,
+    },
 };
 use presenterm::{
     CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
@@ -28,6 +31,34 @@ const DEFAULT_THEME: &str = "dark";
 pub enum SpeakerNotesMode {
     Publisher,
     Receiver,
+}
+
+#[derive(thiserror::Error, Debug)]
+enum IpcServiceError {
+    #[error("no presenterm process in publisher mode running for presentation")]
+    ServiceOpenError,
+    #[error("existing presenterm process in publisher mode already running for presentation")]
+    ServiceCreateError,
+    #[error("{0}")]
+    Other(String),
+}
+
+impl From<PublishSubscribeOpenError> for IpcServiceError {
+    fn from(value: PublishSubscribeOpenError) -> Self {
+        match value {
+            PublishSubscribeOpenError::DoesNotExist => Self::ServiceOpenError,
+            _ => Self::Other(value.to_string()),
+        }
+    }
+}
+
+impl From<PublishSubscribeCreateError> for IpcServiceError {
+    fn from(value: PublishSubscribeCreateError) -> Self {
+        match value {
+            PublishSubscribeCreateError::AlreadyExists => Self::ServiceCreateError,
+            _ => Self::Other(value.to_string()),
+        }
+    }
 }
 
 /// Run slideshows from your terminal.
@@ -309,7 +340,11 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         let speaker_notes_event_receiver = if let Some(SpeakerNotesMode::Receiver) = cli.speaker_notes_mode {
-            let receiver = create_speaker_notes_service_builder(&path)?.open()?.subscriber_builder().create()?;
+            let receiver = create_speaker_notes_service_builder(&path)?
+                .open()
+                .map_err(|err| Cli::command().error(ErrorKind::InvalidValue, IpcServiceError::from(err)))?
+                .subscriber_builder()
+                .create()?;
             Some(receiver)
         } else {
             None
@@ -318,7 +353,11 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty { .. });
 
         let speaker_notes_event_publisher = if let Some(SpeakerNotesMode::Publisher) = cli.speaker_notes_mode {
-            let publisher = create_speaker_notes_service_builder(&path)?.create()?.publisher_builder().create()?;
+            let publisher = create_speaker_notes_service_builder(&path)?
+                .create()
+                .map_err(|err| Cli::command().error(ErrorKind::InvalidValue, IpcServiceError::from(err)))?
+                .publisher_builder()
+                .create()?;
             Some(publisher)
         } else {
             None
