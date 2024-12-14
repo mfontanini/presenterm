@@ -15,6 +15,7 @@ pub enum TerminalEmulator {
     Mlterm,
     St,
     Xterm,
+    Ghostty,
     Unknown,
 }
 
@@ -64,13 +65,14 @@ impl TerminalEmulator {
             TerminalEmulator::Mlterm => term == "mlterm",
             TerminalEmulator::St => term == "st-256color",
             TerminalEmulator::Xterm => ["xterm", "xterm-256color"].contains(&term),
+            TerminalEmulator::Ghostty => term_program.contains("ghostty"),
             TerminalEmulator::Unknown => true,
         }
     }
 
     fn supports_graphics_mode(&self, mode: &GraphicsMode) -> bool {
         match (mode, self) {
-            (GraphicsMode::Kitty { mode, inside_tmux }, Self::Kitty | Self::WezTerm) => match mode {
+            (GraphicsMode::Kitty { mode, inside_tmux }, Self::Kitty | Self::WezTerm | Self::Ghostty) => match mode {
                 KittyMode::Local => local_mode_supported(*inside_tmux).unwrap_or_default(),
                 KittyMode::Remote => true,
             },
