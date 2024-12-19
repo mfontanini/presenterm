@@ -1,7 +1,6 @@
 use super::printer::{PrintImage, PrintImageError, PrintOptions, RegisterImageError, ResourceProperties};
 use crate::style::Color;
 use base64::{Engine, engine::general_purpose::STANDARD};
-use console::{Key, Term};
 use crossterm::{QueueableCommand, cursor::MoveToColumn, style::SetForegroundColor};
 use image::{AnimationDecoder, Delay, DynamicImage, EncodableLayout, ImageReader, RgbaImage, codecs::gif::GifDecoder};
 use rand::Rng;
@@ -12,7 +11,7 @@ use std::{
     path::{Path, PathBuf},
     sync::atomic::{AtomicU32, Ordering},
 };
-use tempfile::{NamedTempFile, TempDir, tempdir};
+use tempfile::{TempDir, tempdir};
 
 const IMAGE_PLACEHOLDER: &str = "\u{10EEEE}";
 const DIACRITICS: &[u32] = &[
@@ -409,10 +408,10 @@ pub enum KittyMode {
     Remote,
 }
 
-struct ControlCommand<'a, D> {
-    options: &'a [ControlOption],
-    payload: D,
-    tmux: bool,
+pub(crate) struct ControlCommand<'a, D> {
+    pub(crate) options: &'a [ControlOption],
+    pub(crate) payload: D,
+    pub(crate) tmux: bool,
 }
 
 impl<D: fmt::Display> fmt::Display for ControlCommand<'_, D> {
@@ -438,7 +437,7 @@ impl<D: fmt::Display> fmt::Display for ControlCommand<'_, D> {
 }
 
 #[derive(Debug, Clone)]
-enum ControlOption {
+pub(crate) enum ControlOption {
     Action(Action),
     Format(ImageFormat),
     Medium(TransmissionMedium),
@@ -483,7 +482,7 @@ impl fmt::Display for ControlOption {
 }
 
 #[derive(Debug, Clone)]
-enum ImageFormat {
+pub(crate) enum ImageFormat {
     Rgba,
 }
 
@@ -498,7 +497,7 @@ impl fmt::Display for ImageFormat {
 }
 
 #[derive(Debug, Clone)]
-enum TransmissionMedium {
+pub(crate) enum TransmissionMedium {
     Direct,
     LocalFile,
 }
@@ -515,7 +514,7 @@ impl fmt::Display for TransmissionMedium {
 }
 
 #[derive(Debug, Clone)]
-enum Action {
+pub(crate) enum Action {
     Animate,
     TransmitAndDisplay,
     TransmitFrame,
@@ -533,41 +532,4 @@ impl fmt::Display for Action {
         };
         write!(f, "{value}")
     }
-}
-
-pub(crate) fn local_mode_supported(inside_tmux: bool) -> io::Result<bool> {
-    let mut file = NamedTempFile::new()?;
-    let image = DynamicImage::new_rgba8(1, 1);
-    file.write_all(image.into_rgba8().as_raw().as_bytes())?;
-    file.flush()?;
-    let Some(path) = file.path().as_os_str().to_str() else {
-        return Ok(false);
-    };
-    let encoded_path = STANDARD.encode(path);
-
-    let options = &[
-        ControlOption::Format(ImageFormat::Rgba),
-        ControlOption::Action(Action::Query),
-        ControlOption::Medium(TransmissionMedium::LocalFile),
-        ControlOption::ImageId(rand::random()),
-        ControlOption::Width(1),
-        ControlOption::Height(1),
-    ];
-    let mut writer = io::stdout();
-    let command = ControlCommand { options, payload: encoded_path, tmux: inside_tmux };
-    write!(writer, "{command}")?;
-    writer.flush()?;
-
-    let term = Term::stdout();
-    let mut response = String::new();
-    while let Ok(key) = term.read_key() {
-        match key {
-            Key::Unknown => break,
-            Key::UnknownEscSeq(seq) if seq == ['\\'] => break,
-            Key::Char(c) => response.push(c),
-            _ => continue,
-        }
-    }
-
-    Ok(response.ends_with(";OK"))
 }

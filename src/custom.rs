@@ -1,7 +1,7 @@
 use crate::{
     GraphicsMode,
     input::user::KeyBinding,
-    media::{emulator::TerminalEmulator, kitty::KittyMode},
+    media::{emulator::TerminalEmulator, kitty::KittyMode, query::TerminalCapabilities},
     processing::code::SnippetLanguage,
 };
 use clap::ValueEnum;
@@ -270,10 +270,10 @@ impl TryFrom<&ImageProtocol> for GraphicsMode {
             }
             ImageProtocol::Iterm2 => GraphicsMode::Iterm2,
             ImageProtocol::KittyLocal => {
-                GraphicsMode::Kitty { mode: KittyMode::Local, inside_tmux: TerminalEmulator::is_inside_tmux() }
+                GraphicsMode::Kitty { mode: KittyMode::Local, inside_tmux: TerminalCapabilities::is_inside_tmux() }
             }
             ImageProtocol::KittyRemote => {
-                GraphicsMode::Kitty { mode: KittyMode::Remote, inside_tmux: TerminalEmulator::is_inside_tmux() }
+                GraphicsMode::Kitty { mode: KittyMode::Remote, inside_tmux: TerminalCapabilities::is_inside_tmux() }
             }
             ImageProtocol::AsciiBlocks => GraphicsMode::AsciiBlocks,
             #[cfg(feature = "sixel")]
