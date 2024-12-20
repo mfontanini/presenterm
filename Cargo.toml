@@ -32,7 +32,6 @@ serde_with = "3.6"
 strum = { version = "0.26", features = ["derive"] }
 tempfile = "3.10"
 tl = "0.7"
-console = "0.15.8"
 thiserror = "2"
 unicode-width = "0.2"
 os_pipe = "1.1.5"
