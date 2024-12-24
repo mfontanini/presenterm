@@ -3,7 +3,7 @@ use super::{
     html::{HtmlInline, HtmlParser, ParseHtmlError},
 };
 use crate::{
-    markdown::elements::{ListItem, ListItemType, MarkdownElement, Table, TableRow, Text, TextBlock},
+    markdown::elements::{Line, ListItem, ListItemType, MarkdownElement, Table, TableRow, Text},
     style::TextStyle,
 };
 use comrak::{
@@ -60,8 +60,8 @@ impl<'a> MarkdownParser<'a> {
         for node in node.children() {
             let mut parsed_elements =
                 self.parse_node(node).map_err(|e| ParseError::new(e.kind, e.sourcepos.offset_lines(lines_offset)))?;
-            if let Some(MarkdownElement::FrontMatter(contents)) = parsed_elements.first() {
-                lines_offset += contents.lines().count() + 2;
+            if let NodeValue::FrontMatter(contents) = &node.data.borrow().value {
+                lines_offset += contents.lines().count();
             }
             // comrak ignores the lines in the front matter so we need to offset this ourselves.
             Self::adjust_source_positions(parsed_elements.iter_mut(), lines_offset);
@@ -111,7 +111,7 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn parse_front_matter(contents: &str) -> ParseResult<MarkdownElement> {
-        // Remote leading and trailing delimiters before parsing. This is quite poopy but hey, it
+        // Remove leading and trailing delimiters before parsing. This is quite poopy but hey, it
         // works.
         let contents = contents.strip_prefix("---\n").unwrap_or(contents);
         let contents = contents.strip_prefix("---\r\n").unwrap_or(contents);
@@ -140,11 +140,11 @@ impl<'a> MarkdownParser<'a> {
         for inline in inlines {
             match inline {
                 Inline::Text(text) => elements.push(text),
-                Inline::LineBreak => elements.push(TextBlock::from("")),
+                Inline::LineBreak => elements.push(Line::from("")),
                 Inline::Image { .. } => {}
             }
         }
-        if elements.last() == Some(&TextBlock::from("")) {
+        if elements.last() == Some(&Line::from("")) {
             elements.pop();
         }
         Ok(MarkdownElement::BlockQuote(elements))
@@ -196,7 +196,7 @@ impl<'a> MarkdownParser<'a> {
         Ok(elements)
     }
 
-    fn parse_text(&self, node: &'a AstNode<'a>) -> ParseResult<TextBlock> {
+    fn parse_text(&self, node: &'a AstNode<'a>) -> ParseResult<Line> {
         let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No).parse(node)?;
         let mut chunks = Vec::new();
         for inline in inlines {
@@ -208,7 +208,7 @@ impl<'a> MarkdownParser<'a> {
                 }
             };
         }
-        Ok(TextBlock(chunks))
+        Ok(Line(chunks))
     }
 
     fn parse_list(&self, root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
@@ -332,7 +332,7 @@ impl<'a> InlinesParser<'a> {
     fn store_pending_text(&mut self) {
         let chunks = mem::take(&mut self.pending_text);
         if !chunks.is_empty() {
-            self.inlines.push(Inline::Text(TextBlock(chunks)));
+            self.inlines.push(Inline::Text(Line(chunks)));
         }
     }
 
@@ -471,7 +471,7 @@ enum HtmlStyle {
 }
 
 enum Inline {
-    Text(TextBlock),
+    Text(Line),
     Image { path: String, title: String },
     LineBreak,
 }
@@ -498,7 +498,7 @@ pub struct ParseError {
 
 impl Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "parse error at {}:{}: {}", self.sourcepos.start.line, self.sourcepos.start.column, self.kind)
+        write!(f, "parse error at {}: {}", self.sourcepos, self.kind)
     }
 }
 
@@ -650,7 +650,7 @@ boop
             Text::new("strikethrough", TextStyle::default().strikethrough()),
         ];
 
-        let expected_elements = &[TextBlock(expected_chunks)];
+        let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -667,7 +667,7 @@ boop
             Text::new("yellow", TextStyle::default().fg_color(Color::Yellow).bg_color(Color::Blue)),
         ];
 
-        let expected_elements = &[TextBlock(expected_chunks)];
+        let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -678,7 +678,7 @@ boop
         let expected_chunks =
             vec![Text::from("my "), Text::new("https://example.com", TextStyle::default().link_url())];
 
-        let expected_elements = &[TextBlock(expected_chunks)];
+        let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -694,7 +694,7 @@ boop
             Text::from(")"),
         ];
 
-        let expected_elements = &[TextBlock(expected_chunks)];
+        let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -710,7 +710,7 @@ boop
             Text::from("\""),
         ];
 
-        let expected_elements = &[TextBlock(expected_chunks)];
+        let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -729,7 +729,7 @@ boop
             Text::from(")"),
         ];
 
-        let expected_elements = &[TextBlock(expected_chunks)];
+        let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
     }
 
@@ -902,21 +902,21 @@ let q = 42;
         assert_eq!(lines.len(), 11);
         assert_eq!(
             lines[0],
-            TextBlock(vec![Text::from("foo "), Text::new("is not", TextStyle::default().bold()), Text::from(" bar")])
+            Line(vec![Text::from("foo "), Text::new("is not", TextStyle::default().bold()), Text::from(" bar")])
         );
         assert_eq!(
             lines[1],
-            TextBlock(vec![Text::from("![](hehe.png)"), Text::from(" test "), Text::from("![](potato.png)")])
+            Line(vec![Text::from("![](hehe.png)"), Text::from(" test "), Text::from("![](potato.png)")])
         );
-        assert_eq!(lines[2], TextBlock::from(""));
-        assert_eq!(lines[3], TextBlock(vec![Text::from("* "), Text::from("a")]));
-        assert_eq!(lines[4], TextBlock(vec![Text::from("* "), Text::from("b")]));
-        assert_eq!(lines[5], TextBlock::from(""));
-        assert_eq!(lines[6], TextBlock(vec![Text::from("1. "), Text::from("a")]));
-        assert_eq!(lines[7], TextBlock(vec![Text::from("2. "), Text::from("b")]));
-        assert_eq!(lines[8], TextBlock::from(""));
-        assert_eq!(lines[9], TextBlock(vec![Text::from("1) "), Text::from("a")]));
-        assert_eq!(lines[10], TextBlock(vec![Text::from("2) "), Text::from("b")]));
+        assert_eq!(lines[2], Line::from(""));
+        assert_eq!(lines[3], Line(vec![Text::from("* "), Text::from("a")]));
+        assert_eq!(lines[4], Line(vec![Text::from("* "), Text::from("b")]));
+        assert_eq!(lines[5], Line::from(""));
+        assert_eq!(lines[6], Line(vec![Text::from("1. "), Text::from("a")]));
+        assert_eq!(lines[7], Line(vec![Text::from("2. "), Text::from("b")]));
+        assert_eq!(lines[8], Line::from(""));
+        assert_eq!(lines[9], Line(vec![Text::from("1) "), Text::from("a")]));
+        assert_eq!(lines[10], Line(vec![Text::from("2) "), Text::from("b")]));
     }
 
     #[test]
@@ -933,11 +933,11 @@ foo
         );
         let MarkdownElement::BlockQuote(lines) = parsed else { panic!("not a block quote: {parsed:?}") };
         assert_eq!(lines.len(), 5);
-        assert_eq!(lines[0], TextBlock::from("bar"));
-        assert_eq!(lines[1], TextBlock::from("foo"));
-        assert_eq!(lines[2], TextBlock::from(""));
-        assert_eq!(lines[3], TextBlock(vec![Text::from("* "), Text::from("a")]));
-        assert_eq!(lines[4], TextBlock(vec![Text::from("* "), Text::from("b")]));
+        assert_eq!(lines[0], Line::from("bar"));
+        assert_eq!(lines[1], Line::from("foo"));
+        assert_eq!(lines[2], Line::from(""));
+        assert_eq!(lines[3], Line(vec![Text::from("* "), Text::from("a")]));
+        assert_eq!(lines[4], Line(vec![Text::from("* "), Text::from("b")]));
     }
 
     #[test]
@@ -969,7 +969,7 @@ mom
         let Err(e) = result else {
             panic!("parsing didn't fail");
         };
-        assert_eq!(e.sourcepos.start.line, 5);
+        assert_eq!(e.sourcepos.start.line, 6);
         assert_eq!(e.sourcepos.start.column, 3);
     }
 
@@ -985,7 +985,7 @@ mom
 ",
         );
         let MarkdownElement::Comment { source_position, .. } = &parsed[1] else { panic!("not a comment") };
-        assert_eq!(source_position.start.line, 5);
+        assert_eq!(source_position.start.line, 6);
         assert_eq!(source_position.start.column, 1);
     }
 

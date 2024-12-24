@@ -3,8 +3,8 @@ use crate::{
     ansi::AnsiSplitter,
     execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
     markdown::{
-        elements::{Text, TextBlock},
-        text::WeightedTextBlock,
+        elements::{Line, Text},
+        text::WeightedLine,
     },
     presentation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, RenderOperation},
     processing::code::Snippet,
@@ -29,7 +29,7 @@ const MINIMUM_SEPARATOR_WIDTH: u16 = 32;
 #[derive(Debug)]
 struct RunSnippetOperationInner {
     handle: Option<ExecutionHandle>,
-    output_lines: Vec<WeightedTextBlock>,
+    output_lines: Vec<WeightedLine>,
     state: RenderAsyncState,
     max_line_length: u16,
     starting_style: TextStyle,
@@ -100,7 +100,7 @@ impl AsRenderOperations for RunSnippetOperation {
         let description = self.state_description.borrow();
         let mut operations = match self.separator {
             DisplaySeparator::On => {
-                let heading = TextBlock(vec![" [".into(), description.clone(), "] ".into()]);
+                let heading = Line(vec![" [".into(), description.clone(), "] ".into()]);
                 let separator_width = match &self.alignment {
                     Alignment::Left { .. } | Alignment::Right { .. } => SeparatorWidth::FitToWindow,
                     // We need a minimum here otherwise if the code/block length is too narrow, the separator is
@@ -200,7 +200,7 @@ impl RenderAsync for RunSnippetOperation {
                 true
             }
             Err(e) => {
-                inner.output_lines = vec![WeightedTextBlock::from(e.to_string())];
+                inner.output_lines = vec![WeightedLine::from(e.to_string())];
                 inner.state = RenderAsyncState::Rendered;
                 true
             }
@@ -321,7 +321,7 @@ impl AsRenderOperations for RunAcquireTerminalSnippet {
             }
         };
 
-        let heading = TextBlock(vec![" [".into(), separator_text, "] ".into()]);
+        let heading = Line(vec![" [".into(), separator_text, "] ".into()]);
         let separator_width = SeparatorWidth::Fixed(self.block_length.max(MINIMUM_SEPARATOR_WIDTH));
         let separator = RenderSeparator::new(heading, separator_width);
         let mut ops = vec![

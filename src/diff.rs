@@ -114,7 +114,7 @@ where
 mod test {
     use super::*;
     use crate::{
-        markdown::text::WeightedTextBlock,
+        markdown::text::WeightedLine,
         presentation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, Slide, SlideBuilder},
         render::properties::WindowSize,
         style::{Color, Colors},
@@ -154,7 +154,7 @@ mod test {
             prefix: "".into(),
             right_padding_length: 0,
             repeat_prefix_on_wrap: false,
-            text: WeightedTextBlock::from("".to_string()),
+            text: WeightedLine::from("".to_string()),
             alignment: Default::default(),
             block_length: 42,
             block_color: None,

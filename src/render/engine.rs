@@ -6,7 +6,7 @@ use super::{
     text::TextDrawer,
 };
 use crate::{
-    markdown::text::WeightedTextBlock,
+    markdown::text::WeightedLine,
     media::{
         image::Image,
         printer::{PrintOptions, ResourceProperties},
@@ -156,7 +156,7 @@ where
         Ok(())
     }
 
-    fn render_text(&mut self, text: &WeightedTextBlock, alignment: &Alignment) -> RenderResult {
+    fn render_text(&mut self, text: &WeightedLine, alignment: &Alignment) -> RenderResult {
         let layout = self.build_layout(alignment.clone());
         let dimensions = self.current_dimensions();
         let positioning = layout.compute(dimensions, text.width() as u16);

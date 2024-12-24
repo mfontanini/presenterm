@@ -107,9 +107,6 @@ impl Resources {
 /// An error loading an image.
 #[derive(thiserror::Error, Debug)]
 pub enum LoadImageError {
-    #[error("io error reading {0}: {1}")]
-    Io(PathBuf, io::Error),
-
     #[error(transparent)]
     RegisterImage(#[from] RegisterImageError),
 }
