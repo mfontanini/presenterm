@@ -1,4 +1,4 @@
-use super::kitty::local_mode_supported;
+use super::query::TerminalCapabilities;
 use crate::{GraphicsMode, media::kitty::KittyMode};
 use std::env;
 use strum::IntoEnumIterator;
@@ -19,10 +19,6 @@ pub enum TerminalEmulator {
 }
 
 impl TerminalEmulator {
-    pub fn is_inside_tmux() -> bool {
-        env::var("TERM_PROGRAM").ok().as_deref() == Some("tmux")
-    }
-
     pub fn detect() -> Self {
         let term = env::var("TERM").unwrap_or_default();
         let term_program = env::var("TERM_PROGRAM").unwrap_or_default();
@@ -35,17 +31,17 @@ impl TerminalEmulator {
     }
 
     pub fn preferred_protocol(&self) -> GraphicsMode {
-        let inside_tmux = Self::is_inside_tmux();
+        let capabilities = TerminalCapabilities::query().unwrap_or_default();
         let modes = [
             GraphicsMode::Iterm2,
-            GraphicsMode::Kitty { mode: KittyMode::Local, inside_tmux },
-            GraphicsMode::Kitty { mode: KittyMode::Remote, inside_tmux },
+            GraphicsMode::Kitty { mode: KittyMode::Local, inside_tmux: capabilities.tmux },
+            GraphicsMode::Kitty { mode: KittyMode::Remote, inside_tmux: capabilities.tmux },
             #[cfg(feature = "sixel")]
             GraphicsMode::Sixel,
             GraphicsMode::AsciiBlocks,
         ];
         for mode in modes {
-            if self.supports_graphics_mode(&mode) {
+            if self.supports_graphics_mode(&mode, &capabilities) {
                 return mode;
             }
         }
@@ -68,41 +64,39 @@ impl TerminalEmulator {
         }
     }
 
-    fn supports_graphics_mode(&self, mode: &GraphicsMode) -> bool {
+    fn supports_graphics_mode(&self, mode: &GraphicsMode, capabilities: &TerminalCapabilities) -> bool {
         match (mode, self) {
-            (GraphicsMode::Kitty { mode, inside_tmux }, Self::Kitty | Self::WezTerm) => match mode {
-                KittyMode::Local => local_mode_supported(*inside_tmux).unwrap_or_default(),
+            (GraphicsMode::Kitty { mode, .. }, Self::Kitty | Self::WezTerm) => match mode {
+                KittyMode::Local => capabilities.kitty_local,
                 KittyMode::Remote => true,
             },
+            (GraphicsMode::Kitty { mode: KittyMode::Local, .. }, Self::Unknown) => {
+                // If we don't know the emulator but we detected that we support kitty use it,
+                // **unless** we are inside tmux and we "guess" that we're using wezterm. This is
+                // because wezterm's support for unicode placeholders (needed to display images in
+                // kitty when inside tmux) is not implemented (see
+                // https://github.com/wez/wezterm/issues/986).
+                //
+                // We can only really guess it's wezterm by checking environment variables and will
+                // not work if you started tmux on a different emulator and are running presenterm
+                // in wezterm.
+                capabilities.kitty_local && (!capabilities.tmux || !Self::guess_wezterm())
+            }
+            (GraphicsMode::Kitty { mode: KittyMode::Remote, .. }, Self::Unknown) => {
+                // Same as the above
+                capabilities.kitty_remote && (!capabilities.tmux || !Self::guess_wezterm())
+            }
             (GraphicsMode::Iterm2, Self::Iterm2 | Self::WezTerm | Self::Mintty | Self::Konsole) => true,
             (GraphicsMode::AsciiBlocks, _) => true,
             #[cfg(feature = "sixel")]
             (GraphicsMode::Sixel, Self::Foot | Self::Yaft | Self::Mlterm) => true,
             #[cfg(feature = "sixel")]
-            (GraphicsMode::Sixel, Self::St | Self::Xterm) => supports_sixel().unwrap_or_default(),
+            (GraphicsMode::Sixel, Self::St | Self::Xterm | Self::Unknown) => capabilities.sixel,
             _ => false,
         }
     }
-}
 
-#[cfg(feature = "sixel")]
-fn supports_sixel() -> std::io::Result<bool> {
-    use console::{Key, Term};
-    use std::io::Write;
-
-    let mut term = Term::stdout();
-
-    write!(&mut term, "\x1b[c")?;
-    term.flush()?;
-
-    let mut response = String::new();
-    while let Ok(key) = term.read_key() {
-        if let Key::Char(c) = key {
-            response.push(c);
-            if c == 'c' {
-                break;
-            }
-        }
+    fn guess_wezterm() -> bool {
+        env::var("WEZTERM_EXECUTABLE").is_ok()
     }
-    Ok(response.contains(";4;") || response.contains(";4c"))
 }

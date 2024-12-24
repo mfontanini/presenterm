@@ -31,7 +31,6 @@ impl AnsiSplitter {
             let current_line = std::mem::take(&mut self.current_line);
             self.lines.push(current_line.into());
         }
-
         (self.lines, self.current_style)
     }
 
@@ -54,46 +53,77 @@ struct GraphicsCode<'a>(&'a [u8]);
 
 impl GraphicsCode<'_> {
     fn update(&self, style: &mut TextStyle) {
-        // RGB mode
         let codes = self.0;
-        if codes.starts_with(&[38, 2]) || codes.starts_with(&[48, 2]) {
-            if codes.len() == 5 {
-                let color = Color::new(codes[2], codes[3], codes[4]);
-                if codes[0] == 38 {
+        match codes {
+            [] | [0] => *style = Default::default(),
+            [1] => *style = style.bold(),
+            [3] => *style = style.italics(),
+            [4] => *style = style.underlined(),
+            [9] => *style = style.strikethrough(),
+            [39] => style.colors.foreground = None,
+            [49] => style.colors.background = None,
+            [value] | [1, value] => match value {
+                30..=37 => {
+                    if let Some(color) = Self::as_standard_color(value - 30) {
+                        *style = style.fg_color(color);
+                    }
+                }
+                40..=47 => {
+                    if let Some(color) = Self::as_standard_color(value - 40) {
+                        *style = style.bg_color(color);
+                    }
+                }
+                _ => (),
+            },
+            [38, 2, r, g, b] => {
+                *style = style.fg_color(Color::new(*r, *g, *b));
+            }
+            [38, 5, value] => {
+                if let Some(color) = Self::parse_color(*value) {
                     *style = style.fg_color(color);
-                } else {
+                }
+            }
+            [48, 2, r, g, b] => {
+                *style = style.bg_color(Color::new(*r, *g, *b));
+            }
+            [48, 5, value] => {
+                if let Some(color) = Self::parse_color(*value) {
                     *style = style.bg_color(color);
                 }
             }
-            return;
-        }
-        for value in codes {
-            match value {
-                0 => *style = TextStyle::default(),
-                1 => *style = style.bold(),
-                3 => *style = style.italics(),
-                4 => *style = style.underlined(),
-                9 => *style = style.strikethrough(),
-                30 => *style = style.fg_color(Color::Black),
-                40 => *style = style.bg_color(Color::Black),
-                31 => *style = style.fg_color(Color::Red),
-                41 => *style = style.bg_color(Color::Red),
-                32 => *style = style.fg_color(Color::Green),
-                42 => *style = style.bg_color(Color::Green),
-                33 => *style = style.fg_color(Color::Yellow),
-                43 => *style = style.bg_color(Color::Yellow),
-                34 => *style = style.fg_color(Color::Blue),
-                44 => *style = style.bg_color(Color::Blue),
-                35 => *style = style.fg_color(Color::Magenta),
-                45 => *style = style.bg_color(Color::Magenta),
-                36 => *style = style.fg_color(Color::Cyan),
-                46 => *style = style.bg_color(Color::Cyan),
-                37 => *style = style.fg_color(Color::White),
-                47 => *style = style.bg_color(Color::White),
-                39 => style.colors.foreground = None,
-                49 => style.colors.background = None,
-                _ => (),
+            _ => (),
+        };
+    }
+
+    fn parse_color(value: u8) -> Option<Color> {
+        match value {
+            0..=15 => Self::as_standard_color(value),
+            16..=231 => {
+                let mapping = [0, 95, 95 + 40, 95 + 80, 95 + 120, 95 + 160];
+                let mut value = value - 16;
+                let b = (value % 6) as usize;
+                value /= 6;
+                let g = (value % 6) as usize;
+                value /= 6;
+                let r = (value % 6) as usize;
+                Some(Color::new(mapping[r], mapping[g], mapping[b]))
             }
+            _ => None,
         }
+    }
+
+    fn as_standard_color(value: u8) -> Option<Color> {
+        let color = match value {
+            0 | 8 => Color::Black,
+            1 | 9 => Color::Red,
+            2 | 10 => Color::Green,
+            3 | 11 => Color::Yellow,
+            4 | 12 => Color::Blue,
+            5 | 13 => Color::Magenta,
+            6 | 14 => Color::Cyan,
+            7 | 15 => Color::White,
+            _ => return None,
+        };
+        Some(color)
     }
 }
