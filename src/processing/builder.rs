@@ -66,6 +66,7 @@ pub struct PresentationBuilderOptions {
     pub strict_front_matter_parsing: bool,
     pub enable_snippet_execution: bool,
     pub enable_snippet_execution_replace: bool,
+    pub render_speaker_notes_only: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -98,6 +99,7 @@ impl Default for PresentationBuilderOptions {
             strict_front_matter_parsing: true,
             enable_snippet_execution: false,
             enable_snippet_execution_replace: false,
+            render_speaker_notes_only: false,
         }
     }
 }
@@ -179,7 +181,11 @@ impl<'a> PresentationBuilder<'a> {
         }
         for element in elements {
             self.slide_state.ignore_element_line_break = false;
-            self.process_element(element)?;
+            if self.options.render_speaker_notes_only {
+                self.process_element_for_speaker_notes_mode(element)?;
+            } else {
+                self.process_element_for_presentation_mode(element)?;
+            }
             self.validate_last_operation()?;
             if !self.slide_state.ignore_element_line_break {
                 self.push_line_break();
@@ -253,7 +259,7 @@ impl<'a> PresentationBuilder<'a> {
         self.push_line_break();
     }
 
-    fn process_element(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
+    fn process_element_for_presentation_mode(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
         let should_clear_last = !matches!(element, MarkdownElement::List(_) | MarkdownElement::Comment { .. });
         match element {
             // This one is processed before everything else as it affects how the rest of the
@@ -275,6 +281,18 @@ impl<'a> PresentationBuilder<'a> {
         if should_clear_last {
             self.slide_state.last_element = LastElement::Other;
         }
+        Ok(())
+    }
+
+    fn process_element_for_speaker_notes_mode(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
+        match element {
+            MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
+            MarkdownElement::SetexHeading { text } => self.push_slide_title(text),
+            _ => {}
+        }
+        // Allows us to start the next speaker slide when a title is pushed and implicit_slide_ends is enabled.
+        self.slide_state.last_element = LastElement::Other;
+        self.slide_state.ignore_element_line_break = true;
         Ok(())
     }
 
@@ -415,7 +433,16 @@ impl<'a> PresentationBuilder<'a> {
             Ok(comment) => comment,
             Err(error) => return Err(BuildError::CommandParse { source_position, error }),
         };
-        match comment {
+
+        if self.options.render_speaker_notes_only {
+            self.process_comment_command_speaker_notes_mode(comment)
+        } else {
+            self.process_comment_command_presentation_mode(comment)
+        }
+    }
+
+    fn process_comment_command_presentation_mode(&mut self, comment_command: CommentCommand) -> Result<(), BuildError> {
+        match comment_command {
             CommentCommand::Pause => self.process_pause(),
             CommentCommand::EndSlide => self.terminate_slide(),
             CommentCommand::NewLine => self.push_line_break(),
@@ -455,9 +482,25 @@ impl<'a> PresentationBuilder<'a> {
             CommentCommand::NoFooter => {
                 self.slide_state.ignore_footer = true;
             }
+            CommentCommand::SpeakerNote(_) => {}
         };
         // Don't push line breaks for any comments.
         self.slide_state.ignore_element_line_break = true;
+        Ok(())
+    }
+
+    fn process_comment_command_speaker_notes_mode(
+        &mut self,
+        comment_command: CommentCommand,
+    ) -> Result<(), BuildError> {
+        match comment_command {
+            CommentCommand::SpeakerNote(note) => {
+                self.push_text(note.into(), ElementType::Paragraph);
+                self.push_line_break();
+            }
+            CommentCommand::EndSlide => self.terminate_slide(),
+            _ => {}
+        }
         Ok(())
     }
 
@@ -1147,6 +1190,7 @@ enum CommentCommand {
     JumpToMiddle,
     IncrementalLists(bool),
     NoFooter,
+    SpeakerNote(String),
 }
 
 impl FromStr for CommentCommand {

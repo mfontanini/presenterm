@@ -26,7 +26,7 @@ pub use crate::{
     demo::ThemesDemo,
     execute::SnippetExecutor,
     export::{ExportError, Exporter},
-    input::source::CommandSource,
+    input::{source::CommandSource, speaker_notes::SpeakerNotesCommand},
     markdown::parse::MarkdownParser,
     media::{graphics::GraphicsMode, printer::ImagePrinter, register::ImageRegistry},
     presenter::{PresentMode, Presenter, PresenterOptions},
