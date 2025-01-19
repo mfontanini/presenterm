@@ -34,6 +34,7 @@ impl FooterGenerator {
         colors: Colors,
         alignment: Alignment,
     ) -> RenderOperation {
+        #[allow(clippy::literal_string_with_formatting_args)]
         let contents = template
             .replace("{current_slide}", current_slide)
             .replace("{total_slides}", &context.total_slides.to_string())
