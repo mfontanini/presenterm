@@ -1,12 +1,21 @@
-use clap::{CommandFactory, Parser, error::ErrorKind};
+use clap::{CommandFactory, Parser, ValueEnum, error::ErrorKind};
 use comrak::Arena;
 use directories::ProjectDirs;
+use iceoryx2::{
+    node::NodeBuilder,
+    service::{
+        builder::publish_subscribe::{Builder, PublishSubscribeCreateError, PublishSubscribeOpenError},
+        ipc::Service,
+    },
+};
 use presenterm::{
     CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
     MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter,
-    PresenterOptions, Resources, SnippetExecutor, Themes, ThemesDemo, ThirdPartyConfigs, ThirdPartyRender,
-    ValidateOverflows,
+    PresenterOptions, Resources, SnippetExecutor, SpeakerNotesCommand, Themes, ThemesDemo, ThirdPartyConfigs,
+    ThirdPartyRender, ValidateOverflows,
 };
+use schemars::JsonSchema;
+use serde::Deserialize;
 use std::{
     env::{self, current_dir},
     io,
@@ -16,6 +25,41 @@ use std::{
 };
 
 const DEFAULT_THEME: &str = "dark";
+
+#[derive(Clone, Copy, Debug, Deserialize, ValueEnum, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum SpeakerNotesMode {
+    Publisher,
+    Receiver,
+}
+
+#[derive(thiserror::Error, Debug)]
+enum IpcServiceError {
+    #[error("no presenterm process in publisher mode running for presentation")]
+    ServiceOpenError,
+    #[error("existing presenterm process in publisher mode already running for presentation")]
+    ServiceCreateError,
+    #[error("{0}")]
+    Other(String),
+}
+
+impl From<PublishSubscribeOpenError> for IpcServiceError {
+    fn from(value: PublishSubscribeOpenError) -> Self {
+        match value {
+            PublishSubscribeOpenError::DoesNotExist => Self::ServiceOpenError,
+            _ => Self::Other(value.to_string()),
+        }
+    }
+}
+
+impl From<PublishSubscribeCreateError> for IpcServiceError {
+    fn from(value: PublishSubscribeCreateError) -> Self {
+        match value {
+            PublishSubscribeCreateError::AlreadyExists => Self::ServiceCreateError,
+            _ => Self::Other(value.to_string()),
+        }
+    }
+}
 
 /// Run slideshows from your terminal.
 #[derive(Parser)]
@@ -77,6 +121,9 @@ struct Cli {
     /// The path to the configuration file.
     #[clap(short, long)]
     config_file: Option<String>,
+
+    #[clap(short, long)]
+    speaker_notes_mode: Option<SpeakerNotesMode>,
 }
 
 fn create_splash() -> String {
@@ -138,7 +185,12 @@ fn display_acknowledgements() {
     println!("{}", String::from_utf8_lossy(acknowledgements));
 }
 
-fn make_builder_options(config: &Config, mode: &PresentMode, force_default_theme: bool) -> PresentationBuilderOptions {
+fn make_builder_options(
+    config: &Config,
+    mode: &PresentMode,
+    force_default_theme: bool,
+    speaker_notes_mode: Option<SpeakerNotesMode>,
+) -> PresentationBuilderOptions {
     PresentationBuilderOptions {
         allow_mutations: !matches!(mode, PresentMode::Export),
         implicit_slide_ends: config.options.implicit_slide_ends.unwrap_or_default(),
@@ -151,6 +203,7 @@ fn make_builder_options(config: &Config, mode: &PresentMode, force_default_theme
         strict_front_matter_parsing: config.options.strict_front_matter_parsing.unwrap_or(true),
         enable_snippet_execution: config.snippet.exec.enable,
         enable_snippet_execution_replace: config.snippet.exec_replace.enable,
+        render_speaker_notes_only: speaker_notes_mode.is_some_and(|mode| matches!(mode, SpeakerNotesMode::Receiver)),
     }
 }
 
@@ -187,6 +240,22 @@ fn overflow_validation(mode: &PresentMode, config: &ValidateOverflows) -> bool {
         (ValidateOverflows::WhenDeveloping, PresentMode::Development) => true,
         _ => false,
     }
+}
+
+fn create_speaker_notes_service_builder(
+    presentation_path: &Path,
+) -> Result<Builder<SpeakerNotesCommand, (), Service>, Box<dyn std::error::Error>> {
+    let file_name = presentation_path
+        .file_name()
+        .ok_or(Cli::command().error(ErrorKind::InvalidValue, "failed to resolve presentation file name"))?
+        .to_string_lossy();
+    let service_name = format!("presenterm/{file_name}").as_str().try_into()?;
+    let service = NodeBuilder::new()
+        .create::<Service>()?
+        .service_builder(&service_name)
+        .publish_subscribe::<SpeakerNotesCommand>()
+        .max_publishers(1);
+    Ok(service)
 }
 
 fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
@@ -229,7 +298,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let parser = MarkdownParser::new(&arena);
 
     let validate_overflows = overflow_validation(&mode, &config.defaults.validate_overflows) || cli.validate_overflows;
-    let mut options = make_builder_options(&config, &mode, force_default_theme);
+    let mut options = make_builder_options(&config, &mode, force_default_theme, cli.speaker_notes_mode);
     if cli.enable_snippet_execution {
         options.enable_snippet_execution = true;
     }
@@ -270,9 +339,29 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", serde_json::to_string_pretty(&meta)?);
         }
     } else {
-        let commands = CommandSource::new(config.bindings.clone())?;
+        let speaker_notes_event_receiver = if let Some(SpeakerNotesMode::Receiver) = cli.speaker_notes_mode {
+            let receiver = create_speaker_notes_service_builder(&path)?
+                .open()
+                .map_err(|err| Cli::command().error(ErrorKind::InvalidValue, IpcServiceError::from(err)))?
+                .subscriber_builder()
+                .create()?;
+            Some(receiver)
+        } else {
+            None
+        };
+        let commands = CommandSource::new(config.bindings.clone(), speaker_notes_event_receiver)?;
         options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty { .. });
 
+        let speaker_notes_event_publisher = if let Some(SpeakerNotesMode::Publisher) = cli.speaker_notes_mode {
+            let publisher = create_speaker_notes_service_builder(&path)?
+                .create()
+                .map_err(|err| Cli::command().error(ErrorKind::InvalidValue, IpcServiceError::from(err)))?
+                .publisher_builder()
+                .create()?;
+            Some(publisher)
+        } else {
+            None
+        };
         let options = PresenterOptions {
             builder_options: options,
             mode,
@@ -290,6 +379,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             themes,
             printer,
             options,
+            speaker_notes_event_publisher,
         );
         presenter.present(&path)?;
     }

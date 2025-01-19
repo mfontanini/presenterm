@@ -1,4 +1,13 @@
+use iceoryx2::{
+    port::{
+        publisher::{Publisher, PublisherLoanError, PublisherSendError},
+        subscriber::SubscriberReceiveError,
+    },
+    service::ipc::Service,
+};
+
 use crate::{
+    SpeakerNotesCommand,
     custom::KeyBindingsConfig,
     diff::PresentationDiffer,
     execute::SnippetExecutor,
@@ -52,6 +61,7 @@ pub struct Presenter<'a> {
     image_printer: Arc<ImagePrinter>,
     themes: Themes,
     options: PresenterOptions,
+    speaker_notes_event_publisher: Option<Publisher<Service, SpeakerNotesCommand, ()>>,
 }
 
 impl<'a> Presenter<'a> {
@@ -67,6 +77,7 @@ impl<'a> Presenter<'a> {
         themes: Themes,
         image_printer: Arc<ImagePrinter>,
         options: PresenterOptions,
+        speaker_notes_event_publisher: Option<Publisher<Service, SpeakerNotesCommand, ()>>,
     ) -> Self {
         Self {
             default_theme,
@@ -80,6 +91,7 @@ impl<'a> Presenter<'a> {
             image_printer,
             themes,
             options,
+            speaker_notes_event_publisher,
         }
     }
 
@@ -121,7 +133,14 @@ impl<'a> Presenter<'a> {
                     },
                 };
                 match self.apply_command(command) {
-                    CommandSideEffect::Exit => return Ok(()),
+                    CommandSideEffect::Exit => {
+                        if let Some(publisher) = self.speaker_notes_event_publisher.as_mut() {
+                            let sample = publisher.loan_uninit()?;
+                            let sample = sample.write_payload(SpeakerNotesCommand::Exit);
+                            sample.send()?;
+                        }
+                        return Ok(());
+                    }
                     CommandSideEffect::Suspend => {
                         self.suspend(&mut drawer);
                         break;
@@ -135,6 +154,12 @@ impl<'a> Presenter<'a> {
                     }
                     CommandSideEffect::None => (),
                 };
+            }
+            if let Some(publisher) = self.speaker_notes_event_publisher.as_mut() {
+                let current_slide_idx = self.state.presentation().current_slide_index() as u32;
+                let sample = publisher.loan_uninit()?;
+                let sample = sample.write_payload(SpeakerNotesCommand::GoToSlide(current_slide_idx + 1));
+                sample.send()?;
             }
         }
     }
@@ -481,4 +506,13 @@ pub enum PresentationError {
 
     #[error("fatal error: {0}")]
     Fatal(String),
+
+    #[error(transparent)]
+    SpeakerNotesPublisher(#[from] PublisherLoanError),
+
+    #[error(transparent)]
+    SpeakerNotesSend(#[from] PublisherSendError),
+
+    #[error(transparent)]
+    SpeakerNotesReceive(#[from] SubscriberReceiveError),
 }
