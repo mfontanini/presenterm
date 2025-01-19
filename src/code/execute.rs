@@ -2,7 +2,7 @@
 
 use crate::{
     code::snippet::{Snippet, SnippetLanguage},
-    custom::LanguageSnippetExecutionConfig,
+    config::LanguageSnippetExecutionConfig,
 };
 use once_cell::sync::Lazy;
 use os_pipe::PipeReader;

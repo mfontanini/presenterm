@@ -2,7 +2,7 @@ use crate::{
     PresentationTheme,
     code::padding::NumberPadder,
     commands::keyboard::KeyBinding,
-    custom::KeyBindingsConfig,
+    config::KeyBindingsConfig,
     markdown::{
         elements::{Line, Text},
         text::WeightedLine,

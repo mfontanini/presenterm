@@ -7,7 +7,7 @@ use crate::{
             SnippetLanguage, SnippetLine, SnippetParser, SnippetSplitter,
         },
     },
-    custom::{KeyBindingsConfig, OptionsConfig},
+    config::{KeyBindingsConfig, OptionsConfig},
     markdown::{
         elements::{
             Line, ListItem, ListItemType, MarkdownElement, Percent, PercentParseError, SourcePosition, Table, TableRow,

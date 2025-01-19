@@ -2,7 +2,7 @@ use super::{
     SpeakerNotesCommand,
     keyboard::{CommandKeyBindings, KeyBindingsValidationError, KeyboardListener},
 };
-use crate::{custom::KeyBindingsConfig, presenter::PresentationError};
+use crate::{config::KeyBindingsConfig, presenter::PresentationError};
 use iceoryx2::{port::subscriber::Subscriber, service::ipc::Service};
 use serde::Deserialize;
 use std::time::Duration;

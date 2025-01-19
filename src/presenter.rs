@@ -10,7 +10,7 @@ use crate::{
     SpeakerNotesCommand,
     code::execute::SnippetExecutor,
     commands::listener::{Command, CommandListener},
-    custom::KeyBindingsConfig,
+    config::KeyBindingsConfig,
     export::ImageReplacer,
     markdown::parse::{MarkdownParser, ParseError},
     presentation::{

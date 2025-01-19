@@ -17,8 +17,8 @@ use std::{
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    /// The default configuration for the presentation.
     #[serde(default)]
-    #[doc = "The default configuration for the presentation."]
     pub defaults: DefaultsConfig,
 
     #[serde(default)]

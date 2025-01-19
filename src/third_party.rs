@@ -1,6 +1,6 @@
 use crate::{
     ImageRegistry, PresentationTheme,
-    custom::{default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
+    config::{default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
     markdown::elements::{Line, Percent, Text},
     presentation::{AsyncPresentationError, AsyncPresentationErrorHolder, builder::DEFAULT_IMAGE_Z_INDEX},
     render::{

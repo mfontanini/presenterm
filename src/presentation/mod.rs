@@ -1,5 +1,5 @@
 use crate::{
-    custom::OptionsConfig,
+    config::OptionsConfig,
     render::operation::{RenderAsyncState, RenderOperation},
     theme::PresentationTheme,
 };

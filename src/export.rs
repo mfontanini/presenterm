@@ -1,7 +1,7 @@
 use crate::{
     MarkdownParser, PresentationTheme, Resources,
     code::execute::SnippetExecutor,
-    custom::KeyBindingsConfig,
+    config::KeyBindingsConfig,
     markdown::parse::ParseError,
     presentation::{
         Presentation,

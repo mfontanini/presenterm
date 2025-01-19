@@ -1,5 +1,5 @@
 use super::listener::{Command, CommandDiscriminants};
-use crate::custom::KeyBindingsConfig;
+use crate::config::KeyBindingsConfig;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, poll, read};
 use schemars::JsonSchema;
 use serde_with::DeserializeFromStr;

@@ -1,7 +1,7 @@
 use crate::{
     code::{execute::SnippetExecutor, highlighting::HighlightThemeSet},
     commands::{SpeakerNotesCommand, listener::CommandListener},
-    custom::{Config, ImageProtocol, ValidateOverflows},
+    config::{Config, ImageProtocol, ValidateOverflows},
     demo::ThemesDemo,
     export::Exporter,
     markdown::parse::MarkdownParser,
@@ -37,7 +37,7 @@ use std::{
 
 mod code;
 mod commands;
-mod custom;
+mod config;
 mod demo;
 mod export;
 mod markdown;
