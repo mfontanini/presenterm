@@ -1,3 +1,20 @@
+use crate::{
+    code::{execute::SnippetExecutor, highlighting::HighlightThemeSet},
+    commands::{SpeakerNotesCommand, listener::CommandListener},
+    config::{Config, ImageProtocol, ValidateOverflows},
+    demo::ThemesDemo,
+    export::Exporter,
+    markdown::parse::MarkdownParser,
+    presentation::builder::{PresentationBuilderOptions, Themes},
+    presenter::{PresentMode, Presenter, PresenterOptions},
+    resource::Resources,
+    terminal::{
+        GraphicsMode,
+        image::printer::{ImagePrinter, ImageRegistry},
+    },
+    theme::{PresentationTheme, PresentationThemeSet},
+    third_party::{ThirdPartyConfigs, ThirdPartyRender},
+};
 use clap::{CommandFactory, Parser, ValueEnum, error::ErrorKind};
 use comrak::Arena;
 use directories::ProjectDirs;
@@ -8,12 +25,6 @@ use iceoryx2::{
         ipc::Service,
     },
 };
-use presenterm::{
-    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
-    MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter,
-    PresenterOptions, Resources, SnippetExecutor, SpeakerNotesCommand, Themes, ThemesDemo, ThirdPartyConfigs,
-    ThirdPartyRender, ValidateOverflows,
-};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use std::{
@@ -23,6 +34,22 @@ use std::{
     rc::Rc,
     sync::Arc,
 };
+
+mod code;
+mod commands;
+mod config;
+mod demo;
+mod export;
+mod markdown;
+mod presentation;
+mod presenter;
+mod render;
+mod resource;
+mod terminal;
+mod theme;
+mod third_party;
+mod tools;
+mod ui;
 
 const DEFAULT_THEME: &str = "dark";
 
@@ -349,7 +376,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         } else {
             None
         };
-        let commands = CommandSource::new(config.bindings.clone(), speaker_notes_event_receiver)?;
+        let command_listener = CommandListener::new(config.bindings.clone(), speaker_notes_event_receiver)?;
         options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty { .. });
 
         let speaker_notes_event_publisher = if let Some(SpeakerNotesMode::Publisher) = cli.speaker_notes_mode {
@@ -371,7 +398,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         };
         let presenter = Presenter::new(
             &default_theme,
-            commands,
+            command_listener,
             parser,
             resources,
             third_party,

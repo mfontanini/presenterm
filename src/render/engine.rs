@@ -1,22 +1,22 @@
-use super::{
-    draw::{RenderError, RenderResult},
-    layout::Layout,
-    properties::CursorPosition,
-    terminal::{Terminal, TerminalWrite},
-    text::TextDrawer,
-};
+use super::{RenderError, RenderResult, layout::Layout, properties::CursorPosition, text::TextDrawer};
 use crate::{
-    markdown::text::WeightedLine,
-    media::{
-        image::Image,
-        printer::{PrintOptions, ResourceProperties},
-        scale::{fit_image_to_window, scale_image},
+    markdown::{text::WeightedLine, text_style::Colors},
+    render::{
+        layout::Positioning,
+        operation::{
+            AsRenderOperations, BlockLine, ImageRenderProperties, ImageSize, MarginProperties, RenderAsync,
+            RenderOperation,
+        },
+        properties::WindowSize,
     },
-    presentation::{
-        AsRenderOperations, BlockLine, ImageProperties, ImageSize, MarginProperties, RenderAsync, RenderOperation,
+    terminal::{
+        Terminal, TerminalWrite,
+        image::{
+            Image,
+            printer::{ImageProperties, PrintOptions},
+            scale::{fit_image_to_window, scale_image},
+        },
     },
-    render::{layout::Positioning, properties::WindowSize},
-    style::Colors,
     theme::Alignment,
 };
 use std::mem;
@@ -175,7 +175,7 @@ where
         Ok(())
     }
 
-    fn render_image(&mut self, image: &Image, properties: &ImageProperties) -> RenderResult {
+    fn render_image(&mut self, image: &Image, properties: &ImageRenderProperties) -> RenderResult {
         let rect = self.current_rect();
         let starting_position = CursorPosition { row: self.terminal.cursor_row, column: rect.start_column };
 

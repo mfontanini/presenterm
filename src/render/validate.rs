@@ -1,12 +1,12 @@
-use super::{properties::WindowSize, terminal::TerminalWrite};
+use super::properties::WindowSize;
 use crate::{
     ImagePrinter,
     presentation::Presentation,
     render::{
-        draw::RenderError,
+        RenderError,
         engine::{RenderEngine, RenderEngineOptions},
-        terminal::Terminal,
     },
+    terminal::{Terminal, TerminalWrite},
 };
 use std::{io, sync::Arc};
 

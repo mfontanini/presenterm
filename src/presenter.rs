@@ -8,21 +8,22 @@ use iceoryx2::{
 
 use crate::{
     SpeakerNotesCommand,
-    custom::KeyBindingsConfig,
-    diff::PresentationDiffer,
-    execute::SnippetExecutor,
+    code::execute::SnippetExecutor,
+    commands::listener::{Command, CommandListener},
+    config::KeyBindingsConfig,
     export::ImageReplacer,
-    input::source::{Command, CommandSource},
     markdown::parse::{MarkdownParser, ParseError},
-    media::{printer::ImagePrinter, register::ImageRegistry},
-    presentation::{Presentation, RenderAsyncState},
-    processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
+    presentation::{
+        Presentation,
+        builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
+        diff::PresentationDiffer,
+    },
     render::{
-        draw::{ErrorSource, RenderError, RenderResult, TerminalDrawer},
-        properties::WindowSize,
+        ErrorSource, RenderError, RenderResult, TerminalDrawer, operation::RenderAsyncState, properties::WindowSize,
         validate::OverflowValidator,
     },
     resource::Resources,
+    terminal::image::printer::{ImagePrinter, ImageRegistry},
     theme::PresentationTheme,
     third_party::ThirdPartyRender,
 };
@@ -51,7 +52,7 @@ pub struct PresenterOptions {
 /// This type puts everything else together.
 pub struct Presenter<'a> {
     default_theme: &'a PresentationTheme,
-    commands: CommandSource,
+    listener: CommandListener,
     parser: MarkdownParser<'a>,
     resources: Resources,
     third_party: ThirdPartyRender,
@@ -69,7 +70,7 @@ impl<'a> Presenter<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         default_theme: &'a PresentationTheme,
-        commands: CommandSource,
+        listener: CommandListener,
         parser: MarkdownParser<'a>,
         resources: Resources,
         third_party: ThirdPartyRender,
@@ -81,7 +82,7 @@ impl<'a> Presenter<'a> {
     ) -> Self {
         Self {
             default_theme,
-            commands,
+            listener,
             parser,
             resources,
             third_party,
@@ -120,7 +121,7 @@ impl<'a> Presenter<'a> {
                     self.render(&mut drawer)?;
                 }
 
-                let command = match self.commands.try_next_command()? {
+                let command = match self.listener.try_next_command()? {
                     Some(command) => command,
                     _ => match self.resources.resources_modified() {
                         true => Command::Reload,
@@ -205,14 +206,16 @@ impl<'a> Presenter<'a> {
 
     fn render(&mut self, drawer: &mut TerminalDrawer<Stdout>) -> RenderResult {
         let result = match &self.state {
-            PresenterState::Presenting(presentation) => drawer.render_slide(presentation),
+            PresenterState::Presenting(presentation) => {
+                drawer.render_operations(presentation.current_slide().iter_visible_operations())
+            }
             PresenterState::SlideIndex(presentation) => {
-                drawer.render_slide(presentation)?;
-                drawer.render_slide_index(presentation)
+                drawer.render_operations(presentation.current_slide().iter_visible_operations())?;
+                drawer.render_operations(presentation.iter_slide_index_operations())
             }
             PresenterState::KeyBindings(presentation) => {
-                drawer.render_slide(presentation)?;
-                drawer.render_key_bindings(presentation)
+                drawer.render_operations(presentation.current_slide().iter_visible_operations())?;
+                drawer.render_operations(presentation.iter_bindings_operations())
             }
             PresenterState::Failure { error, source, .. } => drawer.render_error(error, source),
             PresenterState::Empty => panic!("cannot render without state"),

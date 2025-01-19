@@ -1,10 +1,7 @@
 use super::{
-    elements::SourcePosition,
+    elements::{Line, ListItem, ListItemType, MarkdownElement, SourcePosition, Table, TableRow, Text},
     html::{HtmlInline, HtmlParser, ParseHtmlError},
-};
-use crate::{
-    markdown::elements::{Line, ListItem, ListItemType, MarkdownElement, Table, TableRow, Text},
-    style::TextStyle,
+    text_style::TextStyle,
 };
 use comrak::{
     Arena, ComrakOptions,
@@ -600,7 +597,7 @@ impl Identifier for NodeValue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::style::Color;
+    use crate::markdown::text_style::Color;
     use rstest::rstest;
     use std::path::Path;
 

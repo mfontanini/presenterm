@@ -1,15 +1,20 @@
 use crate::{
     MarkdownParser, PresentationTheme, Resources,
-    custom::KeyBindingsConfig,
-    execute::SnippetExecutor,
+    code::execute::SnippetExecutor,
+    config::KeyBindingsConfig,
     markdown::parse::ParseError,
-    media::{
-        image::{Image, ImageSource},
-        printer::{ImageResource, ResourceProperties},
+    presentation::{
+        Presentation,
+        builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     },
-    presentation::{AsRenderOperations, Presentation, RenderAsyncState, RenderOperation},
-    processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
-    render::properties::WindowSize,
+    render::{
+        operation::{AsRenderOperations, RenderAsyncState, RenderOperation},
+        properties::WindowSize,
+    },
+    terminal::image::{
+        Image, ImageSource,
+        printer::{ImageProperties, TerminalImage},
+    },
     third_party::ThirdPartyRender,
     tools::{ExecutionError, ThirdPartyTools},
 };
@@ -162,7 +167,7 @@ impl<'a> Exporter<'a> {
                 ImageSource::Generated => {
                     let mut buffer = Vec::new();
                     let dimensions = image.original.dimensions();
-                    let ImageResource::Ascii(resource) = image.original.resource.as_ref() else {
+                    let TerminalImage::Ascii(resource) = image.original.image.as_ref() else {
                         panic!("not in ascii mode")
                     };
                     PngEncoder::new(&mut buffer).write_image(
@@ -316,7 +321,7 @@ impl ImageReplacer {
         }
         self.images.push(ReplacedImage { original: image, color });
 
-        Image::new(ImageResource::Ascii(replacement.into()), ImageSource::Generated)
+        Image::new(TerminalImage::Ascii(replacement.into()), ImageSource::Generated)
     }
 
     fn allocate_color(&mut self) -> u32 {

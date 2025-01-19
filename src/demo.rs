@@ -1,14 +1,17 @@
 use crate::{
     ImageRegistry, MarkdownParser, PresentationBuilderOptions, PresentationTheme, Resources, Themes, ThirdPartyRender,
-    execute::SnippetExecutor,
-    input::{
-        source::Command,
-        user::{CommandKeyBindings, UserInput},
+    code::execute::SnippetExecutor,
+    commands::{
+        keyboard::{CommandKeyBindings, KeyboardListener},
+        listener::Command,
     },
     markdown::elements::MarkdownElement,
-    presentation::Presentation,
-    processing::builder::{BuildError, PresentationBuilder},
-    render::{draw::TerminalDrawer, terminal::TerminalWrite},
+    presentation::{
+        Presentation,
+        builder::{BuildError, PresentationBuilder},
+    },
+    render::TerminalDrawer,
+    terminal::TerminalWrite,
 };
 use std::{io, rc::Rc};
 
@@ -39,13 +42,13 @@ fn greet(name: &str) -> String {
 
 pub struct ThemesDemo<W: TerminalWrite> {
     themes: Themes,
-    input: UserInput,
+    input: KeyboardListener,
     drawer: TerminalDrawer<W>,
 }
 
 impl<W: TerminalWrite> ThemesDemo<W> {
     pub fn new(themes: Themes, bindings: CommandKeyBindings, writer: W) -> io::Result<Self> {
-        let input = UserInput::new(bindings);
+        let input = KeyboardListener::new(bindings);
         let drawer = TerminalDrawer::new(writer, Default::default(), 1)?;
         Ok(Self { themes, input, drawer })
     }
@@ -62,7 +65,7 @@ impl<W: TerminalWrite> ThemesDemo<W> {
         }
         let mut current = 0;
         loop {
-            self.drawer.render_slide(&presentations[current])?;
+            self.drawer.render_operations(presentations[current].current_slide().iter_visible_operations())?;
 
             let command = self.next_command()?;
             match command {

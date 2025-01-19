@@ -1,14 +1,11 @@
-use super::terminal::{Terminal, TerminalWrite};
 use crate::{
     markdown::{
         elements::Text,
         text::{WeightedLine, WeightedText},
+        text_style::{Color, Colors},
     },
-    render::{
-        draw::{RenderError, RenderResult},
-        layout::Positioning,
-    },
-    style::{Color, Colors},
+    render::{RenderError, RenderResult, layout::Positioning},
+    terminal::{Terminal, TerminalWrite},
 };
 
 const MINIMUM_LINE_LENGTH: u16 = 10;
