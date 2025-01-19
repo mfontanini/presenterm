@@ -1,8 +1,8 @@
 //! Code execution.
 
 use crate::{
+    code::snippet::{Snippet, SnippetLanguage},
     custom::LanguageSnippetExecutionConfig,
-    processing::code::{Snippet, SnippetLanguage},
 };
 use once_cell::sync::Lazy;
 use os_pipe::PipeReader;
@@ -19,7 +19,7 @@ use std::{
 use tempfile::TempDir;
 
 static EXECUTORS: Lazy<BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>> =
-    Lazy::new(|| serde_yaml::from_slice(include_bytes!("../executors.yaml")).expect("executors.yaml is broken"));
+    Lazy::new(|| serde_yaml::from_slice(include_bytes!("../../executors.yaml")).expect("executors.yaml is broken"));
 
 /// Allows executing code.
 pub struct SnippetExecutor {
@@ -286,7 +286,7 @@ impl ProcessStatus {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::processing::code::SnippetAttributes;
+    use crate::code::snippet::SnippetAttributes;
 
     #[test]
     fn shell_code_execution() {

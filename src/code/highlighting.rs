@@ -1,6 +1,6 @@
 use crate::{
+    code::snippet::SnippetLanguage,
     markdown::elements::{Line, Text},
-    processing::code::SnippetLanguage,
     style::{Color, TextStyle},
     theme::CodeBlockStyle,
 };
@@ -38,16 +38,16 @@ pub struct HighlightThemeSet {
 
 impl HighlightThemeSet {
     /// Construct a new highlighter using the given [syntect] theme name.
-    pub fn load_by_name(&self, name: &str) -> Option<CodeHighlighter> {
+    pub fn load_by_name(&self, name: &str) -> Option<SnippetHighlighter> {
         let mut themes = self.themes.borrow_mut();
         // Check if we already loaded this one.
         if let Some(theme) = themes.get(name).cloned() {
-            Some(CodeHighlighter { theme })
+            Some(SnippetHighlighter { theme })
         }
         // Otherwise try to deserialize it from bat's themes
         else if let Some(theme) = self.deserialize_bat_theme(name) {
             themes.insert(name.into(), theme.clone());
-            Some(CodeHighlighter { theme })
+            Some(SnippetHighlighter { theme })
         } else {
             None
         }
@@ -83,13 +83,13 @@ impl Default for HighlightThemeSet {
     }
 }
 
-/// A code highlighter.
+/// A snippet highlighter.
 #[derive(Clone)]
-pub struct CodeHighlighter {
+pub(crate) struct SnippetHighlighter {
     theme: Rc<Theme>,
 }
 
-impl CodeHighlighter {
+impl SnippetHighlighter {
     /// Create a highlighter for a specific language.
     pub(crate) fn language_highlighter(&self, language: &SnippetLanguage) -> LanguageHighlighter {
         let extension = Self::language_extension(language);
@@ -170,7 +170,7 @@ impl CodeHighlighter {
     }
 }
 
-impl Default for CodeHighlighter {
+impl Default for SnippetHighlighter {
     fn default() -> Self {
         let themes = HighlightThemeSet::default();
         themes.load_by_name("base16-eighties.dark").expect("default theme not found")
@@ -255,7 +255,7 @@ mod test {
     #[test]
     fn language_extensions_exist() {
         for language in SnippetLanguage::iter() {
-            let extension = CodeHighlighter::language_extension(&language);
+            let extension = SnippetHighlighter::language_extension(&language);
             let syntax = SYNTAX_SET.find_syntax_by_extension(extension);
             assert!(syntax.is_some(), "extension {extension} for {language:?} not found");
         }
@@ -263,7 +263,7 @@ mod test {
 
     #[test]
     fn default_highlighter() {
-        CodeHighlighter::default();
+        SnippetHighlighter::default();
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use crate::{
+    code::snippet::SnippetLanguage,
     commands::keyboard::KeyBinding,
-    processing::code::SnippetLanguage,
     terminal::{
         GraphicsMode, emulator::TerminalEmulator, image::protocols::kitty::KittyMode, query::TerminalCapabilities,
     },

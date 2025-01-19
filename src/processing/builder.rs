@@ -1,11 +1,17 @@
 use super::{
-    code::{CodeBlockParser, CodeLine, ExternalFile, Highlight, HighlightGroup, Snippet, SnippetLanguage},
     execution::{DisplaySeparator, RunAcquireTerminalSnippet, SnippetExecutionDisabledOperation},
     modals::KeyBindingsModalBuilder,
 };
 use crate::{
+    code::{
+        execute::SnippetExecutor,
+        highlighting::{HighlightThemeSet, SnippetHighlighter},
+        snippet::{
+            ExternalFile, Highlight, HighlightContext, HighlightGroup, HighlightMutator, HighlightedLine, Snippet,
+            SnippetLanguage, SnippetLine, SnippetParser, SnippetSplitter,
+        },
+    },
     custom::{KeyBindingsConfig, OptionsConfig},
-    execute::SnippetExecutor,
     markdown::{
         elements::{
             Line, ListItem, ListItemType, MarkdownElement, Percent, PercentParseError, SourcePosition, Table, TableRow,
@@ -19,16 +25,12 @@ use crate::{
         Slide, SlideBuilder, SlideChunk,
     },
     processing::{
-        code::{CodePreparer, HighlightContext, HighlightMutator, HighlightedLine},
         execution::RunSnippetOperation,
         footer::{FooterContext, FooterGenerator},
         modals::IndexBuilder,
         separator::RenderSeparator,
     },
-    render::{
-        highlighting::{CodeHighlighter, HighlightThemeSet},
-        properties::WindowSize,
-    },
+    render::properties::WindowSize,
     resource::Resources,
     style::{Color, Colors, TextStyle},
     terminal::image::{
@@ -116,7 +118,7 @@ pub(crate) struct PresentationBuilder<'a> {
     chunk_operations: Vec<RenderOperation>,
     chunk_mutators: Vec<Box<dyn ChunkMutator>>,
     slides: Vec<Slide>,
-    highlighter: CodeHighlighter,
+    highlighter: SnippetHighlighter,
     code_executor: Rc<SnippetExecutor>,
     theme: Cow<'a, PresentationTheme>,
     resources: &'a mut Resources,
@@ -149,7 +151,7 @@ impl<'a> PresentationBuilder<'a> {
             chunk_operations: Vec::new(),
             chunk_mutators: Vec::new(),
             slides: Vec::new(),
-            highlighter: CodeHighlighter::default(),
+            highlighter: SnippetHighlighter::default(),
             code_executor,
             theme: Cow::Borrowed(default_theme),
             resources,
@@ -775,8 +777,8 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_code(&mut self, info: String, code: String, source_position: SourcePosition) -> Result<(), BuildError> {
-        let mut snippet = CodeBlockParser::parse(info, code)
-            .map_err(|e| BuildError::InvalidCode { source_position, error: e.to_string() })?;
+        let mut snippet = SnippetParser::parse(info, code)
+            .map_err(|e| BuildError::InvalidSnippet { source_position, error: e.to_string() })?;
         if matches!(snippet.language, SnippetLanguage::File) {
             snippet = self.load_external_snippet(snippet, source_position)?;
         }
@@ -788,7 +790,7 @@ impl<'a> PresentationBuilder<'a> {
             return self.push_code_execution(snippet, 0, ExecutionMode::ReplaceSnippet);
         }
         let lines =
-            CodePreparer::new(&self.theme, self.code_executor.hidden_line_prefix(&snippet.language)).prepare(&snippet);
+            SnippetSplitter::new(&self.theme, self.code_executor.hidden_line_prefix(&snippet.language)).split(&snippet);
         let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
         let (lines, context) = self.highlight_lines(&snippet, lines, block_length);
         for line in lines {
@@ -827,10 +829,10 @@ impl<'a> PresentationBuilder<'a> {
         source_position: SourcePosition,
     ) -> Result<Snippet, BuildError> {
         let file: ExternalFile = serde_yaml::from_str(&code.contents)
-            .map_err(|e| BuildError::InvalidCode { source_position, error: e.to_string() })?;
+            .map_err(|e| BuildError::InvalidSnippet { source_position, error: e.to_string() })?;
         let path = file.path;
         let path_display = path.display();
-        let contents = self.resources.external_snippet(&path).map_err(|e| BuildError::InvalidCode {
+        let contents = self.resources.external_snippet(&path).map_err(|e| BuildError::InvalidSnippet {
             source_position,
             error: format!("failed to load {path_display}: {e}"),
         })?;
@@ -847,7 +849,7 @@ impl<'a> PresentationBuilder<'a> {
             SnippetLanguage::Latex => ThirdPartyRenderRequest::Latex(contents, self.theme.typst.clone()),
             SnippetLanguage::Mermaid => ThirdPartyRenderRequest::Mermaid(contents, self.theme.mermaid.clone()),
             _ => {
-                return Err(BuildError::InvalidCode {
+                return Err(BuildError::InvalidSnippet {
                     source_position,
                     error: format!("language {language:?} doesn't support rendering"),
                 })?;
@@ -862,7 +864,7 @@ impl<'a> PresentationBuilder<'a> {
     fn highlight_lines(
         &self,
         code: &Snippet,
-        lines: Vec<CodeLine>,
+        lines: Vec<SnippetLine>,
         block_length: usize,
     ) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
@@ -1138,8 +1140,8 @@ pub enum BuildError {
     #[error("invalid theme: {0}")]
     InvalidTheme(#[from] LoadThemeError),
 
-    #[error("invalid code at {source_position}: {error}")]
-    InvalidCode { source_position: SourcePosition, error: String },
+    #[error("invalid code snippet at {source_position}: {error}")]
+    InvalidSnippet { source_position: SourcePosition, error: String },
 
     #[error("invalid code highlighter theme: '{0}'")]
     InvalidCodeTheme(String),

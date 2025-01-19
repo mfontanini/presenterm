@@ -1,10 +1,10 @@
 use crate::{
     ImageRegistry, MarkdownParser, PresentationBuilderOptions, PresentationTheme, Resources, Themes, ThirdPartyRender,
+    code::execute::SnippetExecutor,
     commands::{
         keyboard::{CommandKeyBindings, KeyboardListener},
         listener::Command,
     },
-    execute::SnippetExecutor,
     markdown::elements::MarkdownElement,
     presentation::Presentation,
     processing::builder::{BuildError, PresentationBuilder},

@@ -8,10 +8,10 @@ use iceoryx2::{
 
 use crate::{
     SpeakerNotesCommand,
+    code::execute::SnippetExecutor,
     commands::listener::{Command, CommandListener},
     custom::KeyBindingsConfig,
     diff::PresentationDiffer,
-    execute::SnippetExecutor,
     export::ImageReplacer,
     markdown::parse::{MarkdownParser, ParseError},
     presentation::{Presentation, RenderAsyncState},

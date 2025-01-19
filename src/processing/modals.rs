@@ -1,5 +1,6 @@
 use crate::{
     PresentationTheme,
+    code::padding::NumberPadder,
     commands::keyboard::KeyBinding,
     custom::KeyBindingsConfig,
     markdown::{
@@ -9,7 +10,6 @@ use crate::{
     presentation::{
         AsRenderOperations, ImageRenderProperties, ImageSize, MarginProperties, PresentationState, RenderOperation,
     },
-    processing::padding::NumberPadder,
     render::properties::WindowSize,
     style::{Colors, TextStyle},
     terminal::image::Image,

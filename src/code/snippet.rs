@@ -1,4 +1,7 @@
-use super::padding::NumberPadder;
+use super::{
+    highlighting::{LanguageHighlighter, StyledTokens},
+    padding::NumberPadder,
+};
 use crate::{
     PresentationTheme,
     markdown::{
@@ -6,10 +9,7 @@ use crate::{
         text::{WeightedLine, WeightedText},
     },
     presentation::{AsRenderOperations, BlockLine, ChunkMutator, RenderOperation},
-    render::{
-        highlighting::{LanguageHighlighter, StyledTokens},
-        properties::WindowSize,
-    },
+    render::properties::WindowSize,
     style::{Color, TextStyle},
     theme::{Alignment, CodeBlockStyle},
 };
@@ -19,31 +19,31 @@ use std::{cell::RefCell, convert::Infallible, fmt::Write, ops::Range, path::Path
 use strum::{EnumDiscriminants, EnumIter};
 use unicode_width::UnicodeWidthStr;
 
-pub(crate) struct CodePreparer<'a> {
+pub(crate) struct SnippetSplitter<'a> {
     theme: &'a PresentationTheme,
     hidden_line_prefix: Option<&'a str>,
 }
 
-impl<'a> CodePreparer<'a> {
+impl<'a> SnippetSplitter<'a> {
     pub(crate) fn new(theme: &'a PresentationTheme, hidden_line_prefix: Option<&'a str>) -> Self {
         Self { theme, hidden_line_prefix }
     }
 
-    pub(crate) fn prepare(&self, code: &Snippet) -> Vec<CodeLine> {
+    pub(crate) fn split(&self, code: &Snippet) -> Vec<SnippetLine> {
         let mut lines = Vec::new();
         let horizontal_padding = self.theme.code.padding.horizontal.unwrap_or(0);
         let vertical_padding = self.theme.code.padding.vertical.unwrap_or(0);
         if vertical_padding > 0 {
-            lines.push(CodeLine::empty());
+            lines.push(SnippetLine::empty());
         }
         self.push_lines(code, horizontal_padding, &mut lines);
         if vertical_padding > 0 {
-            lines.push(CodeLine::empty());
+            lines.push(SnippetLine::empty());
         }
         lines
     }
 
-    fn push_lines(&self, code: &Snippet, horizontal_padding: u8, lines: &mut Vec<CodeLine>) {
+    fn push_lines(&self, code: &Snippet, horizontal_padding: u8, lines: &mut Vec<SnippetLine>) {
         if code.contents.is_empty() {
             return;
         }
@@ -60,19 +60,19 @@ impl<'a> CodePreparer<'a> {
             }
             line.push('\n');
             let line_number = Some(index as u16 + 1);
-            lines.push(CodeLine { prefix, code: line, right_padding_length: padding.len() as u16, line_number });
+            lines.push(SnippetLine { prefix, code: line, right_padding_length: padding.len() as u16, line_number });
         }
     }
 }
 
-pub(crate) struct CodeLine {
+pub(crate) struct SnippetLine {
     pub(crate) prefix: String,
     pub(crate) code: String,
     pub(crate) right_padding_length: u16,
     pub(crate) line_number: Option<u16>,
 }
 
-impl CodeLine {
+impl SnippetLine {
     pub(crate) fn empty() -> Self {
         Self { prefix: String::new(), code: "\n".into(), right_padding_length: 0, line_number: None }
     }
@@ -191,11 +191,11 @@ impl ChunkMutator for HighlightMutator {
     }
 }
 
-pub(crate) type ParseResult<T> = Result<T, CodeBlockParseError>;
+pub(crate) type ParseResult<T> = Result<T, SnippetBlockParseError>;
 
-pub(crate) struct CodeBlockParser;
+pub(crate) struct SnippetParser;
 
-impl CodeBlockParser {
+impl SnippetParser {
     pub(crate) fn parse(info: String, code: String) -> ParseResult<Snippet> {
         let (language, attributes) = Self::parse_block_info(&info)?;
         let code = Snippet { contents: code, language, attributes };
@@ -206,7 +206,7 @@ impl CodeBlockParser {
         let (language, input) = Self::parse_language(input);
         let attributes = Self::parse_attributes(input)?;
         if attributes.width.is_some() && !attributes.auto_render {
-            return Err(CodeBlockParseError::NotRenderSnippet("width"));
+            return Err(SnippetBlockParseError::NotRenderSnippet("width"));
         }
         Ok((language, attributes))
     }
@@ -223,19 +223,19 @@ impl CodeBlockParser {
         let mut attributes = SnippetAttributes::default();
         let mut processed_attributes = Vec::new();
         while let (Some(attribute), rest) = Self::parse_attribute(input)? {
-            let discriminant = AttributeDiscriminants::from(&attribute);
+            let discriminant = SnippetAttributeDiscriminants::from(&attribute);
             if processed_attributes.contains(&discriminant) {
-                return Err(CodeBlockParseError::DuplicateAttribute("duplicate attribute"));
+                return Err(SnippetBlockParseError::DuplicateAttribute("duplicate attribute"));
             }
             match attribute {
-                Attribute::LineNumbers => attributes.line_numbers = true,
-                Attribute::Exec => attributes.execute = true,
-                Attribute::ExecReplace => attributes.execute_replace = true,
-                Attribute::AutoRender => attributes.auto_render = true,
-                Attribute::NoBackground => attributes.no_background = true,
-                Attribute::AcquireTerminal => attributes.acquire_terminal = true,
-                Attribute::HighlightedLines(lines) => attributes.highlight_groups = lines,
-                Attribute::Width(width) => attributes.width = Some(width),
+                SnippetAttribute::LineNumbers => attributes.line_numbers = true,
+                SnippetAttribute::Exec => attributes.execute = true,
+                SnippetAttribute::ExecReplace => attributes.execute_replace = true,
+                SnippetAttribute::AutoRender => attributes.auto_render = true,
+                SnippetAttribute::NoBackground => attributes.no_background = true,
+                SnippetAttribute::AcquireTerminal => attributes.acquire_terminal = true,
+                SnippetAttribute::HighlightedLines(lines) => attributes.highlight_groups = lines,
+                SnippetAttribute::Width(width) => attributes.width = Some(width),
             };
             processed_attributes.push(discriminant);
             input = rest;
@@ -246,39 +246,39 @@ impl CodeBlockParser {
         Ok(attributes)
     }
 
-    fn parse_attribute(input: &str) -> ParseResult<(Option<Attribute>, &str)> {
+    fn parse_attribute(input: &str) -> ParseResult<(Option<SnippetAttribute>, &str)> {
         let input = Self::skip_whitespace(input);
         let (attribute, input) = match input.chars().next() {
             Some('+') => {
                 let token = Self::next_identifier(&input[1..]);
                 let attribute = match token {
-                    "line_numbers" => Attribute::LineNumbers,
-                    "exec" => Attribute::Exec,
-                    "exec_replace" => Attribute::ExecReplace,
-                    "render" => Attribute::AutoRender,
-                    "no_background" => Attribute::NoBackground,
-                    "acquire_terminal" => Attribute::AcquireTerminal,
+                    "line_numbers" => SnippetAttribute::LineNumbers,
+                    "exec" => SnippetAttribute::Exec,
+                    "exec_replace" => SnippetAttribute::ExecReplace,
+                    "render" => SnippetAttribute::AutoRender,
+                    "no_background" => SnippetAttribute::NoBackground,
+                    "acquire_terminal" => SnippetAttribute::AcquireTerminal,
                     token if token.starts_with("width:") => {
                         let value = input.split_once("+width:").unwrap().1;
                         let (width, input) = Self::parse_width(value)?;
-                        return Ok((Some(Attribute::Width(width)), input));
+                        return Ok((Some(SnippetAttribute::Width(width)), input));
                     }
-                    _ => return Err(CodeBlockParseError::InvalidToken(Self::next_identifier(input).into())),
+                    _ => return Err(SnippetBlockParseError::InvalidToken(Self::next_identifier(input).into())),
                 };
                 (Some(attribute), &input[token.len() + 1..])
             }
             Some('{') => {
                 let (lines, input) = Self::parse_highlight_groups(&input[1..])?;
-                (Some(Attribute::HighlightedLines(lines)), input)
+                (Some(SnippetAttribute::HighlightedLines(lines)), input)
             }
-            Some(_) => return Err(CodeBlockParseError::InvalidToken(Self::next_identifier(input).into())),
+            Some(_) => return Err(SnippetBlockParseError::InvalidToken(Self::next_identifier(input).into())),
             None => (None, input),
         };
         Ok((attribute, input))
     }
 
     fn parse_highlight_groups(input: &str) -> ParseResult<(Vec<HighlightGroup>, &str)> {
-        use CodeBlockParseError::InvalidHighlightedLines;
+        use SnippetBlockParseError::InvalidHighlightedLines;
         let Some((head, tail)) = input.split_once('}') else {
             return Err(InvalidHighlightedLines("no enclosing '}'".into()));
         };
@@ -307,9 +307,9 @@ impl CodeBlockParser {
                 Some((left, right)) => {
                     let left = Self::parse_number(left)?;
                     let right = Self::parse_number(right)?;
-                    let right = right
-                        .checked_add(1)
-                        .ok_or_else(|| CodeBlockParseError::InvalidHighlightedLines(format!("{right} is too large")))?;
+                    let right = right.checked_add(1).ok_or_else(|| {
+                        SnippetBlockParseError::InvalidHighlightedLines(format!("{right} is too large"))
+                    })?;
                     highlights.push(Highlight::Range(left..right));
                 }
                 None => {
@@ -325,12 +325,12 @@ impl CodeBlockParser {
         input
             .trim()
             .parse()
-            .map_err(|_| CodeBlockParseError::InvalidHighlightedLines(format!("not a number: '{input}'")))
+            .map_err(|_| SnippetBlockParseError::InvalidHighlightedLines(format!("not a number: '{input}'")))
     }
 
     fn parse_width(input: &str) -> ParseResult<(Percent, &str)> {
         let end_index = input.find(' ').unwrap_or(input.len());
-        let value = input[0..end_index].parse().map_err(CodeBlockParseError::InvalidWidth)?;
+        let value = input[0..end_index].parse().map_err(SnippetBlockParseError::InvalidWidth)?;
         Ok((value, &input[end_index..]))
     }
 
@@ -347,7 +347,7 @@ impl CodeBlockParser {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum CodeBlockParseError {
+pub enum SnippetBlockParseError {
     #[error("invalid code attribute: {0}")]
     InvalidToken(String),
 
@@ -365,7 +365,7 @@ pub enum CodeBlockParseError {
 }
 
 #[derive(EnumDiscriminants)]
-enum Attribute {
+enum SnippetAttribute {
     LineNumbers,
     Exec,
     ExecReplace,
@@ -632,12 +632,12 @@ mod test {
     use rstest::rstest;
 
     fn parse_language(input: &str) -> SnippetLanguage {
-        let (language, _) = CodeBlockParser::parse_block_info(input).expect("parse failed");
+        let (language, _) = SnippetParser::parse_block_info(input).expect("parse failed");
         language
     }
 
-    fn try_parse_attributes(input: &str) -> Result<SnippetAttributes, CodeBlockParseError> {
-        let (_, attributes) = CodeBlockParser::parse_block_info(input)?;
+    fn try_parse_attributes(input: &str) -> Result<SnippetAttributes, SnippetBlockParseError> {
+        let (_, attributes) = SnippetParser::parse_block_info(input)?;
         Ok(attributes)
     }
 
@@ -654,7 +654,7 @@ mod test {
             language: SnippetLanguage::Unknown("".to_string()),
             attributes: SnippetAttributes { line_numbers: true, ..Default::default() },
         };
-        let lines = CodePreparer::new(&Default::default(), None).prepare(&code);
+        let lines = SnippetSplitter::new(&Default::default(), None).split(&code);
         assert_eq!(lines.len(), total_lines);
 
         let mut lines = lines.into_iter().enumerate();
@@ -696,8 +696,8 @@ mod test {
 
     #[test]
     fn invalid_attributes() {
-        CodeBlockParser::parse_block_info("bash +potato").unwrap_err();
-        CodeBlockParser::parse_block_info("bash potato").unwrap_err();
+        SnippetParser::parse_block_info("bash +potato").unwrap_err();
+        SnippetParser::parse_block_info("bash potato").unwrap_err();
     }
 
     #[rstest]
@@ -713,7 +713,7 @@ mod test {
     #[case::too_large_end("{1-65536}")]
     fn invalid_line_highlights(#[case] input: &str) {
         let input = format!("bash {input}");
-        CodeBlockParser::parse_block_info(&input).expect_err("parsed successfully");
+        SnippetParser::parse_block_info(&input).expect_err("parsed successfully");
     }
 
     #[test]
@@ -799,7 +799,7 @@ println!("Hello world");
     #[test]
     fn tabs_in_snippet() {
         let snippet = Snippet { contents: "\thi".into(), language: SnippetLanguage::C, attributes: Default::default() };
-        let lines = CodePreparer::new(&Default::default(), None).prepare(&snippet);
+        let lines = SnippetSplitter::new(&Default::default(), None).split(&snippet);
         assert_eq!(lines[0].code, "    hi\n");
     }
 }

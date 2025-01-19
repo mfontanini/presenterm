@@ -1,13 +1,12 @@
 use crate::{
+    code::{execute::SnippetExecutor, highlighting::HighlightThemeSet},
     commands::{SpeakerNotesCommand, listener::CommandListener},
     custom::{Config, ImageProtocol, ValidateOverflows},
     demo::ThemesDemo,
-    execute::SnippetExecutor,
     export::Exporter,
     markdown::parse::MarkdownParser,
     presenter::{PresentMode, Presenter, PresenterOptions},
     processing::builder::{PresentationBuilderOptions, Themes},
-    render::highlighting::HighlightThemeSet,
     resource::Resources,
     terminal::{
         GraphicsMode,
@@ -37,11 +36,11 @@ use std::{
 };
 
 mod ansi;
+mod code;
 mod commands;
 mod custom;
 mod demo;
 mod diff;
-mod execute;
 mod export;
 mod markdown;
 mod presentation;

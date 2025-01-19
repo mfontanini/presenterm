@@ -1,13 +1,15 @@
 use super::separator::{RenderSeparator, SeparatorWidth};
 use crate::{
     ansi::AnsiSplitter,
-    execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
+    code::{
+        execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
+        snippet::Snippet,
+    },
     markdown::{
         elements::{Line, Text},
         text::WeightedLine,
     },
     presentation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, RenderOperation},
-    processing::code::Snippet,
     render::properties::WindowSize,
     style::{Colors, TextStyle},
     terminal::should_hide_cursor,
