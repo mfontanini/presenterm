@@ -28,6 +28,10 @@ go:
   commands:
     - ["go", "run", "$pwd/snippet.go"]
   hidden_line_prefix: "/// "
+haskell:
+  filename: snippet.hs
+  commands:
+    - ["runhaskell", "-w", "$pwd/snippet.hs"]
 java:
   filename: Snippet.java
   commands:
