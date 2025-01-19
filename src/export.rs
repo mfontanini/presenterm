@@ -3,9 +3,14 @@ use crate::{
     code::execute::SnippetExecutor,
     custom::KeyBindingsConfig,
     markdown::parse::ParseError,
-    presentation::{AsRenderOperations, Presentation, RenderAsyncState, RenderOperation},
-    processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
-    render::properties::WindowSize,
+    presentation::{
+        Presentation,
+        builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
+    },
+    render::{
+        operation::{AsRenderOperations, RenderAsyncState, RenderOperation},
+        properties::WindowSize,
+    },
     terminal::image::{
         Image, ImageSource,
         printer::{ImageProperties, TerminalImage},

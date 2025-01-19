@@ -6,10 +6,14 @@ use super::{
 };
 use crate::{
     markdown::text::WeightedLine,
-    presentation::{
-        AsRenderOperations, BlockLine, ImageRenderProperties, ImageSize, MarginProperties, RenderAsync, RenderOperation,
+    render::{
+        layout::Positioning,
+        operation::{
+            AsRenderOperations, BlockLine, ImageRenderProperties, ImageSize, MarginProperties, RenderAsync,
+            RenderOperation,
+        },
+        properties::WindowSize,
     },
-    render::{layout::Positioning, properties::WindowSize},
     style::Colors,
     terminal::{
         Terminal, TerminalWrite,

@@ -1,8 +1,8 @@
 use super::engine::RenderEngine;
 use crate::{
     markdown::{elements::Text, text::WeightedLine},
-    presentation::{Presentation, RenderOperation},
-    render::properties::WindowSize,
+    presentation::Presentation,
+    render::{operation::RenderOperation, properties::WindowSize},
     style::{Color, Colors, TextStyle},
     terminal::{
         Terminal, TerminalWrite,

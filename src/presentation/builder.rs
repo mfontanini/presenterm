@@ -16,11 +16,13 @@ use crate::{
         text::WeightedLine,
     },
     presentation::{
-        AsRenderOperations, BlockLine, ChunkMutator, ImageRenderProperties, ImageSize, MarginProperties, Modals,
-        Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata, RenderAsync, RenderOperation,
-        Slide, SlideBuilder, SlideChunk,
+        ChunkMutator, Modals, Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata,
+        RenderOperation, Slide, SlideBuilder, SlideChunk,
     },
-    render::properties::WindowSize,
+    render::{
+        operation::{AsRenderOperations, BlockLine, ImageRenderProperties, ImageSize, MarginProperties, RenderAsync},
+        properties::WindowSize,
+    },
     resource::Resources,
     style::{Color, Colors, TextStyle},
     terminal::image::{

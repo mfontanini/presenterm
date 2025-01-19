@@ -1,7 +1,9 @@
 use crate::{
     markdown::elements::Text,
-    presentation::{AsRenderOperations, RenderOperation},
-    render::properties::WindowSize,
+    render::{
+        operation::{AsRenderOperations, RenderOperation},
+        properties::WindowSize,
+    },
     style::{Colors, TextStyle},
     theme::{Alignment, FooterStyle, Margin},
 };

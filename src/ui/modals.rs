@@ -7,10 +7,11 @@ use crate::{
         elements::{Line, Text},
         text::WeightedLine,
     },
-    presentation::{
-        AsRenderOperations, ImageRenderProperties, ImageSize, MarginProperties, PresentationState, RenderOperation,
+    presentation::PresentationState,
+    render::{
+        operation::{AsRenderOperations, ImageRenderProperties, ImageSize, MarginProperties, RenderOperation},
+        properties::WindowSize,
     },
-    render::properties::WindowSize,
     style::{Colors, TextStyle},
     terminal::image::Image,
     theme::Margin,

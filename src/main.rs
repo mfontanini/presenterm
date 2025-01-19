@@ -5,8 +5,8 @@ use crate::{
     demo::ThemesDemo,
     export::Exporter,
     markdown::parse::MarkdownParser,
+    presentation::builder::{PresentationBuilderOptions, Themes},
     presenter::{PresentMode, Presenter, PresenterOptions},
-    processing::builder::{PresentationBuilderOptions, Themes},
     resource::Resources,
     terminal::{
         GraphicsMode,
@@ -39,12 +39,10 @@ mod code;
 mod commands;
 mod custom;
 mod demo;
-mod diff;
 mod export;
 mod markdown;
 mod presentation;
 mod presenter;
-mod processing;
 mod render;
 mod resource;
 mod style;

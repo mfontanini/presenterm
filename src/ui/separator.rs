@@ -1,8 +1,8 @@
 use crate::{
     markdown::elements::Line,
-    presentation::{AsRenderOperations, BlockLine, RenderOperation},
     render::{
         layout::{Layout, Positioning},
+        operation::{AsRenderOperations, BlockLine, RenderOperation},
         properties::WindowSize,
     },
     theme::{Alignment, Margin},

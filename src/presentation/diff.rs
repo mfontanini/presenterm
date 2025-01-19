@@ -115,8 +115,11 @@ mod test {
     use super::*;
     use crate::{
         markdown::text::WeightedLine,
-        presentation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, Slide, SlideBuilder},
-        render::properties::WindowSize,
+        presentation::{Slide, SlideBuilder},
+        render::{
+            operation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState},
+            properties::WindowSize,
+        },
         style::{Color, Colors},
         theme::{Alignment, Margin},
     };

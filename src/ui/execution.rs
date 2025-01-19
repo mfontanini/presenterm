@@ -8,8 +8,10 @@ use crate::{
         elements::{Line, Text},
         text::WeightedLine,
     },
-    presentation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, RenderOperation},
-    render::properties::WindowSize,
+    render::{
+        operation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, RenderOperation},
+        properties::WindowSize,
+    },
     style::{Colors, TextStyle},
     terminal::{ansi::AnsiSplitter, should_hide_cursor},
     theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle, Margin},

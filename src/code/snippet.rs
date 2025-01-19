@@ -8,8 +8,11 @@ use crate::{
         elements::{Percent, PercentParseError},
         text::{WeightedLine, WeightedText},
     },
-    presentation::{AsRenderOperations, BlockLine, ChunkMutator, RenderOperation},
-    render::properties::WindowSize,
+    presentation::ChunkMutator,
+    render::{
+        operation::{AsRenderOperations, BlockLine, RenderOperation},
+        properties::WindowSize,
+    },
     style::{Color, TextStyle},
     theme::{Alignment, CodeBlockStyle},
 };

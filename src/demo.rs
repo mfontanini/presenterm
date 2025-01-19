@@ -6,8 +6,10 @@ use crate::{
         listener::Command,
     },
     markdown::elements::MarkdownElement,
-    presentation::Presentation,
-    processing::builder::{BuildError, PresentationBuilder},
+    presentation::{
+        Presentation,
+        builder::{BuildError, PresentationBuilder},
+    },
     render::draw::TerminalDrawer,
     terminal::TerminalWrite,
 };

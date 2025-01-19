@@ -2,12 +2,13 @@ use crate::{
     ImageRegistry, PresentationTheme,
     custom::{default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
     markdown::elements::{Line, Percent, Text},
-    presentation::{
-        AsRenderOperations, AsyncPresentationError, AsyncPresentationErrorHolder, ImageRenderProperties, ImageSize,
-        RenderAsync, RenderAsyncState, RenderOperation,
+    presentation::{AsyncPresentationError, AsyncPresentationErrorHolder, builder::DEFAULT_IMAGE_Z_INDEX},
+    render::{
+        operation::{
+            AsRenderOperations, ImageRenderProperties, ImageSize, RenderAsync, RenderAsyncState, RenderOperation,
+        },
+        properties::WindowSize,
     },
-    processing::builder::DEFAULT_IMAGE_Z_INDEX,
-    render::properties::WindowSize,
     style::{Color, Colors, TextStyle},
     terminal::image::{Image, printer::RegisterImageError},
     theme::{Alignment, MermaidStyle, TypstStyle},
