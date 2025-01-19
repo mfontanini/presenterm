@@ -53,6 +53,7 @@ mod terminal;
 mod theme;
 mod third_party;
 mod tools;
+mod ui;
 
 const DEFAULT_THEME: &str = "dark";
 

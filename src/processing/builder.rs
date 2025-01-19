@@ -1,7 +1,3 @@
-use super::{
-    execution::{DisplaySeparator, RunAcquireTerminalSnippet, SnippetExecutionDisabledOperation},
-    modals::KeyBindingsModalBuilder,
-};
 use crate::{
     code::{
         execute::SnippetExecutor,
@@ -24,12 +20,6 @@ use crate::{
         Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata, RenderAsync, RenderOperation,
         Slide, SlideBuilder, SlideChunk,
     },
-    processing::{
-        execution::RunSnippetOperation,
-        footer::{FooterContext, FooterGenerator},
-        modals::IndexBuilder,
-        separator::RenderSeparator,
-    },
     render::properties::WindowSize,
     resource::Resources,
     style::{Color, Colors, TextStyle},
@@ -42,6 +32,14 @@ use crate::{
         PresentationThemeSet,
     },
     third_party::{ThirdPartyRender, ThirdPartyRenderError, ThirdPartyRenderRequest},
+    ui::{
+        execution::{
+            DisplaySeparator, RunAcquireTerminalSnippet, RunSnippetOperation, SnippetExecutionDisabledOperation,
+        },
+        footer::{FooterContext, FooterGenerator},
+        modals::{IndexBuilder, KeyBindingsModalBuilder},
+        separator::RenderSeparator,
+    },
 };
 use image::DynamicImage;
 use serde::Deserialize;
