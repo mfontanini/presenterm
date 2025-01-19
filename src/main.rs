@@ -1,3 +1,18 @@
+use crate::{
+    custom::{Config, ImageProtocol, ValidateOverflows},
+    demo::ThemesDemo,
+    execute::SnippetExecutor,
+    export::Exporter,
+    input::{source::CommandSource, speaker_notes::SpeakerNotesCommand},
+    markdown::parse::MarkdownParser,
+    media::{graphics::GraphicsMode, printer::ImagePrinter, register::ImageRegistry},
+    presenter::{PresentMode, Presenter, PresenterOptions},
+    processing::builder::{PresentationBuilderOptions, Themes},
+    render::highlighting::HighlightThemeSet,
+    resource::Resources,
+    theme::{PresentationTheme, PresentationThemeSet},
+    third_party::{ThirdPartyConfigs, ThirdPartyRender},
+};
 use clap::{CommandFactory, Parser, ValueEnum, error::ErrorKind};
 use comrak::Arena;
 use directories::ProjectDirs;
@@ -8,12 +23,6 @@ use iceoryx2::{
         ipc::Service,
     },
 };
-use presenterm::{
-    CommandSource, Config, Exporter, GraphicsMode, HighlightThemeSet, ImagePrinter, ImageProtocol, ImageRegistry,
-    MarkdownParser, PresentMode, PresentationBuilderOptions, PresentationTheme, PresentationThemeSet, Presenter,
-    PresenterOptions, Resources, SnippetExecutor, SpeakerNotesCommand, Themes, ThemesDemo, ThirdPartyConfigs,
-    ThirdPartyRender, ValidateOverflows,
-};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use std::{
@@ -23,6 +32,25 @@ use std::{
     rc::Rc,
     sync::Arc,
 };
+
+mod ansi;
+mod custom;
+mod demo;
+mod diff;
+mod execute;
+mod export;
+mod input;
+mod markdown;
+mod media;
+mod presentation;
+mod presenter;
+mod processing;
+mod render;
+mod resource;
+mod style;
+mod theme;
+mod third_party;
+mod tools;
 
 const DEFAULT_THEME: &str = "dark";
 

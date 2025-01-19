@@ -101,9 +101,6 @@ pub enum RenderError {
     #[error("io: {0}")]
     Io(#[from] io::Error),
 
-    #[error("unsupported structure: {0}")]
-    UnsupportedStructure(&'static str),
-
     #[error("screen is too small")]
     TerminalTooSmall,
 
@@ -121,9 +118,6 @@ pub enum RenderError {
 
     #[error("vertical overflow")]
     VerticalOverflow,
-
-    #[error(transparent)]
-    Other(Box<dyn std::error::Error>),
 }
 
 pub(crate) enum ErrorSource {

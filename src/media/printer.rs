@@ -152,9 +152,6 @@ impl PrintImage for ImagePrinter {
 pub enum CreatePrinterError {
     #[error("io: {0}")]
     Io(#[from] io::Error),
-
-    #[error("unexpected: {0}")]
-    Other(String),
 }
 
 #[derive(Debug, thiserror::Error)]
