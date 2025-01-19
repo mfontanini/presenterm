@@ -2,7 +2,6 @@ use super::{
     draw::{RenderError, RenderResult},
     layout::Layout,
     properties::CursorPosition,
-    terminal::{Terminal, TerminalWrite},
     text::TextDrawer,
 };
 use crate::{
@@ -12,10 +11,13 @@ use crate::{
     },
     render::{layout::Positioning, properties::WindowSize},
     style::Colors,
-    terminal::image::{
-        Image,
-        printer::{ImageProperties, PrintOptions},
-        scale::{fit_image_to_window, scale_image},
+    terminal::{
+        Terminal, TerminalWrite,
+        image::{
+            Image,
+            printer::{ImageProperties, PrintOptions},
+            scale::{fit_image_to_window, scale_image},
+        },
     },
     theme::Alignment,
 };

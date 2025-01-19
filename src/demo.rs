@@ -8,7 +8,8 @@ use crate::{
     markdown::elements::MarkdownElement,
     presentation::Presentation,
     processing::builder::{BuildError, PresentationBuilder},
-    render::{draw::TerminalDrawer, terminal::TerminalWrite},
+    render::draw::TerminalDrawer,
+    terminal::TerminalWrite,
 };
 use std::{io, rc::Rc};
 

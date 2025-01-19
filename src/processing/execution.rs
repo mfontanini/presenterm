@@ -8,8 +8,9 @@ use crate::{
     },
     presentation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, RenderOperation},
     processing::code::Snippet,
-    render::{properties::WindowSize, terminal::should_hide_cursor},
+    render::properties::WindowSize,
     style::{Colors, TextStyle},
+    terminal::should_hide_cursor,
     theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle, Margin},
 };
 use crossterm::{
