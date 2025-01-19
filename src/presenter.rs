@@ -19,9 +19,7 @@ use crate::{
         diff::PresentationDiffer,
     },
     render::{
-        draw::{ErrorSource, RenderError, RenderResult, TerminalDrawer},
-        operation::RenderAsyncState,
-        properties::WindowSize,
+        ErrorSource, RenderError, RenderResult, TerminalDrawer, operation::RenderAsyncState, properties::WindowSize,
         validate::OverflowValidator,
     },
     resource::Resources,
@@ -208,14 +206,16 @@ impl<'a> Presenter<'a> {
 
     fn render(&mut self, drawer: &mut TerminalDrawer<Stdout>) -> RenderResult {
         let result = match &self.state {
-            PresenterState::Presenting(presentation) => drawer.render_slide(presentation),
+            PresenterState::Presenting(presentation) => {
+                drawer.render_operations(presentation.current_slide().iter_visible_operations())
+            }
             PresenterState::SlideIndex(presentation) => {
-                drawer.render_slide(presentation)?;
-                drawer.render_slide_index(presentation)
+                drawer.render_operations(presentation.current_slide().iter_visible_operations())?;
+                drawer.render_operations(presentation.iter_slide_index_operations())
             }
             PresenterState::KeyBindings(presentation) => {
-                drawer.render_slide(presentation)?;
-                drawer.render_key_bindings(presentation)
+                drawer.render_operations(presentation.current_slide().iter_visible_operations())?;
+                drawer.render_operations(presentation.iter_bindings_operations())
             }
             PresenterState::Failure { error, source, .. } => drawer.render_error(error, source),
             PresenterState::Empty => panic!("cannot render without state"),

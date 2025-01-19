@@ -1,9 +1,4 @@
-use super::{
-    draw::{RenderError, RenderResult},
-    layout::Layout,
-    properties::CursorPosition,
-    text::TextDrawer,
-};
+use super::{RenderError, RenderResult, layout::Layout, properties::CursorPosition, text::TextDrawer};
 use crate::{
     markdown::{text::WeightedLine, text_style::Colors},
     render::{

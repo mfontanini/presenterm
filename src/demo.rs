@@ -10,7 +10,7 @@ use crate::{
         Presentation,
         builder::{BuildError, PresentationBuilder},
     },
-    render::draw::TerminalDrawer,
+    render::TerminalDrawer,
     terminal::TerminalWrite,
 };
 use std::{io, rc::Rc};
@@ -65,7 +65,7 @@ impl<W: TerminalWrite> ThemesDemo<W> {
         }
         let mut current = 0;
         loop {
-            self.drawer.render_slide(&presentations[current])?;
+            self.drawer.render_operations(presentations[current].current_slide().iter_visible_operations())?;
 
             let command = self.next_command()?;
             match command {

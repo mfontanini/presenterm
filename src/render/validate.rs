@@ -3,7 +3,7 @@ use crate::{
     ImagePrinter,
     presentation::Presentation,
     render::{
-        draw::RenderError,
+        RenderError,
         engine::{RenderEngine, RenderEngineOptions},
     },
     terminal::{Terminal, TerminalWrite},

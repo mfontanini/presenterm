@@ -4,10 +4,7 @@ use crate::{
         text::{WeightedLine, WeightedText},
         text_style::{Color, Colors},
     },
-    render::{
-        draw::{RenderError, RenderResult},
-        layout::Positioning,
-    },
+    render::{RenderError, RenderResult, layout::Positioning},
     terminal::{Terminal, TerminalWrite},
 };
 
