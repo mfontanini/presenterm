@@ -1,5 +1,8 @@
 use crate::{
-    media::{image::Image, printer::RegisterImageError, register::ImageRegistry},
+    terminal::image::{
+        Image,
+        printer::{ImageRegistry, RegisterImageError},
+    },
     theme::{LoadThemeError, PresentationTheme},
 };
 use std::{

@@ -13,9 +13,8 @@ use crate::{
         },
         text::WeightedLine,
     },
-    media::{image::Image, printer::RegisterImageError, register::ImageRegistry},
     presentation::{
-        AsRenderOperations, BlockLine, ChunkMutator, ImageProperties, ImageSize, MarginProperties, Modals,
+        AsRenderOperations, BlockLine, ChunkMutator, ImageRenderProperties, ImageSize, MarginProperties, Modals,
         Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata, RenderAsync, RenderOperation,
         Slide, SlideBuilder, SlideChunk,
     },
@@ -32,6 +31,10 @@ use crate::{
     },
     resource::Resources,
     style::{Color, Colors, TextStyle},
+    terminal::image::{
+        Image,
+        printer::{ImageRegistry, RegisterImageError},
+    },
     theme::{
         Alignment, AuthorPositioning, CodeBlockStyle, ElementType, LoadThemeError, Margin, PresentationTheme,
         PresentationThemeSet,
@@ -632,7 +635,7 @@ impl<'a> PresentationBuilder<'a> {
             Some(percent) => ImageSize::WidthScaled { ratio: percent.as_ratio() },
             None => ImageSize::ShrinkIfNeeded,
         };
-        let properties = ImageProperties {
+        let properties = ImageRenderProperties {
             z_index: DEFAULT_IMAGE_Z_INDEX,
             size,
             restore_cursor: false,

@@ -1,5 +1,4 @@
-use super::query::TerminalCapabilities;
-use crate::{GraphicsMode, media::kitty::KittyMode};
+use super::{GraphicsMode, image::protocols::kitty::KittyMode, query::TerminalCapabilities};
 use std::env;
 use strum::IntoEnumIterator;
 

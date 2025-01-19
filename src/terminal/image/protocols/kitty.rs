@@ -1,5 +1,7 @@
-use super::printer::{PrintImage, PrintImageError, PrintOptions, RegisterImageError, ResourceProperties};
-use crate::style::Color;
+use crate::{
+    style::Color,
+    terminal::image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError},
+};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use crossterm::{QueueableCommand, cursor::MoveToColumn, style::SetForegroundColor};
 use image::{AnimationDecoder, Delay, DynamicImage, EncodableLayout, ImageReader, RgbaImage, codecs::gif::GifDecoder};
@@ -46,9 +48,9 @@ enum GenericResource<B> {
 type RawResource = GenericResource<RgbaImage>;
 
 impl RawResource {
-    fn into_memory_resource(self) -> KittyResource {
+    fn into_memory_resource(self) -> KittyImage {
         match self {
-            Self::Image(image) => KittyResource {
+            Self::Image(image) => KittyImage {
                 dimensions: image.dimensions(),
                 resource: GenericResource::Image(KittyBuffer::Memory(image.into_raw())),
             },
@@ -59,18 +61,18 @@ impl RawResource {
                     .map(|frame| GifFrame { delay: frame.delay, buffer: KittyBuffer::Memory(frame.buffer.into_raw()) })
                     .collect();
                 let resource = GenericResource::Gif(frames);
-                KittyResource { dimensions, resource }
+                KittyImage { dimensions, resource }
             }
         }
     }
 }
 
-pub(crate) struct KittyResource {
+pub(crate) struct KittyImage {
     dimensions: (u32, u32),
     resource: GenericResource<KittyBuffer>,
 }
 
-impl ResourceProperties for KittyResource {
+impl ImageProperties for KittyImage {
     fn dimensions(&self) -> (u32, u32) {
         self.dimensions
     }
@@ -112,16 +114,16 @@ impl KittyPrinter {
         self.base_directory.path().join(file_number.to_string())
     }
 
-    fn persist_image(&self, image: RgbaImage) -> io::Result<KittyResource> {
+    fn persist_image(&self, image: RgbaImage) -> io::Result<KittyImage> {
         let path = self.allocate_tempfile();
         fs::write(&path, image.as_bytes())?;
 
         let buffer = KittyBuffer::Filesystem(path);
-        let resource = KittyResource { dimensions: image.dimensions(), resource: GenericResource::Image(buffer) };
+        let resource = KittyImage { dimensions: image.dimensions(), resource: GenericResource::Image(buffer) };
         Ok(resource)
     }
 
-    fn persist_gif(&self, frames: Vec<GifFrame<RgbaImage>>) -> io::Result<KittyResource> {
+    fn persist_gif(&self, frames: Vec<GifFrame<RgbaImage>>) -> io::Result<KittyImage> {
         let mut persisted_frames = Vec::new();
         let mut dimensions = (0, 0);
         for frame in frames {
@@ -132,10 +134,10 @@ impl KittyPrinter {
             let frame = GifFrame { delay: frame.delay, buffer: KittyBuffer::Filesystem(path) };
             persisted_frames.push(frame);
         }
-        Ok(KittyResource { dimensions, resource: GenericResource::Gif(persisted_frames) })
+        Ok(KittyImage { dimensions, resource: GenericResource::Gif(persisted_frames) })
     }
 
-    fn persist_resource(&self, resource: RawResource) -> io::Result<KittyResource> {
+    fn persist_resource(&self, resource: RawResource) -> io::Result<KittyImage> {
         match resource {
             RawResource::Image(image) => self.persist_image(image),
             RawResource::Gif(frames) => self.persist_gif(frames),
@@ -367,9 +369,9 @@ impl KittyPrinter {
 }
 
 impl PrintImage for KittyPrinter {
-    type Resource = KittyResource;
+    type Image = KittyImage;
 
-    fn register_image(&self, image: DynamicImage) -> Result<Self::Resource, RegisterImageError> {
+    fn register(&self, image: DynamicImage) -> Result<Self::Image, RegisterImageError> {
         let resource = RawResource::Image(image.into_rgba8());
         let resource = match &self.mode {
             KittyMode::Local => self.persist_resource(resource)?,
@@ -378,7 +380,7 @@ impl PrintImage for KittyPrinter {
         Ok(resource)
     }
 
-    fn register_resource<P: AsRef<Path>>(&self, path: P) -> Result<Self::Resource, RegisterImageError> {
+    fn register_from_path<P: AsRef<Path>>(&self, path: P) -> Result<Self::Image, RegisterImageError> {
         let resource = Self::load_raw_resource(path.as_ref())?;
         let resource = match &self.mode {
             KittyMode::Local => self.persist_resource(resource)?,
@@ -389,7 +391,7 @@ impl PrintImage for KittyPrinter {
 
     fn print<W: std::io::Write>(
         &self,
-        image: &Self::Resource,
+        image: &Self::Image,
         options: &PrintOptions,
         writer: &mut W,
     ) -> Result<(), PrintImageError> {

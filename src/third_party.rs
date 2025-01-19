@@ -2,14 +2,14 @@ use crate::{
     ImageRegistry, PresentationTheme,
     custom::{default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
     markdown::elements::{Line, Percent, Text},
-    media::{image::Image, printer::RegisterImageError},
     presentation::{
-        AsRenderOperations, AsyncPresentationError, AsyncPresentationErrorHolder, ImageProperties, ImageSize,
+        AsRenderOperations, AsyncPresentationError, AsyncPresentationErrorHolder, ImageRenderProperties, ImageSize,
         RenderAsync, RenderAsyncState, RenderOperation,
     },
     processing::builder::DEFAULT_IMAGE_Z_INDEX,
     render::properties::WindowSize,
     style::{Color, Colors, TextStyle},
+    terminal::image::{Image, printer::RegisterImageError},
     theme::{Alignment, MermaidStyle, TypstStyle},
     tools::{ExecutionError, ThirdPartyTools},
 };
@@ -355,7 +355,7 @@ impl AsRenderOperations for RenderThirdParty {
                     Some(percent) => ImageSize::WidthScaled { ratio: percent.as_ratio() },
                     None => Default::default(),
                 };
-                let properties = ImageProperties {
+                let properties = ImageRenderProperties {
                     z_index: DEFAULT_IMAGE_Z_INDEX,
                     size,
                     restore_cursor: false,

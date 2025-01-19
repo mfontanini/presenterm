@@ -1,4 +1,4 @@
-use super::kitty::{Action, ControlCommand, ControlOption, ImageFormat, TransmissionMedium};
+use super::image::protocols::kitty::{Action, ControlCommand, ControlOption, ImageFormat, TransmissionMedium};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use image::{DynamicImage, EncodableLayout};

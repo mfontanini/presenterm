@@ -5,11 +5,14 @@ use crate::{
     execute::SnippetExecutor,
     export::Exporter,
     markdown::parse::MarkdownParser,
-    media::{graphics::GraphicsMode, printer::ImagePrinter, register::ImageRegistry},
     presenter::{PresentMode, Presenter, PresenterOptions},
     processing::builder::{PresentationBuilderOptions, Themes},
     render::highlighting::HighlightThemeSet,
     resource::Resources,
+    terminal::{
+        GraphicsMode,
+        image::printer::{ImagePrinter, ImageRegistry},
+    },
     theme::{PresentationTheme, PresentationThemeSet},
     third_party::{ThirdPartyConfigs, ThirdPartyRender},
 };
@@ -41,13 +44,13 @@ mod diff;
 mod execute;
 mod export;
 mod markdown;
-mod media;
 mod presentation;
 mod presenter;
 mod processing;
 mod render;
 mod resource;
 mod style;
+mod terminal;
 mod theme;
 mod third_party;
 mod tools;

@@ -1,4 +1,4 @@
-use super::printer::{PrintImage, PrintImageError, PrintOptions, RegisterImageError, ResourceProperties};
+use crate::terminal::image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError};
 use crossterm::{
     QueueableCommand,
     cursor::{MoveRight, MoveToColumn},
@@ -11,22 +11,22 @@ use std::{fs, ops::Deref};
 const TOP_CHAR: char = '▀';
 const BOTTOM_CHAR: char = '▄';
 
-pub(crate) struct AsciiResource(DynamicImage);
+pub(crate) struct AsciiImage(DynamicImage);
 
-impl ResourceProperties for AsciiResource {
+impl ImageProperties for AsciiImage {
     fn dimensions(&self) -> (u32, u32) {
         self.0.dimensions()
     }
 }
 
-impl From<DynamicImage> for AsciiResource {
+impl From<DynamicImage> for AsciiImage {
     fn from(image: DynamicImage) -> Self {
         let image = image.into_rgba8();
         Self(image.into())
     }
 }
 
-impl Deref for AsciiResource {
+impl Deref for AsciiImage {
     type Target = DynamicImage;
 
     fn deref(&self) -> &Self::Target {
@@ -62,19 +62,19 @@ impl AsciiPrinter {
 }
 
 impl PrintImage for AsciiPrinter {
-    type Resource = AsciiResource;
+    type Image = AsciiImage;
 
-    fn register_image(&self, image: image::DynamicImage) -> Result<Self::Resource, RegisterImageError> {
-        Ok(AsciiResource(image))
+    fn register(&self, image: image::DynamicImage) -> Result<Self::Image, RegisterImageError> {
+        Ok(AsciiImage(image))
     }
 
-    fn register_resource<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Self::Resource, RegisterImageError> {
+    fn register_from_path<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Self::Image, RegisterImageError> {
         let contents = fs::read(path)?;
         let image = image::load_from_memory(&contents)?;
-        Ok(AsciiResource(image))
+        Ok(AsciiImage(image))
     }
 
-    fn print<W>(&self, image: &Self::Resource, options: &PrintOptions, writer: &mut W) -> Result<(), PrintImageError>
+    fn print<W>(&self, image: &Self::Image, options: &PrintOptions, writer: &mut W) -> Result<(), PrintImageError>
     where
         W: std::io::Write,
     {

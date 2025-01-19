@@ -1,5 +1,5 @@
-use super::printer::{
-    CreatePrinterError, PrintImage, PrintImageError, PrintOptions, RegisterImageError, ResourceProperties,
+use crate::terminal::image::printer::{
+    CreatePrinterError, ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError,
 };
 use image::{DynamicImage, GenericImageView, imageops::FilterType};
 use sixel_rs::{
@@ -9,9 +9,9 @@ use sixel_rs::{
 };
 use std::{fs, io};
 
-pub(crate) struct SixelResource(DynamicImage);
+pub(crate) struct SixelImage(DynamicImage);
 
-impl ResourceProperties for SixelResource {
+impl ImageProperties for SixelImage {
     fn dimensions(&self) -> (u32, u32) {
         self.0.dimensions()
     }
@@ -27,19 +27,19 @@ impl SixelPrinter {
 }
 
 impl PrintImage for SixelPrinter {
-    type Resource = SixelResource;
+    type Image = SixelImage;
 
-    fn register_image(&self, image: image::DynamicImage) -> Result<Self::Resource, RegisterImageError> {
-        Ok(SixelResource(image))
+    fn register(&self, image: image::DynamicImage) -> Result<Self::Image, RegisterImageError> {
+        Ok(SixelImage(image))
     }
 
-    fn register_resource<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Self::Resource, RegisterImageError> {
+    fn register_from_path<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Self::Image, RegisterImageError> {
         let contents = fs::read(path)?;
         let image = image::load_from_memory(&contents)?;
-        Ok(SixelResource(image))
+        Ok(SixelImage(image))
     }
 
-    fn print<W>(&self, image: &Self::Resource, options: &PrintOptions, writer: &mut W) -> Result<(), PrintImageError>
+    fn print<W>(&self, image: &Self::Image, options: &PrintOptions, writer: &mut W) -> Result<(), PrintImageError>
     where
         W: io::Write,
     {

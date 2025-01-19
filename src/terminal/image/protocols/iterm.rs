@@ -1,15 +1,15 @@
-use super::printer::{PrintImage, PrintImageError, PrintOptions, RegisterImageError, ResourceProperties};
+use crate::terminal::image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use image::{GenericImageView, ImageEncoder, codecs::png::PngEncoder};
 use std::{env, fs, path::Path};
 
-pub(crate) struct ItermResource {
+pub(crate) struct ItermImage {
     dimensions: (u32, u32),
     raw_length: usize,
     base64_contents: String,
 }
 
-impl ItermResource {
+impl ItermImage {
     fn new(contents: Vec<u8>, dimensions: (u32, u32)) -> Self {
         let raw_length = contents.len();
         let base64_contents = STANDARD.encode(&contents);
@@ -17,7 +17,7 @@ impl ItermResource {
     }
 }
 
-impl ResourceProperties for ItermResource {
+impl ImageProperties for ItermImage {
     fn dimensions(&self) -> (u32, u32) {
         self.dimensions
     }
@@ -42,23 +42,23 @@ impl Default for ItermPrinter {
 }
 
 impl PrintImage for ItermPrinter {
-    type Resource = ItermResource;
+    type Image = ItermImage;
 
-    fn register_image(&self, image: image::DynamicImage) -> Result<Self::Resource, RegisterImageError> {
+    fn register(&self, image: image::DynamicImage) -> Result<Self::Image, RegisterImageError> {
         let dimensions = image.dimensions();
         let mut contents = Vec::new();
         let encoder = PngEncoder::new(&mut contents);
         encoder.write_image(image.as_bytes(), dimensions.0, dimensions.1, image.color().into())?;
-        Ok(ItermResource::new(contents, dimensions))
+        Ok(ItermImage::new(contents, dimensions))
     }
 
-    fn register_resource<P: AsRef<Path>>(&self, path: P) -> Result<Self::Resource, RegisterImageError> {
+    fn register_from_path<P: AsRef<Path>>(&self, path: P) -> Result<Self::Image, RegisterImageError> {
         let contents = fs::read(path)?;
         let image = image::load_from_memory(&contents)?;
-        Ok(ItermResource::new(contents, image.dimensions()))
+        Ok(ItermImage::new(contents, image.dimensions()))
     }
 
-    fn print<W>(&self, image: &Self::Resource, options: &PrintOptions, writer: &mut W) -> Result<(), PrintImageError>
+    fn print<W>(&self, image: &Self::Image, options: &PrintOptions, writer: &mut W) -> Result<(), PrintImageError>
     where
         W: std::io::Write,
     {

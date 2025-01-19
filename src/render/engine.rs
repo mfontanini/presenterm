@@ -7,16 +7,16 @@ use super::{
 };
 use crate::{
     markdown::text::WeightedLine,
-    media::{
-        image::Image,
-        printer::{PrintOptions, ResourceProperties},
-        scale::{fit_image_to_window, scale_image},
-    },
     presentation::{
-        AsRenderOperations, BlockLine, ImageProperties, ImageSize, MarginProperties, RenderAsync, RenderOperation,
+        AsRenderOperations, BlockLine, ImageRenderProperties, ImageSize, MarginProperties, RenderAsync, RenderOperation,
     },
     render::{layout::Positioning, properties::WindowSize},
     style::Colors,
+    terminal::image::{
+        Image,
+        printer::{ImageProperties, PrintOptions},
+        scale::{fit_image_to_window, scale_image},
+    },
     theme::Alignment,
 };
 use std::mem;
@@ -175,7 +175,7 @@ where
         Ok(())
     }
 
-    fn render_image(&mut self, image: &Image, properties: &ImageProperties) -> RenderResult {
+    fn render_image(&mut self, image: &Image, properties: &ImageRenderProperties) -> RenderResult {
         let rect = self.current_rect();
         let starting_position = CursorPosition { row: self.terminal.cursor_row, column: rect.start_column };
 

@@ -6,13 +6,13 @@ use crate::{
         elements::{Line, Text},
         text::WeightedLine,
     },
-    media::image::Image,
     presentation::{
-        AsRenderOperations, ImageProperties, ImageSize, MarginProperties, PresentationState, RenderOperation,
+        AsRenderOperations, ImageRenderProperties, ImageSize, MarginProperties, PresentationState, RenderOperation,
     },
     processing::padding::NumberPadder,
     render::properties::WindowSize,
     style::{Colors, TextStyle},
+    terminal::image::Image,
     theme::Margin,
 };
 use std::{iter, rc::Rc};
@@ -302,7 +302,7 @@ impl AsRenderOperations for CenterModalContent {
         let mut operations =
             vec![RenderOperation::ApplyMargin(properties), RenderOperation::JumpToRow { index: target_row }];
         if let Some(image) = &self.background {
-            let properties = ImageProperties {
+            let properties = ImageRenderProperties {
                 z_index: MODAL_Z_INDEX,
                 size: ImageSize::Specific(self.content_width, content_height),
                 restore_cursor: true,

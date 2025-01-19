@@ -14,7 +14,6 @@ use crate::{
     execute::SnippetExecutor,
     export::ImageReplacer,
     markdown::parse::{MarkdownParser, ParseError},
-    media::{printer::ImagePrinter, register::ImageRegistry},
     presentation::{Presentation, RenderAsyncState},
     processing::builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
     render::{
@@ -23,6 +22,7 @@ use crate::{
         validate::OverflowValidator,
     },
     resource::Resources,
+    terminal::image::printer::{ImagePrinter, ImageRegistry},
     theme::PresentationTheme,
     third_party::ThirdPartyRender,
 };

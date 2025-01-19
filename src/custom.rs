@@ -1,8 +1,9 @@
 use crate::{
-    GraphicsMode,
     commands::keyboard::KeyBinding,
-    media::{emulator::TerminalEmulator, kitty::KittyMode, query::TerminalCapabilities},
     processing::code::SnippetLanguage,
+    terminal::{
+        GraphicsMode, emulator::TerminalEmulator, image::protocols::kitty::KittyMode, query::TerminalCapabilities,
+    },
 };
 use clap::ValueEnum;
 use schemars::JsonSchema;

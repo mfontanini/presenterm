@@ -1,9 +1,9 @@
 use crate::{
     custom::OptionsConfig,
     markdown::text::{WeightedLine, WeightedText},
-    media::image::Image,
     render::properties::WindowSize,
     style::{Color, Colors},
+    terminal::image::Image,
     theme::{Alignment, Margin, PresentationTheme},
 };
 use serde::Deserialize;
@@ -595,7 +595,7 @@ pub(crate) enum RenderOperation {
     RenderLineBreak,
 
     /// Render an image.
-    RenderImage(Image, ImageProperties),
+    RenderImage(Image, ImageRenderProperties),
 
     /// Render a line.
     RenderBlockLine(BlockLine),
@@ -633,7 +633,7 @@ pub(crate) enum RenderOperation {
 
 /// The properties of an image being rendered.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct ImageProperties {
+pub(crate) struct ImageRenderProperties {
     pub(crate) z_index: i32,
     pub(crate) size: ImageSize,
     pub(crate) restore_cursor: bool,

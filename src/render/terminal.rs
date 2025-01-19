@@ -1,9 +1,9 @@
 use crate::{
-    media::{
-        image::Image,
+    style::{Color, Colors},
+    terminal::image::{
+        Image,
         printer::{ImagePrinter, PrintImage, PrintImageError, PrintOptions},
     },
-    style::{Color, Colors},
 };
 use crossterm::{
     QueueableCommand, cursor,
@@ -104,7 +104,7 @@ impl<W: TerminalWrite> Terminal<W> {
 
     pub(crate) fn print_image(&mut self, image: &Image, options: &PrintOptions) -> Result<(), PrintImageError> {
         self.move_to_column(options.cursor_position.column)?;
-        self.image_printer.print(&image.resource, options, &mut self.writer)?;
+        self.image_printer.print(&image.image, options, &mut self.writer)?;
         self.cursor_row += options.rows;
         Ok(())
     }

@@ -4,10 +4,10 @@ use super::{
 };
 use crate::{
     markdown::{elements::Text, text::WeightedLine},
-    media::printer::{ImagePrinter, PrintImageError},
     presentation::{Presentation, RenderOperation},
     render::properties::WindowSize,
     style::{Color, Colors, TextStyle},
+    terminal::image::printer::{ImagePrinter, PrintImageError},
     theme::{Alignment, Margin},
 };
 use std::{io, sync::Arc};
