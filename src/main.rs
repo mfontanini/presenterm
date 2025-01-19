@@ -35,7 +35,6 @@ use std::{
     sync::Arc,
 };
 
-mod ansi;
 mod code;
 mod commands;
 mod custom;

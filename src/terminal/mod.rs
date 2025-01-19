@@ -1,3 +1,4 @@
+pub(crate) mod ansi;
 pub(crate) mod emulator;
 pub(crate) mod image;
 pub(crate) mod printer;

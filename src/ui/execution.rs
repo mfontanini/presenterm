@@ -1,6 +1,5 @@
 use super::separator::{RenderSeparator, SeparatorWidth};
 use crate::{
-    ansi::AnsiSplitter,
     code::{
         execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
         snippet::Snippet,
@@ -12,7 +11,7 @@ use crate::{
     presentation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, RenderOperation},
     render::properties::WindowSize,
     style::{Colors, TextStyle},
-    terminal::should_hide_cursor,
+    terminal::{ansi::AnsiSplitter, should_hide_cursor},
     theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle, Margin},
 };
 use crossterm::{
