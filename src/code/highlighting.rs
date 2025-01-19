@@ -1,7 +1,9 @@
 use crate::{
     code::snippet::SnippetLanguage,
-    markdown::elements::{Line, Text},
-    style::{Color, TextStyle},
+    markdown::{
+        elements::{Line, Text},
+        text_style::{Color, TextStyle},
+    },
     theme::CodeBlockStyle,
 };
 use flate2::read::ZlibDecoder;

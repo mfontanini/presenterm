@@ -45,7 +45,6 @@ mod presentation;
 mod presenter;
 mod render;
 mod resource;
-mod style;
 mod terminal;
 mod theme;
 mod third_party;

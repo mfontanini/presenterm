@@ -1,5 +1,5 @@
 use crate::{
-    style::Color,
+    markdown::text_style::Color,
     terminal::image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError},
 };
 use base64::{Engine, engine::general_purpose::STANDARD};

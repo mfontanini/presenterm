@@ -114,13 +114,15 @@ where
 mod test {
     use super::*;
     use crate::{
-        markdown::text::WeightedLine,
+        markdown::{
+            text::WeightedLine,
+            text_style::{Color, Colors},
+        },
         presentation::{Slide, SlideBuilder},
         render::{
             operation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState},
             properties::WindowSize,
         },
-        style::{Color, Colors},
         theme::{Alignment, Margin},
     };
     use rstest::rstest;

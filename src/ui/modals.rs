@@ -6,13 +6,13 @@ use crate::{
     markdown::{
         elements::{Line, Text},
         text::WeightedLine,
+        text_style::{Colors, TextStyle},
     },
     presentation::PresentationState,
     render::{
         operation::{AsRenderOperations, ImageRenderProperties, ImageSize, MarginProperties, RenderOperation},
         properties::WindowSize,
     },
-    style::{Colors, TextStyle},
     terminal::image::Image,
     theme::Margin,
 };

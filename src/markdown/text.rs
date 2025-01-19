@@ -1,5 +1,7 @@
-use super::elements::{Line, Text};
-use crate::style::TextStyle;
+use super::{
+    elements::{Line, Text},
+    text_style::TextStyle,
+};
 use std::mem;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 

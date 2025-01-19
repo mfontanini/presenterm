@@ -1,9 +1,7 @@
-use crate::{
-    markdown::{
-        elements::{Line, Text},
-        text::WeightedLine,
-    },
-    style::{Color, TextStyle},
+use crate::markdown::{
+    elements::{Line, Text},
+    text::WeightedLine,
+    text_style::{Color, TextStyle},
 };
 use ansi_parser::{AnsiParser, AnsiSequence, Output};
 

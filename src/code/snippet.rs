@@ -7,13 +7,13 @@ use crate::{
     markdown::{
         elements::{Percent, PercentParseError},
         text::{WeightedLine, WeightedText},
+        text_style::{Color, TextStyle},
     },
     presentation::ChunkMutator,
     render::{
         operation::{AsRenderOperations, BlockLine, RenderOperation},
         properties::WindowSize,
     },
-    style::{Color, TextStyle},
     theme::{Alignment, CodeBlockStyle},
 };
 use serde::Deserialize;

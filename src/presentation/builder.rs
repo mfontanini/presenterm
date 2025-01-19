@@ -14,6 +14,7 @@ use crate::{
             Text,
         },
         text::WeightedLine,
+        text_style::{Color, Colors, TextStyle},
     },
     presentation::{
         ChunkMutator, Modals, Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata,
@@ -24,7 +25,6 @@ use crate::{
         properties::WindowSize,
     },
     resource::Resources,
-    style::{Color, Colors, TextStyle},
     terminal::image::{
         Image,
         printer::{ImageRegistry, RegisterImageError},

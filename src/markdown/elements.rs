@@ -1,4 +1,4 @@
-use crate::style::TextStyle;
+use super::text_style::TextStyle;
 use std::{fmt, iter, path::PathBuf, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 

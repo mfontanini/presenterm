@@ -1,9 +1,12 @@
 use super::engine::RenderEngine;
 use crate::{
-    markdown::{elements::Text, text::WeightedLine},
+    markdown::{
+        elements::Text,
+        text::WeightedLine,
+        text_style::{Color, Colors, TextStyle},
+    },
     presentation::Presentation,
     render::{operation::RenderOperation, properties::WindowSize},
-    style::{Color, Colors, TextStyle},
     terminal::{
         Terminal, TerminalWrite,
         image::printer::{ImagePrinter, PrintImageError},

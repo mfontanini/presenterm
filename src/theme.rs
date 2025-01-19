@@ -1,4 +1,4 @@
-use crate::style::{Color, Colors};
+use crate::markdown::text_style::{Color, Colors};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs, io, path::Path};
 

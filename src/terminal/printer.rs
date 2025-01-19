@@ -1,5 +1,5 @@
 use crate::{
-    style::{Color, Colors},
+    markdown::text_style::{Color, Colors},
     terminal::image::{
         Image,
         printer::{ImagePrinter, PrintImage, PrintImageError, PrintOptions},

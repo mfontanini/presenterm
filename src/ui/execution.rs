@@ -7,12 +7,12 @@ use crate::{
     markdown::{
         elements::{Line, Text},
         text::WeightedLine,
+        text_style::{Colors, TextStyle},
     },
     render::{
         operation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, RenderOperation},
         properties::WindowSize,
     },
-    style::{Colors, TextStyle},
     terminal::{ansi::AnsiSplitter, should_hide_cursor},
     theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle, Margin},
 };

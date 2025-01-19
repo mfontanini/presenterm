@@ -1,7 +1,9 @@
 use super::properties::WindowSize;
 use crate::{
-    markdown::text::{WeightedLine, WeightedText},
-    style::{Color, Colors},
+    markdown::{
+        text::{WeightedLine, WeightedText},
+        text_style::{Color, Colors},
+    },
     terminal::image::Image,
     theme::{Alignment, Margin},
 };

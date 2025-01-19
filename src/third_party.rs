@@ -1,7 +1,10 @@
 use crate::{
     ImageRegistry, PresentationTheme,
     config::{default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
-    markdown::elements::{Line, Percent, Text},
+    markdown::{
+        elements::{Line, Percent, Text},
+        text_style::{Color, Colors, TextStyle},
+    },
     presentation::{AsyncPresentationError, AsyncPresentationErrorHolder, builder::DEFAULT_IMAGE_Z_INDEX},
     render::{
         operation::{
@@ -9,7 +12,6 @@ use crate::{
         },
         properties::WindowSize,
     },
-    style::{Color, Colors, TextStyle},
     terminal::image::{Image, printer::RegisterImageError},
     theme::{Alignment, MermaidStyle, TypstStyle},
     tools::{ExecutionError, ThirdPartyTools},

@@ -6,7 +6,7 @@ use super::{
         kitty::{KittyImage, KittyMode, KittyPrinter},
     },
 };
-use crate::{render::properties::CursorPosition, style::Color, terminal::GraphicsMode};
+use crate::{markdown::text_style::Color, render::properties::CursorPosition, terminal::GraphicsMode};
 use image::{DynamicImage, ImageError};
 use std::{
     borrow::Cow,

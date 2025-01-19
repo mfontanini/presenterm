@@ -2,12 +2,12 @@ use crate::{
     markdown::{
         elements::Text,
         text::{WeightedLine, WeightedText},
+        text_style::{Color, Colors},
     },
     render::{
         draw::{RenderError, RenderResult},
         layout::Positioning,
     },
-    style::{Color, Colors},
     terminal::{Terminal, TerminalWrite},
 };
 

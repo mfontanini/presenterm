@@ -1,4 +1,4 @@
-use crate::style::{Color, ParseColorError, TextStyle};
+use super::text_style::{Color, ParseColorError, TextStyle};
 use std::{borrow::Cow, str, str::Utf8Error};
 use tl::Attributes;
 
@@ -135,7 +135,7 @@ impl From<ParseColorError> for ParseHtmlError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::style::Color;
+    use crate::markdown::text_style::Color;
     use rstest::rstest;
 
     #[test]

@@ -5,7 +5,7 @@ use super::{
     text::TextDrawer,
 };
 use crate::{
-    markdown::text::WeightedLine,
+    markdown::{text::WeightedLine, text_style::Colors},
     render::{
         layout::Positioning,
         operation::{
@@ -14,7 +14,6 @@ use crate::{
         },
         properties::WindowSize,
     },
-    style::Colors,
     terminal::{
         Terminal, TerminalWrite,
         image::{

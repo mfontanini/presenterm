@@ -1,10 +1,12 @@
 use crate::{
-    markdown::elements::Text,
+    markdown::{
+        elements::Text,
+        text_style::{Colors, TextStyle},
+    },
     render::{
         operation::{AsRenderOperations, RenderOperation},
         properties::WindowSize,
     },
-    style::{Colors, TextStyle},
     theme::{Alignment, FooterStyle, Margin},
 };
 use std::{cell::RefCell, rc::Rc};
