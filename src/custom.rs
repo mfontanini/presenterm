@@ -1,6 +1,6 @@
 use crate::{
     GraphicsMode,
-    input::user::KeyBinding,
+    commands::keyboard::KeyBinding,
     media::{emulator::TerminalEmulator, kitty::KittyMode, query::TerminalCapabilities},
     processing::code::SnippetLanguage,
 };
@@ -439,7 +439,7 @@ fn default_suspend_bindings() -> Vec<KeyBinding> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::input::user::CommandKeyBindings;
+    use crate::commands::keyboard::CommandKeyBindings;
 
     #[test]
     fn default_bindings() {

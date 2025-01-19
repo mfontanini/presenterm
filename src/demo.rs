@@ -1,10 +1,10 @@
 use crate::{
     ImageRegistry, MarkdownParser, PresentationBuilderOptions, PresentationTheme, Resources, Themes, ThirdPartyRender,
-    execute::SnippetExecutor,
-    input::{
-        source::Command,
-        user::{CommandKeyBindings, UserInput},
+    commands::{
+        keyboard::{CommandKeyBindings, KeyboardListener},
+        listener::Command,
     },
+    execute::SnippetExecutor,
     markdown::elements::MarkdownElement,
     presentation::Presentation,
     processing::builder::{BuildError, PresentationBuilder},
@@ -39,13 +39,13 @@ fn greet(name: &str) -> String {
 
 pub struct ThemesDemo<W: TerminalWrite> {
     themes: Themes,
-    input: UserInput,
+    input: KeyboardListener,
     drawer: TerminalDrawer<W>,
 }
 
 impl<W: TerminalWrite> ThemesDemo<W> {
     pub fn new(themes: Themes, bindings: CommandKeyBindings, writer: W) -> io::Result<Self> {
-        let input = UserInput::new(bindings);
+        let input = KeyboardListener::new(bindings);
         let drawer = TerminalDrawer::new(writer, Default::default(), 1)?;
         Ok(Self { themes, input, drawer })
     }

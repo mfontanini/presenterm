@@ -1,17 +1,17 @@
-use super::source::{Command, CommandDiscriminants};
+use super::listener::{Command, CommandDiscriminants};
 use crate::custom::KeyBindingsConfig;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, poll, read};
 use schemars::JsonSchema;
 use serde_with::DeserializeFromStr;
 use std::{fmt, io, iter, mem, str::FromStr, time::Duration};
 
-/// A user input handler.
-pub struct UserInput {
+/// A keyboard command listener.
+pub struct KeyboardListener {
     bindings: CommandKeyBindings,
     events: Vec<KeyEvent>,
 }
 
-impl UserInput {
+impl KeyboardListener {
     pub fn new(bindings: CommandKeyBindings) -> Self {
         Self { bindings, events: Vec::new() }
     }

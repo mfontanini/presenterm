@@ -1,7 +1,7 @@
 use crate::{
     PresentationTheme,
+    commands::keyboard::KeyBinding,
     custom::KeyBindingsConfig,
-    input::user::KeyBinding,
     markdown::{
         elements::{Line, Text},
         text::WeightedLine,

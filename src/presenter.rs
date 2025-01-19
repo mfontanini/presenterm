@@ -8,11 +8,11 @@ use iceoryx2::{
 
 use crate::{
     SpeakerNotesCommand,
+    commands::listener::{Command, CommandListener},
     custom::KeyBindingsConfig,
     diff::PresentationDiffer,
     execute::SnippetExecutor,
     export::ImageReplacer,
-    input::source::{Command, CommandSource},
     markdown::parse::{MarkdownParser, ParseError},
     media::{printer::ImagePrinter, register::ImageRegistry},
     presentation::{Presentation, RenderAsyncState},
@@ -51,7 +51,7 @@ pub struct PresenterOptions {
 /// This type puts everything else together.
 pub struct Presenter<'a> {
     default_theme: &'a PresentationTheme,
-    commands: CommandSource,
+    listener: CommandListener,
     parser: MarkdownParser<'a>,
     resources: Resources,
     third_party: ThirdPartyRender,
@@ -69,7 +69,7 @@ impl<'a> Presenter<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         default_theme: &'a PresentationTheme,
-        commands: CommandSource,
+        listener: CommandListener,
         parser: MarkdownParser<'a>,
         resources: Resources,
         third_party: ThirdPartyRender,
@@ -81,7 +81,7 @@ impl<'a> Presenter<'a> {
     ) -> Self {
         Self {
             default_theme,
-            commands,
+            listener,
             parser,
             resources,
             third_party,
@@ -120,7 +120,7 @@ impl<'a> Presenter<'a> {
                     self.render(&mut drawer)?;
                 }
 
-                let command = match self.commands.try_next_command()? {
+                let command = match self.listener.try_next_command()? {
                     Some(command) => command,
                     _ => match self.resources.resources_modified() {
                         true => Command::Reload,

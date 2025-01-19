@@ -1,6 +1,6 @@
 use super::{
-    speaker_notes::SpeakerNotesCommand,
-    user::{CommandKeyBindings, KeyBindingsValidationError, UserInput},
+    SpeakerNotesCommand,
+    keyboard::{CommandKeyBindings, KeyBindingsValidationError, KeyboardListener},
 };
 use crate::{custom::KeyBindingsConfig, presenter::PresentationError};
 use iceoryx2::{port::subscriber::Subscriber, service::ipc::Service};
@@ -8,23 +8,20 @@ use serde::Deserialize;
 use std::time::Duration;
 use strum::EnumDiscriminants;
 
-/// The source of commands.
-///
-/// This expects user commands as well as watches over the presentation file to reload if it that
-/// happens.
-pub struct CommandSource {
-    user_input: UserInput,
+/// A command listener that allows polling all command sources in a single place.
+pub struct CommandListener {
+    keyboard: KeyboardListener,
     speaker_notes_event_receiver: Option<Subscriber<Service, SpeakerNotesCommand, ()>>,
 }
 
-impl CommandSource {
+impl CommandListener {
     /// Create a new command source over the given presentation path.
     pub fn new(
         config: KeyBindingsConfig,
         speaker_notes_event_receiver: Option<Subscriber<Service, SpeakerNotesCommand, ()>>,
     ) -> Result<Self, KeyBindingsValidationError> {
         let bindings = CommandKeyBindings::try_from(config)?;
-        Ok(Self { user_input: UserInput::new(bindings), speaker_notes_event_receiver })
+        Ok(Self { keyboard: KeyboardListener::new(bindings), speaker_notes_event_receiver })
     }
 
     /// Try to get the next command.
@@ -33,15 +30,14 @@ impl CommandSource {
     pub(crate) fn try_next_command(&mut self) -> Result<Option<Command>, PresentationError> {
         if let Some(receiver) = self.speaker_notes_event_receiver.as_mut() {
             if let Some(msg) = receiver.receive()? {
-                match msg.payload() {
-                    SpeakerNotesCommand::GoToSlide(idx) => {
-                        return Ok(Some(Command::GoToSlide(*idx)));
-                    }
-                    SpeakerNotesCommand::Exit => return Ok(Some(Command::Exit)),
-                }
+                let command = match msg.payload() {
+                    SpeakerNotesCommand::GoToSlide(idx) => Command::GoToSlide(*idx),
+                    SpeakerNotesCommand::Exit => Command::Exit,
+                };
+                return Ok(Some(command));
             }
         }
-        match self.user_input.poll_next_command(Duration::from_millis(250))? {
+        match self.keyboard.poll_next_command(Duration::from_millis(250))? {
             Some(command) => Ok(Some(command)),
             None => Ok(None),
         }

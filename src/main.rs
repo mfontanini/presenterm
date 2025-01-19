@@ -1,9 +1,9 @@
 use crate::{
+    commands::{SpeakerNotesCommand, listener::CommandListener},
     custom::{Config, ImageProtocol, ValidateOverflows},
     demo::ThemesDemo,
     execute::SnippetExecutor,
     export::Exporter,
-    input::{source::CommandSource, speaker_notes::SpeakerNotesCommand},
     markdown::parse::MarkdownParser,
     media::{graphics::GraphicsMode, printer::ImagePrinter, register::ImageRegistry},
     presenter::{PresentMode, Presenter, PresenterOptions},
@@ -34,12 +34,12 @@ use std::{
 };
 
 mod ansi;
+mod commands;
 mod custom;
 mod demo;
 mod diff;
 mod execute;
 mod export;
-mod input;
 mod markdown;
 mod media;
 mod presentation;
@@ -377,7 +377,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         } else {
             None
         };
-        let commands = CommandSource::new(config.bindings.clone(), speaker_notes_event_receiver)?;
+        let command_listener = CommandListener::new(config.bindings.clone(), speaker_notes_event_receiver)?;
         options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty { .. });
 
         let speaker_notes_event_publisher = if let Some(SpeakerNotesMode::Publisher) = cli.speaker_notes_mode {
@@ -399,7 +399,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         };
         let presenter = Presenter::new(
             &default_theme,
-            commands,
+            command_listener,
             parser,
             resources,
             third_party,
