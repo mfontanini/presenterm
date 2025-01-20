@@ -16,6 +16,7 @@ use crate::{
     },
     theme::{Alignment, CodeBlockStyle},
 };
+use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_with::DeserializeFromStr;
 use std::{cell::RefCell, convert::Infallible, fmt::Write, ops::Range, path::PathBuf, rc::Rc, str::FromStr};
@@ -208,7 +209,7 @@ impl SnippetParser {
     fn parse_block_info(input: &str) -> ParseResult<(SnippetLanguage, SnippetAttributes)> {
         let (language, input) = Self::parse_language(input);
         let attributes = Self::parse_attributes(input)?;
-        if attributes.width.is_some() && !attributes.auto_render {
+        if attributes.width.is_some() && !attributes.render {
             return Err(SnippetBlockParseError::NotRenderSnippet("width"));
         }
         Ok((language, attributes))
@@ -234,7 +235,7 @@ impl SnippetParser {
                 SnippetAttribute::LineNumbers => attributes.line_numbers = true,
                 SnippetAttribute::Exec => attributes.execute = true,
                 SnippetAttribute::ExecReplace => attributes.execute_replace = true,
-                SnippetAttribute::AutoRender => attributes.auto_render = true,
+                SnippetAttribute::Render => attributes.render = true,
                 SnippetAttribute::NoBackground => attributes.no_background = true,
                 SnippetAttribute::AcquireTerminal => attributes.acquire_terminal = true,
                 SnippetAttribute::HighlightedLines(lines) => attributes.highlight_groups = lines,
@@ -258,7 +259,7 @@ impl SnippetParser {
                     "line_numbers" => SnippetAttribute::LineNumbers,
                     "exec" => SnippetAttribute::Exec,
                     "exec_replace" => SnippetAttribute::ExecReplace,
-                    "render" => SnippetAttribute::AutoRender,
+                    "render" => SnippetAttribute::Render,
                     "no_background" => SnippetAttribute::NoBackground,
                     "acquire_terminal" => SnippetAttribute::AcquireTerminal,
                     token if token.starts_with("width:") => {
@@ -372,7 +373,7 @@ enum SnippetAttribute {
     LineNumbers,
     Exec,
     ExecReplace,
-    AutoRender,
+    Render,
     HighlightedLines(Vec<HighlightGroup>),
     Width(Percent),
     NoBackground,
@@ -417,7 +418,7 @@ impl Snippet {
 }
 
 /// The language of a code snippet.
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, DeserializeFromStr)]
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, DeserializeFromStr, JsonSchema)]
 pub enum SnippetLanguage {
     Ada,
     Asp,
@@ -569,11 +570,11 @@ pub(crate) struct SnippetAttributes {
     /// of its execution.
     pub(crate) execute_replace: bool,
 
-    /// Whether a snippet is marked to be auto rendered.
+    /// Whether a snippet is marked to be rendered.
     ///
-    /// An auto rendered snippet is transformed during parsing, leading to some visual
+    /// A rendered snippet is transformed during parsing, leading to some visual
     /// representation of it being shown rather than the original code.
-    pub(crate) auto_render: bool,
+    pub(crate) render: bool,
 
     /// Whether the snippet should show line numbers.
     pub(crate) line_numbers: bool,
@@ -754,7 +755,7 @@ mod test {
     #[test]
     fn parse_width() {
         let attributes = parse_attributes("mermaid +width:50% +render");
-        assert!(attributes.auto_render);
+        assert!(attributes.render);
         assert_eq!(attributes.width, Some(Percent(50)));
     }
 

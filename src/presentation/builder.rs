@@ -72,6 +72,7 @@ pub struct PresentationBuilderOptions {
     pub enable_snippet_execution: bool,
     pub enable_snippet_execution_replace: bool,
     pub render_speaker_notes_only: bool,
+    pub auto_render_languages: Vec<SnippetLanguage>,
 }
 
 impl PresentationBuilderOptions {
@@ -86,6 +87,9 @@ impl PresentationBuilderOptions {
         }
         if let Some(prefix) = options.image_attributes_prefix {
             self.image_attribute_prefix = prefix;
+        }
+        if !options.auto_render_languages.is_empty() {
+            self.auto_render_languages = options.auto_render_languages;
         }
     }
 }
@@ -105,6 +109,7 @@ impl Default for PresentationBuilderOptions {
             enable_snippet_execution: false,
             enable_snippet_execution_replace: false,
             render_speaker_notes_only: false,
+            auto_render_languages: Default::default(),
         }
     }
 }
@@ -784,7 +789,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.push_differ(snippet.contents.clone());
 
-        if snippet.attributes.auto_render {
+        if snippet.attributes.render || self.options.auto_render_languages.contains(&snippet.language) {
             return self.push_rendered_code(snippet, source_position);
         } else if snippet.attributes.execute_replace && self.options.enable_snippet_execution_replace {
             return self.push_code_execution(snippet, 0, ExecutionMode::ReplaceSnippet);

@@ -279,7 +279,17 @@
     },
     "OptionsConfig": {
       "type": "object",
+      "required": [
+        "auto_render_languages"
+      ],
       "properties": {
+        "auto_render_languages": {
+          "description": "Assume snippets for these languages contain `+render` and render them automatically.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SnippetLanguage"
+          }
+        },
         "command_prefix": {
           "description": "The prefix to use for commands.",
           "type": [
@@ -387,6 +397,91 @@
         }
       },
       "additionalProperties": false
+    },
+    "SnippetLanguage": {
+      "description": "The language of a code snippet.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "Ada",
+            "Asp",
+            "Awk",
+            "Bash",
+            "BatchFile",
+            "C",
+            "CMake",
+            "Crontab",
+            "CSharp",
+            "Clojure",
+            "Cpp",
+            "Css",
+            "DLang",
+            "Diff",
+            "Docker",
+            "Dotenv",
+            "Elixir",
+            "Elm",
+            "Erlang",
+            "File",
+            "Fish",
+            "Go",
+            "GraphQL",
+            "Haskell",
+            "Html",
+            "Java",
+            "JavaScript",
+            "Json",
+            "Kotlin",
+            "Latex",
+            "Lua",
+            "Makefile",
+            "Mermaid",
+            "Markdown",
+            "Nix",
+            "Nushell",
+            "OCaml",
+            "Perl",
+            "Php",
+            "Protobuf",
+            "Puppet",
+            "Python",
+            "R",
+            "Racket",
+            "Ruby",
+            "Rust",
+            "RustScript",
+            "Scala",
+            "Shell",
+            "Sql",
+            "Swift",
+            "Svelte",
+            "Tcl",
+            "Terraform",
+            "Toml",
+            "TypeScript",
+            "Typst",
+            "Xml",
+            "Yaml",
+            "Verilog",
+            "Vue",
+            "Zig",
+            "Zsh"
+          ]
+        },
+        {
+          "type": "object",
+          "required": [
+            "Unknown"
+          ],
+          "properties": {
+            "Unknown": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "SnippetRenderConfig": {
       "type": "object",
