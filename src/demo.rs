@@ -49,7 +49,7 @@ pub struct ThemesDemo<W: TerminalWrite> {
 impl<W: TerminalWrite> ThemesDemo<W> {
     pub fn new(themes: Themes, bindings: CommandKeyBindings, writer: W) -> io::Result<Self> {
         let input = KeyboardListener::new(bindings);
-        let drawer = TerminalDrawer::new(writer, Default::default(), 1)?;
+        let drawer = TerminalDrawer::new(writer, Default::default(), Default::default())?;
         Ok(Self { themes, input, drawer })
     }
 

@@ -40,6 +40,13 @@
             }
           ]
         },
+        "max_columns": {
+          "description": "A max width in columns that the presentation must always be capped to.",
+          "default": 65535,
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
         "terminal_font_size": {
           "description": "Override the terminal font size when in windows or when using sixel.",
           "default": 16,

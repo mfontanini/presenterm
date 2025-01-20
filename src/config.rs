@@ -77,6 +77,10 @@ pub struct DefaultsConfig {
     /// Validate that the presentation does not overflow the terminal screen.
     #[serde(default)]
     pub validate_overflows: ValidateOverflows,
+
+    /// A max width in columns that the presentation must always be capped to.
+    #[serde(default = "default_max_columns")]
+    pub max_columns: u16,
 }
 
 impl Default for DefaultsConfig {
@@ -86,6 +90,7 @@ impl Default for DefaultsConfig {
             terminal_font_size: default_font_size(),
             image_protocol: Default::default(),
             validate_overflows: Default::default(),
+            max_columns: default_max_columns(),
         }
     }
 }
@@ -213,6 +218,10 @@ impl Default for MermaidConfig {
 
 pub(crate) fn default_mermaid_scale() -> u32 {
     2
+}
+
+pub(crate) fn default_max_columns() -> u16 {
+    u16::MAX
 }
 
 /// The snippet execution configuration for a specific programming language.

@@ -395,6 +395,7 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             font_size_fallback: config.defaults.terminal_font_size,
             bindings: config.bindings,
             validate_overflows,
+            max_columns: config.defaults.max_columns,
         };
         let presenter = Presenter::new(
             &default_theme,

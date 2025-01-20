@@ -19,8 +19,8 @@ use crate::{
         diff::PresentationDiffer,
     },
     render::{
-        ErrorSource, RenderError, RenderResult, TerminalDrawer, operation::RenderAsyncState, properties::WindowSize,
-        validate::OverflowValidator,
+        ErrorSource, RenderError, RenderResult, TerminalDrawer, TerminalDrawerOptions, operation::RenderAsyncState,
+        properties::WindowSize, validate::OverflowValidator,
     },
     resource::Resources,
     terminal::image::printer::{ImagePrinter, ImageRegistry},
@@ -45,6 +45,7 @@ pub struct PresenterOptions {
     pub font_size_fallback: u8,
     pub bindings: KeyBindingsConfig,
     pub validate_overflows: bool,
+    pub max_columns: u16,
 }
 
 /// A slideshow presenter.
@@ -104,8 +105,11 @@ impl<'a> Presenter<'a> {
         self.state = PresenterState::Presenting(Presentation::from(vec![]));
         self.try_reload(path, true);
 
-        let mut drawer =
-            TerminalDrawer::new(io::stdout(), self.image_printer.clone(), self.options.font_size_fallback)?;
+        let drawer_options = TerminalDrawerOptions {
+            font_size_fallback: self.options.font_size_fallback,
+            max_columns: self.options.max_columns,
+        };
+        let mut drawer = TerminalDrawer::new(io::stdout(), self.image_printer.clone(), drawer_options)?;
         loop {
             if matches!(self.options.mode, PresentMode::Export) {
                 if let PresenterState::Failure { error, .. } = &self.state {

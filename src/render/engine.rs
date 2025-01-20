@@ -21,9 +21,16 @@ use crate::{
 };
 use std::mem;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct RenderEngineOptions {
     pub(crate) validate_overflows: bool,
+    pub(crate) max_columns: u16,
+}
+
+impl Default for RenderEngineOptions {
+    fn default() -> Self {
+        Self { validate_overflows: false, max_columns: u16::MAX }
+    }
 }
 
 pub(crate) struct RenderEngine<'a, W>
@@ -48,7 +55,7 @@ where
         options: RenderEngineOptions,
     ) -> Self {
         let max_modified_row = terminal.cursor_row;
-        let current_rect = WindowRect { dimensions: window_dimensions, start_column: 0 };
+        let current_rect = Self::starting_rect(window_dimensions, &options);
         let window_rects = vec![current_rect.clone()];
         Self {
             terminal,
@@ -57,6 +64,16 @@ where
             max_modified_row,
             layout: Default::default(),
             options,
+        }
+    }
+
+    fn starting_rect(window_dimensions: WindowSize, options: &RenderEngineOptions) -> WindowRect {
+        if window_dimensions.columns > options.max_columns {
+            let extra_width = window_dimensions.columns - options.max_columns;
+            let dimensions = window_dimensions.shrink_columns(extra_width);
+            WindowRect { dimensions, start_column: extra_width / 2 }
+        } else {
+            WindowRect { dimensions: window_dimensions, start_column: 0 }
         }
     }
 

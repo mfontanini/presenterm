@@ -18,39 +18,53 @@ use crate::{
     },
     theme::{Alignment, Margin},
 };
-use engine::RenderEngine;
+use engine::{RenderEngine, RenderEngineOptions};
 use std::{io, sync::Arc};
 
 /// The result of a render operation.
 pub(crate) type RenderResult = Result<(), RenderError>;
 
-/// Allows drawing slides and other  in the terminal.
+pub(crate) struct TerminalDrawerOptions {
+    /// The font size to fall back to if we can't find the window size in pixels.
+    pub(crate) font_size_fallback: u8,
+
+    /// The max width in columns that the presentation should be capped to.
+    pub(crate) max_columns: u16,
+}
+
+impl Default for TerminalDrawerOptions {
+    fn default() -> Self {
+        Self { font_size_fallback: 1, max_columns: u16::MAX }
+    }
+}
+
+/// Allows drawing on the terminal.
 pub(crate) struct TerminalDrawer<W: TerminalWrite> {
     pub(crate) terminal: Terminal<W>,
-    font_size_fallback: u8,
+    options: TerminalDrawerOptions,
 }
 
 impl<W> TerminalDrawer<W>
 where
     W: TerminalWrite,
 {
-    pub(crate) fn new(handle: W, image_printer: Arc<ImagePrinter>, font_size_fallback: u8) -> io::Result<Self> {
+    pub(crate) fn new(handle: W, image_printer: Arc<ImagePrinter>, options: TerminalDrawerOptions) -> io::Result<Self> {
         let terminal = Terminal::new(handle, image_printer)?;
-        Ok(Self { terminal, font_size_fallback })
+        Ok(Self { terminal, options })
     }
 
     pub(crate) fn render_operations<'a>(
         &mut self,
         operations: impl Iterator<Item = &'a RenderOperation>,
     ) -> RenderResult {
-        let dimensions = WindowSize::current(self.font_size_fallback)?;
+        let dimensions = WindowSize::current(self.options.font_size_fallback)?;
         let engine = self.create_engine(dimensions);
         engine.render(operations)?;
         Ok(())
     }
 
     pub(crate) fn render_error(&mut self, message: &str, source: &ErrorSource) -> RenderResult {
-        let dimensions = WindowSize::current(self.font_size_fallback)?;
+        let dimensions = WindowSize::current(self.options.font_size_fallback)?;
         let heading_text = match source {
             ErrorSource::Presentation => "Error loading presentation".to_string(),
             ErrorSource::Slide(slide) => {
@@ -84,7 +98,7 @@ where
     }
 
     fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<W> {
-        let options = Default::default();
+        let options = RenderEngineOptions { max_columns: self.options.max_columns, ..Default::default() };
         RenderEngine::new(&mut self.terminal, dimensions, options)
     }
 }
