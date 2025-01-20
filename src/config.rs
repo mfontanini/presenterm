@@ -129,6 +129,9 @@ pub struct OptionsConfig {
 
     /// Whether to be strict about parsing the presentation's front matter.
     pub strict_front_matter_parsing: Option<bool>,
+
+    /// Assume snippets for these languages contain `+render` and render them automatically.
+    pub auto_render_languages: Vec<SnippetLanguage>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]

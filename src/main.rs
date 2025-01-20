@@ -231,6 +231,7 @@ fn make_builder_options(
         enable_snippet_execution: config.snippet.exec.enable,
         enable_snippet_execution_replace: config.snippet.exec_replace.enable,
         render_speaker_notes_only: speaker_notes_mode.is_some_and(|mode| matches!(mode, SpeakerNotesMode::Receiver)),
+        auto_render_languages: config.options.auto_render_languages.clone(),
     }
 }
 
