@@ -23,16 +23,17 @@ Run the following two commands in separate terminals.
 
 <!-- speaker_note: This is a speaker note from slide 2. -->
 
-The `--speaker-notes-mode=publisher` argument will render your actual presentation as normal, without speaker notes:
+The `--publish-speaker-notes` argument will render your actual presentation as normal, without speaker notes:
 
 ```
-presenterm --speaker-notes-mode=publisher examples/speaker-notes.md
+presenterm --publish-speaker-notes examples/speaker-notes.md
 ```
 
-The `--speaker-notes-mode=receiver` argument will render only the speaker notes for the current slide being shown in the actual presentation:
+The `--listen-speaker-notes` argument will render only the speaker notes for the current slide being shown in the actual 
+presentation:
 
 ```
-presenterm --speaker-notes-mode=receiver examples/speaker-notes.md
+presenterm --listen-speaker-notes examples/speaker-notes.md
 ```
 
 <!-- speaker_note: Demonstrate changing slides in the actual presentation. -->

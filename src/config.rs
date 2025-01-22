@@ -11,6 +11,7 @@ use serde::Deserialize;
 use std::{
     collections::{BTreeMap, HashMap},
     fs, io,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     path::Path,
 };
 
@@ -35,6 +36,9 @@ pub struct Config {
 
     #[serde(default)]
     pub snippet: SnippetConfig,
+
+    #[serde(default)]
+    pub speaker_notes: SpeakerNotesConfig,
 }
 
 impl Config {
@@ -385,6 +389,32 @@ impl Default for KeyBindingsConfig {
     }
 }
 
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SpeakerNotesConfig {
+    /// The address in which to listen for speaker note events.
+    #[serde(default = "default_speaker_notes_address")]
+    pub listen_address: SocketAddr,
+
+    /// The address in which to publish speaker notes events.
+    #[serde(default = "default_speaker_notes_address")]
+    pub publish_address: SocketAddr,
+
+    /// Whether to always publish speaker notes.
+    #[serde(default)]
+    pub always_publish: bool,
+}
+
+impl Default for SpeakerNotesConfig {
+    fn default() -> Self {
+        Self {
+            listen_address: default_speaker_notes_address(),
+            publish_address: default_speaker_notes_address(),
+            always_publish: false,
+        }
+    }
+}
+
 fn make_keybindings<const N: usize>(raw_bindings: [&str; N]) -> Vec<KeyBinding> {
     let mut bindings = Vec::new();
     for binding in raw_bindings {
@@ -447,6 +477,10 @@ fn default_exit_bindings() -> Vec<KeyBinding> {
 
 fn default_suspend_bindings() -> Vec<KeyBinding> {
     make_keybindings(["<c-z>"])
+}
+
+fn default_speaker_notes_address() -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 255, 255, 255)), 59418)
 }
 
 #[cfg(test)]
