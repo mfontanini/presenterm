@@ -1,9 +1,8 @@
 use super::{
-    SpeakerNotesCommand,
     keyboard::{CommandKeyBindings, KeyBindingsValidationError, KeyboardListener},
+    speaker_notes::{SpeakerNotesEvent, SpeakerNotesEventListener},
 };
 use crate::{config::KeyBindingsConfig, presenter::PresentationError};
-use iceoryx2::{port::subscriber::Subscriber, service::ipc::Service};
 use serde::Deserialize;
 use std::time::Duration;
 use strum::EnumDiscriminants;
@@ -11,28 +10,28 @@ use strum::EnumDiscriminants;
 /// A command listener that allows polling all command sources in a single place.
 pub struct CommandListener {
     keyboard: KeyboardListener,
-    speaker_notes_event_receiver: Option<Subscriber<Service, SpeakerNotesCommand, ()>>,
+    speaker_notes_event_listener: Option<SpeakerNotesEventListener>,
 }
 
 impl CommandListener {
     /// Create a new command source over the given presentation path.
     pub fn new(
         config: KeyBindingsConfig,
-        speaker_notes_event_receiver: Option<Subscriber<Service, SpeakerNotesCommand, ()>>,
+        speaker_notes_event_listener: Option<SpeakerNotesEventListener>,
     ) -> Result<Self, KeyBindingsValidationError> {
         let bindings = CommandKeyBindings::try_from(config)?;
-        Ok(Self { keyboard: KeyboardListener::new(bindings), speaker_notes_event_receiver })
+        Ok(Self { keyboard: KeyboardListener::new(bindings), speaker_notes_event_listener })
     }
 
     /// Try to get the next command.
     ///
     /// This attempts to get a command and returns `Ok(None)` on timeout.
     pub(crate) fn try_next_command(&mut self) -> Result<Option<Command>, PresentationError> {
-        if let Some(receiver) = self.speaker_notes_event_receiver.as_mut() {
-            if let Some(msg) = receiver.receive()? {
-                let command = match msg.payload() {
-                    SpeakerNotesCommand::GoToSlide(idx) => Command::GoToSlide(*idx),
-                    SpeakerNotesCommand::Exit => Command::Exit,
+        if let Some(receiver) = &self.speaker_notes_event_listener {
+            if let Some(msg) = receiver.try_recv()? {
+                let command = match msg {
+                    SpeakerNotesEvent::GoToSlide { slide } => Command::GoToSlide(slide),
+                    SpeakerNotesEvent::Exit => Command::Exit,
                 };
                 return Ok(Some(command));
             }

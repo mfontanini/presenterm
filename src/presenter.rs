@@ -1,15 +1,9 @@
-use iceoryx2::{
-    port::{
-        publisher::{Publisher, PublisherLoanError, PublisherSendError},
-        subscriber::SubscriberReceiveError,
-    },
-    service::ipc::Service,
-};
-
 use crate::{
-    SpeakerNotesCommand,
     code::execute::SnippetExecutor,
-    commands::listener::{Command, CommandListener},
+    commands::{
+        listener::{Command, CommandListener},
+        speaker_notes::{SpeakerNotesEvent, SpeakerNotesEventPublisher},
+    },
     config::KeyBindingsConfig,
     export::ImageReplacer,
     markdown::parse::{MarkdownParser, ParseError},
@@ -63,7 +57,7 @@ pub struct Presenter<'a> {
     image_printer: Arc<ImagePrinter>,
     themes: Themes,
     options: PresenterOptions,
-    speaker_notes_event_publisher: Option<Publisher<Service, SpeakerNotesCommand, ()>>,
+    speaker_notes_event_publisher: Option<SpeakerNotesEventPublisher>,
 }
 
 impl<'a> Presenter<'a> {
@@ -79,7 +73,7 @@ impl<'a> Presenter<'a> {
         themes: Themes,
         image_printer: Arc<ImagePrinter>,
         options: PresenterOptions,
-        speaker_notes_event_publisher: Option<Publisher<Service, SpeakerNotesCommand, ()>>,
+        speaker_notes_event_publisher: Option<SpeakerNotesEventPublisher>,
     ) -> Self {
         Self {
             default_theme,
@@ -139,11 +133,7 @@ impl<'a> Presenter<'a> {
                 };
                 match self.apply_command(command) {
                     CommandSideEffect::Exit => {
-                        if let Some(publisher) = self.speaker_notes_event_publisher.as_mut() {
-                            let sample = publisher.loan_uninit()?;
-                            let sample = sample.write_payload(SpeakerNotesCommand::Exit);
-                            sample.send()?;
-                        }
+                        self.publish_event(SpeakerNotesEvent::Exit)?;
                         return Ok(());
                     }
                     CommandSideEffect::Suspend => {
@@ -160,13 +150,17 @@ impl<'a> Presenter<'a> {
                     CommandSideEffect::None => (),
                 };
             }
-            if let Some(publisher) = self.speaker_notes_event_publisher.as_mut() {
-                let current_slide_idx = self.state.presentation().current_slide_index() as u32;
-                let sample = publisher.loan_uninit()?;
-                let sample = sample.write_payload(SpeakerNotesCommand::GoToSlide(current_slide_idx + 1));
-                sample.send()?;
-            }
+            self.publish_event(SpeakerNotesEvent::GoToSlide {
+                slide: self.state.presentation().current_slide_index() as u32 + 1,
+            })?;
         }
+    }
+
+    fn publish_event(&self, event: SpeakerNotesEvent) -> io::Result<()> {
+        if let Some(publisher) = &self.speaker_notes_event_publisher {
+            publisher.send(event)?;
+        }
+        Ok(())
     }
 
     fn check_async_error(&mut self) -> bool {
@@ -513,13 +507,4 @@ pub enum PresentationError {
 
     #[error("fatal error: {0}")]
     Fatal(String),
-
-    #[error(transparent)]
-    SpeakerNotesPublisher(#[from] PublisherLoanError),
-
-    #[error(transparent)]
-    SpeakerNotesSend(#[from] PublisherSendError),
-
-    #[error(transparent)]
-    SpeakerNotesReceive(#[from] SubscriberReceiveError),
 }
