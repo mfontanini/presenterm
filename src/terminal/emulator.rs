@@ -4,17 +4,17 @@ use strum::IntoEnumIterator;
 
 #[derive(Debug, strum::EnumIter)]
 pub enum TerminalEmulator {
-    Kitty,
     Iterm2,
     WezTerm,
+    Ghostty,
     Mintty,
+    Kitty,
     Konsole,
     Foot,
     Yaft,
     Mlterm,
     St,
     Xterm,
-    Ghostty,
     Unknown,
 }
 
@@ -50,17 +50,17 @@ impl TerminalEmulator {
 
     fn is_detected(&self, term: &str, term_program: &str) -> bool {
         match self {
-            TerminalEmulator::Kitty => term.contains("kitty"),
             TerminalEmulator::Iterm2 => term_program.contains("iTerm"),
             TerminalEmulator::WezTerm => term_program.contains("WezTerm"),
             TerminalEmulator::Mintty => term_program.contains("mintty"),
+            TerminalEmulator::Ghostty => term_program.contains("ghostty"),
+            TerminalEmulator::Kitty => term.contains("kitty"),
             TerminalEmulator::Konsole => env::var("KONSOLE_VERSION").is_ok(),
             TerminalEmulator::Foot => ["foot", "foot-extra"].contains(&term),
             TerminalEmulator::Yaft => term == "yaft-256color",
             TerminalEmulator::Mlterm => term == "mlterm",
             TerminalEmulator::St => term == "st-256color",
             TerminalEmulator::Xterm => ["xterm", "xterm-256color"].contains(&term),
-            TerminalEmulator::Ghostty => term_program.contains("ghostty"),
             TerminalEmulator::Unknown => true,
         }
     }
