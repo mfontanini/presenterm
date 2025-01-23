@@ -479,8 +479,14 @@ fn default_suspend_bindings() -> Vec<KeyBinding> {
     make_keybindings(["<c-z>"])
 }
 
+#[cfg(target_os = "linux")]
 fn default_speaker_notes_address() -> SocketAddr {
     SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 255, 255, 255)), 59418)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn default_speaker_notes_address() -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 59418)
 }
 
 #[cfg(test)]
