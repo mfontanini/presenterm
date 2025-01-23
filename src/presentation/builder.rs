@@ -43,6 +43,7 @@ use crate::{
         separator::RenderSeparator,
     },
 };
+use comrak::nodes::AlertType;
 use image::DynamicImage;
 use serde::Deserialize;
 use std::{borrow::Cow, cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
@@ -287,6 +288,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::Image { path, title, source_position } => {
                 self.push_image_from_path(path, title, source_position)?
             }
+            MarkdownElement::Alert { alert_type, title, lines } => self.push_alert(alert_type, title, lines),
         };
         if should_clear_last {
             self.slide_state.last_element = LastElement::Other;
@@ -716,8 +718,30 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_block_quote(&mut self, lines: Vec<Line>) {
         let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
-        let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0) as u16;
         let prefix_color = self.theme.block_quote.colors.prefix.or(self.theme.block_quote.colors.base.foreground);
+        self.push_quoted_text(lines, prefix, self.theme.block_quote.colors.base, prefix_color);
+    }
+
+    fn push_alert(&mut self, alert_type: AlertType, title: Option<String>, mut lines: Vec<Line>) {
+        let (default_title, prefix_color) = match alert_type {
+            AlertType::Note => ("Note", self.theme.alert.colors.types.note),
+            AlertType::Tip => ("Tip", self.theme.alert.colors.types.tip),
+            AlertType::Important => ("Important", self.theme.alert.colors.types.important),
+            AlertType::Warning => ("Warning", self.theme.alert.colors.types.warning),
+            AlertType::Caution => ("Caution", self.theme.alert.colors.types.caution),
+        };
+        let prefix_color = prefix_color.or(self.theme.alert.colors.base.foreground);
+        let title = title.unwrap_or_else(|| default_title.to_string());
+        let title_colors = Colors { foreground: prefix_color, background: self.theme.alert.colors.base.background };
+        lines.insert(0, Line::from(Text::from("")));
+        lines.insert(0, Line::from(Text::new(title, TextStyle::default().colors(title_colors))));
+
+        let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
+        self.push_quoted_text(lines, prefix, self.theme.alert.colors.base, prefix_color);
+    }
+
+    fn push_quoted_text(&mut self, lines: Vec<Line>, prefix: String, base_colors: Colors, prefix_color: Option<Color>) {
+        let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0) as u16;
         let prefix = Text::new(
             prefix,
             TextStyle::default()
@@ -728,9 +752,11 @@ impl<'a> PresentationBuilder<'a> {
         for mut line in lines {
             // Apply our colors to each chunk in this line.
             for text in &mut line.0 {
-                text.style.colors = self.theme.block_quote.colors.base;
-                if text.style.is_code() {
-                    text.style.colors = self.theme.inline_code.colors;
+                if text.style.colors.background.is_none() && text.style.colors.foreground.is_none() {
+                    text.style.colors = base_colors;
+                    if text.style.is_code() {
+                        text.style.colors = self.theme.inline_code.colors;
+                    }
                 }
             }
             self.chunk_operations.push(RenderOperation::RenderBlockLine(BlockLine {
@@ -740,7 +766,7 @@ impl<'a> PresentationBuilder<'a> {
                 text: line.into(),
                 block_length,
                 alignment: alignment.clone(),
-                block_color: self.theme.block_quote.colors.base.background,
+                block_color: base_colors.background,
             }));
             self.push_line_break();
         }
