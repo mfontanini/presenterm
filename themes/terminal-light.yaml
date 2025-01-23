@@ -102,6 +102,18 @@ block_quote:
     background: grey
     prefix: dark_red
 
+alert:
+  prefix: "▍ "
+  colors:
+    foreground: black
+    background: grey
+    types:
+      note: dark_blue
+      tip: dark_green
+      important: dark_magenta
+      warning: dark_yellow
+      caution: dark_red
+
 typst:
   colors:
     foreground: "212529"

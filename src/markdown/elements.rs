@@ -1,4 +1,5 @@
 use super::text_style::TextStyle;
+use comrak::nodes::AlertType;
 use std::{fmt, iter, path::PathBuf, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 
@@ -51,6 +52,18 @@ pub(crate) enum MarkdownElement {
 
     /// A block quote containing a list of lines.
     BlockQuote(Vec<Line>),
+
+    /// An alert.
+    Alert {
+        /// The alert's type.
+        alert_type: AlertType,
+
+        /// The optional title.
+        title: Option<String>,
+
+        /// The content lines in this alert.
+        lines: Vec<Line>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Default)]

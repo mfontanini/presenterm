@@ -103,6 +103,18 @@ block_quote:
     background: "363a4f"
     prefix: "eed49f"
 
+alert:
+  prefix: "▍ "
+  colors:
+    foreground: "cad3f5"
+    background: "363a4f"
+    types:
+      note: "8aadf4"
+      tip: "a6da95"
+      important: "c6a0f6"
+      warning: "f5a97f"
+      caution: "ed8796"
+
 typst:
   colors:
     foreground: "cad3f5"

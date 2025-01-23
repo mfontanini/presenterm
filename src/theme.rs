@@ -150,6 +150,10 @@ pub struct PresentationTheme {
     #[serde(default)]
     pub(crate) block_quote: BlockQuoteStyle,
 
+    /// The style for an alert.
+    #[serde(default)]
+    pub(crate) alert: AlertStyle,
+
     /// The default style.
     #[serde(rename = "default", default)]
     pub(crate) default_style: DefaultStyle,
@@ -325,7 +329,62 @@ pub(crate) struct BlockQuoteColors {
     pub(crate) base: Colors,
 
     /// The color of the vertical bar that prefixes each line in the quote.
+    #[serde(default)]
     pub(crate) prefix: Option<Color>,
+}
+
+/// The style of an alert.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct AlertStyle {
+    /// The alignment.
+    #[serde(flatten, default)]
+    pub(crate) alignment: Option<Alignment>,
+
+    /// The prefix to be added to this block quote.
+    ///
+    /// This allows adding something like a vertical bar before the text.
+    #[serde(default)]
+    pub(crate) prefix: Option<String>,
+
+    /// The colors to be used.
+    #[serde(default)]
+    pub(crate) colors: AlertColors,
+}
+
+/// The colors of an alert.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct AlertColors {
+    /// The foreground/background colors.
+    #[serde(flatten)]
+    pub(crate) base: Colors,
+
+    /// The color of the vertical bar that prefixes each line in the quote.
+    #[serde(default)]
+    pub(crate) types: AlertTypeColors,
+}
+
+/// The colors of each alert type.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct AlertTypeColors {
+    /// The color for note type alerts.
+    #[serde(default)]
+    pub(crate) note: Option<Color>,
+
+    /// The color for tip type alerts.
+    #[serde(default)]
+    pub(crate) tip: Option<Color>,
+
+    /// The color for important type alerts.
+    #[serde(default)]
+    pub(crate) important: Option<Color>,
+
+    /// The color for warning type alerts.
+    #[serde(default)]
+    pub(crate) warning: Option<Color>,
+
+    /// The color for caution type alerts.
+    #[serde(default)]
+    pub(crate) caution: Option<Color>,
 }
 
 /// The style for the presentation introduction slide.

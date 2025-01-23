@@ -8,8 +8,8 @@ use comrak::{
     arena_tree::Node,
     format_commonmark,
     nodes::{
-        Ast, AstNode, ListDelimType, ListType, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList, NodeValue,
-        Sourcepos,
+        Ast, AstNode, ListDelimType, ListType, NodeAlert, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList,
+        NodeValue, Sourcepos,
     },
     parse_document,
 };
@@ -31,6 +31,7 @@ impl Default for ParserOptions {
         options.extension.table = true;
         options.extension.strikethrough = true;
         options.extension.multiline_block_quotes = true;
+        options.extension.alerts = true;
         Self(options)
     }
 }
@@ -76,6 +77,7 @@ impl<'a> MarkdownParser<'a> {
             NodeValue::ThematicBreak => MarkdownElement::ThematicBreak,
             NodeValue::HtmlBlock(block) => self.parse_html_block(block, data.sourcepos)?,
             NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => self.parse_block_quote(node)?,
+            NodeValue::Alert(alert) => self.parse_alert(alert, node)?,
             other => return Err(ParseErrorKind::UnsupportedElement(other.identifier()).with_sourcepos(data.sourcepos)),
         };
         Ok(vec![element])
@@ -106,19 +108,19 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn parse_block_quote(&self, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
-        let mut elements = Vec::new();
+        let mut lines = Vec::new();
         let inlines = InlinesParser::new(self.arena, SoftBreak::Newline, StringifyImages::Yes).parse(node)?;
         for inline in inlines {
             match inline {
-                Inline::Text(text) => elements.push(text),
-                Inline::LineBreak => elements.push(Line::from("")),
+                Inline::Text(text) => lines.push(text),
+                Inline::LineBreak => lines.push(Line::from("")),
                 Inline::Image { .. } => {}
             }
         }
-        if elements.last() == Some(&Line::from("")) {
-            elements.pop();
+        if lines.last() == Some(&Line::from("")) {
+            lines.pop();
         }
-        Ok(MarkdownElement::BlockQuote(elements))
+        Ok(MarkdownElement::BlockQuote(lines))
     }
 
     fn parse_code_block(block: &NodeCodeBlock, sourcepos: Sourcepos) -> ParseResult<MarkdownElement> {
@@ -130,6 +132,11 @@ impl<'a> MarkdownParser<'a> {
             code: block.literal.clone(),
             source_position: sourcepos.into(),
         })
+    }
+
+    fn parse_alert(&self, alert: &NodeAlert, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
+        let MarkdownElement::BlockQuote(lines) = self.parse_block_quote(node)? else { panic!("not a block quote") };
+        Ok(MarkdownElement::Alert { alert_type: alert.alert_type, title: alert.title.clone(), lines })
     }
 
     fn parse_heading(&self, heading: &NodeHeading, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
@@ -972,5 +979,18 @@ mom
 
         let expected = format!("hi{nl}mom{nl}");
         assert_eq!(contents, &expected);
+    }
+
+    #[test]
+    fn parse_alert() {
+        let input = r"
+> [!note]
+> hi mom
+> bye **mom**
+";
+        let MarkdownElement::Alert { lines, .. } = parse_single(&input) else {
+            panic!("not an alert");
+        };
+        assert_eq!(lines.len(), 2);
     }
 }
