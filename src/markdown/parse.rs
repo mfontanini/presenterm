@@ -22,7 +22,7 @@ use std::{
 /// The result of parsing a markdown file.
 pub(crate) type ParseResult<T> = Result<T, ParseError>;
 
-struct ParserOptions(comrak::Options);
+struct ParserOptions(comrak::Options<'static>);
 
 impl Default for ParserOptions {
     fn default() -> Self {
@@ -40,7 +40,7 @@ impl Default for ParserOptions {
 /// This takes the contents of a markdown file and parses it into a list of [MarkdownElement].
 pub struct MarkdownParser<'a> {
     arena: &'a Arena<AstNode<'a>>,
-    options: comrak::Options,
+    options: comrak::Options<'static>,
 }
 
 impl<'a> MarkdownParser<'a> {
@@ -53,37 +53,11 @@ impl<'a> MarkdownParser<'a> {
     pub(crate) fn parse(&self, contents: &str) -> ParseResult<Vec<MarkdownElement>> {
         let node = parse_document(self.arena, contents, &self.options);
         let mut elements = Vec::new();
-        let mut lines_offset = 0;
         for node in node.children() {
-            let mut parsed_elements =
-                self.parse_node(node).map_err(|e| ParseError::new(e.kind, e.sourcepos.offset_lines(lines_offset)))?;
-            if let NodeValue::FrontMatter(contents) = &node.data.borrow().value {
-                lines_offset += contents.lines().count();
-            }
-            // comrak ignores the lines in the front matter so we need to offset this ourselves.
-            Self::adjust_source_positions(parsed_elements.iter_mut(), lines_offset);
+            let parsed_elements = self.parse_node(node).map_err(|e| ParseError::new(e.kind, e.sourcepos))?;
             elements.extend(parsed_elements);
         }
         Ok(elements)
-    }
-
-    fn adjust_source_positions<'b>(elements: impl Iterator<Item = &'b mut MarkdownElement>, lines_offset: usize) {
-        for element in elements {
-            let position = match element {
-                MarkdownElement::FrontMatter(_)
-                | MarkdownElement::SetexHeading { .. }
-                | MarkdownElement::Heading { .. }
-                | MarkdownElement::Paragraph(_)
-                | MarkdownElement::List(_)
-                | MarkdownElement::Table(_)
-                | MarkdownElement::ThematicBreak
-                | MarkdownElement::BlockQuote(_) => continue,
-                MarkdownElement::Comment { source_position, .. }
-                | MarkdownElement::Snippet { source_position, .. }
-                | MarkdownElement::Image { source_position, .. } => source_position,
-            };
-            *position = position.offset_lines(lines_offset);
-        }
     }
 
     fn parse_node(&self, node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
@@ -590,6 +564,8 @@ impl Identifier for NodeValue {
             NodeValue::SpoileredText => "spoilered text",
             NodeValue::EscapedTag(_) => "escaped tag",
             NodeValue::Subscript => "subscript",
+            NodeValue::Raw(_) => "raw",
+            NodeValue::Alert(_) => "alert",
         }
     }
 }

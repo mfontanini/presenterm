@@ -64,14 +64,6 @@ impl fmt::Display for SourcePosition {
     }
 }
 
-impl SourcePosition {
-    pub(crate) fn offset_lines(&self, offset: usize) -> SourcePosition {
-        let mut output = *self;
-        output.start.line += offset;
-        output
-    }
-}
-
 impl From<comrak::nodes::Sourcepos> for SourcePosition {
     fn from(position: comrak::nodes::Sourcepos) -> Self {
         Self { start: position.start.into() }
