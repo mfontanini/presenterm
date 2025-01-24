@@ -437,19 +437,22 @@ impl<'a> PresentationBuilder<'a> {
 
     fn process_comment(&mut self, comment: String, source_position: SourcePosition) -> Result<(), BuildError> {
         let comment = comment.trim();
-        if self.should_ignore_comment(comment) {
-            return Ok(());
-        }
-        let comment = comment.trim_start_matches(&self.options.command_prefix);
-        let comment = match comment.parse::<CommentCommand>() {
+        let trimmed_comment = comment.trim_start_matches(&self.options.command_prefix);
+        let command = match trimmed_comment.parse::<CommentCommand>() {
             Ok(comment) => comment,
-            Err(error) => return Err(BuildError::CommandParse { source_position, error }),
+            Err(error) => {
+                // If we failed to parse this, make sure we shouldn't have ignored it
+                if self.should_ignore_comment(comment) {
+                    return Ok(());
+                }
+                return Err(BuildError::CommandParse { source_position, error });
+            }
         };
 
         if self.options.render_speaker_notes_only {
-            self.process_comment_command_speaker_notes_mode(comment)
+            self.process_comment_command_speaker_notes_mode(command)
         } else {
-            self.process_comment_command_presentation_mode(comment)
+            self.process_comment_command_presentation_mode(command)
         }
     }
 
@@ -507,8 +510,10 @@ impl<'a> PresentationBuilder<'a> {
     ) -> Result<(), BuildError> {
         match comment_command {
             CommentCommand::SpeakerNote(note) => {
-                self.push_text(note.into(), ElementType::Paragraph);
-                self.push_line_break();
+                for line in note.lines() {
+                    self.push_text(line.into(), ElementType::Paragraph);
+                    self.push_line_break();
+                }
             }
             CommentCommand::EndSlide => self.terminate_slide(),
             _ => {}
