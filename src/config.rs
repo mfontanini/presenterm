@@ -393,11 +393,11 @@ impl Default for KeyBindingsConfig {
 #[serde(deny_unknown_fields)]
 pub struct SpeakerNotesConfig {
     /// The address in which to listen for speaker note events.
-    #[serde(default = "default_speaker_notes_address")]
+    #[serde(default = "default_speaker_notes_listen_address")]
     pub listen_address: SocketAddr,
 
     /// The address in which to publish speaker notes events.
-    #[serde(default = "default_speaker_notes_address")]
+    #[serde(default = "default_speaker_notes_publish_address")]
     pub publish_address: SocketAddr,
 
     /// Whether to always publish speaker notes.
@@ -408,8 +408,8 @@ pub struct SpeakerNotesConfig {
 impl Default for SpeakerNotesConfig {
     fn default() -> Self {
         Self {
-            listen_address: default_speaker_notes_address(),
-            publish_address: default_speaker_notes_address(),
+            listen_address: default_speaker_notes_listen_address(),
+            publish_address: default_speaker_notes_publish_address(),
             always_publish: false,
         }
     }
@@ -480,12 +480,22 @@ fn default_suspend_bindings() -> Vec<KeyBinding> {
 }
 
 #[cfg(target_os = "linux")]
-fn default_speaker_notes_address() -> SocketAddr {
+pub(crate) fn default_speaker_notes_listen_address() -> SocketAddr {
     SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 255, 255, 255)), 59418)
 }
 
 #[cfg(not(target_os = "linux"))]
-fn default_speaker_notes_address() -> SocketAddr {
+pub(crate) fn default_speaker_notes_listen_address() -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 59418)
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn default_speaker_notes_publish_address() -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 255, 255, 255)), 59418)
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn default_speaker_notes_publish_address() -> SocketAddr {
     SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 59418)
 }
 

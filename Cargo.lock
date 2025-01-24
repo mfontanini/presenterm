@@ -1065,6 +1065,7 @@ name = "presenterm"
 version = "0.9.0"
 dependencies = [
  "ansi-parser",
+ "anyhow",
  "base64",
  "bincode",
  "clap",

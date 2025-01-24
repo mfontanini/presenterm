@@ -15,6 +15,7 @@ use crate::{
     theme::{PresentationTheme, PresentationThemeSet},
     third_party::{ThirdPartyConfigs, ThirdPartyRender},
 };
+use anyhow::anyhow;
 use clap::{CommandFactory, Parser, error::ErrorKind};
 use commands::speaker_notes::{SpeakerNotesEventListener, SpeakerNotesEventPublisher};
 use comrak::Arena;
@@ -320,11 +321,13 @@ fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             .then(|| {
                 SpeakerNotesEventPublisher::new(config.speaker_notes.publish_address, full_presentation_path.clone())
             })
-            .transpose()?;
+            .transpose()
+            .map_err(|e| anyhow!("failed to create speaker notes publisher: {e}"))?;
         let events_listener = cli
             .listen_speaker_notes
             .then(|| SpeakerNotesEventListener::new(config.speaker_notes.listen_address, full_presentation_path))
-            .transpose()?;
+            .transpose()
+            .map_err(|e| anyhow!("failed to create speaker notes listener: {e}"))?;
         let command_listener = CommandListener::new(config.bindings.clone(), events_listener)?;
 
         options.print_modal_background = matches!(graphics_mode, GraphicsMode::Kitty { .. });
