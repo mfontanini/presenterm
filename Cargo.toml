@@ -37,7 +37,7 @@ tl = "0.7"
 thiserror = "2"
 unicode-width = "0.2"
 os_pipe = "1.1.5"
-libc = "0.2.155"
+libc = "0.2"
 
 [dependencies.syntect]
 version = "5.2"
