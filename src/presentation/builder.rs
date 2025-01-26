@@ -53,6 +53,8 @@ use unicode_width::UnicodeWidthStr;
 static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
 pub(crate) static DEFAULT_IMAGE_Z_INDEX: i32 = -2;
 
+pub(crate) type BuildResult = Result<(), BuildError>;
+
 #[derive(Default)]
 pub struct Themes {
     pub presentation: PresentationThemeSet,
@@ -242,7 +244,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(image)
     }
 
-    fn validate_last_operation(&mut self) -> Result<(), BuildError> {
+    fn validate_last_operation(&mut self) -> BuildResult {
         if !self.slide_state.needs_enter_column {
             return Ok(());
         }
@@ -262,7 +264,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_slide_prelude(&mut self) -> Result<(), BuildError> {
+    fn push_slide_prelude(&mut self) -> BuildResult {
         let colors = self.theme.default_style.colors;
         self.set_colors(colors)?;
         self.chunk_operations.extend([
@@ -276,7 +278,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn process_element_for_presentation_mode(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
+    fn process_element_for_presentation_mode(&mut self, element: MarkdownElement) -> BuildResult {
         let should_clear_last = !matches!(element, MarkdownElement::List(_) | MarkdownElement::Comment { .. });
         match element {
             // This one is processed before everything else as it affects how the rest of the
@@ -302,7 +304,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn process_element_for_speaker_notes_mode(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
+    fn process_element_for_speaker_notes_mode(&mut self, element: MarkdownElement) -> BuildResult {
         match element {
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
             MarkdownElement::SetexHeading { text } => self.push_slide_title(text)?,
@@ -314,7 +316,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn process_front_matter(&mut self, contents: &str) -> Result<(), BuildError> {
+    fn process_front_matter(&mut self, contents: &str) -> BuildResult {
         let metadata = match self.options.strict_front_matter_parsing {
             true => serde_yaml::from_str::<StrictPresentationMetadata>(contents).map(PresentationMetadata::from),
             false => serde_yaml::from_str::<PresentationMetadata>(contents),
@@ -346,7 +348,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn set_theme(&mut self, metadata: &PresentationThemeMetadata) -> Result<(), BuildError> {
+    fn set_theme(&mut self, metadata: &PresentationThemeMetadata) -> BuildResult {
         if metadata.name.is_some() && metadata.path.is_some() {
             return Err(BuildError::InvalidMetadata("cannot have both theme path and theme name".into()));
         }
@@ -379,7 +381,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn set_code_theme(&mut self) -> Result<(), BuildError> {
+    fn set_code_theme(&mut self) -> BuildResult {
         if let Some(theme) = &self.theme.code.theme_name {
             let highlighter =
                 self.themes.highlight.load_by_name(theme).ok_or_else(|| BuildError::InvalidCodeTheme(theme.clone()))?;
@@ -388,7 +390,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_intro_slide(&mut self, metadata: PresentationMetadata) -> Result<(), BuildError> {
+    fn push_intro_slide(&mut self, metadata: PresentationMetadata) -> BuildResult {
         let styles = self.theme.intro_slide.clone();
         let create_text =
             |text: Option<String>, style: TextStyle| -> Option<Text> { text.map(|text| Text::new(text, style)) };
@@ -442,7 +444,7 @@ impl<'a> PresentationBuilder<'a> {
         self.terminate_slide()
     }
 
-    fn process_comment(&mut self, comment: String, source_position: SourcePosition) -> Result<(), BuildError> {
+    fn process_comment(&mut self, comment: String, source_position: SourcePosition) -> BuildResult {
         let comment = comment.trim();
         let trimmed_comment = comment.trim_start_matches(&self.options.command_prefix);
         let command = match trimmed_comment.parse::<CommentCommand>() {
@@ -463,7 +465,7 @@ impl<'a> PresentationBuilder<'a> {
         }
     }
 
-    fn process_comment_command_presentation_mode(&mut self, comment_command: CommentCommand) -> Result<(), BuildError> {
+    fn process_comment_command_presentation_mode(&mut self, comment_command: CommentCommand) -> BuildResult {
         match comment_command {
             CommentCommand::Pause => self.process_pause(),
             CommentCommand::EndSlide => self.terminate_slide()?,
@@ -511,10 +513,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn process_comment_command_speaker_notes_mode(
-        &mut self,
-        comment_command: CommentCommand,
-    ) -> Result<(), BuildError> {
+    fn process_comment_command_speaker_notes_mode(&mut self, comment_command: CommentCommand) -> BuildResult {
         match comment_command {
             CommentCommand::SpeakerNote(note) => {
                 for line in note.lines() {
@@ -543,7 +542,7 @@ impl<'a> PresentationBuilder<'a> {
         }
     }
 
-    fn validate_column_layout(columns: &[u8]) -> Result<(), BuildError> {
+    fn validate_column_layout(columns: &[u8]) -> BuildResult {
         if columns.is_empty() {
             Err(BuildError::InvalidLayout("need at least one column"))
         } else if columns.iter().any(|column| column == &0) {
@@ -561,7 +560,7 @@ impl<'a> PresentationBuilder<'a> {
         self.slide_chunks.push(SlideChunk::new(chunk_operations, mutators));
     }
 
-    fn push_slide_title(&mut self, mut text: Line) -> Result<(), BuildError> {
+    fn push_slide_title(&mut self, mut text: Line) -> BuildResult {
         if self.options.implicit_slide_ends && !matches!(self.slide_state.last_element, LastElement::None) {
             self.terminate_slide()?;
         }
@@ -598,7 +597,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_heading(&mut self, level: u8, mut text: Line) -> Result<(), BuildError> {
+    fn push_heading(&mut self, level: u8, mut text: Line) -> BuildResult {
         let (element_type, style) = match level {
             1 => (ElementType::Heading1, &self.theme.headings.h1),
             2 => (ElementType::Heading2, &self.theme.headings.h2),
@@ -621,7 +620,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_paragraph(&mut self, lines: Vec<Line>) -> Result<(), BuildError> {
+    fn push_paragraph(&mut self, lines: Vec<Line>) -> BuildResult {
         for text in lines {
             self.push_text(text, ElementType::Paragraph)?;
             self.push_line_break();
@@ -629,7 +628,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn process_thematic_break(&mut self) -> Result<(), BuildError> {
+    fn process_thematic_break(&mut self) -> BuildResult {
         if self.options.end_slide_shorthand {
             self.terminate_slide()?;
             self.slide_state.ignore_element_line_break = true;
@@ -639,12 +638,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_image_from_path(
-        &mut self,
-        path: PathBuf,
-        title: String,
-        source_position: SourcePosition,
-    ) -> Result<(), BuildError> {
+    fn push_image_from_path(&mut self, path: PathBuf, title: String, source_position: SourcePosition) -> BuildResult {
         let image = self.resources.image(&path).map_err(|e| BuildError::LoadImage {
             path,
             source_position,
@@ -653,7 +647,7 @@ impl<'a> PresentationBuilder<'a> {
         self.push_image(image, title, source_position)
     }
 
-    fn push_image(&mut self, image: Image, title: String, source_position: SourcePosition) -> Result<(), BuildError> {
+    fn push_image(&mut self, image: Image, title: String, source_position: SourcePosition) -> BuildResult {
         let attributes = Self::parse_image_attributes(&title, &self.options.image_attribute_prefix, source_position)?;
         let size = match attributes.width {
             Some(percent) => ImageSize::WidthScaled { ratio: percent.as_ratio() },
@@ -670,7 +664,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_list(&mut self, list: Vec<ListItem>) -> Result<(), BuildError> {
+    fn push_list(&mut self, list: Vec<ListItem>) -> BuildResult {
         let last_chunk_operation = self.slide_chunks.last().and_then(|chunk| chunk.iter_operations().last());
         // If the last chunk ended in a list, pop the newline so we get them all next to each
         // other.
@@ -697,7 +691,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_list_item(&mut self, index: usize, item: ListItem) -> Result<(), BuildError> {
+    fn push_list_item(&mut self, index: usize, item: ListItem) -> BuildResult {
         let padding_length = (item.depth as usize + 1) * 3;
         let mut prefix: String = " ".repeat(padding_length);
         match item.item_type {
@@ -731,18 +725,13 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_block_quote(&mut self, lines: Vec<Line>) -> Result<(), BuildError> {
+    fn push_block_quote(&mut self, lines: Vec<Line>) -> BuildResult {
         let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
         let prefix_color = self.theme.block_quote.colors.prefix.or(self.theme.block_quote.colors.base.foreground);
         self.push_quoted_text(lines, prefix, self.theme.block_quote.colors.base, prefix_color)
     }
 
-    fn push_alert(
-        &mut self,
-        alert_type: AlertType,
-        title: Option<String>,
-        mut lines: Vec<Line>,
-    ) -> Result<(), BuildError> {
+    fn push_alert(&mut self, alert_type: AlertType, title: Option<String>, mut lines: Vec<Line>) -> BuildResult {
         let (default_title, prefix_color) = match alert_type {
             AlertType::Note => ("Note", self.theme.alert.colors.types.note),
             AlertType::Tip => ("Tip", self.theme.alert.colors.types.tip),
@@ -766,7 +755,7 @@ impl<'a> PresentationBuilder<'a> {
         prefix: String,
         base_colors: Colors,
         prefix_color: Option<Color>,
-    ) -> Result<(), BuildError> {
+    ) -> BuildResult {
         let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0) as u16;
         let prefix = Text::new(
             prefix,
@@ -800,19 +789,19 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_line(&mut self, text: Text, element_type: ElementType) -> Result<(), BuildError> {
+    fn push_line(&mut self, text: Text, element_type: ElementType) -> BuildResult {
         self.push_text(Line::from(text), element_type)?;
         self.push_line_break();
         Ok(())
     }
 
-    fn push_text(&mut self, line: Line, element_type: ElementType) -> Result<(), BuildError> {
+    fn push_text(&mut self, line: Line, element_type: ElementType) -> BuildResult {
         let alignment = self.theme.alignment(&element_type);
         self.push_aligned_text(line, alignment)?;
         Ok(())
     }
 
-    fn push_aligned_text(&mut self, mut block: Line, alignment: Alignment) -> Result<(), BuildError> {
+    fn push_aligned_text(&mut self, mut block: Line, alignment: Alignment) -> BuildResult {
         for chunk in &mut block.0 {
             if chunk.style.is_code() {
                 chunk.style.colors = self.theme.inline_code.colors;
@@ -840,7 +829,7 @@ impl<'a> PresentationBuilder<'a> {
         self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(Differ(text))));
     }
 
-    fn push_code(&mut self, info: String, code: String, source_position: SourcePosition) -> Result<(), BuildError> {
+    fn push_code(&mut self, info: String, code: String, source_position: SourcePosition) -> BuildResult {
         let mut snippet = SnippetParser::parse(info, code)
             .map_err(|e| BuildError::InvalidSnippet { source_position, error: e.to_string() })?;
         if matches!(snippet.language, SnippetLanguage::File) {
@@ -905,7 +894,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(code)
     }
 
-    fn push_rendered_code(&mut self, code: Snippet, source_position: SourcePosition) -> Result<(), BuildError> {
+    fn push_rendered_code(&mut self, code: Snippet, source_position: SourcePosition) -> BuildResult {
         let Snippet { contents, language, attributes } = code;
         let error_holder = self.presentation_state.async_error_holder();
         let request = match language {
@@ -984,12 +973,7 @@ impl<'a> PresentationBuilder<'a> {
         style
     }
 
-    fn push_code_execution(
-        &mut self,
-        code: Snippet,
-        block_length: usize,
-        mode: ExecutionMode,
-    ) -> Result<(), BuildError> {
+    fn push_code_execution(&mut self, code: Snippet, block_length: usize, mode: ExecutionMode) -> BuildResult {
         if !self.code_executor.is_execution_supported(&code.language) {
             return Err(BuildError::UnsupportedExecution(code.language));
         }
@@ -1036,7 +1020,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn terminate_slide(&mut self) -> Result<(), BuildError> {
+    fn terminate_slide(&mut self) -> BuildResult {
         let footer = self.generate_footer();
 
         let operations = mem::take(&mut self.chunk_operations);
@@ -1072,7 +1056,7 @@ impl<'a> PresentationBuilder<'a> {
         ]
     }
 
-    fn push_table(&mut self, table: Table) -> Result<(), BuildError> {
+    fn push_table(&mut self, table: Table) -> BuildResult {
         let widths: Vec<_> = (0..table.columns())
             .map(|column| table.iter_column(column).map(|text| text.width()).max().unwrap_or(0))
             .collect();
