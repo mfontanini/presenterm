@@ -44,7 +44,9 @@ impl PresentationThemeSet {
                     return Err(LoadThemeError::Duplicate(theme_name.into()));
                 }
                 let mut theme = PresentationTheme::from_path(entry.path())?;
-                theme.resolve_palette_colors()?;
+                theme
+                    .resolve_palette_colors()
+                    .map_err(|e| LoadThemeError::Corrupted(theme_name.to_string(), e.into()))?;
                 let base = theme.extends.clone();
                 self.custom_themes.insert(theme_name.into(), theme);
                 dependencies.insert(theme_name.to_string(), base);
@@ -950,7 +952,7 @@ pub enum LoadThemeError {
     #[error(transparent)]
     Io(#[from] io::Error),
 
-    #[error("theme at '{0}' is corrupted: {1}")]
+    #[error("theme '{0}' is corrupted: {1}")]
     Corrupted(String, Box<dyn std::error::Error>),
 
     #[error("duplicate custom theme '{0}'")]
@@ -961,9 +963,6 @@ pub enum LoadThemeError {
 
     #[error("theme has an extension loop involving: {0:?}")]
     ExtensionLoop(Vec<String>),
-
-    #[error("malformed theme palette: {0}")]
-    MalformedPalette(#[from] UndefinedPaletteColorError),
 }
 
 #[cfg(test)]
