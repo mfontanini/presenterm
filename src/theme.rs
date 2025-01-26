@@ -1,4 +1,4 @@
-use crate::markdown::text_style::{Color, Colors, UndefinedPaletteColorError};
+use crate::markdown::text_style::{Color, Colors, FixedStr, UndefinedPaletteColorError};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs, io, path::Path};
 
@@ -943,7 +943,7 @@ impl ModalStyle {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct ColorPalette {
     #[serde(default)]
-    pub(crate) colors: BTreeMap<String, Color>,
+    pub(crate) colors: BTreeMap<FixedStr, Color>,
 }
 
 /// An error loading a presentation theme.

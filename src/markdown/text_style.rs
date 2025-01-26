@@ -216,7 +216,7 @@ impl Color {
 
     pub(crate) fn resolve(&self, palette: &ColorPalette) -> Result<Color, UndefinedPaletteColorError> {
         match self {
-            Color::Palette(name) => palette.colors.get(name.deref()).cloned().ok_or(UndefinedPaletteColorError(*name)),
+            Color::Palette(name) => palette.colors.get(name).cloned().ok_or(UndefinedPaletteColorError(*name)),
             _ => Ok(*self),
         }
     }
@@ -309,14 +309,14 @@ impl TryFrom<Color> for crossterm::style::Color {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, SerializeDisplay, DeserializeFromStr)]
 pub(crate) struct FixedStr<const N: usize = 16> {
     data: [u8; N],
     length: u8,
 }
 
 impl<const N: usize> TryFrom<&str> for FixedStr<N> {
-    type Error = ();
+    type Error = &'static str;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let data = value.as_bytes();
@@ -325,8 +325,16 @@ impl<const N: usize> TryFrom<&str> for FixedStr<N> {
             this.data[0..data.len()].copy_from_slice(data);
             Ok(this)
         } else {
-            Err(())
+            Err("string is too long")
         }
+    }
+}
+
+impl<const N: usize> FromStr for FixedStr<N> {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::try_from(s)
     }
 }
 
