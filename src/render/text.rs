@@ -83,7 +83,7 @@ impl<'a> TextDrawer<'a> {
         // Print the prefix at the beginning of the line.
         let styled_prefix = {
             let Text { content, style } = self.prefix.text();
-            style.apply(content)
+            style.apply(content)?
         };
         terminal.move_to_column(self.positioning.start_column)?;
         terminal.print_styled_line(styled_prefix.clone())?;
@@ -111,7 +111,7 @@ impl<'a> TextDrawer<'a> {
                 line_length = line_length.saturating_add(chunk.width() as u16);
 
                 let (text, style) = chunk.into_parts();
-                let text = style.apply(text);
+                let text = style.apply(text)?;
                 terminal.print_styled_line(text)?;
 
                 // Crossterm resets colors if any attributes are set so let's just re-apply colors
