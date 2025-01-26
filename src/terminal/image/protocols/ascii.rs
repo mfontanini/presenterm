@@ -83,7 +83,7 @@ impl PrintImage for AsciiPrinter {
         // will contain the pixels at (x, y) and (x, y + 1) combined.
         let image = image.0.resize_exact(options.columns as u32, 2 * options.rows as u32, FilterType::Triangle);
         let image = image.into_rgba8();
-        let default_background = options.background_color.map(Color::from);
+        let default_background = options.background_color.map(Color::try_from).transpose()?;
 
         // Iterate pixel rows in pairs to be able to merge both pixels in a single iteration.
         // Note that may not have a second row if there's an odd number of them.
@@ -98,7 +98,7 @@ impl PrintImage for AsciiPrinter {
                 // Get pixel colors for both of these. At this point the special case for the odd
                 // number of rows disappears as we treat a transparent pixel and a non-existent
                 // one the same: they're simply transparent.
-                let background = options.background_color.map(Color::from);
+                let background = default_background;
                 let top = Self::pixel_color(top_pixel, background);
                 let bottom = bottom_pixel.and_then(|c| Self::pixel_color(c, background));
                 match (top, bottom) {

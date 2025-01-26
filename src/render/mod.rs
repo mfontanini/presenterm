@@ -9,7 +9,7 @@ use crate::{
     markdown::{
         elements::Text,
         text::WeightedLine,
-        text_style::{Color, Colors, TextStyle},
+        text_style::{Color, Colors, PaletteColorError, TextStyle},
     },
     render::{operation::RenderOperation, properties::WindowSize},
     terminal::{
@@ -126,6 +126,9 @@ pub(crate) enum RenderError {
 
     #[error("vertical overflow")]
     VerticalOverflow,
+
+    #[error(transparent)]
+    PaletteColor(#[from] PaletteColorError),
 }
 
 pub(crate) enum ErrorSource {

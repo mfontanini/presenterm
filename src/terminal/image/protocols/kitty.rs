@@ -329,7 +329,7 @@ impl KittyPrinter {
         image_id: u32,
     ) -> Result<(), PrintImageError> {
         let color = Color::new((image_id >> 16) as u8, (image_id >> 8) as u8, image_id as u8);
-        writer.queue(SetForegroundColor(color.into()))?;
+        writer.queue(SetForegroundColor(color.try_into()?))?;
         if options.rows.max(options.columns) >= DIACRITICS.len() as u16 {
             return Err(PrintImageError::other("image is too large to fit in tmux"));
         }

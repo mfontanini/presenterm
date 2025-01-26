@@ -6,7 +6,11 @@ use super::{
         kitty::{KittyImage, KittyMode, KittyPrinter},
     },
 };
-use crate::{markdown::text_style::Color, render::properties::CursorPosition, terminal::GraphicsMode};
+use crate::{
+    markdown::text_style::{Color, PaletteColorError},
+    render::properties::CursorPosition,
+    terminal::GraphicsMode,
+};
 use image::{DynamicImage, ImageError};
 use std::{
     borrow::Cow,
@@ -189,8 +193,14 @@ pub(crate) enum PrintImageError {
     #[error("image decoding: {0}")]
     Image(#[from] ImageError),
 
-    #[error("other: {0}")]
+    #[error("{0}")]
     Other(Cow<'static, str>),
+}
+
+impl From<PaletteColorError> for PrintImageError {
+    fn from(e: PaletteColorError) -> Self {
+        Self::Other(e.to_string().into())
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

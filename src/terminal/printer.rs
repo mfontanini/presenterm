@@ -87,13 +87,15 @@ impl<W: TerminalWrite> Terminal<W> {
     }
 
     pub(crate) fn set_colors(&mut self, colors: Colors) -> io::Result<()> {
+        let colors = colors.try_into().map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
         self.writer.queue(style::ResetColor)?;
-        self.writer.queue(style::SetColors(colors.into()))?;
+        self.writer.queue(style::SetColors(colors))?;
         Ok(())
     }
 
     pub(crate) fn set_background_color(&mut self, color: Color) -> io::Result<()> {
-        self.writer.queue(style::SetBackgroundColor(color.into()))?;
+        let color = color.try_into().map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+        self.writer.queue(style::SetBackgroundColor(color))?;
         Ok(())
     }
 

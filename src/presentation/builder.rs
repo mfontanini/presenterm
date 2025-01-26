@@ -14,7 +14,7 @@ use crate::{
             Text,
         },
         text::WeightedLine,
-        text_style::{Color, Colors, TextStyle},
+        text_style::{Color, Colors, TextStyle, UndefinedPaletteColorError},
     },
     presentation::{
         ChunkMutator, Modals, Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata,
@@ -188,7 +188,7 @@ impl<'a> PresentationBuilder<'a> {
         self.set_code_theme()?;
 
         if self.chunk_operations.is_empty() {
-            self.push_slide_prelude();
+            self.push_slide_prelude()?;
         }
         for element in elements {
             self.slide_state.ignore_element_line_break = false;
@@ -203,7 +203,7 @@ impl<'a> PresentationBuilder<'a> {
             }
         }
         if !self.chunk_operations.is_empty() || !self.slide_chunks.is_empty() {
-            self.terminate_slide();
+            self.terminate_slide()?;
         }
         self.footer_context.borrow_mut().total_slides = self.slides.len();
 
@@ -257,10 +257,15 @@ impl<'a> PresentationBuilder<'a> {
         if last_valid { Ok(()) } else { Err(BuildError::NotInsideColumn) }
     }
 
-    fn push_slide_prelude(&mut self) {
+    fn set_colors(&mut self, colors: Colors) -> Result<(), UndefinedPaletteColorError> {
+        self.chunk_operations.push(RenderOperation::SetColors(colors.resolve(&self.theme.palette)?));
+        Ok(())
+    }
+
+    fn push_slide_prelude(&mut self) -> Result<(), BuildError> {
         let colors = self.theme.default_style.colors;
+        self.set_colors(colors)?;
         self.chunk_operations.extend([
-            RenderOperation::SetColors(colors),
             RenderOperation::ClearScreen,
             RenderOperation::ApplyMargin(MarginProperties {
                 horizontal_margin: self.theme.default_style.margin.clone().unwrap_or_default(),
@@ -268,6 +273,7 @@ impl<'a> PresentationBuilder<'a> {
             }),
         ]);
         self.push_line_break();
+        Ok(())
     }
 
     fn process_element_for_presentation_mode(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
@@ -276,19 +282,19 @@ impl<'a> PresentationBuilder<'a> {
             // This one is processed before everything else as it affects how the rest of the
             // elements is rendered.
             MarkdownElement::FrontMatter(_) => self.slide_state.ignore_element_line_break = true,
-            MarkdownElement::SetexHeading { text } => self.push_slide_title(text),
-            MarkdownElement::Heading { level, text } => self.push_heading(level, text),
+            MarkdownElement::SetexHeading { text } => self.push_slide_title(text)?,
+            MarkdownElement::Heading { level, text } => self.push_heading(level, text)?,
             MarkdownElement::Paragraph(elements) => self.push_paragraph(elements)?,
-            MarkdownElement::List(elements) => self.push_list(elements),
+            MarkdownElement::List(elements) => self.push_list(elements)?,
             MarkdownElement::Snippet { info, code, source_position } => self.push_code(info, code, source_position)?,
-            MarkdownElement::Table(table) => self.push_table(table),
-            MarkdownElement::ThematicBreak => self.process_thematic_break(),
+            MarkdownElement::Table(table) => self.push_table(table)?,
+            MarkdownElement::ThematicBreak => self.process_thematic_break()?,
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
-            MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines),
+            MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines)?,
             MarkdownElement::Image { path, title, source_position } => {
                 self.push_image_from_path(path, title, source_position)?
             }
-            MarkdownElement::Alert { alert_type, title, lines } => self.push_alert(alert_type, title, lines),
+            MarkdownElement::Alert { alert_type, title, lines } => self.push_alert(alert_type, title, lines)?,
         };
         if should_clear_last {
             self.slide_state.last_element = LastElement::Other;
@@ -299,7 +305,7 @@ impl<'a> PresentationBuilder<'a> {
     fn process_element_for_speaker_notes_mode(&mut self, element: MarkdownElement) -> Result<(), BuildError> {
         match element {
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
-            MarkdownElement::SetexHeading { text } => self.push_slide_title(text),
+            MarkdownElement::SetexHeading { text } => self.push_slide_title(text)?,
             _ => {}
         }
         // Allows us to start the next speaker slide when a title is pushed and implicit_slide_ends is enabled.
@@ -334,8 +340,8 @@ impl<'a> PresentationBuilder<'a> {
 
         self.set_theme(&metadata.theme)?;
         if metadata.has_frontmatter() {
-            self.push_slide_prelude();
-            self.push_intro_slide(metadata);
+            self.push_slide_prelude()?;
+            self.push_intro_slide(metadata)?;
         }
         Ok(())
     }
@@ -365,8 +371,9 @@ impl<'a> PresentationBuilder<'a> {
                 return Err(BuildError::InvalidMetadata("theme overrides can't use 'extends'".into()));
             }
             // This shouldn't fail as the models are already correct.
-            let theme = merge_struct::merge(self.theme.as_ref(), overrides)
+            let mut theme = merge_struct::merge(self.theme.as_ref(), overrides)
                 .map_err(|e| BuildError::InvalidMetadata(format!("invalid theme: {e}")))?;
+            theme.resolve_palette_colors()?;
             self.theme = Cow::Owned(theme);
         }
         Ok(())
@@ -381,7 +388,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_intro_slide(&mut self, metadata: PresentationMetadata) {
+    fn push_intro_slide(&mut self, metadata: PresentationMetadata) -> Result<(), BuildError> {
         let styles = self.theme.intro_slide.clone();
         let create_text =
             |text: Option<String>, style: TextStyle| -> Option<Text> { text.map(|text| Text::new(text, style)) };
@@ -401,21 +408,21 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.chunk_operations.push(RenderOperation::JumpToVerticalCenter);
         if let Some(title) = title {
-            self.push_line(title, ElementType::PresentationTitle);
+            self.push_line(title, ElementType::PresentationTitle)?;
         }
         if let Some(sub_title) = sub_title {
-            self.push_line(sub_title, ElementType::PresentationSubTitle);
+            self.push_line(sub_title, ElementType::PresentationSubTitle)?;
         }
         if event.is_some() || location.is_some() || date.is_some() {
             self.push_line_breaks(2);
             if let Some(event) = event {
-                self.push_line(event, ElementType::PresentationEvent);
+                self.push_line(event, ElementType::PresentationEvent)?;
             }
             if let Some(location) = location {
-                self.push_line(location, ElementType::PresentationLocation);
+                self.push_line(location, ElementType::PresentationLocation)?;
             }
             if let Some(date) = date {
-                self.push_line(date, ElementType::PresentationDate);
+                self.push_line(date, ElementType::PresentationDate)?;
             }
         }
         if !authors.is_empty() {
@@ -428,11 +435,11 @@ impl<'a> PresentationBuilder<'a> {
                 }
             };
             for author in authors {
-                self.push_line(author, ElementType::PresentationAuthor);
+                self.push_line(author, ElementType::PresentationAuthor)?;
             }
         }
         self.slide_state.title = Some(Line::from("[Introduction]"));
-        self.terminate_slide();
+        self.terminate_slide()
     }
 
     fn process_comment(&mut self, comment: String, source_position: SourcePosition) -> Result<(), BuildError> {
@@ -459,7 +466,7 @@ impl<'a> PresentationBuilder<'a> {
     fn process_comment_command_presentation_mode(&mut self, comment_command: CommentCommand) -> Result<(), BuildError> {
         match comment_command {
             CommentCommand::Pause => self.process_pause(),
-            CommentCommand::EndSlide => self.terminate_slide(),
+            CommentCommand::EndSlide => self.terminate_slide()?,
             CommentCommand::NewLine => self.push_line_break(),
             CommentCommand::NewLines(count) => {
                 for _ in 0..count {
@@ -511,11 +518,11 @@ impl<'a> PresentationBuilder<'a> {
         match comment_command {
             CommentCommand::SpeakerNote(note) => {
                 for line in note.lines() {
-                    self.push_text(line.into(), ElementType::Paragraph);
+                    self.push_text(line.into(), ElementType::Paragraph)?;
                     self.push_line_break();
                 }
             }
-            CommentCommand::EndSlide => self.terminate_slide(),
+            CommentCommand::EndSlide => self.terminate_slide()?,
             _ => {}
         }
         Ok(())
@@ -554,9 +561,9 @@ impl<'a> PresentationBuilder<'a> {
         self.slide_chunks.push(SlideChunk::new(chunk_operations, mutators));
     }
 
-    fn push_slide_title(&mut self, mut text: Line) {
+    fn push_slide_title(&mut self, mut text: Line) -> Result<(), BuildError> {
         if self.options.implicit_slide_ends && !matches!(self.slide_state.last_element, LastElement::None) {
-            self.terminate_slide();
+            self.terminate_slide()?;
         }
 
         if self.slide_state.title.is_none() {
@@ -577,7 +584,7 @@ impl<'a> PresentationBuilder<'a> {
         text.apply_style(&text_style);
 
         self.push_line_breaks(style.padding_top.unwrap_or(0) as usize);
-        self.push_text(text, ElementType::SlideTitle);
+        self.push_text(text, ElementType::SlideTitle)?;
         self.push_line_break();
 
         for _ in 0..style.padding_bottom.unwrap_or(0) {
@@ -588,9 +595,10 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.push_line_break();
         self.slide_state.ignore_element_line_break = true;
+        Ok(())
     }
 
-    fn push_heading(&mut self, level: u8, mut text: Line) {
+    fn push_heading(&mut self, level: u8, mut text: Line) -> Result<(), BuildError> {
         let (element_type, style) = match level {
             1 => (ElementType::Heading1, &self.theme.headings.h1),
             2 => (ElementType::Heading2, &self.theme.headings.h2),
@@ -608,25 +616,27 @@ impl<'a> PresentationBuilder<'a> {
         let text_style = TextStyle::default().bold().colors(style.colors);
         text.apply_style(&text_style);
 
-        self.push_text(text, element_type);
+        self.push_text(text, element_type)?;
         self.push_line_break();
+        Ok(())
     }
 
     fn push_paragraph(&mut self, lines: Vec<Line>) -> Result<(), BuildError> {
         for text in lines {
-            self.push_text(text, ElementType::Paragraph);
+            self.push_text(text, ElementType::Paragraph)?;
             self.push_line_break();
         }
         Ok(())
     }
 
-    fn process_thematic_break(&mut self) {
+    fn process_thematic_break(&mut self) -> Result<(), BuildError> {
         if self.options.end_slide_shorthand {
-            self.terminate_slide();
+            self.terminate_slide()?;
             self.slide_state.ignore_element_line_break = true;
         } else {
             self.chunk_operations.extend([RenderSeparator::default().into(), RenderOperation::RenderLineBreak]);
         }
+        Ok(())
     }
 
     fn push_image_from_path(
@@ -655,14 +665,12 @@ impl<'a> PresentationBuilder<'a> {
             restore_cursor: false,
             background_color: self.theme.default_style.colors.background,
         };
-        self.chunk_operations.extend([
-            RenderOperation::RenderImage(image, properties),
-            RenderOperation::SetColors(self.theme.default_style.colors),
-        ]);
+        self.chunk_operations.push(RenderOperation::RenderImage(image, properties));
+        self.set_colors(self.theme.default_style.colors)?;
         Ok(())
     }
 
-    fn push_list(&mut self, list: Vec<ListItem>) {
+    fn push_list(&mut self, list: Vec<ListItem>) -> Result<(), BuildError> {
         let last_chunk_operation = self.slide_chunks.last().and_then(|chunk| chunk.iter_operations().last());
         // If the last chunk ended in a list, pop the newline so we get them all next to each
         // other.
@@ -684,11 +692,12 @@ impl<'a> PresentationBuilder<'a> {
             if index > 0 && incremental_lists {
                 self.process_pause();
             }
-            self.push_list_item(item.index, item.item);
+            self.push_list_item(item.index, item.item)?;
         }
+        Ok(())
     }
 
-    fn push_list_item(&mut self, index: usize, item: ListItem) {
+    fn push_list_item(&mut self, index: usize, item: ListItem) -> Result<(), BuildError> {
         let padding_length = (item.depth as usize + 1) * 3;
         let mut prefix: String = " ".repeat(padding_length);
         match item.item_type {
@@ -711,23 +720,29 @@ impl<'a> PresentationBuilder<'a> {
         };
 
         let prefix_length = prefix.len() as u16;
-        self.push_text(prefix.into(), ElementType::List);
+        self.push_text(prefix.into(), ElementType::List)?;
 
         let text = item.contents;
-        self.push_aligned_text(text, Alignment::Left { margin: Margin::Fixed(prefix_length) });
+        self.push_aligned_text(text, Alignment::Left { margin: Margin::Fixed(prefix_length) })?;
         self.push_line_break();
         if item.depth == 0 {
             self.slide_state.last_element = LastElement::List { last_index: index };
         }
+        Ok(())
     }
 
-    fn push_block_quote(&mut self, lines: Vec<Line>) {
+    fn push_block_quote(&mut self, lines: Vec<Line>) -> Result<(), BuildError> {
         let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
         let prefix_color = self.theme.block_quote.colors.prefix.or(self.theme.block_quote.colors.base.foreground);
-        self.push_quoted_text(lines, prefix, self.theme.block_quote.colors.base, prefix_color);
+        self.push_quoted_text(lines, prefix, self.theme.block_quote.colors.base, prefix_color)
     }
 
-    fn push_alert(&mut self, alert_type: AlertType, title: Option<String>, mut lines: Vec<Line>) {
+    fn push_alert(
+        &mut self,
+        alert_type: AlertType,
+        title: Option<String>,
+        mut lines: Vec<Line>,
+    ) -> Result<(), BuildError> {
         let (default_title, prefix_color) = match alert_type {
             AlertType::Note => ("Note", self.theme.alert.colors.types.note),
             AlertType::Tip => ("Tip", self.theme.alert.colors.types.tip),
@@ -742,10 +757,16 @@ impl<'a> PresentationBuilder<'a> {
         lines.insert(0, Line::from(Text::new(title, TextStyle::default().colors(title_colors))));
 
         let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
-        self.push_quoted_text(lines, prefix, self.theme.alert.colors.base, prefix_color);
+        self.push_quoted_text(lines, prefix, self.theme.alert.colors.base, prefix_color)
     }
 
-    fn push_quoted_text(&mut self, lines: Vec<Line>, prefix: String, base_colors: Colors, prefix_color: Option<Color>) {
+    fn push_quoted_text(
+        &mut self,
+        lines: Vec<Line>,
+        prefix: String,
+        base_colors: Colors,
+        prefix_color: Option<Color>,
+    ) -> Result<(), BuildError> {
         let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0) as u16;
         let prefix = Text::new(
             prefix,
@@ -775,29 +796,36 @@ impl<'a> PresentationBuilder<'a> {
             }));
             self.push_line_break();
         }
-        self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors));
+        self.set_colors(self.theme.default_style.colors)?;
+        Ok(())
     }
 
-    fn push_line(&mut self, text: Text, element_type: ElementType) {
-        self.push_text(Line::from(text), element_type);
+    fn push_line(&mut self, text: Text, element_type: ElementType) -> Result<(), BuildError> {
+        self.push_text(Line::from(text), element_type)?;
         self.push_line_break();
+        Ok(())
     }
 
-    fn push_text(&mut self, text: Line, element_type: ElementType) {
+    fn push_text(&mut self, line: Line, element_type: ElementType) -> Result<(), BuildError> {
         let alignment = self.theme.alignment(&element_type);
-        self.push_aligned_text(text, alignment);
+        self.push_aligned_text(line, alignment)?;
+        Ok(())
     }
 
-    fn push_aligned_text(&mut self, mut block: Line, alignment: Alignment) {
+    fn push_aligned_text(&mut self, mut block: Line, alignment: Alignment) -> Result<(), BuildError> {
         for chunk in &mut block.0 {
             if chunk.style.is_code() {
                 chunk.style.colors = self.theme.inline_code.colors;
+            } else {
+                let style = &mut chunk.style;
+                style.colors = style.colors.resolve(&self.theme.palette)?;
             }
         }
         if !block.0.is_empty() {
             self.chunk_operations
                 .push(RenderOperation::RenderText { line: WeightedLine::from(block), alignment: alignment.clone() });
         }
+        Ok(())
     }
 
     fn push_line_break(&mut self) {
@@ -832,7 +860,7 @@ impl<'a> PresentationBuilder<'a> {
         for line in lines {
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
         }
-        self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.colors));
+        self.set_colors(self.theme.default_style.colors)?;
         if self.options.allow_mutations && context.borrow().groups.len() > 1 {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
@@ -1008,7 +1036,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn terminate_slide(&mut self) {
+    fn terminate_slide(&mut self) -> Result<(), BuildError> {
         let footer = self.generate_footer();
 
         let operations = mem::take(&mut self.chunk_operations);
@@ -1020,9 +1048,10 @@ impl<'a> PresentationBuilder<'a> {
         self.index_builder.add_title(self.slide_state.title.take().unwrap_or_else(|| Text::from("<no title>").into()));
         self.slides.push(slide);
 
-        self.push_slide_prelude();
+        self.push_slide_prelude()?;
         self.slide_state = Default::default();
         self.slide_state.last_element = LastElement::None;
+        Ok(())
     }
 
     fn generate_footer(&mut self) -> Vec<RenderOperation> {
@@ -1043,12 +1072,12 @@ impl<'a> PresentationBuilder<'a> {
         ]
     }
 
-    fn push_table(&mut self, table: Table) {
+    fn push_table(&mut self, table: Table) -> Result<(), BuildError> {
         let widths: Vec<_> = (0..table.columns())
             .map(|column| table.iter_column(column).map(|text| text.width()).max().unwrap_or(0))
             .collect();
         let flattened_header = Self::prepare_table_row(table.header, &widths);
-        self.push_text(flattened_header, ElementType::Table);
+        self.push_text(flattened_header, ElementType::Table)?;
         self.push_line_break();
 
         let mut separator = Line(Vec::new());
@@ -1066,14 +1095,15 @@ impl<'a> PresentationBuilder<'a> {
             separator.0.push(Text::from(contents));
         }
 
-        self.push_text(separator, ElementType::Table);
+        self.push_text(separator, ElementType::Table)?;
         self.push_line_break();
 
         for row in table.rows {
             let flattened_row = Self::prepare_table_row(row, &widths);
-            self.push_text(flattened_row, ElementType::Table);
+            self.push_text(flattened_row, ElementType::Table)?;
             self.push_line_break();
         }
+        Ok(())
     }
 
     fn prepare_table_row(row: TableRow, widths: &[usize]) -> Line {
@@ -1208,6 +1238,9 @@ pub enum BuildError {
 
     #[error("language {0:?} does not support execution")]
     UnsupportedExecution(SnippetLanguage),
+
+    #[error(transparent)]
+    UndefinedPaletteColor(#[from] UndefinedPaletteColorError),
 }
 
 enum ExecutionMode {
