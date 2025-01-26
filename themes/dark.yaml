@@ -3,7 +3,7 @@ default:
   margin:
     percent: 8
   colors:
-    foreground: "e6e6e6"
+    foreground: palette:white
     background: "040312"
 
 slide_title:
@@ -11,7 +11,7 @@ slide_title:
   padding_bottom: 1
   padding_top: 1
   colors:
-    foreground: "ee9322"
+    foreground: palette:orange
   bold: true
 
 code:
@@ -26,17 +26,17 @@ code:
 
 execution_output:
   colors:
-    foreground: "e6e6e6"
-    background: "2d2d2d"
+    foreground: palette:white
+    background: palette:black
   status:
     running:
-      foreground: "b4ccff"
+      foreground: palette:light_blue
     success:
-      foreground: "a8df8e"
+      foreground: palette:light_green
     failure:
-      foreground: "f78ca2"
+      foreground: palette:red
     not_started:
-      foreground: "ee9322"
+      foreground: palette:orange
 
 inline_code:
   colors:
@@ -47,23 +47,23 @@ intro_slide:
   title:
     alignment: center
     colors:
-      foreground: "b4ccff"
+      foreground: palette:light_blue
   subtitle:
     alignment: center
     colors:
-      foreground: "a5d7e8"
+      foreground: palette:aqua
   event:
     alignment: center
     colors:
-      foreground: "b4ccff"
+      foreground: palette:light_blue
   location:
     alignment: center
     colors:
-      foreground: "a5d7e8"
+      foreground: palette:aqua
   date:
     alignment: center
     colors:
-      foreground: "ee9322"
+      foreground: palette:orange
   author:
     alignment: center
     colors:
@@ -75,51 +75,51 @@ headings:
   h1:
     prefix: "██"
     colors:
-      foreground: "3085c3"
+      foreground: palette:blue 
   h2:
     prefix: "▓▓▓"
     colors:
-      foreground: "a8df8e"
+      foreground: palette:light_green
   h3:
     prefix: "▒▒▒▒"
     colors:
-      foreground: "f78ca2"
+      foreground: palette:red
   h4:
     prefix: "░░░░░"
     colors:
-      foreground: "d2d2d2"
+      foreground: palette:gray
   h5:
     prefix: "░░░░░░"
     colors:
-      foreground: "d2d2d2"
+      foreground: palette:gray
   h6:
     prefix: "░░░░░░░"
     colors:
-      foreground: "d2d2d2"
+      foreground: palette:gray
 
 block_quote:
   prefix: "▍ "
   colors:
-    foreground: "f0f0f0"
-    background: "292e42"
-    prefix: "ee9322"
+    foreground: palette:light_gray
+    background: palette:blue_gray
+    prefix: palette:orange
 
 alert:
   prefix: "▍ "
   colors:
-    foreground: "f0f0f0"
-    background: "292e42"
+    foreground: palette:light_gray
+    background: palette:blue_gray
     types:
-      note: "3085c3"
-      tip: "a8df8e"
-      important: "986ee2"
-      warning: "ee9322"
-      caution: "f78ca2"
+      note: palette:blue
+      tip: palette:light_green
+      important: palette:purple
+      warning: palette:orange
+      caution: palette:red
 
 typst:
   colors:
-    foreground: "f0f0f0"
-    background: "292e42"
+    foreground: palette:light_gray
+    background: palette:blue_gray
 
 footer:
   style: template
@@ -127,8 +127,23 @@ footer:
 
 modals:
   selection_colors:
-    foreground: "ee9322"
+    foreground: palette:orange
 
 mermaid:
   background: transparent
   theme: dark
+
+palette:
+  colors:
+    blue: "3085c3"
+    light_blue: "b4ccff"
+    blue_gray: "292e42"
+    aqua: "a5d7e8"
+    light_green: "a8df8e"
+    red: "f78ca2"
+    orange: "ee9322"
+    purple: "986ee2"
+    white: "e6e6e6"
+    black: "2d2d2d"
+    gray: "d2d2d2"
+    light_gray: "f0f0f0"
