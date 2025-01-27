@@ -772,6 +772,8 @@ impl<'a> PresentationBuilder<'a> {
                     if text.style.is_code() {
                         text.style.colors = self.theme.inline_code.colors;
                     }
+                } else {
+                    text.style.colors = text.style.colors.resolve(&self.theme.palette)?;
                 }
             }
             self.chunk_operations.push(RenderOperation::RenderBlockLine(BlockLine {
