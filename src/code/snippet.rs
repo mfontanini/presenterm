@@ -235,6 +235,10 @@ impl SnippetParser {
                 SnippetAttribute::LineNumbers => attributes.line_numbers = true,
                 SnippetAttribute::Exec => attributes.execute = true,
                 SnippetAttribute::ExecReplace => attributes.execute_replace = true,
+                SnippetAttribute::Image => {
+                    attributes.execute_replace = true;
+                    attributes.image = true;
+                }
                 SnippetAttribute::Render => attributes.render = true,
                 SnippetAttribute::NoBackground => attributes.no_background = true,
                 SnippetAttribute::AcquireTerminal => attributes.acquire_terminal = true,
@@ -259,6 +263,7 @@ impl SnippetParser {
                     "line_numbers" => SnippetAttribute::LineNumbers,
                     "exec" => SnippetAttribute::Exec,
                     "exec_replace" => SnippetAttribute::ExecReplace,
+                    "image" => SnippetAttribute::Image,
                     "render" => SnippetAttribute::Render,
                     "no_background" => SnippetAttribute::NoBackground,
                     "acquire_terminal" => SnippetAttribute::AcquireTerminal,
@@ -373,6 +378,7 @@ enum SnippetAttribute {
     LineNumbers,
     Exec,
     ExecReplace,
+    Image,
     Render,
     HighlightedLines(Vec<HighlightGroup>),
     Width(Percent),
@@ -569,6 +575,10 @@ pub(crate) struct SnippetAttributes {
     /// Whether the snippet is marked as an executable block that will be replaced with the output
     /// of its execution.
     pub(crate) execute_replace: bool,
+
+    /// Whether the snippet should be executed and its output should be considered to be an image
+    /// and replaced with it.
+    pub(crate) image: bool,
 
     /// Whether a snippet is marked to be rendered.
     ///

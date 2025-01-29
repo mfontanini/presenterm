@@ -10,7 +10,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     fmt::{self, Debug},
     fs::File,
-    io::{self, BufRead, BufReader, Write},
+    io::{self, BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     process::{self, Child, Stdio},
     sync::{Arc, Mutex},
@@ -59,12 +59,17 @@ impl SnippetExecutor {
         let config = self.language_config(snippet)?;
         let script_dir = Self::write_snippet(snippet, config)?;
         let state: Arc<Mutex<ExecutionState>> = Default::default();
+        let output_type = match snippet.attributes.image {
+            true => OutputType::Binary,
+            false => OutputType::Lines,
+        };
         let reader_handle = CommandsRunner::spawn(
             state.clone(),
             script_dir,
             config.commands.clone(),
             config.environment.clone(),
             self.cwd.to_path_buf(),
+            output_type,
         );
         let handle = ExecutionHandle { state, reader_handle };
         Ok(handle)
@@ -183,15 +188,16 @@ impl CommandsRunner {
         commands: Vec<Vec<String>>,
         env: HashMap<String, String>,
         cwd: PathBuf,
+        output_type: OutputType,
     ) -> thread::JoinHandle<()> {
         let reader = Self { state, script_directory };
-        thread::spawn(|| reader.run(commands, env, cwd))
+        thread::spawn(move || reader.run(commands, env, cwd, output_type))
     }
 
-    fn run(self, commands: Vec<Vec<String>>, env: HashMap<String, String>, cwd: PathBuf) {
+    fn run(self, commands: Vec<Vec<String>>, env: HashMap<String, String>, cwd: PathBuf, output_type: OutputType) {
         let mut last_result = true;
         for command in commands {
-            last_result = self.run_command(command, &env, &cwd);
+            last_result = self.run_command(command, &env, &cwd, output_type);
             if !last_result {
                 break;
             }
@@ -203,17 +209,23 @@ impl CommandsRunner {
         self.state.lock().unwrap().status = status;
     }
 
-    fn run_command(&self, command: Vec<String>, env: &HashMap<String, String>, cwd: &Path) -> bool {
+    fn run_command(
+        &self,
+        command: Vec<String>,
+        env: &HashMap<String, String>,
+        cwd: &Path,
+        output_type: OutputType,
+    ) -> bool {
         let (mut child, reader) = match self.launch_process(command, env, cwd) {
             Ok(inner) => inner,
             Err(e) => {
                 let mut state = self.state.lock().unwrap();
                 state.status = ProcessStatus::Failure;
-                state.output.push(e.to_string());
+                state.output.extend(e.to_string().into_bytes());
                 return false;
             }
         };
-        let _ = Self::process_output(self.state.clone(), reader);
+        let _ = Self::process_output(self.state.clone(), reader, output_type);
 
         match child.wait() {
             Ok(code) => code.success(),
@@ -246,24 +258,41 @@ impl CommandsRunner {
         Ok((child, reader))
     }
 
-    fn process_output(state: Arc<Mutex<ExecutionState>>, reader: os_pipe::PipeReader) -> io::Result<()> {
-        let reader = BufReader::new(reader);
-        for line in reader.lines() {
-            let mut line = line?;
-            if line.contains('\t') {
-                line = line.replace('\t', "    ");
+    fn process_output(
+        state: Arc<Mutex<ExecutionState>>,
+        mut reader: os_pipe::PipeReader,
+        output_type: OutputType,
+    ) -> io::Result<()> {
+        match output_type {
+            OutputType::Lines => {
+                let reader = BufReader::new(reader);
+                for line in reader.lines() {
+                    let mut state = state.lock().unwrap();
+                    state.output.extend(line?.into_bytes());
+                    state.output.push(b'\n');
+                }
+                Ok(())
             }
-            // TODO: consider not locking per line...
-            state.lock().unwrap().output.push(line);
+            OutputType::Binary => {
+                let mut buffer = Vec::new();
+                reader.read_to_end(&mut buffer)?;
+                state.lock().unwrap().output.extend(buffer);
+                Ok(())
+            }
         }
-        Ok(())
     }
+}
+
+#[derive(Clone, Copy)]
+enum OutputType {
+    Lines,
+    Binary,
 }
 
 /// The state of the execution of a process.
 #[derive(Clone, Default, Debug)]
 pub(crate) struct ExecutionState {
-    pub(crate) output: Vec<String>,
+    pub(crate) output: Vec<u8>,
     pub(crate) status: ProcessStatus,
 }
 
@@ -307,8 +336,8 @@ echo 'bye'"
             }
         };
 
-        let expected_lines = vec!["hello world", "bye"];
-        assert_eq!(state.output, expected_lines);
+        let expected = b"hello world\nbye\n";
+        assert_eq!(state.output, expected);
     }
 
     #[test]
@@ -343,8 +372,8 @@ echo 'hello world'
             }
         };
 
-        let expected_lines = vec!["This message redirects to stderr", "hello world"];
-        assert_eq!(state.output, expected_lines);
+        let expected = b"This message redirects to stderr\nhello world\n";
+        assert_eq!(state.output, expected);
     }
 
     #[test]
@@ -368,9 +397,8 @@ echo 'hello world'
             }
         };
 
-        let expected_lines =
-            vec!["this line was hidden", "this line was hidden and contains another prefix /// ", "hello world"];
-        assert_eq!(state.output, expected_lines);
+        let expected = b"this line was hidden\nthis line was hidden and contains another prefix /// \nhello world\n";
+        assert_eq!(state.output, expected);
     }
 
     #[test]

@@ -36,7 +36,8 @@ use crate::{
     third_party::{ThirdPartyRender, ThirdPartyRenderError, ThirdPartyRenderRequest},
     ui::{
         execution::{
-            DisplaySeparator, RunAcquireTerminalSnippet, RunSnippetOperation, SnippetExecutionDisabledOperation,
+            DisplaySeparator, RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation,
+            SnippetExecutionDisabledOperation,
         },
         footer::{FooterContext, FooterGenerator},
         modals::{IndexBuilder, KeyBindingsModalBuilder},
@@ -975,18 +976,31 @@ impl<'a> PresentationBuilder<'a> {
         style
     }
 
-    fn push_code_execution(&mut self, code: Snippet, block_length: usize, mode: ExecutionMode) -> BuildResult {
-        if !self.code_executor.is_execution_supported(&code.language) {
-            return Err(BuildError::UnsupportedExecution(code.language));
+    fn push_code_execution(&mut self, snippet: Snippet, block_length: usize, mode: ExecutionMode) -> BuildResult {
+        if !self.code_executor.is_execution_supported(&snippet.language) {
+            return Err(BuildError::UnsupportedExecution(snippet.language));
         }
-        if code.attributes.acquire_terminal {
+        if snippet.attributes.image {
+            let operation = RunImageSnippet::new(
+                snippet,
+                self.code_executor.clone(),
+                self.image_registry.clone(),
+                self.theme.execution_output.status.clone(),
+            );
+            operation.start_render();
+
+            let operation = RenderOperation::RenderAsync(Rc::new(operation));
+            self.chunk_operations.push(operation);
+            return Ok(());
+        }
+        if snippet.attributes.acquire_terminal {
             let block_length = block_length as u16;
             let block_length = match self.theme.code.alignment.clone().unwrap_or_default() {
                 Alignment::Left { .. } | Alignment::Right { .. } => block_length,
                 Alignment::Center { minimum_size, .. } => block_length.max(minimum_size),
             };
             let operation = RunAcquireTerminalSnippet::new(
-                code,
+                snippet,
                 self.code_executor.clone(),
                 self.theme.execution_output.status.clone(),
                 block_length,
@@ -999,14 +1013,14 @@ impl<'a> PresentationBuilder<'a> {
             ExecutionMode::AlongSnippet => DisplaySeparator::On,
             ExecutionMode::ReplaceSnippet => DisplaySeparator::Off,
         };
-        let alignment = self.code_style(&code).alignment.unwrap_or_default();
+        let alignment = self.code_style(&snippet).alignment.unwrap_or_default();
         let default_colors = self.theme.default_style.colors;
         let mut execution_output_style = self.theme.execution_output.clone();
-        if code.attributes.no_background {
+        if snippet.attributes.no_background {
             execution_output_style.colors.background = None;
         }
         let operation = RunSnippetOperation::new(
-            code,
+            snippet,
             self.code_executor.clone(),
             default_colors,
             execution_output_style,

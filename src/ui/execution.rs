@@ -10,10 +10,17 @@ use crate::{
         text_style::{Colors, TextStyle},
     },
     render::{
-        operation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState, RenderOperation},
+        operation::{
+            AsRenderOperations, BlockLine, ImageRenderProperties, ImageSize, RenderAsync, RenderAsyncState,
+            RenderOperation,
+        },
         properties::WindowSize,
     },
-    terminal::{ansi::AnsiSplitter, should_hide_cursor},
+    terminal::{
+        ansi::AnsiSplitter,
+        image::{Image, printer::ImageRegistry},
+        should_hide_cursor,
+    },
     theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle, Margin},
 };
 use crossterm::{
@@ -22,9 +29,9 @@ use crossterm::{
 };
 use std::{
     cell::RefCell,
-    io::{self},
+    io::{self, BufRead},
     mem,
-    ops::Deref,
+    ops::{Deref, DerefMut},
     rc::Rc,
 };
 
@@ -37,6 +44,7 @@ struct RunSnippetOperationInner {
     state: RenderAsyncState,
     max_line_length: u16,
     starting_style: TextStyle,
+    last_length: usize,
 }
 
 #[derive(Debug)]
@@ -76,6 +84,7 @@ impl RunSnippetOperation {
             state: RenderAsyncState::default(),
             max_line_length: 0,
             starting_style: TextStyle::default(),
+            last_length: 0,
         };
         Self {
             code,
@@ -156,6 +165,7 @@ impl AsRenderOperations for RunSnippetOperation {
 impl RenderAsync for RunSnippetOperation {
     fn poll_state(&self) -> RenderAsyncState {
         let mut inner = self.inner.borrow_mut();
+        let last_length = inner.last_length;
         if let Some(handle) = inner.handle.as_mut() {
             let mut state = handle.state.lock().unwrap();
             let ExecutionState { output, status } = &mut *state;
@@ -168,14 +178,21 @@ impl RenderAsync for RunSnippetOperation {
                     Text::new("finished with error", TextStyle::default().colors(self.status_colors.failure))
                 }
             };
-            let new_lines = mem::take(output);
-            let modified = !new_lines.is_empty();
+            let modified = output.len() != last_length;
             let is_finished = status.is_finished();
+            let mut lines = Vec::new();
+            for line in output.lines() {
+                let mut line = line.expect("invalid utf8");
+                if line.contains('\t') {
+                    line = line.replace('\t', "    ");
+                }
+                lines.push(line);
+            }
             drop(state);
 
             let mut max_line_length = 0;
-            let (new_lines, style) = AnsiSplitter::new(inner.starting_style).split_lines(&new_lines);
-            for line in &new_lines {
+            let (lines, style) = AnsiSplitter::new(inner.starting_style).split_lines(&lines);
+            for line in &lines {
                 let width = u16::try_from(line.width()).unwrap_or(u16::MAX);
                 max_line_length = max_line_length.max(width);
             }
@@ -186,7 +203,7 @@ impl RenderAsync for RunSnippetOperation {
             } else {
                 inner.state = RenderAsyncState::Rendering { modified };
             }
-            inner.output_lines.extend(new_lines);
+            inner.output_lines = lines;
             inner.max_line_length = inner.max_line_length.max(max_line_length);
         }
         inner.state.clone()
@@ -270,7 +287,7 @@ impl std::fmt::Debug for AcquireTerminalSnippetState {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(crate) struct RunAcquireTerminalSnippet {
     snippet: Snippet,
     block_length: u16,
@@ -366,4 +383,122 @@ impl RenderAsync for RunAcquireTerminalSnippet {
     fn poll_state(&self) -> RenderAsyncState {
         RenderAsyncState::Rendered
     }
+}
+
+#[derive(Debug)]
+pub(crate) struct RunImageSnippet {
+    snippet: Snippet,
+    executor: Rc<SnippetExecutor>,
+    state: RefCell<RunImageSnippetState>,
+    image_registry: ImageRegistry,
+    colors: ExecutionStatusBlockStyle,
+}
+
+impl RunImageSnippet {
+    pub(crate) fn new(
+        snippet: Snippet,
+        executor: Rc<SnippetExecutor>,
+        image_registry: ImageRegistry,
+        colors: ExecutionStatusBlockStyle,
+    ) -> Self {
+        Self { snippet, executor, image_registry, colors, state: Default::default() }
+    }
+
+    fn load_image(&self, data: &[u8]) -> Result<Image, String> {
+        let image = match image::load_from_memory(data) {
+            Ok(image) => image,
+            Err(e) => {
+                return Err(e.to_string());
+            }
+        };
+        self.image_registry.register_image(image).map_err(|e| e.to_string())
+    }
+}
+
+impl RenderAsync for RunImageSnippet {
+    fn start_render(&self) -> bool {
+        if !matches!(*self.state.borrow(), RunImageSnippetState::NotStarted) {
+            return false;
+        }
+        let state = match self.executor.execute_async(&self.snippet) {
+            Ok(handle) => RunImageSnippetState::Running(handle),
+            Err(e) => RunImageSnippetState::Failure(e.to_string().lines().map(ToString::to_string).collect()),
+        };
+        *self.state.borrow_mut() = state;
+        true
+    }
+
+    fn poll_state(&self) -> RenderAsyncState {
+        let mut state = self.state.borrow_mut();
+        match state.deref_mut() {
+            RunImageSnippetState::NotStarted => RenderAsyncState::NotStarted,
+            RunImageSnippetState::Running(handle) => {
+                let mut inner = handle.state.lock().unwrap();
+                match inner.status {
+                    ProcessStatus::Running => RenderAsyncState::Rendering { modified: false },
+                    ProcessStatus::Success => {
+                        let data = mem::take(&mut inner.output);
+                        drop(inner);
+
+                        let image = match self.load_image(&data) {
+                            Ok(image) => image,
+                            Err(e) => {
+                                *state = RunImageSnippetState::Failure(vec![e.to_string()]);
+                                return RenderAsyncState::JustFinishedRendering;
+                            }
+                        };
+                        *state = RunImageSnippetState::Success(image);
+                        RenderAsyncState::JustFinishedRendering
+                    }
+                    ProcessStatus::Failure => {
+                        let mut lines = Vec::new();
+                        for line in inner.output.lines() {
+                            lines.push(line.unwrap_or_else(|_| String::new()));
+                        }
+                        drop(inner);
+
+                        *state = RunImageSnippetState::Failure(lines);
+                        RenderAsyncState::JustFinishedRendering
+                    }
+                }
+            }
+            RunImageSnippetState::Success(_) | RunImageSnippetState::Failure(_) => RenderAsyncState::Rendered,
+        }
+    }
+}
+
+impl AsRenderOperations for RunImageSnippet {
+    fn as_render_operations(&self, _dimensions: &WindowSize) -> Vec<RenderOperation> {
+        let state = self.state.borrow();
+        match state.deref() {
+            RunImageSnippetState::NotStarted | RunImageSnippetState::Running(_) => vec![],
+            RunImageSnippetState::Success(image) => {
+                vec![RenderOperation::RenderImage(image.clone(), ImageRenderProperties {
+                    z_index: 0,
+                    size: ImageSize::ShrinkIfNeeded,
+                    restore_cursor: false,
+                    background_color: None,
+                })]
+            }
+            RunImageSnippetState::Failure(lines) => {
+                let mut output = Vec::new();
+                for line in lines {
+                    output.extend([RenderOperation::RenderText {
+                        line: vec![Text::new(line, TextStyle::default().colors(self.colors.failure))].into(),
+                        alignment: Alignment::Left { margin: Margin::Percent(25) },
+                    }]);
+                }
+                output
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+enum RunImageSnippetState {
+    #[default]
+    NotStarted,
+    Running(ExecutionHandle),
+    Success(Image),
+    Failure(Vec<String>),
 }

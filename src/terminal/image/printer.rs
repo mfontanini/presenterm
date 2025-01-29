@@ -14,7 +14,7 @@ use crate::{
 use image::{DynamicImage, ImageError};
 use std::{
     borrow::Cow,
-    io,
+    fmt, io,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -161,6 +161,20 @@ impl PrintImage for ImagePrinter {
 
 #[derive(Clone, Default)]
 pub(crate) struct ImageRegistry(pub Arc<ImagePrinter>);
+
+impl fmt::Debug for ImageRegistry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let inner = match self.0.as_ref() {
+            ImagePrinter::Kitty(_) => "Kitty",
+            ImagePrinter::Iterm(_) => "Iterm",
+            ImagePrinter::Ascii(_) => "Ascii",
+            ImagePrinter::Null => "Null",
+            #[cfg(feature = "sixel")]
+            ImagePrinter::Sixel(_) => "Sixel",
+        };
+        write!(f, "ImageRegistry<{inner}>")
+    }
+}
 
 impl ImageRegistry {
     pub(crate) fn register_image(&self, image: DynamicImage) -> Result<Image, RegisterImageError> {
