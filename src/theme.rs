@@ -1,6 +1,6 @@
 use crate::markdown::text_style::{Color, Colors, FixedStr, UndefinedPaletteColorError};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fs, io, path::Path};
+use std::{collections::BTreeMap, fmt, fs, io, marker::PhantomData, path::Path};
 
 include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 
@@ -395,7 +395,7 @@ pub(crate) struct BlockQuoteStyle {
 
 impl BlockQuoteStyle {
     fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { colors, alignment: _alignment, prefix: _prefix } = self;
+        let Self { colors, alignment: _, prefix: _ } = self;
         colors.resolve_palette_colors(palette)?;
         Ok(())
     }
@@ -431,79 +431,180 @@ pub(crate) struct AlertStyle {
     #[serde(flatten, default)]
     pub(crate) alignment: Option<Alignment>,
 
+    /// The base colors.
+    #[serde(default)]
+    pub(crate) base_colors: Colors,
+
     /// The prefix to be added to this block quote.
     ///
     /// This allows adding something like a vertical bar before the text.
     #[serde(default)]
     pub(crate) prefix: Option<String>,
 
-    /// The colors to be used.
+    /// The style for each alert type.
     #[serde(default)]
-    pub(crate) colors: AlertColors,
+    pub(crate) styles: AlertTypeStyles,
 }
 
 impl AlertStyle {
     fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { colors, alignment: _alignment, prefix: _prefix } = self;
-        colors.resolve_palette_colors(palette)?;
+        let Self { base_colors, styles, alignment: _, prefix: _ } = self;
+        *base_colors = base_colors.resolve(palette)?;
+        styles.resolve_palette_colors(palette)?;
         Ok(())
     }
 }
 
-/// The colors of an alert.
+/// The style for each alert type.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(crate) struct AlertColors {
-    /// The foreground/background colors.
-    #[serde(flatten)]
-    pub(crate) base: Colors,
-
-    /// The color of the vertical bar that prefixes each line in the quote.
+pub(crate) struct AlertTypeStyles {
+    /// The style for note alert types.
     #[serde(default)]
-    pub(crate) types: AlertTypeColors,
+    pub(crate) note: AlertTypeStyle<NoteAlertType>,
+
+    /// The style for tip alert types.
+    #[serde(default)]
+    pub(crate) tip: AlertTypeStyle<TipAlertType>,
+
+    /// The style for important alert types.
+    #[serde(default)]
+    pub(crate) important: AlertTypeStyle<ImportantAlertType>,
+
+    /// The style for warning alert types.
+    #[serde(default)]
+    pub(crate) warning: AlertTypeStyle<WarningAlertType>,
+
+    /// The style for caution alert types.
+    #[serde(default)]
+    pub(crate) caution: AlertTypeStyle<CautionAlertType>,
 }
 
-impl AlertColors {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { base, types } = self;
-        *base = base.resolve(palette)?;
-        types.resolve_palette_colors(palette)?;
-        Ok(())
-    }
-}
-
-/// The colors of each alert type.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(crate) struct AlertTypeColors {
-    /// The color for note type alerts.
-    #[serde(default)]
-    pub(crate) note: Option<Color>,
-
-    /// The color for tip type alerts.
-    #[serde(default)]
-    pub(crate) tip: Option<Color>,
-
-    /// The color for important type alerts.
-    #[serde(default)]
-    pub(crate) important: Option<Color>,
-
-    /// The color for warning type alerts.
-    #[serde(default)]
-    pub(crate) warning: Option<Color>,
-
-    /// The color for caution type alerts.
-    #[serde(default)]
-    pub(crate) caution: Option<Color>,
-}
-
-impl AlertTypeColors {
+impl AlertTypeStyles {
     fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
         let Self { note, tip, important, warning, caution } = self;
-        for c in [note, tip, important, warning, caution] {
-            if let Some(c) = c.as_mut() {
-                *c = c.resolve(palette)?;
-            }
+        note.resolve_palette_colors(palette)?;
+        tip.resolve_palette_colors(palette)?;
+        important.resolve_palette_colors(palette)?;
+        warning.resolve_palette_colors(palette)?;
+        caution.resolve_palette_colors(palette)?;
+        Ok(())
+    }
+}
+
+/// The style for an alert type.
+#[derive(Deserialize, Serialize)]
+pub(crate) struct AlertTypeStyle<S: AlertTypeProperties> {
+    /// The color to be used.
+    #[serde(default)]
+    pub(crate) color: Option<Color>,
+
+    /// The title to be used.
+    #[serde(default = "S::default_title")]
+    pub(crate) title: String,
+
+    /// The symbol to be used.
+    #[serde(default = "S::default_symbol")]
+    pub(crate) symbol: Option<String>,
+
+    #[serde(skip)]
+    _unused: PhantomData<S>,
+}
+
+impl<S: AlertTypeProperties> AlertTypeStyle<S> {
+    pub(crate) fn as_parts(&self) -> (&Option<Color>, &str, Option<&str>) {
+        (&self.color, &self.title, self.symbol.as_deref())
+    }
+
+    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
+        let Self { color, title: _, symbol: _, _unused: _ } = self;
+        if let Some(color) = color.as_mut() {
+            *color = color.resolve(palette)?;
         }
         Ok(())
+    }
+}
+
+impl<S: AlertTypeProperties> fmt::Debug for AlertTypeStyle<S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AlertTypeStyle")
+            .field("color", &self.color)
+            .field("title", &self.title)
+            .field("symbol", &self.symbol)
+            .field("_unused", &self._unused)
+            .finish()
+    }
+}
+
+impl<S: AlertTypeProperties> Clone for AlertTypeStyle<S> {
+    fn clone(&self) -> Self {
+        Self { color: self.color, title: self.title.clone(), symbol: self.symbol.clone(), _unused: PhantomData }
+    }
+}
+
+impl<S: AlertTypeProperties> Default for AlertTypeStyle<S> {
+    fn default() -> Self {
+        Self { color: None, title: S::default_title(), symbol: S::default_symbol(), _unused: PhantomData }
+    }
+}
+
+pub(crate) trait AlertTypeProperties {
+    fn default_title() -> String;
+    fn default_symbol() -> Option<String>;
+}
+
+pub(crate) struct NoteAlertType;
+pub(crate) struct TipAlertType;
+pub(crate) struct ImportantAlertType;
+pub(crate) struct WarningAlertType;
+pub(crate) struct CautionAlertType;
+
+impl AlertTypeProperties for NoteAlertType {
+    fn default_title() -> String {
+        "Note".into()
+    }
+
+    fn default_symbol() -> Option<String> {
+        Some("󰋽".into())
+    }
+}
+
+impl AlertTypeProperties for TipAlertType {
+    fn default_title() -> String {
+        "Tip".into()
+    }
+
+    fn default_symbol() -> Option<String> {
+        Some("".into())
+    }
+}
+
+impl AlertTypeProperties for ImportantAlertType {
+    fn default_title() -> String {
+        "Important".into()
+    }
+
+    fn default_symbol() -> Option<String> {
+        Some("".into())
+    }
+}
+
+impl AlertTypeProperties for WarningAlertType {
+    fn default_title() -> String {
+        "Warning".into()
+    }
+
+    fn default_symbol() -> Option<String> {
+        Some("".into())
+    }
+}
+
+impl AlertTypeProperties for CautionAlertType {
+    fn default_title() -> String {
+        "Caution".into()
+    }
+
+    fn default_symbol() -> Option<String> {
+        Some("󰳦".into())
     }
 }
 

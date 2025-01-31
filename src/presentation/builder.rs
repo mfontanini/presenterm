@@ -733,21 +733,25 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_alert(&mut self, alert_type: AlertType, title: Option<String>, mut lines: Vec<Line>) -> BuildResult {
-        let (default_title, prefix_color) = match alert_type {
-            AlertType::Note => ("Note", self.theme.alert.colors.types.note),
-            AlertType::Tip => ("Tip", self.theme.alert.colors.types.tip),
-            AlertType::Important => ("Important", self.theme.alert.colors.types.important),
-            AlertType::Warning => ("Warning", self.theme.alert.colors.types.warning),
-            AlertType::Caution => ("Caution", self.theme.alert.colors.types.caution),
+        let (prefix_color, default_title, symbol) = match alert_type {
+            AlertType::Note => self.theme.alert.styles.note.as_parts(),
+            AlertType::Tip => self.theme.alert.styles.tip.as_parts(),
+            AlertType::Important => self.theme.alert.styles.important.as_parts(),
+            AlertType::Warning => self.theme.alert.styles.warning.as_parts(),
+            AlertType::Caution => self.theme.alert.styles.caution.as_parts(),
         };
-        let prefix_color = prefix_color.or(self.theme.alert.colors.base.foreground);
+        let prefix_color = prefix_color.or(self.theme.alert.base_colors.foreground);
         let title = title.unwrap_or_else(|| default_title.to_string());
-        let title_colors = Colors { foreground: prefix_color, background: self.theme.alert.colors.base.background };
+        let title = match symbol {
+            Some(symbol) => format!("{symbol} {title}"),
+            None => title,
+        };
+        let title_colors = Colors { foreground: prefix_color, background: self.theme.alert.base_colors.background };
         lines.insert(0, Line::from(Text::from("")));
         lines.insert(0, Line::from(Text::new(title, TextStyle::default().colors(title_colors))));
 
         let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
-        self.push_quoted_text(lines, prefix, self.theme.alert.colors.base, prefix_color)
+        self.push_quoted_text(lines, prefix, self.theme.alert.base_colors, prefix_color)
     }
 
     fn push_quoted_text(
