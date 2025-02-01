@@ -733,25 +733,22 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_alert(&mut self, alert_type: AlertType, title: Option<String>, mut lines: Vec<Line>) -> BuildResult {
-        let (prefix_color, default_title, symbol) = match alert_type {
+        let (title_color, default_title, symbol) = match alert_type {
             AlertType::Note => self.theme.alert.styles.note.as_parts(),
             AlertType::Tip => self.theme.alert.styles.tip.as_parts(),
             AlertType::Important => self.theme.alert.styles.important.as_parts(),
             AlertType::Warning => self.theme.alert.styles.warning.as_parts(),
             AlertType::Caution => self.theme.alert.styles.caution.as_parts(),
         };
-        let prefix_color = prefix_color.or(self.theme.alert.base_colors.foreground);
+        let title_color = Some(title_color);
         let title = title.unwrap_or_else(|| default_title.to_string());
-        let title = match symbol {
-            Some(symbol) => format!("{symbol} {title}"),
-            None => title,
-        };
-        let title_colors = Colors { foreground: prefix_color, background: self.theme.alert.base_colors.background };
+        let title = format!("{symbol} {title}");
+        let title_colors = Colors { foreground: title_color, background: self.theme.alert.base_colors.background };
         lines.insert(0, Line::from(Text::from("")));
         lines.insert(0, Line::from(Text::new(title, TextStyle::default().colors(title_colors))));
 
         let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
-        self.push_quoted_text(lines, prefix, self.theme.alert.base_colors, prefix_color)
+        self.push_quoted_text(lines, prefix, self.theme.alert.base_colors, title_color)
     }
 
     fn push_quoted_text(

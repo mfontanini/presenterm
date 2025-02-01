@@ -499,25 +499,40 @@ pub(crate) struct AlertTypeStyle<S: AlertTypeProperties> {
     pub(crate) color: Option<Color>,
 
     /// The title to be used.
-    #[serde(default = "S::default_title")]
-    pub(crate) title: String,
+    #[serde(default)]
+    pub(crate) title: Option<String>,
 
     /// The symbol to be used.
-    #[serde(default = "S::default_symbol")]
+    #[serde(default)]
     pub(crate) symbol: Option<String>,
 
     #[serde(skip)]
     _unused: PhantomData<S>,
 }
 
+impl<S: AlertTypeProperties> Default for AlertTypeStyle<S> {
+    fn default() -> Self {
+        Self {
+            color: Default::default(),
+            title: Default::default(),
+            symbol: Default::default(),
+            _unused: Default::default(),
+        }
+    }
+}
+
 impl<S: AlertTypeProperties> AlertTypeStyle<S> {
-    pub(crate) fn as_parts(&self) -> (&Option<Color>, &str, Option<&str>) {
-        (&self.color, &self.title, self.symbol.as_deref())
+    pub(crate) fn as_parts(&self) -> (Color, &str, &str) {
+        (
+            self.color.unwrap_or(S::default_color()),
+            self.title.as_deref().unwrap_or(S::default_title()),
+            self.symbol.as_deref().unwrap_or(S::default_symbol()),
+        )
     }
 
     fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
         let Self { color, title: _, symbol: _, _unused: _ } = self;
-        if let Some(color) = color.as_mut() {
+        if let Some(color) = color {
             *color = color.resolve(palette)?;
         }
         Ok(())
@@ -541,15 +556,10 @@ impl<S: AlertTypeProperties> Clone for AlertTypeStyle<S> {
     }
 }
 
-impl<S: AlertTypeProperties> Default for AlertTypeStyle<S> {
-    fn default() -> Self {
-        Self { color: None, title: S::default_title(), symbol: S::default_symbol(), _unused: PhantomData }
-    }
-}
-
 pub(crate) trait AlertTypeProperties {
-    fn default_title() -> String;
-    fn default_symbol() -> Option<String>;
+    fn default_title() -> &'static str;
+    fn default_symbol() -> &'static str;
+    fn default_color() -> Color;
 }
 
 pub(crate) struct NoteAlertType;
@@ -559,52 +569,72 @@ pub(crate) struct WarningAlertType;
 pub(crate) struct CautionAlertType;
 
 impl AlertTypeProperties for NoteAlertType {
-    fn default_title() -> String {
-        "Note".into()
+    fn default_title() -> &'static str {
+        "Note"
     }
 
-    fn default_symbol() -> Option<String> {
-        Some("󰋽".into())
+    fn default_symbol() -> &'static str {
+        "󰋽"
+    }
+
+    fn default_color() -> Color {
+        Color::Blue
     }
 }
 
 impl AlertTypeProperties for TipAlertType {
-    fn default_title() -> String {
-        "Tip".into()
+    fn default_title() -> &'static str {
+        "Tip"
     }
 
-    fn default_symbol() -> Option<String> {
-        Some("".into())
+    fn default_symbol() -> &'static str {
+        ""
+    }
+
+    fn default_color() -> Color {
+        Color::Green
     }
 }
 
 impl AlertTypeProperties for ImportantAlertType {
-    fn default_title() -> String {
-        "Important".into()
+    fn default_title() -> &'static str {
+        "Important"
     }
 
-    fn default_symbol() -> Option<String> {
-        Some("".into())
+    fn default_symbol() -> &'static str {
+        ""
+    }
+
+    fn default_color() -> Color {
+        Color::Cyan
     }
 }
 
 impl AlertTypeProperties for WarningAlertType {
-    fn default_title() -> String {
-        "Warning".into()
+    fn default_title() -> &'static str {
+        "Warning"
     }
 
-    fn default_symbol() -> Option<String> {
-        Some("".into())
+    fn default_symbol() -> &'static str {
+        ""
+    }
+
+    fn default_color() -> Color {
+        Color::Yellow
     }
 }
 
 impl AlertTypeProperties for CautionAlertType {
-    fn default_title() -> String {
-        "Caution".into()
+    fn default_title() -> &'static str {
+        "Caution"
     }
 
-    fn default_symbol() -> Option<String> {
-        Some("󰳦".into())
+    fn default_symbol() -> &'static str {
+        "󰳦"
+    }
+
+    fn default_color() -> Color {
+        Color::Red
     }
 }
 
