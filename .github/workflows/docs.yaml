@@ -16,11 +16,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install mdBook
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@v1.10.22
+
+      - name: Install mdbook
         run: |
-          curl -sSL -o /tmp/mdbook.tar.gz https://github.com/rust-lang/mdBook/releases/download/v0.4.36/mdbook-v0.4.36-x86_64-unknown-linux-gnu.tar.gz
-          tar -xf /tmp/mdbook.tar.gz -C /usr/local/bin
-          mdbook --version
+          cargo binstall -y mdbook@0.4.44 mdbook-alerts@0.7.0
 
       - name: Build the book
         run: |
