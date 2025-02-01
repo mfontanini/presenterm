@@ -473,12 +473,15 @@ impl AsRenderOperations for RunImageSnippet {
         match state.deref() {
             RunImageSnippetState::NotStarted | RunImageSnippetState::Running(_) => vec![],
             RunImageSnippetState::Success(image) => {
-                vec![RenderOperation::RenderImage(image.clone(), ImageRenderProperties {
-                    z_index: 0,
-                    size: ImageSize::ShrinkIfNeeded,
-                    restore_cursor: false,
-                    background_color: None,
-                })]
+                vec![RenderOperation::RenderImage(
+                    image.clone(),
+                    ImageRenderProperties {
+                        z_index: 0,
+                        size: ImageSize::ShrinkIfNeeded,
+                        restore_cursor: false,
+                        background_color: None,
+                    },
+                )]
             }
             RunImageSnippetState::Failure(lines) => {
                 let mut output = Vec::new();
