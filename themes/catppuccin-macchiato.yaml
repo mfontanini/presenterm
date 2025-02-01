@@ -105,15 +105,20 @@ block_quote:
 
 alert:
   prefix: "▍ "
-  colors:
+  base_colors:
     foreground: "cad3f5"
     background: "363a4f"
-    types:
-      note: "8aadf4"
-      tip: "a6da95"
-      important: "c6a0f6"
-      warning: "f5a97f"
-      caution: "ed8796"
+  styles:
+    note:
+      color: "8aadf4"
+    tip:
+      color: "a6da95"
+    important:
+      color: "c6a0f6"
+    warning:
+      color: "f5a97f"
+    caution:
+      color: "ed8796"
 
 typst:
   colors:

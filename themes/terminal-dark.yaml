@@ -104,15 +104,20 @@ block_quote:
 
 alert:
   prefix: "▍ "
-  colors:
+  base_colors:
     foreground: white
     background: black
-    types:
-      note: blue
-      tip: green
-      important: magenta
-      warning: yellow
-      caution: red
+  styles:
+    note:
+      color: blue
+    tip:
+      color: green
+    important:
+      color: magenta
+    warning:
+      color: yellow
+    caution:
+      color: red
 
 typst:
   colors:
