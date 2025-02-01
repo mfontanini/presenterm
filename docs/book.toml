@@ -7,12 +7,10 @@ title = "presenterm documentation"
 
 [preprocessor]
 
-[preprocessor.catppuccin]
-assets_version = "2.1.0" 
+[preprocessor.alerts]
 
 [output]
 
 [output.html]
-additional-css = ["./theme/catppuccin.css", "./theme/catppuccin-admonish.css"]
 git-repository-url = "https://github.com/mfontanini/presenterm"
-default-theme = "machiatto"
+default-theme = "navy"
