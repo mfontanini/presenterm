@@ -136,11 +136,6 @@ impl TextStyle {
         Ok(styled)
     }
 
-    /// Checks whether this style has any modifiers (bold, italics, etc).
-    pub(crate) fn has_modifiers(&self) -> bool {
-        self.flags != 0
-    }
-
     fn add_flag(mut self, flag: TextFormatFlags) -> Self {
         self.flags |= flag as u8;
         self
