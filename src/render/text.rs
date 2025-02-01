@@ -116,7 +116,7 @@ impl<'a> TextDrawer<'a> {
 
                 // Crossterm resets colors if any attributes are set so let's just re-apply colors
                 // if the format has anything on it at all.
-                if style.has_modifiers() {
+                if style != Default::default() {
                     terminal.set_colors(*self.default_colors)?;
                 }
             }
