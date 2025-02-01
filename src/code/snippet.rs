@@ -745,13 +745,10 @@ mod test {
     #[test]
     fn highlight_line_range() {
         let attributes = parse_attributes("bash {   1, 2-4,6 ,  all , 10 - 12  }");
-        assert_eq!(attributes.highlight_groups, &[HighlightGroup::new(vec![
-            Single(1),
-            Range(2..5),
-            Single(6),
-            All,
-            Range(10..13)
-        ])]);
+        assert_eq!(
+            attributes.highlight_groups,
+            &[HighlightGroup::new(vec![Single(1), Range(2..5), Single(6), All, Range(10..13)])]
+        );
     }
 
     #[test]

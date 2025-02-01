@@ -8,7 +8,7 @@ name: Merge checks
 
 jobs:
   check:
-    name: Check
+    name: Checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -16,40 +16,25 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@1.78.0
+        with:
+          components: clippy
 
       - name: Run cargo check
         run: cargo check --features sixel
 
-  test:
-    name: Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
-      - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@1.78.0
-
       - name: Run cargo test
         run: cargo test
 
-  lints:
-    name: Lints
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt, clippy
-
-      - name: Run cargo fmt
-        run: cargo fmt --all -- --check
-
       - name: Run cargo clippy
         run: cargo clippy -- -D warnings
+
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Run cargo fmt
+        run: cargo +nightly fmt --all -- --check
 
   nix-flake:
     name: Validate nix flake
