@@ -1,3 +1,36 @@
+# v0.10.0 - 2025-02-02
+
+# New features
+
+* Support for presentation speaker notes ([#389](https://github.com/mfontanini/presenterm/issues/389)) ([#419](https://github.com/mfontanini/presenterm/issues/419)) ([#421](https://github.com/mfontanini/presenterm/issues/421)) ([#425](https://github.com/mfontanini/presenterm/issues/425)) - thanks @dmackdev.
+* Add support for colored text via inline `span` HTML tags  ([#390](https://github.com/mfontanini/presenterm/issues/390)).
+* Add a color palette in themes to allow reusing colors across the theme and using predefined colors inside `span` tags ([#427](https://github.com/mfontanini/presenterm/issues/427)).
+* Add support for github/gitlab style markdown alerts ([#423](https://github.com/mfontanini/presenterm/issues/423)) ([#430](https://github.com/mfontanini/presenterm/issues/430)).
+* Allow using `+image` on code blocks to consume their output as an image ([#429](https://github.com/mfontanini/presenterm/issues/429)).
+* Allow multiline comment commands ([#424](https://github.com/mfontanini/presenterm/issues/424)).
+* Allow auto rendering mermaid/typst/latex code blocks ([#418](https://github.com/mfontanini/presenterm/issues/418)).
+* Allow capping max columns on presentation ([#417](https://github.com/mfontanini/presenterm/issues/417)).
+* Automatically detect kitty support, including when running inside tmux ([#406](https://github.com/mfontanini/presenterm/issues/406)).
+* Use kitty image protocol in ghostty ([#405](https://github.com/mfontanini/presenterm/issues/405)).
+* Force color output in rust, c, and c++ compiler executions ([#401](https://github.com/mfontanini/presenterm/issues/401)).
+* Add graphql code highlighting ([#385](https://github.com/mfontanini/presenterm/issues/385)) - thanks @GV14982.
+* Add tcl code highlighting ([#387](https://github.com/mfontanini/presenterm/issues/387)) - thanks @jtplaarj.
+* Add Haskell executor ([#414](https://github.com/mfontanini/presenterm/issues/414)) - thanks @feature-not-a-bug.
+* Add C# to code executors ([#399](https://github.com/mfontanini/presenterm/issues/399)) - thanks @giggio.
+* Add R to executors ([#393](https://github.com/mfontanini/presenterm/issues/393)) - thanks @jonocarroll.
+
+# Fixes
+
+* Check for `term_program` before `term` to determine emulator ([#420](https://github.com/mfontanini/presenterm/issues/420)).
+* Allow jumping back to column in column layout ([#396](https://github.com/mfontanini/presenterm/issues/396)).
+* Ignore comments that start with `vim:` prefix ([#395](https://github.com/mfontanini/presenterm/issues/395)).
+* Respect `+no_background` on a `+exec_replace` block ([#383](https://github.com/mfontanini/presenterm/issues/383)).
+
+# Docs
+
+* Document tmux active session bug ([#402](https://github.com/mfontanini/presenterm/issues/402)).
+* Add notes on running `bat` directly ([#397](https://github.com/mfontanini/presenterm/issues/397)).
+
 # v0.9.0 - 2024-10-06
 
 ## Breaking changes
