@@ -1,8 +1,22 @@
 # LaTeX and typst
 
-`latex` and `typst` code blocks can be marked with the `+render` attribute (see [highlighting](code-highlight.html)) to 
-have them rendered into images when the presentation is loaded. This allows you to define formulas in text rather than 
-having to define them somewhere else, transform them into an image, and them embed it.
+`latex` and `typst` code blocks can be marked with the `+render` attribute (see [highlighting](highlighting.md)) to have 
+them rendered into images when the presentation is loaded. This allows you to define formulas in text rather than having 
+to define them somewhere else, transform them into an image, and them embed it.
+
+For example, the following presentation:
+
+~~~
+# Formulas
+
+```latex +render
+\[ \sum_{n=1}^{\infty} 2^{-n} = 1 \]
+```
+~~~
+
+Would be rendered like this:
+
+![](../../../assets/formula.png)
 
 ## Dependencies
 
@@ -13,9 +27,9 @@ install, lightweight, and boilerplate free as compared to _LaTeX_.
 
 ### pandoc
 
-For _LaTeX_ code rendering, besides _typst_ you will need to install [pandoc](https://github.com/jgm/pandoc). How this 
-works is the _LaTeX_ code you write gets transformed into _typst_ code via _pandoc_ and then rendered by using _typst_. 
-This lets us:
+For _LaTeX_ code rendering both _typst_ and [pandoc](https://github.com/jgm/pandoc) are required. How this works is the 
+_LaTeX_ code you write gets transformed into _typst_ code via _pandoc_ and then rendered by using _typst_. This lets us:
+
 * Have the same look/feel on generated formulas for both languages.
 * Avoid having to write lots of boilerplate _LaTeX_ to make rendering for that language work.
 * Have the same logic to render formulas for both languages, except with a small preparation step for _LaTeX_.
@@ -28,7 +42,7 @@ generated on the fly will have a fixed size. Configuring the PPI used during the
 higher the PPI, the larger the generated images will be.
 
 Because as opposed to most configurations this is a very environment-specific config, the PPI parameter is not part of 
-the theme definition but is instead has to be set in [_presenterm_'s config file](configuration.html):
+the theme definition but is instead has to be set in _presenterm_'s [config file](../../configuration/introduction.md):
 
 ```yaml
 typst:
@@ -72,19 +86,3 @@ typst:
   horizontal_margin: 2
   vertical_margin: 2
 ```
-
-# Example
-
-The following example:
-
-~~~
-# Formulas
-
-```latex +render
-\[ \sum_{n=1}^{\infty} 2^{-n} = 1 \]
-```
-~~~
-
-Is rendered like this:
-
-![](../assets/formula.png)

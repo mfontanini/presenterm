@@ -1,4 +1,4 @@
-# PDF export
+# Exporting presentations in PDF format
 
 Presentations can be converted into PDF by using a [helper tool](https://github.com/mfontanini/presenterm-export). You 
 can install it by running:
@@ -7,13 +7,15 @@ can install it by running:
 pip install presenterm-export
 ```
 
-> [!tip]
+> [!important]
 > Make sure that `presenterm-export` works by running `presenterm-export --version` before attempting to generate a PDF 
 > file. If you get errors related to _weasyprint_, follow their [installation instructions](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) to ensure you meet all of their 
 > dependencies. This has otherwise caused issues in macOS.
 
-The only external dependency you'll need is [tmux](https://github.com/tmux/tmux/). After you've installed both of these, 
-simply run _presenterm_ with the `--export-pdf` parameter to generate the output PDF:
+_presenterm-export_ uses [tmux](https://github.com/tmux/tmux/) to run _presenterm_ inside it and capture its output. 
+
+After you've installed both _presenterm-export_ and _tmux_, run _presenterm_ with the `--export-pdf` parameter to 
+generate the output PDF:
 
 ```bash
 presenterm --export-pdf examples/demo.md
@@ -30,7 +32,7 @@ The output PDF will be placed in `examples/demo.pdf`.
 The size of each page in the generated PDF will depend on the size of your terminal. Make sure to adjust accordingly 
 before running the command above, and not to resize it while the generation is happening to avoid issues.
 
-## Active tmux sessions bug
+## tmux <= 3.5a active sessions bug
 
 Because of a [bug in tmux <= 3.5a](https://github.com/tmux/tmux/issues/4268), exporting a PDF while having other tmux
 sessions running and attached will cause the size of the output PDF to match the size of those other sessions rather 

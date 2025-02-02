@@ -2,18 +2,24 @@
 
 [Introduction](./introduction.md)
 
-# Guides
+# Docs
 
-- [Installation](./guides/installation.md)
-- [Basics](./guides/basics.md)
-- [Themes](./guides/themes.md)
-- [Layout](./guides/layout.md)
-- [Configuration](./guides/configuration.md)
-- [Code highlighting](./guides/code-highlight.md)
-- [PDF export](./guides/pdf-export.md)
-- [Speaker notes](./guides/speaker-notes.md)
-- [Mermaid](./guides/mermaid.md)
-- [LaTeX and typst](./guides/latex.md)
+- [Install](./install.md)
+- [Features](./features/introduction.md)
+    - [Images](./features/images.md).
+    - [Commands](./features/commands.md).
+    - [Layout](./features/layout.md).
+    - [Code](./features/code/highlighting.md)
+        - [Execution](./features/code/execution.md)
+        - [Mermaid diagrams](./features/code/mermaid.md)
+        - [LaTeX and typst](./features/code/latex.md)
+    - [Themes](./features/themes/introduction.md)
+        - [Definition](./features/themes/definition.md)
+    - [PDF export](./features/pdf-export.md)
+    - [Speaker notes](./features/speaker-notes.md)
+- [Configuration](./configuration/introduction.md)
+    - [Options](./configuration/options.md)
+    - [Settings](./configuration/settings.md)
 
 # Internals
 
