@@ -41,9 +41,23 @@ snippet:
     # enable code snippet execution. Use at your own risk!
     enable: true
 
+  exec_replace:
+    # enable code snippet automatic execution + replacing the snippet with its output. Use at your own risk!
+    enable: true
+
   render:
     # the number of threads to use when rendering `+render` code snippets.
     threads: 2
+
+speaker_notes:
+  # The endpoint to listen for speaker note events.
+  listen_address: "127.0.0.1:59418"
+
+  # The endpoint to publish speaker note events.
+  publish_address: "127.0.0.1:59418"
+
+  # Whether to always publish speaker notes even when `--publish-speaker-notes` is not set.
+  always_publish: false
 
 bindings:
   # the keys that cause the presentation to move forwards.
