@@ -1,4 +1,4 @@
-## Code highlighting
+# Code highlighting
 
 Code highlighting is supported for the following languages:
 
@@ -47,6 +47,7 @@ Code highlighting is supported for the following languages:
 * sql
 * swift
 * svelte
+* tcl
 * toml
 * terraform
 * typescript
@@ -55,7 +56,7 @@ Code highlighting is supported for the following languages:
 * vue
 * zig
 
-### Enabling line numbers
+## Enabling line numbers
 
 If you would like line numbers to be shown on the left of a code block use the `+line_numbers` switch after specifying
 the language in a code block:
@@ -68,7 +69,7 @@ the language in a code block:
 ```
 ~~~
 
-### Selective highlighting
+## Selective highlighting
 
 By default, the entire code block will be syntax-highlighted. If instead you only wanted a subset of it to be
 highlighted, you can use braces and a list of either individual lines, or line ranges that you'd want to highlight.
@@ -85,7 +86,7 @@ highlighted, you can use braces and a list of either individual lines, or line r
 ```
 ~~~
 
-### Dynamic highlighting
+## Dynamic highlighting
 
 Similar to the syntax used for selective highlighting, dynamic highlighting will change which lines of the code in a
 code block are highlighted every time you move to the next/previous slide.
@@ -113,7 +114,7 @@ See this real example of how this looks like.
 
 [![asciicast](https://asciinema.org/a/iCf4f6how1Ux3H8GNzksFUczI.svg)](https://asciinema.org/a/iCf4f6how1Ux3H8GNzksFUczI)
 
-### Including external code snippets
+## Including external code snippets
 
 The `file` snippet type can be used to specify an external code snippet that will be included and highlighted as usual. 
 
@@ -124,14 +125,14 @@ language: rust
 ```
 ~~~
 
-### Showing a snippet without a background
+## Showing a snippet without a background
 
 Using the `+no_background` flag will cause the snippet to have no background. This is useful when combining it with the 
 `+exec_replace` flag described further down.
 
-## Snippet execution
+# Snippet execution
 
-### Executing code blocks
+## Executing code blocks
 
 Annotating a code block with a `+exec` attribute will make it executable. Pressing `control+e` when viewing a slide that 
 contains an executable block, the code in the snippet will be executed and the output of the execution will be displayed 
@@ -159,6 +160,7 @@ The list of languages that support execution are:
 * c
 * fish
 * go
+* haskell
 * java
 * js
 * kotlin
@@ -167,12 +169,14 @@ The list of languages that support execution are:
 * perl
 * php
 * python
+* r
 * ruby
 * rust
 * rust-script: this highlights as normal Rust but uses [rust-script](https://rust-script.org/) to execute the snippet so 
 it lets you use dependencies.
 * sh
 * zsh
+* c#
 
 If there's a language that is not in this list and you would like it to be supported, please [create an 
 issue](https://github.com/mfontanini/presenterm/issues/new) providing details on how to compile (if necessary) and run 
@@ -181,9 +185,11 @@ file](configuration.html#custom-snippet-executors).
 
 [![asciicast](https://asciinema.org/a/BbAY817esxagCgPtnKUwgYnHr.svg)](https://asciinema.org/a/BbAY817esxagCgPtnKUwgYnHr)
 
-> **Note**: because this is spawning a process and executing code, you should use this at your own risk.
+> [!warning]
+> Run code in presentations at your own risk! Especially if you're running someone else's presentation. Don't blindly 
+> enable snippet execution!
 
-### Executing and replacing
+## Executing and replacing
 
 Similar to `+exec`, `+exec_replace` causes a snippet to be executable but:
 
@@ -198,7 +204,21 @@ Because of the risk involved in `+exec_replace`, where code gets automatically e
 this requires users to explicitly opt in to it. This can be done by either passing in the `-X` command line parameter
 or setting the `snippet.exec_replace.enable` flag in your configuration file to `true`. 
 
-### Executing snippets that need a TTY
+## Code to image conversions
+
+The `+image` attribute behaves like `+exec_replace` but also assumes the output of the executed snippet will be an 
+image, and it will render it as such. For this to work, the code **must only emit an image in jpg/png formats** and 
+nothing else.
+
+For example, this would render the demo presentation's image:
+
+```bash +image
+cat examples/doge.png
+```
+
+This attribute carries the same risks as `+exec_replace` and therefore needs to be enabled via the same flags.
+
+## Executing snippets that need a TTY
 
 If you're trying to execute a program like `top` that needs to run on a TTY as it renders text, clears the screen, etc, 
 you can use the `+acquire_terminal` modifier on a code already marked as executable with `+exec`. Executing snippets 
@@ -207,7 +227,7 @@ raw terminal to do whatever it needs, and upon its completion _presenterm_ will 
 
 [![asciicast](https://asciinema.org/a/AHfuJorCNRR8ZEnfwQSDR5vPT.svg)](https://asciinema.org/a/AHfuJorCNRR8ZEnfwQSDR5vPT)
 
-### Styled execution output
+## Styled execution output
 
 Snippets that generate output which contains escape codes that change the colors or styling of the text will be parsed 
 and displayed respecting those styles. Do note that you may need to force certain tools to use colored output as they 
@@ -223,7 +243,7 @@ ls /tmp --color=always
 
 The parameter or way to enable this will depend on the tool being invoked.
 
-### Hiding code lines
+## Hiding code lines
 
 When you mark a code snippet as executable via the `+exec` flag, you may not be interested in showing _all the lines_ to 
 your audience, as some of them may not be necessary to convey your point. For example, you may want to hide imports, 
@@ -251,7 +271,7 @@ basis. The languages that are supported and their prefix is:
 This means that any line in a rust code snippet that starts with `# ` will be hidden, whereas all lines in, say, a 
 golang code snippet that starts with a `/// ` will be hidden.
 
-### Pre-rendering 
+## Pre-rendering 
 
 Some languages support pre-rendering. This means the code block is transformed into something else when the presentation 
 is loaded. The languages that currently support this are _mermaid_, _LaTeX_, and _typst_ where the contents of the code 
@@ -260,7 +280,7 @@ using the `+render` attribute on a code block.
 
 See the [LaTeX and typst](latex.html) and [mermaid](mermaid.html) docs for more information.
 
-### Adding highlighting syntaxes for new languages
+## Adding highlighting syntaxes for new languages
 
 _presenterm_ uses the syntaxes supported by [bat](https://github.com/sharkdp/bat) to highlight code snippets, so any 
 languages supported by _bat_ natively can be added to _presenterm_ easily. Please create a ticket or use 

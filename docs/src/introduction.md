@@ -1,10 +1,10 @@
-## presenterm
+# presenterm
 
 [presenterm][github] lets you create presentations in markdown format and run them from your terminal, with support for 
 image and animated gif support, highly customizable themes, code highlighting, exporting presentations into PDF format, 
 and plenty of other features.
 
-### Demo
+## Demo
 
 This is how the [demo presentation][demo-source] looks like:
 

@@ -1,4 +1,4 @@
-## Configuration
+# Configuration
 
 _presenterm_ allows you to customize its behavior via a configuration file. This file is stored, along with all of your 
 custom themes, in the following directories:
@@ -29,7 +29,7 @@ The supported configuration options are currently the following:
 This option removes the need to use `<!-- end_slide -->` in between slides and instead assumes that if you use a slide 
 title, then you're implying that the previous slide ended. For example, the following presentation:
 
-```
+```markdown
 ---
 options:
   implicit_slide_ends: true
@@ -157,13 +157,27 @@ The [image size](basics.html#image-size) prefix (by default `image:`) can be con
 case you don't like the default one. For example, if you'd like to set the image size by simply doing 
 `![width:50%](path.png)` you would need to set:
 
-```
+```yaml
 ---
 options:
   image_attributes_prefix: ""
 ---
 
 ![width:50%](path.png)
+```
+
+### auto_render_languages
+
+This option allows indicating a list of languages for which the `+render` attribute can be omitted in their code 
+snippets and will be implicitly considered to be set. This can be used for languages like `mermaid` so that graphs are 
+always automatically rendered without the need to specify `+render` everywhere.
+
+```yaml
+---
+options:
+  auto_render_languages:
+    - mermaid
+---
 ```
 
 ## Defaults
@@ -197,9 +211,9 @@ defaults:
 
 ### Preferred image protocol
 
-By default _presenterm_ will try to detect which image protocol to use based on the terminal you are using. In some 
-cases this may fail, for example when using `tmux`. In those cases, you can explicitly set this via the 
-`--image-protocol` parameter or the configuration key `defaults.image_protocol`:
+By default _presenterm_ will try to detect which image protocol to use based on the terminal you are using. In case 
+detection for some reason fails in your setup or you'd like to force a different protocol to be used, you can explicitly 
+set this via the `--image-protocol` parameter or the configuration key `defaults.image_protocol`:
 
 ```yaml
 defaults:
@@ -214,6 +228,17 @@ Possible values are:
   and therefore can only communicate via terminal escape codes.
 * `iterm2`: use the iterm2 protocol.
 * `sixel`: use the sixel protocol. Note that this requires compiling _presenterm_ using the `--features sixel` flag.
+
+### Maximum presentation width
+
+The `max_columns` property can be set to specify the maximum number of columns that the presentation will stretch to. If 
+your terminal is larger than that, the presentation will stick to that size and will be centered, preventing it from 
+looking too stretched.
+
+```yaml
+defaults:
+  max_columns: 100
+```
 
 ## Key bindings
 
@@ -354,5 +379,15 @@ to change this use:
 ```yaml
 mermaid:
   scale: 2
+```
+
+### Enabling speaker note publishing
+
+If you don't want to run _presenterm_ with `--publish-speaker-notes` every time you want to publish speaker notes, you 
+can set the `speaker_notes.always_publish` attribute to `true`.
+
+```yaml
+speaker_notes:
+  always_pubblish: true
 ```
 

@@ -1,4 +1,4 @@
-# Mermaid
+## Mermaid
 
 [mermaid](https://mermaid.js.org/) snippets can be converted into images automatically in any code snippet tagged with 
 the `mermaid` language and a `+render` tag:
@@ -42,3 +42,8 @@ The theme of the rendered mermaid diagrams can be changed through the following 
 
 * `mermaid.background` the background color passed to the CLI (e.g., `transparent`, `red`, `#F0F0F0`).
 * `mermaid.theme` the [mermaid theme](https://mermaid.js.org/config/theming.html#available-themes) to use.
+
+## Always rendering
+
+If you don't want to use `+render` every time, you can configure which languages get this automatically via the [config 
+file](configuration.html#auto_render_languages).

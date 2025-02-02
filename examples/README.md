@@ -49,3 +49,11 @@ This example shows how column layouts and pauses interact with each other. Note 
 because asciinema doesn't support these and it will otherwise look like a normal image if your terminal supports images.
 
 [![asciicast](https://asciinema.org/a/x2tTDt0BIesvOXeal3UpdzMHp.svg)](https://asciinema.org/a/x2tTDt0BIesvOXeal3UpdzMHp)
+
+# Speaker notes
+
+[Source](/examples/speaker-notes.md)
+
+This example shows how to use speaker notes.
+
+[![asciicast](https://asciinema.org/a/ETusvlmHuHrcLKzwa0CMQRX2J.svg)](https://asciinema.org/a/ETusvlmHuHrcLKzwa0CMQRX2J)

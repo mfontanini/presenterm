@@ -46,6 +46,7 @@ Visit the [documentation][guide-introduction] to get started.
 * [Pause][guide-pauses] portions of your slides.
 * [Custom key bindings][guide-key-bindings].
 * [Automatically reload your presentation][guide-hot-reload] every time it changes for a fast development loop.
+* [Define speaker notes][guide-speaker-notes] to aid you during presentations.
 
 See the [introduction page][guide-introduction] to learn more.
 
@@ -69,6 +70,7 @@ See the [introduction page][guide-introduction] to learn more.
 [guide-pdf-export]: https://mfontanini.github.io/presenterm/guides/pdf-export.html
 [guide-key-bindings]: https://mfontanini.github.io/presenterm/guides/configuration.html#key-bindings
 [guide-hot-reload]: https://mfontanini.github.io/presenterm/guides/basics.html#hot-reload
+[guide-speaker-notes]: https://mfontanini.github.io/presenterm/guides/speaker-notes.html
 [bat]: https://github.com/sharkdp/bat
 [syntect]: https://github.com/trishume/syntect
 
