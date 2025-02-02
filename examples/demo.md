@@ -228,6 +228,8 @@ Text formatting works as expected:
 * ~This is strikethrough text.~
 * Inline code `is also supported`.
 * Links look like this [](https://example.com/)
+* Text can be <span style="color: red">colored</span>.
+* Text background color can be <span style="color: blue; background-color: black">changed too</span>.
 
 <!-- end_slide -->
 
@@ -235,6 +237,11 @@ Other elements
 ---
 
 Other elements supported are:
+
+# Alerts
+
+> [!caution]
+> Github style alerts
 
 # Tables
 
