@@ -17,6 +17,11 @@ presenterm demo.md --publish-speaker-notes
 presenterm demo.md --listen-speaker-notes
 ```
 
+[![asciicast](https://asciinema.org/a/ETusvlmHuHrcLKzwa0CMQRX2J.svg)](https://asciinema.org/a/ETusvlmHuHrcLKzwa0CMQRX2J)
+
+See the [speaker notes example](https://github.com/mfontanini/presenterm/blob/master/examples/speaker-notes.md) for more 
+information.
+
 ### Defining speaker notes
 
 In order to define speaker notes you can use the `speaker_notes` comment command:
