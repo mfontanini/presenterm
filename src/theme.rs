@@ -502,9 +502,9 @@ pub(crate) struct AlertTypeStyle<S: AlertTypeProperties> {
     #[serde(default)]
     pub(crate) title: Option<String>,
 
-    /// The symbol to be used.
+    /// The icon to be used.
     #[serde(default)]
-    pub(crate) symbol: Option<String>,
+    pub(crate) icon: Option<String>,
 
     #[serde(skip)]
     _unused: PhantomData<S>,
@@ -515,7 +515,7 @@ impl<S: AlertTypeProperties> Default for AlertTypeStyle<S> {
         Self {
             color: Default::default(),
             title: Default::default(),
-            symbol: Default::default(),
+            icon: Default::default(),
             _unused: Default::default(),
         }
     }
@@ -526,12 +526,12 @@ impl<S: AlertTypeProperties> AlertTypeStyle<S> {
         (
             self.color.unwrap_or(S::default_color()),
             self.title.as_deref().unwrap_or(S::default_title()),
-            self.symbol.as_deref().unwrap_or(S::default_symbol()),
+            self.icon.as_deref().unwrap_or(S::default_icon()),
         )
     }
 
     fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { color, title: _, symbol: _, _unused: _ } = self;
+        let Self { color, title: _, icon: _, _unused: _ } = self;
         if let Some(color) = color {
             *color = color.resolve(palette)?;
         }
@@ -544,7 +544,7 @@ impl<S: AlertTypeProperties> fmt::Debug for AlertTypeStyle<S> {
         f.debug_struct("AlertTypeStyle")
             .field("color", &self.color)
             .field("title", &self.title)
-            .field("symbol", &self.symbol)
+            .field("icon", &self.icon)
             .field("_unused", &self._unused)
             .finish()
     }
@@ -552,13 +552,13 @@ impl<S: AlertTypeProperties> fmt::Debug for AlertTypeStyle<S> {
 
 impl<S: AlertTypeProperties> Clone for AlertTypeStyle<S> {
     fn clone(&self) -> Self {
-        Self { color: self.color, title: self.title.clone(), symbol: self.symbol.clone(), _unused: PhantomData }
+        Self { color: self.color, title: self.title.clone(), icon: self.icon.clone(), _unused: PhantomData }
     }
 }
 
 pub(crate) trait AlertTypeProperties {
     fn default_title() -> &'static str;
-    fn default_symbol() -> &'static str;
+    fn default_icon() -> &'static str;
     fn default_color() -> Color;
 }
 
@@ -573,7 +573,7 @@ impl AlertTypeProperties for NoteAlertType {
         "Note"
     }
 
-    fn default_symbol() -> &'static str {
+    fn default_icon() -> &'static str {
         "󰋽"
     }
 
@@ -587,7 +587,7 @@ impl AlertTypeProperties for TipAlertType {
         "Tip"
     }
 
-    fn default_symbol() -> &'static str {
+    fn default_icon() -> &'static str {
         ""
     }
 
@@ -601,7 +601,7 @@ impl AlertTypeProperties for ImportantAlertType {
         "Important"
     }
 
-    fn default_symbol() -> &'static str {
+    fn default_icon() -> &'static str {
         ""
     }
 
@@ -615,7 +615,7 @@ impl AlertTypeProperties for WarningAlertType {
         "Warning"
     }
 
-    fn default_symbol() -> &'static str {
+    fn default_icon() -> &'static str {
         ""
     }
 
@@ -629,7 +629,7 @@ impl AlertTypeProperties for CautionAlertType {
         "Caution"
     }
 
-    fn default_symbol() -> &'static str {
+    fn default_icon() -> &'static str {
         "󰳦"
     }
 
