@@ -1,6 +1,6 @@
 # v0.10.0 - 2025-02-02
 
-# New features
+## New features
 
 * Support for presentation speaker notes ([#389](https://github.com/mfontanini/presenterm/issues/389)) ([#419](https://github.com/mfontanini/presenterm/issues/419)) ([#421](https://github.com/mfontanini/presenterm/issues/421)) ([#425](https://github.com/mfontanini/presenterm/issues/425)) - thanks @dmackdev.
 * Add support for colored text via inline `span` HTML tags  ([#390](https://github.com/mfontanini/presenterm/issues/390)).
@@ -19,14 +19,14 @@
 * Add C# to code executors ([#399](https://github.com/mfontanini/presenterm/issues/399)) - thanks @giggio.
 * Add R to executors ([#393](https://github.com/mfontanini/presenterm/issues/393)) - thanks @jonocarroll.
 
-# Fixes
+## Fixes
 
 * Check for `term_program` before `term` to determine emulator ([#420](https://github.com/mfontanini/presenterm/issues/420)).
 * Allow jumping back to column in column layout ([#396](https://github.com/mfontanini/presenterm/issues/396)).
 * Ignore comments that start with `vim:` prefix ([#395](https://github.com/mfontanini/presenterm/issues/395)).
 * Respect `+no_background` on a `+exec_replace` block ([#383](https://github.com/mfontanini/presenterm/issues/383)).
 
-# Docs
+## Docs
 
 * Document tmux active session bug ([#402](https://github.com/mfontanini/presenterm/issues/402)).
 * Add notes on running `bat` directly ([#397](https://github.com/mfontanini/presenterm/issues/397)).
