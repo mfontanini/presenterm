@@ -1,4 +1,4 @@
-# Installation
+# Installing _presenterm_
 
 _presenterm_ works on Linux, macOS, and Windows and can be installed in different ways:
 

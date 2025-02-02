@@ -93,7 +93,7 @@ Because we just reset the layout, this text is now below both of the columns.
 
 This would render the following way:
 
-![](../assets/layouts.png)
+![](../../assets/layouts.png)
 
 ## Other uses
 

@@ -25,52 +25,51 @@ Check the rest of the example presentations in the [examples directory](/example
 
 # Documentation
 
-Visit the [documentation][guide-introduction] to get started.
+Visit the [documentation][docs-introduction] to get started.
 
 # Features
 
 * Define your presentation in a single markdown file.
-* [Images and animated gifs][guide-images] on terminals like _kitty_, _iterm2_, and _wezterm_.
-* [Customizeable themes][guide-themes] including colors, margins, layout (left/center aligned content), footer for every 
-  slide, etc. Several [built-in themes][guide-builtin-themes] can give your presentation the look you want without 
+* [Images and animated gifs][docs-images] on terminals like _kitty_, _iterm2_, and _wezterm_.
+* [Customizeable themes][docs-themes] including colors, margins, layout (left/center aligned content), footer for every 
+  slide, etc. Several [built-in themes][docs-builtin-themes] can give your presentation the look you want without 
   having to define your own.
-* Code highlighting for a [wide list of programming languages][guide-code-highlight].
-* [Selective/dynamic][guide-selective-highlight] code highlighting that only highlights portions of code at a time.
-* [Column layouts][guide-layout].
-* [mermaid graph rendering][guide-mermaid].
-* [_LaTeX_ and _typst_ formula rendering][guide-latex].
-* [Introduction slide][guide-intro-slide] that displays the presentation title and your name.
-* [Slide titles][guide-slide-titles].
-* [Snippet execution][guide-code-execute] for various programming languages.
-* [Export presentations to PDF][guide-pdf-export].
-* [Pause][guide-pauses] portions of your slides.
-* [Custom key bindings][guide-key-bindings].
-* [Automatically reload your presentation][guide-hot-reload] every time it changes for a fast development loop.
-* [Define speaker notes][guide-speaker-notes] to aid you during presentations.
+* Code highlighting for a [wide list of programming languages][docs-code-highlight].
+* [Selective/dynamic][docs-selective-highlight] code highlighting that only highlights portions of code at a time.
+* [Column layouts][docs-layout].
+* [mermaid graph rendering][docs-mermaid].
+* [_LaTeX_ and _typst_ formula rendering][docs-latex].
+* [Introduction slide][docs-intro-slide] that displays the presentation title and your name.
+* [Slide titles][docs-slide-titles].
+* [Snippet execution][docs-code-execute] for various programming languages.
+* [Export presentations to PDF][docs-pdf-export].
+* [Pause][docs-pauses] portions of your slides.
+* [Custom key bindings][docs-key-bindings].
+* [Automatically reload your presentation][docs-hot-reload] every time it changes for a fast development loop.
+* [Define speaker notes][docs-speaker-notes] to aid you during presentations.
 
-See the [introduction page][guide-introduction] to learn more.
+See the [introduction page][docs-introduction] to learn more.
 
 <!-- links -->
 
-[guide-introduction]: https://mfontanini.github.io/presenterm/
-[guide-installation]: https://mfontanini.github.io/presenterm/guides/installation.html
-[guide-basics]: https://mfontanini.github.io/presenterm/guides/basics.html
-[guide-intro-slide]: https://mfontanini.github.io/presenterm/guides/basics.html#introduction-slide
-[guide-slide-titles]: https://mfontanini.github.io/presenterm/guides/basics.html#slide-titles
-[guide-pauses]: https://mfontanini.github.io/presenterm/guides/basics.html#pauses
-[guide-images]: https://mfontanini.github.io/presenterm/guides/basics.html#images
-[guide-themes]: https://mfontanini.github.io/presenterm/guides/themes.html
-[guide-builtin-themes]: https://mfontanini.github.io/presenterm/guides/themes.html#built-in-themes
-[guide-code-highlight]: https://mfontanini.github.io/presenterm/guides/code-highlight.html
-[guide-code-execute]: https://mfontanini.github.io/presenterm/guides/code-highlight.html#executing-code
-[guide-selective-highlight]: https://mfontanini.github.io/presenterm/guides/code-highlight.html#selective-highlighting
-[guide-layout]: https://mfontanini.github.io/presenterm/guides/layout.html
-[guide-mermaid]: https://mfontanini.github.io/presenterm/guides/mermaid.html
-[guide-latex]: https://mfontanini.github.io/presenterm/guides/latex.html
-[guide-pdf-export]: https://mfontanini.github.io/presenterm/guides/pdf-export.html
-[guide-key-bindings]: https://mfontanini.github.io/presenterm/guides/configuration.html#key-bindings
-[guide-hot-reload]: https://mfontanini.github.io/presenterm/guides/basics.html#hot-reload
-[guide-speaker-notes]: https://mfontanini.github.io/presenterm/guides/speaker-notes.html
+[docs-introduction]: https://mfontanini.github.io/presenterm/
+[docs-basics]: https://mfontanini.github.io/presenterm/features/introduction.html
+[docs-intro-slide]: https://mfontanini.github.io/presenterm/features/introduction.html#introduction-slide
+[docs-slide-titles]: https://mfontanini.github.io/presenterm/features/introduction.html#slide-titles
+[docs-pauses]: https://mfontanini.github.io/presenterm/features/commands.html#pauses
+[docs-images]: https://mfontanini.github.io/presenterm/features/images.html
+[docs-themes]: https://mfontanini.github.io/presenterm/features/themes/introduction.html
+[docs-builtin-themes]: https://mfontanini.github.io/presenterm/features/themes/introduction.html#built-in-themes
+[docs-code-highlight]: https://mfontanini.github.io/presenterm/features/code/highlighting.html
+[docs-code-execute]: https://mfontanini.github.io/presenterm/features/code/execution.html
+[docs-selective-highlight]: https://mfontanini.github.io/presenterm/features/code/highlighting.html#selective-highlighting
+[docs-layout]: https://mfontanini.github.io/presenterm/features/layout.html
+[docs-mermaid]: https://mfontanini.github.io/presenterm/features/code/mermaid.html
+[docs-latex]: https://mfontanini.github.io/presenterm/features/code/latex.html
+[docs-pdf-export]: https://mfontanini.github.io/presenterm/features/pdf-export.html
+[docs-key-bindings]: https://mfontanini.github.io/presenterm/configuration/settings.html#key-bindings
+[docs-hot-reload]: https://mfontanini.github.io/presenterm/features/introduction.html#hot-reload
+[docs-speaker-notes]: https://mfontanini.github.io/presenterm/features/speaker-notes.html
 [bat]: https://github.com/sharkdp/bat
 [syntect]: https://github.com/trishume/syntect
 

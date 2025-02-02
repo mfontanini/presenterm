@@ -15,11 +15,11 @@ sequenceDiagram
 
 Note that because the mermaid CLI will spin up a browser under the hood, this may not work in all environments and can 
 also be a bit slow (e.g. ~2 seconds to generate every image). Mermaid graphs are rendered asynchronously by a number of 
-threads that can be configured in the [configuration file](configuration.html#snippet-rendering-threads). This 
-configuration value currently defaults to 2.
+threads that can be configured in the [configuration file](../../configuration/settings.md#snippet-rendering-threads). 
+This configuration value currently defaults to 2.
 
 The size of the rendered image can be configured by changing:
-* The `mermaid.scale` [configuration parameter](configuration.html#mermaid-scaling).
+* The `mermaid.scale` [configuration parameter](../../configuration/settings.md#mermaid-scaling).
 * Using the `+width:<number>%` attribute in the code snippet.
 
 For example, this diagram will take up 50% of the width of the window and will preserve its aspect ratio:
@@ -38,12 +38,13 @@ cause the image to become blurry.
 
 ## Theme
 
-The theme of the rendered mermaid diagrams can be changed through the following [theme](themes.html#mermaid) parameters:
+The theme of the rendered mermaid diagrams can be changed through the following 
+[theme](../themes/introduction.md#mermaid) parameters:
 
 * `mermaid.background` the background color passed to the CLI (e.g., `transparent`, `red`, `#F0F0F0`).
 * `mermaid.theme` the [mermaid theme](https://mermaid.js.org/config/theming.html#available-themes) to use.
 
-## Always rendering
+## Always render diagrams
 
 If you don't want to use `+render` every time, you can configure which languages get this automatically via the [config 
-file](configuration.html#auto_render_languages).
+file](../../configuration/settings.md#auto_render_languages).
