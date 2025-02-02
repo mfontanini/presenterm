@@ -212,9 +212,11 @@ nothing else.
 
 For example, this would render the demo presentation's image:
 
+~~~markdown
 ```bash +image
 cat examples/doge.png
 ```
+~~~
 
 This attribute carries the same risks as `+exec_replace` and therefore needs to be enabled via the same flags.
 
