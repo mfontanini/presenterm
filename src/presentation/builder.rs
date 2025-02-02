@@ -733,7 +733,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_alert(&mut self, alert_type: AlertType, title: Option<String>, mut lines: Vec<Line>) -> BuildResult {
-        let (title_color, default_title, symbol) = match alert_type {
+        let (title_color, default_title, icon) = match alert_type {
             AlertType::Note => self.theme.alert.styles.note.as_parts(),
             AlertType::Tip => self.theme.alert.styles.tip.as_parts(),
             AlertType::Important => self.theme.alert.styles.important.as_parts(),
@@ -742,7 +742,7 @@ impl<'a> PresentationBuilder<'a> {
         };
         let title_color = Some(title_color);
         let title = title.unwrap_or_else(|| default_title.to_string());
-        let title = format!("{symbol} {title}");
+        let title = format!("{icon} {title}");
         let title_colors = Colors { foreground: title_color, background: self.theme.alert.base_colors.background };
         lines.insert(0, Line::from(Text::from("")));
         lines.insert(0, Line::from(Text::new(title, TextStyle::default().colors(title_colors))));
