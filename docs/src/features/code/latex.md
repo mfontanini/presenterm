@@ -16,7 +16,7 @@ For example, the following presentation:
 
 Would be rendered like this:
 
-![](../../../assets/formula.png)
+![](../../assets/formula.png)
 
 ## Dependencies
 
