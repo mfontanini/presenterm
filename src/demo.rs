@@ -11,7 +11,7 @@ use crate::{
         builder::{BuildError, PresentationBuilder},
     },
     render::TerminalDrawer,
-    terminal::TerminalWrite,
+    terminal::{TerminalWrite, emulator::TerminalEmulator},
 };
 use std::{io, rc::Rc};
 
@@ -104,7 +104,10 @@ impl<W: TerminalWrite> ThemesDemo<W> {
         let image_registry = ImageRegistry::default();
         let mut resources = Resources::new("non_existent", image_registry.clone());
         let mut third_party = ThirdPartyRender::default();
-        let options = PresentationBuilderOptions::default();
+        let options = PresentationBuilderOptions {
+            font_size_supported: TerminalEmulator::capabilities().font_size,
+            ..Default::default()
+        };
         let executer = Rc::new(SnippetExecutor::default());
         let bindings_config = Default::default();
         let builder = PresentationBuilder::new(

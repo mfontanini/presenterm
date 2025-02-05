@@ -23,12 +23,13 @@ where
     writer: W,
     image_printer: Arc<ImagePrinter>,
     pub(crate) cursor_row: u16,
+    current_row_height: u16,
 }
 
 impl<W: TerminalWrite> Terminal<W> {
     pub(crate) fn new(mut writer: W, image_printer: Arc<ImagePrinter>) -> io::Result<Self> {
         writer.init()?;
-        Ok(Self { writer, image_printer, cursor_row: 0 })
+        Ok(Self { writer, image_printer, cursor_row: 0, current_row_height: 1 })
     }
 
     pub(crate) fn begin_update(&mut self) -> io::Result<()> {
@@ -64,19 +65,27 @@ impl<W: TerminalWrite> Terminal<W> {
         Ok(())
     }
 
-    pub(crate) fn move_to_next_line(&mut self, amount: u16) -> io::Result<()> {
+    pub(crate) fn move_to_next_line(&mut self) -> io::Result<()> {
+        let amount = self.current_row_height;
         self.writer.queue(cursor::MoveToNextLine(amount))?;
         self.cursor_row += amount;
+        self.current_row_height = 1;
         Ok(())
     }
 
-    pub(crate) fn print_line(&mut self, text: &str) -> io::Result<()> {
+    pub(crate) fn print_line(&mut self, text: &str, properties: &TextProperties) -> io::Result<()> {
         self.writer.queue(style::Print(text))?;
+        self.current_row_height = self.current_row_height.max(properties.height as u16);
         Ok(())
     }
 
-    pub(crate) fn print_styled_line(&mut self, content: StyledContent<String>) -> io::Result<()> {
-        self.writer.queue(style::PrintStyledContent(content))?;
+    pub(crate) fn print_styled_line(
+        &mut self,
+        string: StyledContent<String>,
+        properties: &TextProperties,
+    ) -> io::Result<()> {
+        self.writer.queue(style::PrintStyledContent(string))?;
+        self.current_row_height = self.current_row_height.max(properties.height as u16);
         Ok(())
     }
 
@@ -117,6 +126,17 @@ impl<W: TerminalWrite> Terminal<W> {
 
     pub(crate) fn resume(&mut self) {
         let _ = self.writer.init();
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct TextProperties {
+    pub(crate) height: u8,
+}
+
+impl Default for TextProperties {
+    fn default() -> Self {
+        Self { height: 1 }
     }
 }
 

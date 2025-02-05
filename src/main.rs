@@ -27,6 +27,7 @@ use std::{
     rc::Rc,
     sync::Arc,
 };
+use terminal::emulator::TerminalEmulator;
 
 mod code;
 mod commands;
@@ -258,6 +259,7 @@ impl CoreComponents {
             enable_snippet_execution_replace: config.snippet.exec_replace.enable,
             render_speaker_notes_only,
             auto_render_languages: config.options.auto_render_languages.clone(),
+            font_size_supported: TerminalEmulator::capabilities().font_size,
         }
     }
 
@@ -349,6 +351,8 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         println!("{}", String::from_utf8_lossy(acknowledgements));
         return Ok(());
     } else if cli.list_themes {
+        // Load this ahead of time so we don't do it when we're already in raw mode.
+        TerminalEmulator::capabilities();
         let Customizations { config, themes, .. } =
             Customizations::load(cli.config_file.clone().map(PathBuf::from), &current_dir()?)?;
         let bindings = config.bindings.try_into()?;

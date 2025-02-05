@@ -2,7 +2,8 @@ use crate::{
     code::snippet::SnippetLanguage,
     commands::keyboard::KeyBinding,
     terminal::{
-        GraphicsMode, emulator::TerminalEmulator, image::protocols::kitty::KittyMode, query::TerminalCapabilities,
+        GraphicsMode, capabilities::TerminalCapabilities, emulator::TerminalEmulator,
+        image::protocols::kitty::KittyMode,
     },
 };
 use clap::ValueEnum;

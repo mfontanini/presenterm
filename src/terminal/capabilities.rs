@@ -1,6 +1,11 @@
 use super::image::protocols::kitty::{Action, ControlCommand, ControlOption, ImageFormat, TransmissionMedium};
 use base64::{Engine, engine::general_purpose::STANDARD};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+use crossterm::{
+    QueueableCommand,
+    cursor::{self},
+    style::Print,
+    terminal,
+};
 use image::{DynamicImage, EncodableLayout};
 use std::{
     env,
@@ -8,12 +13,13 @@ use std::{
 };
 use tempfile::NamedTempFile;
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub(crate) struct TerminalCapabilities {
     pub(crate) kitty_local: bool,
     pub(crate) kitty_remote: bool,
     pub(crate) sixel: bool,
     pub(crate) tmux: bool,
+    pub(crate) font_size: bool,
 }
 
 impl TerminalCapabilities {
@@ -48,6 +54,19 @@ impl TerminalCapabilities {
 
         let mut response = Self::parse_response(io::stdin(), ids)?;
         response.tmux = tmux;
+
+        // Use kitty's font size protocol to write 1 character using size 2. If after writing the
+        // cursor has moves 2 columns, the protocol is supported.
+        stdout.queue(terminal::EnterAlternateScreen)?;
+        stdout.queue(cursor::MoveTo(0, 0))?;
+        stdout.queue(Print("\x1b]66;s=2; \x1b\\"))?;
+        stdout.flush()?;
+        let position = cursor::position()?;
+        if position.0 == 2 {
+            response.font_size = true;
+        }
+        stdout.queue(terminal::LeaveAlternateScreen)?;
+
         Ok(response)
     }
 
@@ -113,14 +132,14 @@ struct RawModeGuard;
 
 impl RawModeGuard {
     fn new() -> io::Result<Self> {
-        enable_raw_mode()?;
+        terminal::enable_raw_mode()?;
         Ok(Self)
     }
 }
 
 impl Drop for RawModeGuard {
     fn drop(&mut self) {
-        let _ = disable_raw_mode();
+        let _ = terminal::disable_raw_mode();
     }
 }
 

@@ -303,6 +303,10 @@ pub(crate) struct SlideTitleStyle {
     /// Whether to use underlined font for slide titles.
     #[serde(default)]
     pub(crate) underlined: Option<bool>,
+
+    /// The font size to be used if the terminal supports it.
+    #[serde(default)]
+    pub(crate) font_size: Option<u8>,
 }
 
 impl SlideTitleStyle {
@@ -366,11 +370,16 @@ pub(crate) struct HeadingStyle {
     /// The colors to be used.
     #[serde(default)]
     pub(crate) colors: Colors,
+
+    /// The font size to be used if the terminal supports it.
+    #[serde(default)]
+    pub(crate) font_size: Option<u8>,
 }
 
 impl HeadingStyle {
     fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        self.colors = self.colors.resolve(palette)?;
+        let Self { colors, alignment: _, prefix: _, font_size: _ } = self;
+        *colors = colors.resolve(palette)?;
         Ok(())
     }
 }
@@ -643,7 +652,7 @@ impl AlertTypeProperties for CautionAlertType {
 pub(crate) struct IntroSlideStyle {
     /// The style of the title line.
     #[serde(default)]
-    pub(crate) title: BasicStyle,
+    pub(crate) title: IntroSlideTitleStyle,
 
     /// The style of the subtitle line.
     #[serde(default)]
@@ -673,9 +682,10 @@ pub(crate) struct IntroSlideStyle {
 impl IntroSlideStyle {
     fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
         let Self { title, subtitle, event, location, date, author, footer: _footer } = self;
-        for s in [title, subtitle, event, location, date] {
+        for s in [subtitle, event, location, date] {
             s.resolve_palette_colors(palette)?;
         }
+        title.resolve_palette_colors(palette)?;
         author.resolve_palette_colors(palette)?;
         Ok(())
     }
@@ -716,6 +726,30 @@ pub(crate) struct BasicStyle {
 impl BasicStyle {
     fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
         let Self { colors, alignment: _ } = self;
+        *colors = colors.resolve(palette)?;
+        Ok(())
+    }
+}
+
+/// The intro slide title's style.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct IntroSlideTitleStyle {
+    /// The alignment.
+    #[serde(flatten, default)]
+    pub(crate) alignment: Option<Alignment>,
+
+    /// The colors to be used.
+    #[serde(default)]
+    pub(crate) colors: Colors,
+
+    /// The font size to be used if the terminal supports it.
+    #[serde(default)]
+    pub(crate) font_size: Option<u8>,
+}
+
+impl IntroSlideTitleStyle {
+    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
+        let Self { colors, alignment: _, font_size: _ } = self;
         *colors = colors.resolve(palette)?;
         Ok(())
     }

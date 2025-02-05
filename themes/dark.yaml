@@ -13,6 +13,7 @@ slide_title:
   colors:
     foreground: palette:orange
   bold: true
+  font_size: 2
 
 code:
   alignment: center
@@ -48,6 +49,7 @@ intro_slide:
     alignment: center
     colors:
       foreground: palette:light_blue
+    font_size: 2
   subtitle:
     alignment: center
     colors:

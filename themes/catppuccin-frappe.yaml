@@ -13,6 +13,7 @@ slide_title:
   colors:
     foreground: "e5c890"
   bold: true
+  font_size: 2
 
 code:
   alignment: center
@@ -47,6 +48,7 @@ intro_slide:
     alignment: center
     colors:
       foreground: "a6d189"
+    font_size: 2
   subtitle:
     alignment: center
     colors:

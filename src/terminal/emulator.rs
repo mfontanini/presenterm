@@ -1,6 +1,9 @@
-use super::{GraphicsMode, image::protocols::kitty::KittyMode, query::TerminalCapabilities};
+use super::{GraphicsMode, capabilities::TerminalCapabilities, image::protocols::kitty::KittyMode};
+use once_cell::sync::Lazy;
 use std::env;
 use strum::IntoEnumIterator;
+
+static CAPABILITIES: Lazy<TerminalCapabilities> = Lazy::new(|| TerminalCapabilities::query().unwrap_or_default());
 
 #[derive(Debug, strum::EnumIter)]
 pub enum TerminalEmulator {
@@ -30,8 +33,12 @@ impl TerminalEmulator {
         TerminalEmulator::Unknown
     }
 
+    pub(crate) fn capabilities() -> TerminalCapabilities {
+        CAPABILITIES.clone()
+    }
+
     pub fn preferred_protocol(&self) -> GraphicsMode {
-        let capabilities = TerminalCapabilities::query().unwrap_or_default();
+        let capabilities = Self::capabilities();
         let modes = [
             GraphicsMode::Iterm2,
             GraphicsMode::Kitty { mode: KittyMode::Local, inside_tmux: capabilities.tmux },

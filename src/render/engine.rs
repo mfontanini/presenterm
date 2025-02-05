@@ -188,7 +188,7 @@ where
     }
 
     fn render_line_break(&mut self) -> RenderResult {
-        self.terminal.move_to_next_line(1)?;
+        self.terminal.move_to_next_line()?;
         Ok(())
     }
 
