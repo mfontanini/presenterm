@@ -130,3 +130,23 @@ language: rust
 Using the `+no_background` flag will cause the snippet to have no background. This is useful when combining it with the 
 `+exec_replace` flag described further down.
 
+## Adding highlighting syntaxes for new languages
+
+_presenterm_ uses the syntaxes supported by [bat](https://github.com/sharkdp/bat) to highlight code snippets, so any 
+languages supported by _bat_ natively can be added to _presenterm_ easily. Please create a ticket or use 
+[this](https://github.com/mfontanini/presenterm/pull/385) as a reference to submit a pull request to make a syntax 
+officially supported by _presenterm_ as well.
+
+If a language isn't natively supported by _bat_ but you'd like to use it, you can follow
+[this guide in the bat docs](https://github.com/sharkdp/bat#adding-new-syntaxes--language-definitions) and
+invoke _bat_ directly in a presentation:
+
+~~~markdown
+```bash +exec_replace
+bat --color always script.py
+```
+~~~
+
+> [!note]
+> Check the [code execution docs](execution.md#executing-and-replacing) for more details on how to allow the tool to run 
+> `exec_replace` blocks.
