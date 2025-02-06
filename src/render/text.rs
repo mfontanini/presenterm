@@ -5,7 +5,7 @@ use crate::{
         text_style::{Color, Colors},
     },
     render::{RenderError, RenderResult, layout::Positioning},
-    terminal::{Terminal, TerminalWrite},
+    terminal::{Terminal, TerminalWrite, printer::TextProperties},
 };
 
 const MINIMUM_LINE_LENGTH: u16 = 10;
@@ -23,6 +23,7 @@ pub(crate) struct TextDrawer<'a> {
     draw_block: bool,
     block_color: Option<Color>,
     repeat_prefix: bool,
+    properties: TextProperties,
 }
 
 impl<'a> TextDrawer<'a> {
@@ -56,6 +57,7 @@ impl<'a> TextDrawer<'a> {
                 draw_block: false,
                 block_color: None,
                 repeat_prefix: false,
+                properties: TextProperties { height: line.height() },
             })
         }
     }
@@ -86,7 +88,7 @@ impl<'a> TextDrawer<'a> {
             style.apply(content)?
         };
         terminal.move_to_column(self.positioning.start_column)?;
-        terminal.print_styled_line(styled_prefix.clone())?;
+        terminal.print_styled_line(styled_prefix.clone(), &self.properties)?;
 
         let start_column = self.positioning.start_column + self.prefix_length;
         for (line_index, line) in self.line.split(self.positioning.max_line_length as usize).enumerate() {
@@ -100,7 +102,7 @@ impl<'a> TextDrawer<'a> {
                 if self.prefix_length > 0 {
                     terminal.move_to_column(self.positioning.start_column)?;
                     if self.repeat_prefix {
-                        terminal.print_styled_line(styled_prefix.clone())?;
+                        terminal.print_styled_line(styled_prefix.clone(), &self.properties)?;
                     } else {
                         self.print_block_background(self.prefix_length, terminal)?;
                     }
@@ -112,7 +114,7 @@ impl<'a> TextDrawer<'a> {
 
                 let (text, style) = chunk.into_parts();
                 let text = style.apply(text)?;
-                terminal.print_styled_line(text)?;
+                terminal.print_styled_line(text, &self.properties)?;
 
                 // Crossterm resets colors if any attributes are set so let's just re-apply colors
                 // if the format has anything on it at all.
@@ -137,7 +139,7 @@ impl<'a> TextDrawer<'a> {
                     terminal.set_background_color(color)?;
                 }
                 let text = " ".repeat(remaining as usize);
-                terminal.print_line(&text)?;
+                terminal.print_line(&text, &self.properties)?;
             }
         }
         Ok(())

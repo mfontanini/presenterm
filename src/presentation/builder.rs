@@ -77,6 +77,7 @@ pub struct PresentationBuilderOptions {
     pub enable_snippet_execution_replace: bool,
     pub render_speaker_notes_only: bool,
     pub auto_render_languages: Vec<SnippetLanguage>,
+    pub font_size_supported: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -114,6 +115,7 @@ impl Default for PresentationBuilderOptions {
             enable_snippet_execution_replace: false,
             render_speaker_notes_only: false,
             auto_render_languages: Default::default(),
+            font_size_supported: false,
         }
     }
 }
@@ -395,7 +397,10 @@ impl<'a> PresentationBuilder<'a> {
         let styles = self.theme.intro_slide.clone();
         let create_text =
             |text: Option<String>, style: TextStyle| -> Option<Text> { text.map(|text| Text::new(text, style)) };
-        let title = create_text(metadata.title, TextStyle::default().bold().colors(styles.title.colors));
+        let title = create_text(
+            metadata.title,
+            TextStyle::default().bold().colors(styles.title.colors).size(self.font_size(styles.title.font_size)),
+        );
         let sub_title = create_text(metadata.sub_title, TextStyle::default().colors(styles.subtitle.colors));
         let event = create_text(metadata.event, TextStyle::default().colors(styles.event.colors));
         let location = create_text(metadata.location, TextStyle::default().colors(styles.location.colors));
@@ -572,6 +577,7 @@ impl<'a> PresentationBuilder<'a> {
 
         let style = self.theme.slide_title.clone();
         let mut text_style = TextStyle::default().colors(style.colors);
+        text_style = text_style.size(self.font_size(style.font_size));
         if style.bold.unwrap_or_default() {
             text_style = text_style.bold();
         }
@@ -613,7 +619,7 @@ impl<'a> PresentationBuilder<'a> {
             prefix.push(' ');
             text.0.insert(0, Text::from(prefix));
         }
-        let text_style = TextStyle::default().bold().colors(style.colors);
+        let text_style = TextStyle::default().bold().colors(style.colors).size(self.font_size(style.font_size));
         text.apply_style(&text_style);
 
         self.push_text(text, element_type)?;
@@ -1154,6 +1160,11 @@ impl<'a> PresentationBuilder<'a> {
             }
             _ => Err(ImageAttributeError::UnknownAttribute(key.to_string())),
         }
+    }
+
+    fn font_size(&self, font_size: Option<u8>) -> u8 {
+        let Some(font_size) = font_size else { return 1 };
+        if self.options.font_size_supported { font_size.clamp(1, 7) } else { 1 }
     }
 }
 

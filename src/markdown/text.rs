@@ -12,6 +12,7 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 pub(crate) struct WeightedLine {
     text: Vec<WeightedText>,
     width: usize,
+    height: u8,
 }
 
 impl WeightedLine {
@@ -23,6 +24,11 @@ impl WeightedLine {
     /// The total width of this line.
     pub(crate) fn width(&self) -> usize {
         self.width
+    }
+
+    /// The height of this line.
+    pub(crate) fn height(&self) -> u8 {
+        self.height
     }
 
     /// Get an iterator to the underlying text chunks.
@@ -43,6 +49,7 @@ impl From<Vec<Text>> for WeightedLine {
         let mut output = Vec::new();
         let mut index = 0;
         let mut width = 0;
+        let mut height = 1;
         // Compact chunks so any consecutive chunk with the same style is merged into the same block.
         while index < texts.len() {
             let mut target = mem::replace(&mut texts[index], Text::from(""));
@@ -52,11 +59,13 @@ impl From<Vec<Text>> for WeightedLine {
                 target.content.push_str(&current_content);
                 current += 1;
             }
-            width += target.content.width();
+            let size = target.style.size.max(1);
+            width += target.content.width() * size as usize;
             output.push(target.into());
             index = current;
+            height = height.max(size);
         }
-        Self { text: output, width }
+        Self { text: output, width, height }
     }
 }
 
@@ -64,7 +73,7 @@ impl From<String> for WeightedLine {
     fn from(text: String) -> Self {
         let width = text.width();
         let text = vec![WeightedText::from(text)];
-        Self { text, width }
+        Self { text, width, height: 1 }
     }
 }
 
@@ -325,7 +334,8 @@ mod test {
 
     #[test]
     fn no_split_necessary() {
-        let text = WeightedLine { text: vec![WeightedText::from("short"), WeightedText::from("text")], width: 0 };
+        let text =
+            WeightedLine { text: vec![WeightedText::from("short"), WeightedText::from("text")], width: 0, height: 1 };
         let lines = join_lines(text.split(50));
         let expected = vec!["short text"];
         assert_eq!(lines, expected);
@@ -333,7 +343,7 @@ mod test {
 
     #[test]
     fn split_lines_single() {
-        let text = WeightedLine { text: vec![WeightedText::from("this is a slightly long line")], width: 0 };
+        let text = WeightedLine { text: vec![WeightedText::from("this is a slightly long line")], width: 0, height: 1 };
         let lines = join_lines(text.split(6));
         let expected = vec!["this", "is a", "slight", "ly", "long", "line"];
         assert_eq!(lines, expected);
@@ -348,6 +358,7 @@ mod test {
                 WeightedText::from("yet some other piece"),
             ],
             width: 0,
+            height: 1,
         };
         let lines = join_lines(text.split(10));
         let expected = vec!["this is a", "slightly", "long line", "another", "chunk yet", "some other", "piece"];
@@ -363,6 +374,7 @@ mod test {
                 WeightedText::from("yet some other piece"),
             ],
             width: 0,
+            height: 1,
         };
         let lines = join_lines(text.split(50));
         let expected = vec!["this is a slightly long line another chunk yet some", "other piece"];

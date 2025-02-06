@@ -1,5 +1,5 @@
 use crate::theme::ColorPalette;
-use crossterm::style::Stylize;
+use crossterm::style::{StyledContent, Stylize};
 use hex::{FromHex, FromHexError};
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
@@ -10,15 +10,27 @@ use std::{
 };
 
 /// The style of a piece of text.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct TextStyle {
     flags: u8,
     pub(crate) colors: Colors,
+    pub(crate) size: u8,
+}
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self { flags: Default::default(), colors: Default::default(), size: 1 }
+    }
 }
 
 impl TextStyle {
     pub(crate) fn colored(colors: Colors) -> Self {
-        Self { flags: Default::default(), colors }
+        Self { colors, ..Default::default() }
+    }
+
+    pub(crate) fn size(mut self, size: u8) -> Self {
+        self.size = size.min(16);
+        self
     }
 
     /// Add bold to this style.
@@ -107,13 +119,18 @@ impl TextStyle {
     /// Merge this style with another one.
     pub(crate) fn merge(&mut self, other: &TextStyle) {
         self.flags |= other.flags;
+        self.size = self.size.max(other.size);
         self.colors.background = self.colors.background.or(other.colors.background);
         self.colors.foreground = self.colors.foreground.or(other.colors.foreground);
     }
 
     /// Apply this style to a piece of text.
-    pub(crate) fn apply<T: Into<String>>(&self, text: T) -> Result<<String as Stylize>::Styled, PaletteColorError> {
-        let text: String = text.into();
+    pub(crate) fn apply<T: Into<String>>(&self, text: T) -> Result<StyledContent<String>, PaletteColorError> {
+        let text = text.into();
+        let text = match self.size {
+            0 | 1 => text,
+            size => format!("\x1b]66;s={size};{text}\x1b\\"),
+        };
         let mut styled = text.stylize();
         if self.is_bold() {
             styled = styled.bold();
