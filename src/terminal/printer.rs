@@ -11,6 +11,7 @@ use crossterm::{
     terminal::{self},
 };
 use std::{
+    fmt::Display,
     io::{self, Write},
     sync::Arc,
 };
@@ -79,12 +80,12 @@ impl<W: TerminalWrite> Terminal<W> {
         Ok(())
     }
 
-    pub(crate) fn print_styled_line(
+    pub(crate) fn print_styled_line<T: Display>(
         &mut self,
-        string: StyledContent<String>,
+        content: StyledContent<T>,
         properties: &TextProperties,
     ) -> io::Result<()> {
-        self.writer.queue(style::PrintStyledContent(string))?;
+        self.writer.queue(style::PrintStyledContent(content))?;
         self.current_row_height = self.current_row_height.max(properties.height as u16);
         Ok(())
     }
