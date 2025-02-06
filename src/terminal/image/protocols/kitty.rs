@@ -5,7 +5,6 @@ use crate::{
 use base64::{Engine, engine::general_purpose::STANDARD};
 use crossterm::{QueueableCommand, cursor::MoveToColumn, style::SetForegroundColor};
 use image::{AnimationDecoder, Delay, DynamicImage, EncodableLayout, ImageReader, RgbaImage, codecs::gif::GifDecoder};
-use rand::Rng;
 use std::{
     fmt,
     fs::{self, File},
@@ -145,7 +144,7 @@ impl KittyPrinter {
     }
 
     fn generate_image_id() -> u32 {
-        rand::thread_rng().gen_range(1..u32::MAX)
+        fastrand::u32(1..u32::MAX)
     }
 
     fn print_image<W>(

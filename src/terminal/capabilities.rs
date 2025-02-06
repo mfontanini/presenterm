@@ -39,7 +39,7 @@ impl TerminalCapabilities {
         };
         let encoded_path = STANDARD.encode(path);
 
-        let base_image_id = rand::random();
+        let base_image_id = fastrand::u32(0..=u32::MAX);
         let ids = KittyImageIds { local: base_image_id, remote: base_image_id.wrapping_add(1) };
         Self::write_kitty_local_query(ids.local, encoded_path, tmux)?;
         Self::write_kitty_remote_query(ids.remote, image_bytes, tmux)?;
