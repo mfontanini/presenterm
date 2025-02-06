@@ -19,7 +19,7 @@ directories = "6.0"
 hex = "0.4"
 fastrand = "2.3"
 flate2 = "1.0"
-image = { version = "0.25", features = ["gif", "jpeg", "png", "rayon"], default-features = false }
+image = { version = "0.25", features = ["gif", "jpeg", "png"], default-features = false }
 sixel-rs = { version = "0.4", optional = true }
 merge-struct = "0.1.0"
 itertools = "0.14"
