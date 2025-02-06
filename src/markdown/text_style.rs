@@ -125,13 +125,12 @@ impl TextStyle {
     }
 
     /// Apply this style to a piece of text.
-    pub(crate) fn apply<T: Into<String>>(&self, text: T) -> Result<StyledContent<String>, PaletteColorError> {
-        let text = text.into();
-        let text = match self.size {
-            0 | 1 => text,
-            size => format!("\x1b]66;s={size};{text}\x1b\\"),
-        };
-        let mut styled = text.stylize();
+    pub(crate) fn apply<'a>(
+        &self,
+        text: &'a str,
+    ) -> Result<StyledContent<impl Display + Clone + 'a>, PaletteColorError> {
+        let text = FontSizedStr { contents: text, font_size: self.size };
+        let mut styled = StyledContent::new(Default::default(), text);
         if self.is_bold() {
             styled = styled.bold();
         }
@@ -160,6 +159,22 @@ impl TextStyle {
 
     fn has_flag(&self, flag: TextFormatFlags) -> bool {
         self.flags & flag as u8 != 0
+    }
+}
+
+#[derive(Clone)]
+struct FontSizedStr<'a> {
+    contents: &'a str,
+    font_size: u8,
+}
+
+impl fmt::Display for FontSizedStr<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let contents = &self.contents;
+        match self.font_size {
+            0 | 1 => write!(f, "{contents}"),
+            size => write!(f, "\x1b]66;s={size};{contents}\x1b\\"),
+        }
     }
 }
 
