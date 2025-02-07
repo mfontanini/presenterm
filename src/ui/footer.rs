@@ -7,9 +7,13 @@ use crate::{
         operation::{AsRenderOperations, RenderOperation},
         properties::WindowSize,
     },
-    theme::{Alignment, FooterStyle, Margin},
+    theme::{Alignment, FooterStyle, FooterTemplate, FooterTemplateChunk, Margin},
 };
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    io::{BufWriter, Write},
+    rc::Rc,
+};
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Default)]
@@ -32,23 +36,30 @@ pub(crate) struct FooterGenerator {
 
 impl FooterGenerator {
     fn render_template(
-        template: &str,
+        template: &FooterTemplate,
         current_slide: &str,
         context: &FooterContext,
         colors: Colors,
         alignment: Alignment,
     ) -> RenderOperation {
-        #[allow(unknown_lints)]
-        #[allow(clippy::literal_string_with_formatting_args)]
-        let contents = template
-            .replace("{current_slide}", current_slide)
-            .replace("{total_slides}", &context.total_slides.to_string())
-            .replace("{title}", &context.title)
-            .replace("{sub_title}", &context.sub_title)
-            .replace("{event}", &context.event)
-            .replace("{location}", &context.location)
-            .replace("{date}", &context.date)
-            .replace("{author}", &context.author);
+        use FooterTemplateChunk::*;
+        let mut w = BufWriter::new(Vec::new());
+        let FooterContext { total_slides, author, title, sub_title, event, location, date } = context;
+        for chunk in &template.0 {
+            match chunk {
+                Literal(l) => write!(w, "{l}"),
+                CurrentSlide => write!(w, "{current_slide}"),
+                TotalSlides => write!(w, "{total_slides}"),
+                Author => write!(w, "{author}"),
+                Title => write!(w, "{title}"),
+                SubTitle => write!(w, "{sub_title}"),
+                Event => write!(w, "{event}"),
+                Location => write!(w, "{location}"),
+                Date => write!(w, "{date}"),
+            }
+            .unwrap();
+        }
+        let contents = String::from_utf8(w.into_inner().unwrap()).expect("not utf8");
         let text = Text::new(contents, TextStyle::default().colors(colors));
         RenderOperation::RenderText { line: vec![text].into(), alignment }
     }
