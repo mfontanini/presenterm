@@ -1,6 +1,7 @@
 use crate::markdown::text_style::{Color, Colors, FixedStr, UndefinedPaletteColorError};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt, fs, io, marker::PhantomData, path::Path};
+use serde_with::{DeserializeFromStr, SerializeDisplay};
+use std::{collections::BTreeMap, fmt, fs, io, marker::PhantomData, path::Path, str::FromStr};
 
 include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 
@@ -824,13 +825,13 @@ pub(crate) enum FooterStyle {
     /// Use a template to generate the footer.
     Template {
         /// The template for the text to be put on the left.
-        left: Option<String>,
+        left: Option<FooterTemplate>,
 
         /// The template for the text to be put on the center.
-        center: Option<String>,
+        center: Option<FooterTemplate>,
 
         /// The template for the text to be put on the right.
-        right: Option<String>,
+        right: Option<FooterTemplate>,
 
         /// The colors to be used.
         #[serde(default)]
@@ -868,6 +869,104 @@ impl Default for FooterStyle {
     fn default() -> Self {
         Self::Template { left: None, center: None, right: None, colors: Colors::default() }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+pub(crate) enum FooterTemplateChunk {
+    Literal(String),
+    CurrentSlide,
+    TotalSlides,
+    Author,
+    Title,
+    SubTitle,
+    Event,
+    Location,
+    Date,
+}
+
+#[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr)]
+pub(crate) struct FooterTemplate(pub(crate) Vec<FooterTemplateChunk>);
+
+impl FromStr for FooterTemplate {
+    type Err = ParseFooterTemplateError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut chunks = Vec::new();
+        let mut chunk_start = 0;
+        let mut in_variable = false;
+        for (index, c) in s.char_indices() {
+            if c == '{' {
+                if in_variable {
+                    return Err(ParseFooterTemplateError::NestedOpenBrace);
+                }
+                if chunk_start != index {
+                    chunks.push(FooterTemplateChunk::Literal(s[chunk_start..index].to_string()));
+                }
+                in_variable = true;
+                chunk_start = index + 1;
+            } else if c == '}' {
+                if !in_variable {
+                    return Err(ParseFooterTemplateError::ClosedBraceWithoutOpen);
+                }
+                let variable = &s[chunk_start..index];
+                let chunk = match variable {
+                    "current_slide" => FooterTemplateChunk::CurrentSlide,
+                    "total_slides" => FooterTemplateChunk::TotalSlides,
+                    "author" => FooterTemplateChunk::Author,
+                    "title" => FooterTemplateChunk::Title,
+                    "sub_title" => FooterTemplateChunk::SubTitle,
+                    "event" => FooterTemplateChunk::Event,
+                    "location" => FooterTemplateChunk::Location,
+                    "date" => FooterTemplateChunk::Date,
+                    _ => return Err(ParseFooterTemplateError::UnsupportedVariable(variable.to_string())),
+                };
+                chunks.push(chunk);
+                in_variable = false;
+                chunk_start = index + 1;
+            }
+        }
+        if in_variable {
+            return Err(ParseFooterTemplateError::TrailingBrace);
+        } else if chunk_start != s.len() {
+            chunks.push(FooterTemplateChunk::Literal(s[chunk_start..].to_string()));
+        }
+        Ok(Self(chunks))
+    }
+}
+
+impl fmt::Display for FooterTemplate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use FooterTemplateChunk::*;
+        for c in &self.0 {
+            match c {
+                Literal(l) => write!(f, "{l}"),
+                CurrentSlide => write!(f, "{{current_slide}}"),
+                TotalSlides => write!(f, "{{total_slides}}"),
+                Author => write!(f, "{{author}}"),
+                Title => write!(f, "{{title}}"),
+                SubTitle => write!(f, "{{sub_title}}"),
+                Event => write!(f, "{{event}}"),
+                Location => write!(f, "{{location}}"),
+                Date => write!(f, "{{date}}"),
+            }?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum ParseFooterTemplateError {
+    #[error("found '{{' while already inside '{{' scope")]
+    NestedOpenBrace,
+
+    #[error("open '{{' was not closed")]
+    TrailingBrace,
+
+    #[error("found '}}' but no '{{' was found")]
+    ClosedBraceWithoutOpen,
+
+    #[error("unsupported variable: '{0}'")]
+    UnsupportedVariable(String),
 }
 
 /// The style for a piece of code.
@@ -1133,6 +1232,7 @@ pub enum LoadThemeError {
 #[cfg(test)]
 mod test {
     use super::*;
+    use rstest::rstest;
     use tempfile::{TempDir, tempdir};
 
     fn write_theme(name: &str, theme: PresentationTheme, directory: &TempDir) {
@@ -1224,5 +1324,41 @@ mod test {
         let mut themes = PresentationThemeSet::default();
         let result = themes.register_from_directory("/tmp/presenterm/8ee2027983915ec78acc45027d874316");
         result.expect("loading failed");
+    }
+
+    #[test]
+    fn parse_all_footer_template_variables() {
+        use FooterTemplateChunk::*;
+        let raw = "hi {current_slide} {total_slides} {author} {title} {sub_title} {event} {location} {event}";
+        let t: FooterTemplate = raw.parse().expect("invalid input");
+        let expected = vec![
+            Literal("hi ".into()),
+            CurrentSlide,
+            Literal(" ".into()),
+            TotalSlides,
+            Literal(" ".into()),
+            Author,
+            Literal(" ".into()),
+            Title,
+            Literal(" ".into()),
+            SubTitle,
+            Literal(" ".into()),
+            Event,
+            Literal(" ".into()),
+            Location,
+            Literal(" ".into()),
+            Event,
+        ];
+        assert_eq!(t.0, expected);
+        assert_eq!(t.to_string(), raw);
+    }
+
+    #[rstest]
+    #[case::nested_open("{{author}")]
+    #[case::trailing("{author")]
+    #[case::close_without_open1("{author}}")]
+    #[case::close_without_open2("author}")]
+    fn invalid_footer_templates(#[case] input: &str) {
+        FooterTemplate::from_str(input).expect_err("parse succeeded");
     }
 }
