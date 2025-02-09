@@ -13,13 +13,16 @@ use crate::{
     },
     render::{operation::RenderOperation, properties::WindowSize},
     terminal::{
-        Terminal, TerminalWrite,
+        Terminal,
         image::printer::{ImagePrinter, PrintImageError},
     },
     theme::{Alignment, Margin},
 };
 use engine::{RenderEngine, RenderEngineOptions};
-use std::{io, sync::Arc};
+use std::{
+    io::{self, Stdout},
+    sync::Arc,
+};
 
 /// The result of a render operation.
 pub(crate) type RenderResult = Result<(), RenderError>;
@@ -39,17 +42,14 @@ impl Default for TerminalDrawerOptions {
 }
 
 /// Allows drawing on the terminal.
-pub(crate) struct TerminalDrawer<W: TerminalWrite> {
-    pub(crate) terminal: Terminal<W>,
+pub(crate) struct TerminalDrawer {
+    pub(crate) terminal: Terminal<Stdout>,
     options: TerminalDrawerOptions,
 }
 
-impl<W> TerminalDrawer<W>
-where
-    W: TerminalWrite,
-{
-    pub(crate) fn new(handle: W, image_printer: Arc<ImagePrinter>, options: TerminalDrawerOptions) -> io::Result<Self> {
-        let terminal = Terminal::new(handle, image_printer)?;
+impl TerminalDrawer {
+    pub(crate) fn new(image_printer: Arc<ImagePrinter>, options: TerminalDrawerOptions) -> io::Result<Self> {
+        let terminal = Terminal::new(io::stdout(), image_printer)?;
         Ok(Self { terminal, options })
     }
 
@@ -97,7 +97,7 @@ where
         Ok(())
     }
 
-    fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<W> {
+    fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<Terminal<Stdout>> {
         let options = RenderEngineOptions { max_columns: self.options.max_columns, ..Default::default() };
         RenderEngine::new(&mut self.terminal, dimensions, options)
     }

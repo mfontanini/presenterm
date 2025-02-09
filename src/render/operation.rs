@@ -113,10 +113,13 @@ pub(crate) enum ImageSize {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct MarginProperties {
     /// The horizontal margin.
-    pub(crate) horizontal_margin: Margin,
+    pub(crate) horizontal: Margin,
 
-    /// The margin at the bottom of the slide.
-    pub(crate) bottom_slide_margin: u16,
+    /// The margin at the top.
+    pub(crate) top: u16,
+
+    /// The margin at the bottom.
+    pub(crate) bottom: u16,
 }
 
 /// A type that can generate render operations.

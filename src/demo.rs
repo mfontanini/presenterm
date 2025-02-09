@@ -11,7 +11,7 @@ use crate::{
         builder::{BuildError, PresentationBuilder},
     },
     render::TerminalDrawer,
-    terminal::{TerminalWrite, emulator::TerminalEmulator},
+    terminal::emulator::TerminalEmulator,
 };
 use std::{io, rc::Rc};
 
@@ -40,16 +40,16 @@ fn greet(name: &str) -> String {
 <!-- end_slide -->
 "#;
 
-pub struct ThemesDemo<W: TerminalWrite> {
+pub struct ThemesDemo {
     themes: Themes,
     input: KeyboardListener,
-    drawer: TerminalDrawer<W>,
+    drawer: TerminalDrawer,
 }
 
-impl<W: TerminalWrite> ThemesDemo<W> {
-    pub fn new(themes: Themes, bindings: CommandKeyBindings, writer: W) -> io::Result<Self> {
+impl ThemesDemo {
+    pub fn new(themes: Themes, bindings: CommandKeyBindings) -> io::Result<Self> {
         let input = KeyboardListener::new(bindings);
-        let drawer = TerminalDrawer::new(writer, Default::default(), Default::default())?;
+        let drawer = TerminalDrawer::new(Default::default(), Default::default())?;
         Ok(Self { themes, input, drawer })
     }
 
