@@ -25,11 +25,12 @@ use std::mem;
 pub(crate) struct RenderEngineOptions {
     pub(crate) validate_overflows: bool,
     pub(crate) max_columns: u16,
+    pub(crate) column_layout_margin: u16,
 }
 
 impl Default for RenderEngineOptions {
     fn default() -> Self {
-        Self { validate_overflows: false, max_columns: u16::MAX }
+        Self { validate_overflows: false, max_columns: u16::MAX, column_layout_margin: 4 }
     }
 }
 
@@ -64,12 +65,13 @@ where
     }
 
     fn starting_rect(window_dimensions: WindowSize, options: &RenderEngineOptions) -> WindowRect {
+        let start_row = 0;
         if window_dimensions.columns > options.max_columns {
             let extra_width = window_dimensions.columns - options.max_columns;
             let dimensions = window_dimensions.shrink_columns(extra_width);
-            WindowRect { dimensions, start_column: extra_width / 2 }
+            WindowRect { dimensions, start_column: extra_width / 2, start_row }
         } else {
-            WindowRect { dimensions: window_dimensions, start_column: 0 }
+            WindowRect { dimensions: window_dimensions, start_column: 0, start_row }
         }
     }
 
@@ -129,10 +131,13 @@ where
     }
 
     fn apply_margin(&mut self, properties: &MarginProperties) -> RenderResult {
-        let MarginProperties { horizontal_margin, bottom_slide_margin } = properties;
+        let MarginProperties { horizontal: horizontal_margin, top, bottom } = properties;
         let current = self.current_rect();
         let margin = horizontal_margin.as_characters(current.dimensions.columns);
-        let new_rect = current.apply_margin(margin).shrink_rows(*bottom_slide_margin);
+        let new_rect = current.shrink_horizontal(margin).shrink_bottom(*bottom).shrink_top(*top);
+        if new_rect.start_row != self.terminal.cursor_row() {
+            self.jump_to_row(new_rect.start_row)?;
+        }
         self.window_rects.push(new_rect);
         Ok(())
     }
@@ -161,8 +166,10 @@ where
         Ok(())
     }
 
-    fn jump_to_row(&mut self, index: u16) -> RenderResult {
-        self.terminal.move_to_row(index)?;
+    fn jump_to_row(&mut self, row: u16) -> RenderResult {
+        // Make this relative to the beginning of the current rect.
+        let row = self.current_rect().start_row.saturating_add(row);
+        self.terminal.move_to_row(row)?;
         Ok(())
     }
 
@@ -304,20 +311,21 @@ where
         let current_rect = self.current_rect();
         let unit_width = current_rect.dimensions.columns as f64 / total_column_units as f64;
         let start_column = current_rect.start_column + (unit_width * column_units_before as f64) as u16;
+        let start_row = columns[column_index].current_row;
         let new_column_count = (total_column_units - columns[column_index].width) * unit_width as u16;
         let new_size = current_rect.dimensions.shrink_columns(new_column_count);
-        let mut dimensions = WindowRect { dimensions: new_size, start_column };
+        let mut dimensions = WindowRect { dimensions: new_size, start_column, start_row };
         // Shrink every column's right edge except for last
         if column_index < columns.len() - 1 {
-            dimensions = dimensions.shrink_right(4);
+            dimensions = dimensions.shrink_right(self.options.column_layout_margin);
         }
         // Shrink every column's left edge except for first
         if column_index > 0 {
-            dimensions = dimensions.shrink_left(4);
+            dimensions = dimensions.shrink_left(self.options.column_layout_margin);
         }
 
         self.window_rects.push(dimensions);
-        self.terminal.move_to_row(columns[column_index].current_row)?;
+        self.terminal.move_to_row(start_row)?;
         self.layout = LayoutState::EnteredColumn { column: column_index, columns };
         Ok(())
     }
@@ -361,28 +369,284 @@ struct Column {
 struct WindowRect {
     dimensions: WindowSize,
     start_column: u16,
+    start_row: u16,
 }
 
 impl WindowRect {
-    fn apply_margin(&self, margin: u16) -> Self {
+    fn shrink_horizontal(&self, margin: u16) -> Self {
         let dimensions = self.dimensions.shrink_columns(margin.saturating_mul(2));
         let start_column = self.start_column + margin;
-        Self { dimensions, start_column }
+        Self { dimensions, start_column, start_row: self.start_row }
     }
 
     fn shrink_left(&self, size: u16) -> Self {
         let dimensions = self.dimensions.shrink_columns(size);
         let start_column = self.start_column.saturating_add(size);
-        Self { dimensions, start_column }
+        Self { dimensions, start_column, start_row: self.start_row }
     }
 
     fn shrink_right(&self, size: u16) -> Self {
         let dimensions = self.dimensions.shrink_columns(size);
-        Self { dimensions, start_column: self.start_column }
+        Self { dimensions, start_column: self.start_column, start_row: self.start_row }
     }
 
-    fn shrink_rows(&self, rows: u16) -> Self {
+    fn shrink_top(&self, rows: u16) -> Self {
+        let start_row = self.start_row.saturating_add(rows);
+        Self { dimensions: self.dimensions.clone(), start_column: self.start_column, start_row }
+    }
+
+    fn shrink_bottom(&self, rows: u16) -> Self {
         let dimensions = self.dimensions.shrink_rows(rows);
-        Self { dimensions, start_column: self.start_column }
+        Self { dimensions, start_column: self.start_column, start_row: self.start_row }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{markdown::text_style::Color, theme::Margin};
+    use std::io;
+    use unicode_width::UnicodeWidthStr;
+
+    #[derive(Debug, PartialEq)]
+    enum Instruction {
+        MoveTo(u16, u16),
+        MoveToRow(u16),
+        MoveToColumn(u16),
+        MoveDown(u16),
+        MoveToNextLine,
+        PrintLine(String),
+        PrintStyledLine(String),
+        ClearScreen,
+        SetBackgroundColor(Color),
+        PrintImage(Image),
+        Suspend,
+        Resume,
+    }
+
+    #[derive(Default)]
+    struct TerminalBuf {
+        instructions: Vec<Instruction>,
+        cursor_row: u16,
+    }
+
+    impl TerminalBuf {
+        fn push(&mut self, instruction: Instruction) -> io::Result<()> {
+            self.instructions.push(instruction);
+            Ok(())
+        }
+    }
+
+    impl TerminalIo for TerminalBuf {
+        fn begin_update(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+
+        fn end_update(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+
+        fn cursor_row(&self) -> u16 {
+            self.cursor_row
+        }
+
+        fn move_to(&mut self, column: u16, row: u16) -> std::io::Result<()> {
+            self.cursor_row = row;
+            self.push(Instruction::MoveTo(column, row))
+        }
+
+        fn move_to_row(&mut self, row: u16) -> std::io::Result<()> {
+            self.cursor_row = row;
+            self.push(Instruction::MoveToRow(row))
+        }
+
+        fn move_to_column(&mut self, column: u16) -> std::io::Result<()> {
+            self.push(Instruction::MoveToColumn(column))
+        }
+
+        fn move_down(&mut self, amount: u16) -> std::io::Result<()> {
+            self.push(Instruction::MoveDown(amount))
+        }
+
+        fn move_to_next_line(&mut self) -> std::io::Result<()> {
+            self.push(Instruction::MoveToNextLine)
+        }
+
+        fn print_line(
+            &mut self,
+            text: &str,
+            _properties: &crate::terminal::printer::TextProperties,
+        ) -> std::io::Result<()> {
+            if text.is_empty() {
+                return Ok(());
+            }
+            self.cursor_row = text.width() as u16;
+            self.push(Instruction::PrintLine(text.to_string()))
+        }
+
+        fn print_styled_line<T: std::fmt::Display>(
+            &mut self,
+            content: crossterm::style::StyledContent<T>,
+            _properties: &crate::terminal::printer::TextProperties,
+        ) -> std::io::Result<()> {
+            let content = content.to_string();
+            if content.is_empty() {
+                return Ok(());
+            }
+            self.cursor_row = content.width() as u16;
+            self.push(Instruction::PrintStyledLine(content))
+        }
+
+        fn clear_screen(&mut self) -> std::io::Result<()> {
+            self.cursor_row = 0;
+            self.push(Instruction::ClearScreen)
+        }
+
+        fn set_colors(&mut self, _colors: Colors) -> std::io::Result<()> {
+            Ok(())
+        }
+
+        fn set_background_color(&mut self, color: Color) -> std::io::Result<()> {
+            self.push(Instruction::SetBackgroundColor(color))
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+
+        fn print_image(
+            &mut self,
+            image: &Image,
+            _options: &PrintOptions,
+        ) -> Result<(), crate::terminal::image::printer::PrintImageError> {
+            let _ = self.push(Instruction::PrintImage(image.clone()));
+            Ok(())
+        }
+
+        fn suspend(&mut self) {
+            let _ = self.push(Instruction::Suspend);
+        }
+
+        fn resume(&mut self) {
+            let _ = self.push(Instruction::Resume);
+        }
+    }
+
+    fn render(operations: &[RenderOperation]) -> Vec<Instruction> {
+        let mut buf = TerminalBuf::default();
+        let dimensions = WindowSize { rows: 100, columns: 100, height: 200, width: 200 };
+        let options = RenderEngineOptions { validate_overflows: false, max_columns: u16::MAX, column_layout_margin: 0 };
+        let engine = RenderEngine::new(&mut buf, dimensions, options);
+        engine.render(operations.iter()).expect("render failed");
+        buf.instructions
+    }
+
+    #[test]
+    fn columns() {
+        let ops = render(&[
+            RenderOperation::InitColumnLayout { columns: vec![1, 1] },
+            // print on column 0
+            RenderOperation::EnterColumn { column: 0 },
+            RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            // print on column 1
+            RenderOperation::EnterColumn { column: 1 },
+            RenderOperation::RenderText { line: "B".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            // go back to column 0 and print
+            RenderOperation::EnterColumn { column: 0 },
+            RenderOperation::RenderText { line: "1".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+        ]);
+        let expected = [
+            Instruction::MoveToRow(0),
+            Instruction::MoveToColumn(0),
+            Instruction::PrintStyledLine("A".into()),
+            Instruction::MoveToRow(0),
+            Instruction::MoveToColumn(50),
+            Instruction::PrintStyledLine("B".into()),
+            // when we go back we should proceed from where we left off (row == 1)
+            Instruction::MoveToRow(1),
+            Instruction::MoveToColumn(0),
+            Instruction::PrintStyledLine("1".into()),
+        ];
+        assert_eq!(ops, expected);
+    }
+
+    #[test]
+    fn bottom_margin() {
+        let ops = render(&[
+            RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 0, bottom: 10 }),
+            RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::JumpToBottomRow { index: 0 },
+            RenderOperation::RenderText { line: "B".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+        ]);
+        let expected = [
+            Instruction::MoveToColumn(1),
+            Instruction::PrintStyledLine("A".into()),
+            // 100 - 10 (bottom margin)
+            Instruction::MoveToRow(89),
+            Instruction::MoveToColumn(1),
+            Instruction::PrintStyledLine("B".into()),
+        ];
+        assert_eq!(ops, expected);
+    }
+
+    #[test]
+    fn top_margin() {
+        let ops = render(&[
+            RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 3, bottom: 0 }),
+            RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+        ]);
+        let expected =
+            [Instruction::MoveToRow(3), Instruction::MoveToColumn(1), Instruction::PrintStyledLine("A".into())];
+        assert_eq!(ops, expected);
+    }
+
+    #[test]
+    fn margins() {
+        let ops = render(&[
+            RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 3, bottom: 10 }),
+            RenderOperation::JumpToRow { index: 0 },
+            RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::JumpToBottomRow { index: 0 },
+            RenderOperation::RenderText { line: "B".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+        ]);
+        let expected = [
+            Instruction::MoveToRow(3),
+            Instruction::MoveToRow(3),
+            Instruction::MoveToColumn(1),
+            Instruction::PrintStyledLine("A".into()),
+            // 100 - 10 (bottom margin)
+            Instruction::MoveToRow(89),
+            Instruction::MoveToColumn(1),
+            Instruction::PrintStyledLine("B".into()),
+        ];
+        assert_eq!(ops, expected);
+    }
+
+    #[test]
+    fn nested_margins() {
+        let ops = render(&[
+            RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 0, bottom: 10 }),
+            RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 0, bottom: 10 }),
+            RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::JumpToBottomRow { index: 0 },
+            RenderOperation::RenderText { line: "B".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            // pop and go to bottom, this should go back up to the end of the first margin
+            RenderOperation::PopMargin,
+            RenderOperation::JumpToBottomRow { index: 0 },
+            RenderOperation::RenderText { line: "C".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+        ]);
+        let expected = [
+            Instruction::MoveToColumn(2),
+            Instruction::PrintStyledLine("A".into()),
+            // 100 - 10 (margin) - 10 (second margin)
+            Instruction::MoveToRow(79),
+            Instruction::MoveToColumn(2),
+            Instruction::PrintStyledLine("B".into()),
+            // 100 - 10 (margin)
+            Instruction::MoveToRow(89),
+            Instruction::MoveToColumn(1),
+            Instruction::PrintStyledLine("C".into()),
+        ];
+        assert_eq!(ops, expected);
     }
 }

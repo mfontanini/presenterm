@@ -87,8 +87,10 @@ impl<'a> TextDrawer<'a> {
             let Text { content, style } = self.prefix.text();
             style.apply(content)?
         };
-        terminal.move_to_column(self.positioning.start_column)?;
-        terminal.print_styled_line(styled_prefix.clone(), &self.properties)?;
+        if self.prefix.width() > 0 {
+            terminal.move_to_column(self.positioning.start_column)?;
+            terminal.print_styled_line(styled_prefix.clone(), &self.properties)?;
+        }
 
         let start_column = self.positioning.start_column + self.prefix_length;
         for (line_index, line) in self.line.split(self.positioning.max_line_length as usize).enumerate() {

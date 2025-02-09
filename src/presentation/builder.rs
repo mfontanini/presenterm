@@ -273,8 +273,9 @@ impl<'a> PresentationBuilder<'a> {
         self.chunk_operations.extend([
             RenderOperation::ClearScreen,
             RenderOperation::ApplyMargin(MarginProperties {
-                horizontal_margin: self.theme.default_style.margin.clone().unwrap_or_default(),
-                bottom_slide_margin: DEFAULT_BOTTOM_SLIDE_MARGIN,
+                horizontal: self.theme.default_style.margin.clone().unwrap_or_default(),
+                top: 0,
+                bottom: DEFAULT_BOTTOM_SLIDE_MARGIN,
             }),
         ]);
         self.push_line_break();

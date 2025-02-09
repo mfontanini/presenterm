@@ -295,7 +295,7 @@ impl CenterModalContent {
 impl AsRenderOperations for CenterModalContent {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let margin = dimensions.columns.saturating_sub(self.content_width) / 2;
-        let properties = MarginProperties { horizontal_margin: Margin::Fixed(margin), bottom_slide_margin: 0 };
+        let properties = MarginProperties { horizontal: Margin::Fixed(margin), top: 0, bottom: 0 };
         // However many we see + 3 for the title and 1 at the bottom.
         let content_height = (self.content_height + 4) as u16;
         let target_row = dimensions.rows.saturating_sub(content_height) / 2;
