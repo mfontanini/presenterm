@@ -10,12 +10,12 @@ use crate::{
         properties::WindowSize,
     },
     terminal::{
-        Terminal, TerminalWrite,
         image::{
             Image,
             printer::{ImageProperties, PrintOptions},
             scale::{fit_image_to_window, scale_image},
         },
+        printer::TerminalIo,
     },
     theme::Alignment,
 };
@@ -33,11 +33,11 @@ impl Default for RenderEngineOptions {
     }
 }
 
-pub(crate) struct RenderEngine<'a, W>
+pub(crate) struct RenderEngine<'a, T>
 where
-    W: TerminalWrite,
+    T: TerminalIo,
 {
-    terminal: &'a mut Terminal<W>,
+    terminal: &'a mut T,
     window_rects: Vec<WindowRect>,
     colors: Colors,
     max_modified_row: u16,
@@ -45,16 +45,12 @@ where
     options: RenderEngineOptions,
 }
 
-impl<'a, W> RenderEngine<'a, W>
+impl<'a, T> RenderEngine<'a, T>
 where
-    W: TerminalWrite,
+    T: TerminalIo,
 {
-    pub(crate) fn new(
-        terminal: &'a mut Terminal<W>,
-        window_dimensions: WindowSize,
-        options: RenderEngineOptions,
-    ) -> Self {
-        let max_modified_row = terminal.cursor_row;
+    pub(crate) fn new(terminal: &'a mut T, window_dimensions: WindowSize, options: RenderEngineOptions) -> Self {
+        let max_modified_row = terminal.cursor_row();
         let current_rect = Self::starting_rect(window_dimensions, &options);
         let window_rects = vec![current_rect.clone()];
         Self {
@@ -110,9 +106,9 @@ where
             RenderOperation::ExitLayout => self.exit_layout(),
         }?;
         if let LayoutState::EnteredColumn { column, columns } = &mut self.layout {
-            columns[*column].current_row = self.terminal.cursor_row;
+            columns[*column].current_row = self.terminal.cursor_row();
         };
-        self.max_modified_row = self.max_modified_row.max(self.terminal.cursor_row);
+        self.max_modified_row = self.max_modified_row.max(self.terminal.cursor_row());
         Ok(())
     }
 
@@ -194,7 +190,7 @@ where
 
     fn render_image(&mut self, image: &Image, properties: &ImageRenderProperties) -> RenderResult {
         let rect = self.current_rect();
-        let starting_position = CursorPosition { row: self.terminal.cursor_row, column: rect.start_column };
+        let starting_position = CursorPosition { row: self.terminal.cursor_row(), column: rect.start_column };
 
         let (width, height) = image.dimensions();
         let (cursor_position, columns, rows) = match properties.size {
@@ -282,7 +278,7 @@ where
         }
         let columns = columns
             .iter()
-            .map(|width| Column { width: *width as u16, current_row: self.terminal.cursor_row })
+            .map(|width| Column { width: *width as u16, current_row: self.terminal.cursor_row() })
             .collect();
         self.layout = LayoutState::InitializedColumn { columns };
         Ok(())

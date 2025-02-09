@@ -17,7 +17,10 @@ use crate::{
         properties::WindowSize, validate::OverflowValidator,
     },
     resource::Resources,
-    terminal::image::printer::{ImagePrinter, ImageRegistry},
+    terminal::{
+        image::printer::{ImagePrinter, ImageRegistry},
+        printer::TerminalIo,
+    },
     theme::PresentationTheme,
     third_party::ThirdPartyRender,
 };
@@ -25,7 +28,7 @@ use std::{
     collections::HashSet,
     fmt::Display,
     fs,
-    io::{self, Stdout},
+    io::{self},
     mem,
     ops::Deref,
     path::Path,
@@ -103,7 +106,7 @@ impl<'a> Presenter<'a> {
             font_size_fallback: self.options.font_size_fallback,
             max_columns: self.options.max_columns,
         };
-        let mut drawer = TerminalDrawer::new(io::stdout(), self.image_printer.clone(), drawer_options)?;
+        let mut drawer = TerminalDrawer::new(self.image_printer.clone(), drawer_options)?;
         loop {
             if matches!(self.options.mode, PresentMode::Export) {
                 if let PresenterState::Failure { error, .. } = &self.state {
@@ -202,7 +205,7 @@ impl<'a> Presenter<'a> {
         Ok(false)
     }
 
-    fn render(&mut self, drawer: &mut TerminalDrawer<Stdout>) -> RenderResult {
+    fn render(&mut self, drawer: &mut TerminalDrawer) -> RenderResult {
         let result = match &self.state {
             PresenterState::Presenting(presentation) => {
                 drawer.render_operations(presentation.current_slide().iter_visible_operations())
@@ -392,7 +395,7 @@ impl<'a> Presenter<'a> {
         }
     }
 
-    fn suspend(&self, drawer: &mut TerminalDrawer<Stdout>) {
+    fn suspend(&self, drawer: &mut TerminalDrawer) {
         #[cfg(unix)]
         unsafe {
             drawer.terminal.suspend();

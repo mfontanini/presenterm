@@ -356,7 +356,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         let Customizations { config, themes, .. } =
             Customizations::load(cli.config_file.clone().map(PathBuf::from), &current_dir()?)?;
         let bindings = config.bindings.try_into()?;
-        let demo = ThemesDemo::new(themes, bindings, io::stdout())?;
+        let demo = ThemesDemo::new(themes, bindings)?;
         demo.run()?;
         return Ok(());
     }

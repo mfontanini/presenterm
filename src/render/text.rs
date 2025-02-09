@@ -5,7 +5,7 @@ use crate::{
         text_style::{Color, Colors},
     },
     render::{RenderError, RenderResult, layout::Positioning},
-    terminal::{Terminal, TerminalWrite, printer::TextProperties},
+    terminal::printer::{TerminalIo, TextProperties},
 };
 
 const MINIMUM_LINE_LENGTH: u16 = 10;
@@ -76,9 +76,9 @@ impl<'a> TextDrawer<'a> {
     /// Draw text on the given handle.
     ///
     /// This performs word splitting and word wrapping.
-    pub(crate) fn draw<W>(self, terminal: &mut Terminal<W>) -> RenderResult
+    pub(crate) fn draw<T>(self, terminal: &mut T) -> RenderResult
     where
-        W: TerminalWrite,
+        T: TerminalIo,
     {
         let mut line_length: u16 = 0;
 
@@ -127,9 +127,9 @@ impl<'a> TextDrawer<'a> {
         Ok(())
     }
 
-    fn print_block_background<W>(&self, line_length: u16, terminal: &mut Terminal<W>) -> RenderResult
+    fn print_block_background<T>(&self, line_length: u16, terminal: &mut T) -> RenderResult
     where
-        W: TerminalWrite,
+        T: TerminalIo,
     {
         if self.draw_block {
             let remaining =

@@ -16,57 +16,84 @@ use std::{
     sync::Arc,
 };
 
+pub(crate) trait TerminalIo {
+    fn begin_update(&mut self) -> io::Result<()>;
+    fn end_update(&mut self) -> io::Result<()>;
+    fn cursor_row(&self) -> u16;
+    fn move_to(&mut self, column: u16, row: u16) -> io::Result<()>;
+    fn move_to_row(&mut self, row: u16) -> io::Result<()>;
+    fn move_to_column(&mut self, column: u16) -> io::Result<()>;
+    fn move_down(&mut self, amount: u16) -> io::Result<()>;
+    fn move_to_next_line(&mut self) -> io::Result<()>;
+    fn print_line(&mut self, text: &str, properties: &TextProperties) -> io::Result<()>;
+    fn print_styled_line<T: Display>(
+        &mut self,
+        content: StyledContent<T>,
+        properties: &TextProperties,
+    ) -> io::Result<()>;
+    fn clear_screen(&mut self) -> io::Result<()>;
+    fn set_colors(&mut self, colors: Colors) -> io::Result<()>;
+    fn set_background_color(&mut self, color: Color) -> io::Result<()>;
+    fn flush(&mut self) -> io::Result<()>;
+    fn print_image(&mut self, image: &Image, options: &PrintOptions) -> Result<(), PrintImageError>;
+    fn suspend(&mut self);
+    fn resume(&mut self);
+}
+
 /// A wrapper over the terminal write handle.
-pub(crate) struct Terminal<W>
-where
-    W: TerminalWrite,
-{
-    writer: W,
+pub(crate) struct Terminal<I: TerminalWrite> {
+    writer: I,
     image_printer: Arc<ImagePrinter>,
-    pub(crate) cursor_row: u16,
+    cursor_row: u16,
     current_row_height: u16,
 }
 
-impl<W: TerminalWrite> Terminal<W> {
-    pub(crate) fn new(mut writer: W, image_printer: Arc<ImagePrinter>) -> io::Result<Self> {
+impl<I: TerminalWrite> Terminal<I> {
+    pub(crate) fn new(mut writer: I, image_printer: Arc<ImagePrinter>) -> io::Result<Self> {
         writer.init()?;
         Ok(Self { writer, image_printer, cursor_row: 0, current_row_height: 1 })
     }
+}
 
-    pub(crate) fn begin_update(&mut self) -> io::Result<()> {
+impl<I: TerminalWrite> TerminalIo for Terminal<I> {
+    fn begin_update(&mut self) -> io::Result<()> {
         self.writer.queue(terminal::BeginSynchronizedUpdate)?;
         Ok(())
     }
 
-    pub(crate) fn end_update(&mut self) -> io::Result<()> {
+    fn end_update(&mut self) -> io::Result<()> {
         self.writer.queue(terminal::EndSynchronizedUpdate)?;
         Ok(())
     }
 
-    pub(crate) fn move_to(&mut self, column: u16, row: u16) -> io::Result<()> {
+    fn cursor_row(&self) -> u16 {
+        self.cursor_row
+    }
+
+    fn move_to(&mut self, column: u16, row: u16) -> io::Result<()> {
         self.writer.queue(cursor::MoveTo(column, row))?;
         self.cursor_row = row;
         Ok(())
     }
 
-    pub(crate) fn move_to_row(&mut self, row: u16) -> io::Result<()> {
+    fn move_to_row(&mut self, row: u16) -> io::Result<()> {
         self.writer.queue(cursor::MoveToRow(row))?;
         self.cursor_row = row;
         Ok(())
     }
 
-    pub(crate) fn move_to_column(&mut self, column: u16) -> io::Result<()> {
+    fn move_to_column(&mut self, column: u16) -> io::Result<()> {
         self.writer.queue(cursor::MoveToColumn(column))?;
         Ok(())
     }
 
-    pub(crate) fn move_down(&mut self, amount: u16) -> io::Result<()> {
+    fn move_down(&mut self, amount: u16) -> io::Result<()> {
         self.writer.queue(cursor::MoveDown(amount))?;
         self.cursor_row += amount;
         Ok(())
     }
 
-    pub(crate) fn move_to_next_line(&mut self) -> io::Result<()> {
+    fn move_to_next_line(&mut self) -> io::Result<()> {
         let amount = self.current_row_height;
         self.writer.queue(cursor::MoveToNextLine(amount))?;
         self.cursor_row += amount;
@@ -74,13 +101,13 @@ impl<W: TerminalWrite> Terminal<W> {
         Ok(())
     }
 
-    pub(crate) fn print_line(&mut self, text: &str, properties: &TextProperties) -> io::Result<()> {
+    fn print_line(&mut self, text: &str, properties: &TextProperties) -> io::Result<()> {
         self.writer.queue(style::Print(text))?;
         self.current_row_height = self.current_row_height.max(properties.height as u16);
         Ok(())
     }
 
-    pub(crate) fn print_styled_line<T: Display>(
+    fn print_styled_line<T: Display>(
         &mut self,
         content: StyledContent<T>,
         properties: &TextProperties,
@@ -90,43 +117,49 @@ impl<W: TerminalWrite> Terminal<W> {
         Ok(())
     }
 
-    pub(crate) fn clear_screen(&mut self) -> io::Result<()> {
+    fn clear_screen(&mut self) -> io::Result<()> {
         self.writer.queue(terminal::Clear(terminal::ClearType::All))?;
         self.cursor_row = 0;
         Ok(())
     }
 
-    pub(crate) fn set_colors(&mut self, colors: Colors) -> io::Result<()> {
+    fn set_colors(&mut self, colors: Colors) -> io::Result<()> {
         let colors = colors.try_into().map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
         self.writer.queue(style::ResetColor)?;
         self.writer.queue(style::SetColors(colors))?;
         Ok(())
     }
 
-    pub(crate) fn set_background_color(&mut self, color: Color) -> io::Result<()> {
+    fn set_background_color(&mut self, color: Color) -> io::Result<()> {
         let color = color.try_into().map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
         self.writer.queue(style::SetBackgroundColor(color))?;
         Ok(())
     }
 
-    pub(crate) fn flush(&mut self) -> io::Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         self.writer.flush()?;
         Ok(())
     }
 
-    pub(crate) fn print_image(&mut self, image: &Image, options: &PrintOptions) -> Result<(), PrintImageError> {
+    fn print_image(&mut self, image: &Image, options: &PrintOptions) -> Result<(), PrintImageError> {
         self.move_to_column(options.cursor_position.column)?;
         self.image_printer.print(&image.image, options, &mut self.writer)?;
         self.cursor_row += options.rows;
         Ok(())
     }
 
-    pub(crate) fn suspend(&mut self) {
+    fn suspend(&mut self) {
         self.writer.deinit();
     }
 
-    pub(crate) fn resume(&mut self) {
+    fn resume(&mut self) {
         let _ = self.writer.init();
+    }
+}
+
+impl<I: TerminalWrite> Drop for Terminal<I> {
+    fn drop(&mut self) {
+        self.writer.deinit();
     }
 }
 
@@ -138,15 +171,6 @@ pub(crate) struct TextProperties {
 impl Default for TextProperties {
     fn default() -> Self {
         Self { height: 1 }
-    }
-}
-
-impl<W> Drop for Terminal<W>
-where
-    W: TerminalWrite,
-{
-    fn drop(&mut self) {
-        self.writer.deinit();
     }
 }
 
@@ -164,7 +188,7 @@ fn is_windows_based_os() -> bool {
     is_windows || is_wsl
 }
 
-pub trait TerminalWrite: io::Write {
+pub(crate) trait TerminalWrite: io::Write {
     fn init(&mut self) -> io::Result<()>;
     fn deinit(&mut self);
 }
