@@ -13,7 +13,7 @@ use crate::{
         image::{
             Image,
             printer::{ImageProperties, PrintOptions},
-            scale::ImageScaler,
+            scale::{ImageScaler, TerminalRect},
         },
         printer::TerminalIo,
     },
@@ -97,6 +97,7 @@ where
             RenderOperation::JumpToVerticalCenter => self.jump_to_vertical_center(),
             RenderOperation::JumpToRow { index } => self.jump_to_row(*index),
             RenderOperation::JumpToBottomRow { index } => self.jump_to_bottom(*index),
+            RenderOperation::JumpToColumn { index } => self.jump_to_column(*index),
             RenderOperation::RenderText { line, alignment } => self.render_text(line, alignment),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image, properties) => self.render_image(image, properties),
@@ -179,6 +180,13 @@ where
         Ok(())
     }
 
+    fn jump_to_column(&mut self, column: u16) -> RenderResult {
+        // Make this relative to the beginning of the current rect.
+        let column = self.current_rect().start_column.saturating_add(column);
+        self.terminal.move_to_column(column)?;
+        Ok(())
+    }
+
     fn render_text(&mut self, text: &WeightedLine, alignment: &Alignment) -> RenderResult {
         let layout = self.build_layout(alignment.clone());
         let dimensions = self.current_dimensions();
@@ -197,38 +205,37 @@ where
 
     fn render_image(&mut self, image: &Image, properties: &ImageRenderProperties) -> RenderResult {
         let rect = self.current_rect();
-        let starting_position = CursorPosition { row: self.terminal.cursor_row(), column: rect.start_column };
+        let starting_cursor = CursorPosition { row: self.terminal.cursor_row(), column: rect.start_column };
 
         let (width, height) = image.dimensions();
-        let (cursor_position, columns, rows) = match properties.size {
+        let (cursor, columns, rows) = match properties.size {
             ImageSize::ShrinkIfNeeded => {
-                let scale =
-                    ImageScaler::default().fit_image_to_rect(&rect.dimensions, width, height, &starting_position);
-                let start_column = rect.dimensions.columns / 2 - (scale.columns / 2);
-                let start_column = start_column + starting_position.column;
-                (CursorPosition { row: starting_position.row, column: start_column }, scale.columns, scale.rows)
+                let image_scale =
+                    ImageScaler::default().fit_image_to_rect(&rect.dimensions, width, height, &starting_cursor);
+                let cursor = match properties.center {
+                    true => Self::center_cursor(&image_scale, &rect.dimensions, &starting_cursor),
+                    false => starting_cursor.clone(),
+                };
+                (cursor, image_scale.columns, image_scale.rows)
             }
-            ImageSize::Specific(columns, rows) => (starting_position.clone(), columns, rows),
+            ImageSize::Specific(columns, rows) => (starting_cursor.clone(), columns, rows),
             ImageSize::WidthScaled { ratio } => {
                 let extra_columns = (rect.dimensions.columns as f64 * (1.0 - ratio)).ceil() as u16;
                 let dimensions = rect.dimensions.shrink_columns(extra_columns);
-                let scale = ImageScaler::default().scale_image(
-                    &dimensions,
-                    &rect.dimensions,
-                    width,
-                    height,
-                    &starting_position,
-                );
-                let start_column = rect.dimensions.columns / 2 - (scale.columns / 2);
-                let start_column = start_column + starting_position.column;
-                (CursorPosition { row: starting_position.row, column: start_column }, scale.columns, scale.rows)
+                let image_scale =
+                    ImageScaler::default().scale_image(&dimensions, &rect.dimensions, width, height, &starting_cursor);
+                let cursor = match properties.center {
+                    true => Self::center_cursor(&image_scale, &rect.dimensions, &starting_cursor),
+                    false => starting_cursor.clone(),
+                };
+                (cursor, image_scale.columns, image_scale.rows)
             }
         };
 
         let options = PrintOptions {
             columns,
             rows,
-            cursor_position,
+            cursor_position: cursor,
             z_index: properties.z_index,
             column_width: rect.dimensions.pixels_per_column() as u16,
             row_height: rect.dimensions.pixels_per_row() as u16,
@@ -236,11 +243,17 @@ where
         };
         self.terminal.print_image(image, &options)?;
         if properties.restore_cursor {
-            self.terminal.move_to(starting_position.column, starting_position.row)?;
+            self.terminal.move_to(starting_cursor.column, starting_cursor.row)?;
         } else {
-            self.terminal.move_to_row(starting_position.row + rows)?;
+            self.terminal.move_to_row(starting_cursor.row + rows)?;
         }
-        Ok(())
+        self.apply_colors()
+    }
+
+    fn center_cursor(rect: &TerminalRect, window: &WindowSize, cursor: &CursorPosition) -> CursorPosition {
+        let start_column = window.columns / 2 - (rect.columns / 2);
+        let start_column = start_column + cursor.column;
+        CursorPosition { row: cursor.row, column: start_column }
     }
 
     fn render_block_line(&mut self, operation: &BlockLine) -> RenderResult {

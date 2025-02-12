@@ -4,11 +4,12 @@ use crate::{
         text::{WeightedLine, WeightedText},
         text_style::{Color, Colors},
     },
-    presentation::builder::DEFAULT_IMAGE_Z_INDEX,
     terminal::image::Image,
     theme::{Alignment, Margin},
 };
 use std::{fmt::Debug, rc::Rc};
+
+const DEFAULT_IMAGE_Z_INDEX: i32 = -2;
 
 /// A line of preformatted text to be rendered.
 #[derive(Clone, Debug, PartialEq)]
@@ -46,6 +47,9 @@ pub(crate) enum RenderOperation {
     ///
     /// The index is zero based where 0 represents the bottom row.
     JumpToBottomRow { index: u16 },
+
+    /// Jump to the N-th column in the current layout.
+    JumpToColumn { index: u16 },
 
     /// Render text.
     RenderText { line: WeightedLine, alignment: Alignment },

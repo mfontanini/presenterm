@@ -25,9 +25,11 @@ const LOOP_INTERVAL: Duration = Duration::from_millis(250);
 #[derive(Debug)]
 struct ResourcesInner {
     images: HashMap<PathBuf, Image>,
+    theme_images: HashMap<PathBuf, Image>,
     themes: HashMap<PathBuf, PresentationTheme>,
     external_snippets: HashMap<PathBuf, String>,
     base_path: PathBuf,
+    themes_path: PathBuf,
     image_registry: ImageRegistry,
     watcher: FileWatcherHandle,
 }
@@ -45,11 +47,17 @@ impl Resources {
     /// Construct a new resource manager over the provided based path.
     ///
     /// Any relative paths will be assumed to be relative to the given base.
-    pub fn new<P: Into<PathBuf>>(base_path: P, image_registry: ImageRegistry) -> Self {
+    pub fn new<P1, P2>(base_path: P1, themes_path: P2, image_registry: ImageRegistry) -> Self
+    where
+        P1: Into<PathBuf>,
+        P2: Into<PathBuf>,
+    {
         let watcher = FileWatcher::spawn();
         let inner = ResourcesInner {
             base_path: base_path.into(),
+            themes_path: themes_path.into(),
             images: Default::default(),
+            theme_images: Default::default(),
             themes: Default::default(),
             external_snippets: Default::default(),
             image_registry,
@@ -64,7 +72,7 @@ impl Resources {
     }
 
     /// Get the image at the given path.
-    pub(crate) fn image<P: AsRef<Path>>(&self, path: P) -> Result<Image, LoadImageError> {
+    pub(crate) fn image<P: AsRef<Path>>(&self, path: P) -> Result<Image, RegisterImageError> {
         let mut inner = self.inner.borrow_mut();
         let path = inner.base_path.join(path);
         if let Some(image) = inner.images.get(&path) {
@@ -73,6 +81,24 @@ impl Resources {
 
         let image = inner.image_registry.register_resource(path.clone())?;
         inner.images.insert(path, image.clone());
+        Ok(image)
+    }
+
+    pub(crate) fn theme_image<P: AsRef<Path>>(&self, path: P) -> Result<Image, RegisterImageError> {
+        match self.image(&path) {
+            Ok(image) => return Ok(image),
+            Err(RegisterImageError::Io(e)) if e.kind() != io::ErrorKind::NotFound => return Err(e.into()),
+            _ => (),
+        };
+
+        let mut inner = self.inner.borrow_mut();
+        let path = inner.themes_path.join(path);
+        if let Some(image) = inner.theme_images.get(&path) {
+            return Ok(image.clone());
+        }
+
+        let image = inner.image_registry.register_resource(path.clone())?;
+        inner.theme_images.insert(path, image.clone());
         Ok(image)
     }
 
@@ -121,13 +147,6 @@ impl Resources {
         inner.images.clear();
         inner.themes.clear();
     }
-}
-
-/// An error loading an image.
-#[derive(thiserror::Error, Debug)]
-pub enum LoadImageError {
-    #[error(transparent)]
-    RegisterImage(#[from] RegisterImageError),
 }
 
 /// Watches for file changes.
