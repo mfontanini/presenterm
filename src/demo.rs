@@ -102,7 +102,7 @@ impl ThemesDemo {
         theme: &PresentationTheme,
     ) -> Result<Presentation, BuildError> {
         let image_registry = ImageRegistry::default();
-        let mut resources = Resources::new("non_existent", image_registry.clone());
+        let resources = Resources::new("non_existent", image_registry.clone());
         let mut third_party = ThirdPartyRender::default();
         let options = PresentationBuilderOptions {
             font_size_supported: TerminalEmulator::capabilities().font_size,
@@ -112,7 +112,7 @@ impl ThemesDemo {
         let bindings_config = Default::default();
         let builder = PresentationBuilder::new(
             theme,
-            &mut resources,
+            resources,
             &mut third_party,
             executer,
             &self.themes,

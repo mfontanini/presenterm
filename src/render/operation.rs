@@ -4,6 +4,7 @@ use crate::{
         text::{WeightedLine, WeightedText},
         text_style::{Color, Colors},
     },
+    presentation::builder::DEFAULT_IMAGE_Z_INDEX,
     terminal::image::Image,
     theme::{Alignment, Margin},
 };
@@ -96,6 +97,19 @@ pub(crate) struct ImageRenderProperties {
     pub(crate) size: ImageSize,
     pub(crate) restore_cursor: bool,
     pub(crate) background_color: Option<Color>,
+    pub(crate) center: bool,
+}
+
+impl Default for ImageRenderProperties {
+    fn default() -> Self {
+        Self {
+            z_index: DEFAULT_IMAGE_Z_INDEX,
+            size: Default::default(),
+            restore_cursor: false,
+            background_color: None,
+            center: true,
+        }
+    }
 }
 
 /// The size used when printing an image.

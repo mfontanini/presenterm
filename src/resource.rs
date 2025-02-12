@@ -6,9 +6,11 @@ use crate::{
     theme::{LoadThemeError, PresentationTheme},
 };
 use std::{
+    cell::RefCell,
     collections::HashMap,
     fs, io, mem,
     path::{Path, PathBuf},
+    rc::Rc,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -20,17 +22,23 @@ use std::{
 
 const LOOP_INTERVAL: Duration = Duration::from_millis(250);
 
+#[derive(Debug)]
+struct ResourcesInner {
+    images: HashMap<PathBuf, Image>,
+    themes: HashMap<PathBuf, PresentationTheme>,
+    external_snippets: HashMap<PathBuf, String>,
+    base_path: PathBuf,
+    image_registry: ImageRegistry,
+    watcher: FileWatcherHandle,
+}
+
 /// Manages resources pulled from the filesystem such as images.
 ///
 /// All resources are cached so once a specific resource is loaded, looking it up with the same
 /// path will involve an in-memory lookup.
+#[derive(Clone, Debug)]
 pub struct Resources {
-    base_path: PathBuf,
-    images: HashMap<PathBuf, Image>,
-    themes: HashMap<PathBuf, PresentationTheme>,
-    external_snippets: HashMap<PathBuf, String>,
-    image_registry: ImageRegistry,
-    watcher: FileWatcherHandle,
+    inner: Rc<RefCell<ResourcesInner>>,
 }
 
 impl Resources {
@@ -39,71 +47,79 @@ impl Resources {
     /// Any relative paths will be assumed to be relative to the given base.
     pub fn new<P: Into<PathBuf>>(base_path: P, image_registry: ImageRegistry) -> Self {
         let watcher = FileWatcher::spawn();
-        Self {
+        let inner = ResourcesInner {
             base_path: base_path.into(),
             images: Default::default(),
             themes: Default::default(),
             external_snippets: Default::default(),
             image_registry,
             watcher,
-        }
+        };
+        Self { inner: Rc::new(RefCell::new(inner)) }
     }
 
     pub(crate) fn watch_presentation_file(&self, path: PathBuf) {
-        self.watcher.send(WatchEvent::WatchFile { path, watch_forever: true });
+        let inner = self.inner.borrow();
+        inner.watcher.send(WatchEvent::WatchFile { path, watch_forever: true });
     }
 
     /// Get the image at the given path.
-    pub(crate) fn image<P: AsRef<Path>>(&mut self, path: P) -> Result<Image, LoadImageError> {
-        let path = self.base_path.join(path);
-        if let Some(image) = self.images.get(&path) {
+    pub(crate) fn image<P: AsRef<Path>>(&self, path: P) -> Result<Image, LoadImageError> {
+        let mut inner = self.inner.borrow_mut();
+        let path = inner.base_path.join(path);
+        if let Some(image) = inner.images.get(&path) {
             return Ok(image.clone());
         }
 
-        let image = self.image_registry.register_resource(path.clone())?;
-        self.images.insert(path, image.clone());
+        let image = inner.image_registry.register_resource(path.clone())?;
+        inner.images.insert(path, image.clone());
         Ok(image)
     }
 
     /// Get the theme at the given path.
-    pub(crate) fn theme<P: AsRef<Path>>(&mut self, path: P) -> Result<PresentationTheme, LoadThemeError> {
-        let path = self.base_path.join(path);
-        if let Some(theme) = self.themes.get(&path) {
+    pub(crate) fn theme<P: AsRef<Path>>(&self, path: P) -> Result<PresentationTheme, LoadThemeError> {
+        let mut inner = self.inner.borrow_mut();
+        let path = inner.base_path.join(path);
+        if let Some(theme) = inner.themes.get(&path) {
             return Ok(theme.clone());
         }
 
         let theme = PresentationTheme::from_path(&path)?;
-        self.themes.insert(path, theme.clone());
+        inner.themes.insert(path, theme.clone());
         Ok(theme)
     }
 
     /// Get the external snippet at the given path.
-    pub(crate) fn external_snippet<P: AsRef<Path>>(&mut self, path: P) -> io::Result<String> {
-        let path = self.base_path.join(path);
-        if let Some(contents) = self.external_snippets.get(&path) {
+    pub(crate) fn external_snippet<P: AsRef<Path>>(&self, path: P) -> io::Result<String> {
+        let mut inner = self.inner.borrow_mut();
+        let path = inner.base_path.join(path);
+        if let Some(contents) = inner.external_snippets.get(&path) {
             return Ok(contents.clone());
         }
 
         let contents = fs::read_to_string(&path)?;
-        self.watcher.send(WatchEvent::WatchFile { path: path.clone(), watch_forever: false });
-        self.external_snippets.insert(path, contents.clone());
+        inner.watcher.send(WatchEvent::WatchFile { path: path.clone(), watch_forever: false });
+        inner.external_snippets.insert(path, contents.clone());
         Ok(contents)
     }
 
-    pub(crate) fn resources_modified(&mut self) -> bool {
-        self.watcher.has_modifications()
+    pub(crate) fn resources_modified(&self) -> bool {
+        let mut inner = self.inner.borrow_mut();
+        inner.watcher.has_modifications()
     }
 
-    pub(crate) fn clear_watches(&mut self) {
-        self.watcher.send(WatchEvent::ClearWatches);
+    pub(crate) fn clear_watches(&self) {
+        let mut inner = self.inner.borrow_mut();
+        inner.watcher.send(WatchEvent::ClearWatches);
         // We could do better than this but this works for now.
-        self.external_snippets.clear();
+        inner.external_snippets.clear();
     }
 
     /// Clears all resources.
-    pub(crate) fn clear(&mut self) {
-        self.images.clear();
-        self.themes.clear();
+    pub(crate) fn clear(&self) {
+        let mut inner = self.inner.borrow_mut();
+        inner.images.clear();
+        inner.themes.clear();
     }
 }
 
@@ -190,6 +206,7 @@ struct WatchMetadata {
     watch_forever: bool,
 }
 
+#[derive(Debug)]
 struct FileWatcherHandle {
     sender: Sender<WatchEvent>,
     modifications: Arc<AtomicBool>,

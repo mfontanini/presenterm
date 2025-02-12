@@ -27,10 +27,10 @@ impl WindowSize {
         };
         let font_size_fallback = font_size_fallback as u16;
         if size.width == 0 {
-            size.width = size.columns * font_size_fallback;
+            size.width = size.columns * font_size_fallback.max(1);
         }
         if size.height == 0 {
-            size.height = size.rows * font_size_fallback * 2;
+            size.height = size.rows * font_size_fallback.max(1) * 2;
         }
         Ok(size)
     }
@@ -71,6 +71,11 @@ impl WindowSize {
     /// The number of pixels per row.
     pub(crate) fn pixels_per_row(&self) -> f64 {
         self.height as f64 / self.rows as f64
+    }
+
+    /// The aspect ratio for this size.
+    pub(crate) fn aspect_ratio(&self) -> f64 {
+        (self.rows as f64 / self.height as f64) / (self.columns as f64 / self.width as f64)
     }
 }
 
