@@ -13,7 +13,7 @@ use crate::{
         image::{
             Image,
             printer::{ImageProperties, PrintOptions},
-            scale::{fit_image_to_window, scale_image},
+            scale::ImageScaler,
         },
         printer::TerminalIo,
     },
@@ -202,15 +202,26 @@ where
         let (width, height) = image.dimensions();
         let (cursor_position, columns, rows) = match properties.size {
             ImageSize::ShrinkIfNeeded => {
-                let scale = fit_image_to_window(&rect.dimensions, width, height, &starting_position);
-                (CursorPosition { row: starting_position.row, column: scale.start_column }, scale.columns, scale.rows)
+                let scale =
+                    ImageScaler::default().fit_image_to_rect(&rect.dimensions, width, height, &starting_position);
+                let start_column = rect.dimensions.columns / 2 - (scale.columns / 2);
+                let start_column = start_column + starting_position.column;
+                (CursorPosition { row: starting_position.row, column: start_column }, scale.columns, scale.rows)
             }
             ImageSize::Specific(columns, rows) => (starting_position.clone(), columns, rows),
             ImageSize::WidthScaled { ratio } => {
                 let extra_columns = (rect.dimensions.columns as f64 * (1.0 - ratio)).ceil() as u16;
                 let dimensions = rect.dimensions.shrink_columns(extra_columns);
-                let scale = scale_image(&dimensions, &rect.dimensions, width, height, &starting_position);
-                (CursorPosition { row: starting_position.row, column: scale.start_column }, scale.columns, scale.rows)
+                let scale = ImageScaler::default().scale_image(
+                    &dimensions,
+                    &rect.dimensions,
+                    width,
+                    height,
+                    &starting_position,
+                );
+                let start_column = rect.dimensions.columns / 2 - (scale.columns / 2);
+                let start_column = start_column + starting_position.column;
+                (CursorPosition { row: starting_position.row, column: start_column }, scale.columns, scale.rows)
             }
         };
 

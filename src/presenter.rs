@@ -357,7 +357,7 @@ impl<'a> Presenter<'a> {
         let export_mode = matches!(self.options.mode, PresentMode::Export);
         let mut presentation = PresentationBuilder::new(
             self.default_theme,
-            &mut self.resources,
+            self.resources.clone(),
             &mut self.third_party,
             self.code_executor.clone(),
             &self.themes,

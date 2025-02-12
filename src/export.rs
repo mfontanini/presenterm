@@ -95,7 +95,7 @@ impl<'a> Exporter<'a> {
         let path = path.canonicalize().expect("canonicalize");
         let mut presentation = PresentationBuilder::new(
             self.default_theme,
-            &mut self.resources,
+            self.resources.clone(),
             &mut self.third_party,
             self.code_executor.clone(),
             &self.themes,

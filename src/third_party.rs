@@ -5,7 +5,7 @@ use crate::{
         elements::{Line, Percent, Text},
         text_style::{Color, Colors, TextStyle},
     },
-    presentation::{AsyncPresentationError, AsyncPresentationErrorHolder, builder::DEFAULT_IMAGE_Z_INDEX},
+    presentation::{AsyncPresentationError, AsyncPresentationErrorHolder},
     render::{
         operation::{
             AsRenderOperations, ImageRenderProperties, ImageSize, RenderAsync, RenderAsyncState, RenderOperation,
@@ -359,10 +359,9 @@ impl AsRenderOperations for RenderThirdParty {
                     None => Default::default(),
                 };
                 let properties = ImageRenderProperties {
-                    z_index: DEFAULT_IMAGE_Z_INDEX,
                     size,
-                    restore_cursor: false,
                     background_color: self.default_colors.background,
+                    ..Default::default()
                 };
 
                 vec![

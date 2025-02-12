@@ -308,6 +308,7 @@ impl AsRenderOperations for CenterModalContent {
                 size: ImageSize::Specific(self.content_width, content_height),
                 restore_cursor: true,
                 background_color: None,
+                center: true,
             };
             operations.push(RenderOperation::RenderImage(image.clone(), properties));
         }

@@ -132,7 +132,7 @@ pub(crate) struct PresentationBuilder<'a> {
     highlighter: SnippetHighlighter,
     code_executor: Rc<SnippetExecutor>,
     theme: Cow<'a, PresentationTheme>,
-    resources: &'a mut Resources,
+    resources: Resources,
     third_party: &'a mut ThirdPartyRender,
     slide_state: SlideState,
     presentation_state: PresentationState,
@@ -149,7 +149,7 @@ impl<'a> PresentationBuilder<'a> {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         default_theme: &'a PresentationTheme,
-        resources: &'a mut Resources,
+        resources: Resources,
         third_party: &'a mut ThirdPartyRender,
         code_executor: Rc<SnippetExecutor>,
         themes: &'a Themes,
@@ -662,10 +662,9 @@ impl<'a> PresentationBuilder<'a> {
             None => ImageSize::ShrinkIfNeeded,
         };
         let properties = ImageRenderProperties {
-            z_index: DEFAULT_IMAGE_Z_INDEX,
             size,
-            restore_cursor: false,
             background_color: self.theme.default_style.colors.background,
+            ..Default::default()
         };
         self.chunk_operations.push(RenderOperation::RenderImage(image, properties));
         self.set_colors(self.theme.default_style.colors)?;
@@ -1450,14 +1449,14 @@ mod test {
         options: PresentationBuilderOptions,
     ) -> Result<Presentation, BuildError> {
         let theme = PresentationTheme::default();
-        let mut resources = Resources::new("/tmp", Default::default());
+        let resources = Resources::new("/tmp", Default::default());
         let mut third_party = ThirdPartyRender::default();
         let code_executor = Rc::new(SnippetExecutor::default());
         let themes = Themes::default();
         let bindings = KeyBindingsConfig::default();
         let builder = PresentationBuilder::new(
             &theme,
-            &mut resources,
+            resources,
             &mut third_party,
             code_executor,
             &themes,
