@@ -32,6 +32,7 @@ impl Default for ParserOptions {
         options.extension.strikethrough = true;
         options.extension.multiline_block_quotes = true;
         options.extension.alerts = true;
+        options.extension.wikilinks_title_before_pipe = true;
         Self(options)
     }
 }
@@ -354,6 +355,9 @@ impl<'a> InlinesParser<'a> {
                 if has_label {
                     self.pending_text.push(Text::from(")"));
                 }
+            }
+            NodeValue::WikiLink(link) => {
+                self.pending_text.push(Text::new(link.url.clone(), TextStyle::default().link_url()));
             }
             NodeValue::LineBreak => {
                 self.store_pending_text();
@@ -708,6 +712,16 @@ boop
             Text::from("\""),
             Text::from(")"),
         ];
+
+        let expected_elements = &[Line(expected_chunks)];
+        assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn wikilink_wo_title() {
+        let parsed = parse_single("[[https://example.com]]");
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_chunks = vec![Text::new("https://example.com", TextStyle::default().link_url())];
 
         let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
