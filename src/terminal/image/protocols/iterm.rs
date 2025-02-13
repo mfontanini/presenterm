@@ -1,7 +1,7 @@
 use crate::terminal::image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use image::{GenericImageView, ImageEncoder, codecs::png::PngEncoder};
-use std::{env, fs, path::Path};
+use std::{fs, path::Path};
 
 pub(crate) struct ItermImage {
     dimensions: (u32, u32),
@@ -23,23 +23,8 @@ impl ImageProperties for ItermImage {
     }
 }
 
-pub struct ItermPrinter {
-    // Whether this is iterm2. Otherwise it can be a terminal that _supports_ the iterm2 protocol.
-    is_iterm: bool,
-}
-
-impl Default for ItermPrinter {
-    fn default() -> Self {
-        for key in ["TERM_PROGRAM", "LC_TERMINAL"] {
-            if let Ok(value) = env::var(key) {
-                if value.contains("iTerm") {
-                    return Self { is_iterm: true };
-                }
-            }
-        }
-        Self { is_iterm: false }
-    }
-}
+#[derive(Default)]
+pub struct ItermPrinter;
 
 impl PrintImage for ItermPrinter {
     type Image = ItermImage;
@@ -68,13 +53,8 @@ impl PrintImage for ItermPrinter {
         let contents = &image.base64_contents;
         write!(
             writer,
-            "\x1b]1337;File=size={size};width={columns};height={rows};inline=1;preserveAspectRatio=0:{contents}\x07"
+            "\x1b]1337;File=size={size};width={columns};height={rows};inline=1;preserveAspectRatio=1:{contents}\x07"
         )?;
-        // iterm2 really respects what we say and leaves no space, whereas wezterm does leave an
-        // extra line here.
-        if self.is_iterm {
-            writeln!(writer)?;
-        }
         Ok(())
     }
 }

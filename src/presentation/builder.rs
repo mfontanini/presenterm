@@ -30,8 +30,8 @@ use crate::{
         printer::{ImageRegistry, RegisterImageError},
     },
     theme::{
-        Alignment, AuthorPositioning, CodeBlockStyle, ElementType, LoadThemeError, Margin, PresentationTheme,
-        PresentationThemeSet,
+        Alignment, AuthorPositioning, CodeBlockStyle, ElementType, FooterStyle, LoadThemeError, Margin,
+        PresentationTheme, PresentationThemeSet,
     },
     third_party::{ThirdPartyRender, ThirdPartyRenderError, ThirdPartyRenderRequest},
     ui::{
@@ -39,7 +39,7 @@ use crate::{
             DisplaySeparator, RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation,
             SnippetExecutionDisabledOperation,
         },
-        footer::{FooterContext, FooterGenerator},
+        footer::{DEFAULT_FOOTER_HEIGHT, FooterContext, FooterGenerator},
         modals::{IndexBuilder, KeyBindingsModalBuilder},
         separator::RenderSeparator,
     },
@@ -49,10 +49,6 @@ use image::DynamicImage;
 use serde::Deserialize;
 use std::{borrow::Cow, cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
-
-// TODO: move to a theme config.
-static DEFAULT_BOTTOM_SLIDE_MARGIN: u16 = 3;
-pub(crate) static DEFAULT_IMAGE_Z_INDEX: i32 = -2;
 
 pub(crate) type BuildResult = Result<(), BuildError>;
 
@@ -270,12 +266,17 @@ impl<'a> PresentationBuilder<'a> {
     fn push_slide_prelude(&mut self) -> BuildResult {
         let colors = self.theme.default_style.colors;
         self.set_colors(colors)?;
+        let footer_height = match &self.theme.footer {
+            Some(FooterStyle::Template { height, .. }) => height,
+            _ => &None,
+        };
+        let footer_height = footer_height.unwrap_or(DEFAULT_FOOTER_HEIGHT);
         self.chunk_operations.extend([
             RenderOperation::ClearScreen,
             RenderOperation::ApplyMargin(MarginProperties {
                 horizontal: self.theme.default_style.margin.clone().unwrap_or_default(),
                 top: 0,
-                bottom: DEFAULT_BOTTOM_SLIDE_MARGIN,
+                bottom: footer_height,
             }),
         ]);
         self.push_line_break();
@@ -667,7 +668,6 @@ impl<'a> PresentationBuilder<'a> {
             ..Default::default()
         };
         self.chunk_operations.push(RenderOperation::RenderImage(image, properties));
-        self.set_colors(self.theme.default_style.colors)?;
         Ok(())
     }
 
@@ -1044,7 +1044,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn terminate_slide(&mut self) -> BuildResult {
-        let footer = self.generate_footer();
+        let footer = self.generate_footer()?;
 
         let operations = mem::take(&mut self.chunk_operations);
         let mutators = mem::take(&mut self.chunk_mutators);
@@ -1061,22 +1061,24 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn generate_footer(&mut self) -> Vec<RenderOperation> {
+    fn generate_footer(&mut self) -> Result<Vec<RenderOperation>, BuildError> {
         if self.slide_state.ignore_footer {
-            return Vec::new();
+            return Ok(Vec::new());
         }
-        let generator = FooterGenerator {
-            style: self.theme.footer.clone().unwrap_or_default(),
-            current_slide: self.slides.len(),
-            context: self.footer_context.clone(),
-        };
-        vec![
+        let generator = FooterGenerator::new(
+            self.slides.len(),
+            self.footer_context.clone(),
+            self.theme.footer.clone().unwrap_or_default(),
+            self.resources.clone(),
+        )
+        .map_err(|e| BuildError::LoadFooterImage { error: e.to_string() })?;
+        Ok(vec![
             // Exit any layout we're in so this gets rendered on a default screen size.
             RenderOperation::ExitLayout,
             // Pop the slide margin so we're at the terminal rect.
             RenderOperation::PopMargin,
             RenderOperation::RenderDynamic(Rc::new(generator)),
-        ]
+        ])
     }
 
     fn push_table(&mut self, table: Table) -> BuildResult {
@@ -1208,6 +1210,9 @@ enum LastElement {
 pub enum BuildError {
     #[error("could not load image '{path}' at {source_position}: {error}")]
     LoadImage { path: PathBuf, source_position: SourcePosition, error: String },
+
+    #[error("could not load footer image: {error}")]
+    LoadFooterImage { error: String },
 
     #[error("failed to register image: {0}")]
     RegisterImage(#[from] RegisterImageError),
@@ -1449,7 +1454,7 @@ mod test {
         options: PresentationBuilderOptions,
     ) -> Result<Presentation, BuildError> {
         let theme = PresentationTheme::default();
-        let resources = Resources::new("/tmp", Default::default());
+        let resources = Resources::new("/tmp", "/tmp", Default::default());
         let mut third_party = ThirdPartyRender::default();
         let code_executor = Rc::new(SnippetExecutor::default());
         let themes = Themes::default();
@@ -1490,6 +1495,7 @@ mod test {
             | SetColors(_)
             | JumpToVerticalCenter
             | JumpToRow { .. }
+            | JumpToColumn { .. }
             | JumpToBottomRow { .. }
             | InitColumnLayout { .. }
             | EnterColumn { .. }

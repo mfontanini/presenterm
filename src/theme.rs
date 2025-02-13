@@ -1,7 +1,13 @@
 use crate::markdown::text_style::{Color, Colors, FixedStr, UndefinedPaletteColorError};
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
-use std::{collections::BTreeMap, fmt, fs, io, marker::PhantomData, path::Path, str::FromStr};
+use std::{
+    collections::BTreeMap,
+    fmt, fs, io,
+    marker::PhantomData,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 
@@ -824,18 +830,21 @@ impl AuthorStyle {
 pub(crate) enum FooterStyle {
     /// Use a template to generate the footer.
     Template {
-        /// The template for the text to be put on the left.
-        left: Option<FooterTemplate>,
+        /// The content to be put on the left.
+        left: Option<FooterContent>,
 
-        /// The template for the text to be put on the center.
-        center: Option<FooterTemplate>,
+        /// The content to be put on the center.
+        center: Option<FooterContent>,
 
-        /// The template for the text to be put on the right.
+        /// The content to be put on the right.
         right: Option<FooterTemplate>,
 
         /// The colors to be used.
         #[serde(default)]
         colors: Colors,
+
+        /// The height of the footer area.
+        height: Option<u16>,
     },
 
     /// Use a progress bar.
@@ -856,7 +865,7 @@ impl FooterStyle {
     fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
         use FooterStyle::*;
         match self {
-            Template { colors, left: _, center: _, right: _ } | ProgressBar { colors, character: _ } => {
+            Template { colors, left: _, center: _, right: _, height: _ } | ProgressBar { colors, character: _ } => {
                 *colors = colors.resolve(palette)?;
                 Ok(())
             }
@@ -867,7 +876,7 @@ impl FooterStyle {
 
 impl Default for FooterStyle {
     fn default() -> Self {
-        Self::Template { left: None, center: None, right: None, colors: Colors::default() }
+        Self::Template { left: None, center: None, right: None, colors: Colors::default(), height: None }
     }
 }
 
@@ -882,6 +891,16 @@ pub(crate) enum FooterTemplateChunk {
     Event,
     Location,
     Date,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub(crate) enum FooterContent {
+    Template(FooterTemplate),
+    Image {
+        #[serde(rename = "image")]
+        path: PathBuf,
+    },
 }
 
 #[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr)]

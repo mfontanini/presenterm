@@ -398,7 +398,6 @@ impl PrintImage for KittyPrinter {
             GenericResource::Image(resource) => self.print_image(image.dimensions, resource, writer, options)?,
             GenericResource::Gif(frames) => self.print_gif(image.dimensions, frames, writer, options)?,
         };
-        writeln!(writer)?;
         Ok(())
     }
 }

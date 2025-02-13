@@ -135,6 +135,7 @@ fn create_splash() -> String {
 struct Customizations {
     config: Config,
     themes: Themes,
+    themes_path: Option<PathBuf>,
     code_executor: SnippetExecutor,
 }
 
@@ -149,21 +150,20 @@ impl Customizations {
                 project_dirs.config_dir().into()
             }
         };
-        let themes = Self::load_themes(&configs_path)?;
+        let themes_path = configs_path.join("themes");
+        let themes = Self::load_themes(&themes_path)?;
         let config_file_path = config_file_path.unwrap_or_else(|| configs_path.join("config.yaml"));
         let config = Config::load(&config_file_path)?;
         let code_executor = SnippetExecutor::new(config.snippet.exec.custom.clone(), cwd.to_path_buf())?;
-        Ok(Customizations { config, themes, code_executor })
+        Ok(Customizations { config, themes, themes_path: Some(themes_path), code_executor })
     }
 
-    fn load_themes(config_path: &Path) -> Result<Themes, Box<dyn std::error::Error>> {
-        let themes_path = config_path.join("themes");
-
+    fn load_themes(themes_path: &Path) -> Result<Themes, Box<dyn std::error::Error>> {
         let mut highlight_themes = HighlightThemeSet::default();
         highlight_themes.register_from_directory(themes_path.join("highlighting"))?;
 
         let mut presentation_themes = PresentationThemeSet::default();
-        presentation_themes.register_from_directory(&themes_path)?;
+        presentation_themes.register_from_directory(themes_path)?;
 
         let themes = Themes { presentation: presentation_themes, highlight: highlight_themes };
         Ok(themes)
@@ -191,7 +191,7 @@ impl CoreComponents {
         }
         let resources_path = resources_path.canonicalize().unwrap_or(resources_path);
 
-        let Customizations { config, themes, code_executor } =
+        let Customizations { config, themes, code_executor, themes_path } =
             Customizations::load(cli.config_file.clone().map(PathBuf::from), &resources_path)?;
 
         let default_theme = Self::load_default_theme(&config, &themes, cli);
@@ -213,7 +213,11 @@ impl CoreComponents {
         let graphics_mode = Self::select_graphics_mode(cli, &config);
         let printer = Arc::new(ImagePrinter::new(graphics_mode.clone())?);
         let registry = ImageRegistry(printer.clone());
-        let resources = Resources::new(resources_path.clone(), registry.clone());
+        let resources = Resources::new(
+            resources_path.clone(),
+            themes_path.unwrap_or_else(|| resources_path.clone()),
+            registry.clone(),
+        );
         let third_party_config = ThirdPartyConfigs {
             typst_ppi: config.typst.ppi.to_string(),
             mermaid_scale: config.mermaid.scale.to_string(),
@@ -359,6 +363,10 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         let demo = ThemesDemo::new(themes, bindings)?;
         demo.run()?;
         return Ok(());
+    }
+    // Disable this so we don't mess things up when generating PDFs
+    if cli.export_pdf || cli.generate_pdf_metadata || cli.enable_export_mode {
+        TerminalEmulator::disable_capability_detection();
     }
 
     let Some(path) = cli.path.clone() else {

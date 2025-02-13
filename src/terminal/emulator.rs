@@ -1,9 +1,8 @@
 use super::{GraphicsMode, capabilities::TerminalCapabilities, image::protocols::kitty::KittyMode};
-use once_cell::sync::Lazy;
-use std::env;
+use std::{env, sync::OnceLock};
 use strum::IntoEnumIterator;
 
-static CAPABILITIES: Lazy<TerminalCapabilities> = Lazy::new(|| TerminalCapabilities::query().unwrap_or_default());
+static CAPABILITIES: OnceLock<TerminalCapabilities> = OnceLock::new();
 
 #[derive(Debug, strum::EnumIter)]
 pub enum TerminalEmulator {
@@ -34,7 +33,11 @@ impl TerminalEmulator {
     }
 
     pub(crate) fn capabilities() -> TerminalCapabilities {
-        CAPABILITIES.clone()
+        CAPABILITIES.get_or_init(|| TerminalCapabilities::query().unwrap_or_default()).clone()
+    }
+
+    pub(crate) fn disable_capability_detection() {
+        CAPABILITIES.get_or_init(TerminalCapabilities::default);
     }
 
     pub fn preferred_protocol(&self) -> GraphicsMode {

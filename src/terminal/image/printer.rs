@@ -103,7 +103,7 @@ impl ImagePrinter {
     }
 
     fn new_iterm() -> Self {
-        Self::Iterm(ItermPrinter::default())
+        Self::Iterm(ItermPrinter)
     }
 
     fn new_ascii() -> Self {

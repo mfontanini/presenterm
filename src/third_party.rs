@@ -364,10 +364,7 @@ impl AsRenderOperations for RenderThirdParty {
                     ..Default::default()
                 };
 
-                vec![
-                    RenderOperation::RenderImage(image.clone(), properties),
-                    RenderOperation::SetColors(self.default_colors),
-                ]
+                vec![RenderOperation::RenderImage(image.clone(), properties)]
             }
             None => {
                 let text = Line::from(Text::new("Loading...", TextStyle::default().bold()));
