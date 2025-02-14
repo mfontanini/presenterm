@@ -1,7 +1,7 @@
 # Introduction
 
 This guide teaches you how to use _presenterm_. At this point you should have already installed _presenterm_, otherwise 
-visit the [installation](../installation.md) guide to get started.
+visit the [installation](../install.md) guide to get started.
 
 ## Quick start
 
