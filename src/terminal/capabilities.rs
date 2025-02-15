@@ -10,6 +10,12 @@ use image::{DynamicImage, EncodableLayout};
 use std::{
     env,
     io::{self, Write},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    thread,
+    time::Duration,
 };
 use tempfile::NamedTempFile;
 
@@ -52,11 +58,24 @@ impl TerminalCapabilities {
         write!(stdout, "{start}{sequence}[c{end}")?;
         stdout.flush()?;
 
-        let mut response = Self::parse_response(io::stdin(), ids)?;
+        // Spawn a thread to "save us" in case we don't get an answer from the terminal.
+        let running = Arc::new(AtomicBool::new(true));
+        Self::launch_timeout_trigger(running.clone());
+
+        let response = Self::build_capabilities(ids);
+        running.store(false, Ordering::Relaxed);
+
+        let mut response = response?;
         response.tmux = tmux;
+        Ok(response)
+    }
+
+    fn build_capabilities(ids: KittyImageIds) -> io::Result<TerminalCapabilities> {
+        let mut response = Self::parse_response(io::stdin(), ids)?;
 
         // Use kitty's font size protocol to write 1 character using size 2. If after writing the
         // cursor has moves 2 columns, the protocol is supported.
+        let mut stdout = io::stdout();
         stdout.queue(terminal::EnterAlternateScreen)?;
         stdout.queue(cursor::MoveTo(0, 0))?;
         stdout.queue(Print("\x1b]66;s=2; \x1b\\"))?;
@@ -66,7 +85,6 @@ impl TerminalCapabilities {
             response.font_size = true;
         }
         stdout.queue(terminal::LeaveAlternateScreen)?;
-
         Ok(response)
     }
 
@@ -122,9 +140,27 @@ impl TerminalCapabilities {
                         capabilities.sixel = sixel;
                         return Ok(capabilities);
                     }
+                    Response::StatusReport => {
+                        return Ok(capabilities);
+                    }
                 }
             }
         }
+    }
+
+    fn launch_timeout_trigger(running: Arc<AtomicBool>) {
+        // Spawn a thread that will wait a second and if we still are running, will request the
+        // device status report straight from whoever is on top of us (tmux or terminal if no
+        // tmux), which will cause it to answer and wake up our main thread that's reading on
+        // stdin.
+        thread::spawn(move || {
+            thread::sleep(Duration::from_secs(1));
+            if !running.load(Ordering::Relaxed) {
+                return;
+            }
+            let _ = write!(io::stdout(), "\x1b[5n");
+            let _ = io::stdout().flush();
+        });
     }
 }
 
@@ -161,6 +197,9 @@ impl QueryParseState {
                     ("[", '?') => {
                         self.current = ResponseType::Capabilities;
                     }
+                    ("[", '0') => {
+                        self.current = ResponseType::StatusReport;
+                    }
                     ("_Gi", '=') => {
                         self.current = ResponseType::Kitty;
                     }
@@ -182,8 +221,15 @@ impl QueryParseState {
                 'c' => {
                     let mut caps = self.data[2..].split(';');
                     let sixel = caps.any(|cap| cap == "4");
-
+                    *self = Default::default();
                     return Some(Response::Capabilities { sixel });
+                }
+                _ => self.data.push(next),
+            },
+            ResponseType::StatusReport => match next {
+                'n' => {
+                    *self = Default::default();
+                    return Some(Response::StatusReport);
                 }
                 _ => self.data.push(next),
             },
@@ -208,11 +254,13 @@ enum ResponseType {
     Unknown,
     Kitty,
     Capabilities,
+    StatusReport,
 }
 
 enum Response {
     KittySupported { image_id: u32 },
     Capabilities { sixel: bool },
+    StatusReport,
 }
 
 struct KittyImageIds {
