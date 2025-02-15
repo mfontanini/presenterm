@@ -32,6 +32,12 @@ Things you should know when using image tags in your presentation's markdown are
 * If your terminal does not support any of the graphics protocol above, images will be rendered using ascii blocks. It 
   ain't great but it's something!
 
+## tmux
+
+If you're using tmux, you will need to enable the [allow-passthrough 
+option](https://github.com/tmux/tmux/wiki/FAQ#what-is-the-passthrough-escape-sequence-and-how-do-i-use-it) for images to 
+work correctly.
+
 ## Image size
 
 The size of each image can be set by using the `image:width` or `image:w` attributes in the image tag. For example, the 
@@ -49,3 +55,4 @@ horizontally.
 By default the image protocol to be used will be automatically detected. In cases where this detection fails, you can 
 set it manually via the `--image-protocol` parameter or by setting it in the [config 
 file](../configuration/settings.md#preferred-image-protocol).
+
