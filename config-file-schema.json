@@ -282,9 +282,6 @@
     },
     "OptionsConfig": {
       "type": "object",
-      "required": [
-        "auto_render_languages"
-      ],
       "properties": {
         "auto_render_languages": {
           "description": "Assume snippets for these languages contain `+render` and render them automatically.",

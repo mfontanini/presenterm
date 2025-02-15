@@ -136,6 +136,7 @@ pub struct OptionsConfig {
     pub strict_front_matter_parsing: Option<bool>,
 
     /// Assume snippets for these languages contain `+render` and render them automatically.
+    #[serde(default)]
     pub auto_render_languages: Vec<SnippetLanguage>,
 }
 
@@ -509,5 +510,10 @@ mod test {
     fn default_bindings() {
         let config = KeyBindingsConfig::default();
         CommandKeyBindings::try_from(config).expect("construction failed");
+    }
+
+    #[test]
+    fn default_options_serde() {
+        serde_yaml::from_str::<'_, OptionsConfig>("implicit_slide_ends: true").expect("failed to parse");
     }
 }
