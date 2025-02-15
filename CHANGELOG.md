@@ -1,3 +1,10 @@
+# v0.10.1 - 2025-0214
+
+## Fixes
+
+* Don't error out if `options` in front matter doesn't include `auto_render_languages` ([#454](https://github.com/mfontanini/presenterm/pull/454)).
+* Bump sixel-rs to 0.4.1 to fix build in aarch64 and riscv64 ([#452](https://github.com/mfontanini/presenterm/pull/452)) - thanks @Xeonacid.
+
 # v0.10.0 - 2025-02-02
 
 ## New features
