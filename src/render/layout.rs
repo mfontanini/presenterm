@@ -4,11 +4,12 @@ use crate::{render::properties::WindowSize, theme::Alignment};
 pub(crate) struct Layout {
     alignment: Alignment,
     start_column_offset: u16,
+    font_size: u16,
 }
 
 impl Layout {
     pub(crate) fn new(alignment: Alignment) -> Self {
-        Self { alignment, start_column_offset: 0 }
+        Self { alignment, start_column_offset: 0, font_size: 1 }
     }
 
     pub(crate) fn with_start_column(mut self, column: u16) -> Self {
@@ -16,7 +17,13 @@ impl Layout {
         self
     }
 
+    pub(crate) fn with_font_size(mut self, font_size: u8) -> Self {
+        self.font_size = font_size as u16;
+        self
+    }
+
     pub(crate) fn compute(&self, dimensions: &WindowSize, text_length: u16) -> Positioning {
+        let text_length = text_length * self.font_size;
         let max_line_length;
         let mut start_column;
         match &self.alignment {

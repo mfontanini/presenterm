@@ -477,11 +477,9 @@ impl<'a> PresentationBuilder<'a> {
         match comment_command {
             CommentCommand::Pause => self.process_pause(),
             CommentCommand::EndSlide => self.terminate_slide()?,
-            CommentCommand::NewLine => self.push_line_break(),
+            CommentCommand::NewLine => self.push_line_breaks(self.slide_font_size() as usize),
             CommentCommand::NewLines(count) => {
-                for _ in 0..count {
-                    self.push_line_break();
-                }
+                self.push_line_breaks(count as usize * self.slide_font_size() as usize);
             }
             CommentCommand::JumpToMiddle => self.chunk_operations.push(RenderOperation::JumpToVerticalCenter),
             CommentCommand::InitColumnLayout(columns) => {
@@ -515,6 +513,12 @@ impl<'a> PresentationBuilder<'a> {
                 self.slide_state.ignore_footer = true;
             }
             CommentCommand::SpeakerNote(_) => {}
+            CommentCommand::FontSize(size) => {
+                if size == 0 || size > 7 {
+                    return Err(BuildError::InvalidFontSize);
+                }
+                self.slide_state.font_size = Some(size)
+            }
         };
         // Don't push line breaks for any comments.
         self.slide_state.ignore_element_line_break = true;
@@ -625,14 +629,14 @@ impl<'a> PresentationBuilder<'a> {
         text.apply_style(&text_style);
 
         self.push_text(text, element_type)?;
-        self.push_line_break();
+        self.push_line_breaks(self.slide_font_size() as usize);
         Ok(())
     }
 
     fn push_paragraph(&mut self, lines: Vec<Line>) -> BuildResult {
         for text in lines {
             self.push_text(text, ElementType::Paragraph)?;
-            self.push_line_break();
+            self.push_line_breaks(self.slide_font_size() as usize);
         }
         Ok(())
     }
@@ -720,7 +724,7 @@ impl<'a> PresentationBuilder<'a> {
             }
         };
 
-        let prefix_length = prefix.len() as u16;
+        let prefix_length = prefix.len() as u16 * self.font_size(None) as u16;
         self.push_text(prefix.into(), ElementType::List)?;
 
         let text = item.contents;
@@ -765,10 +769,12 @@ impl<'a> PresentationBuilder<'a> {
         prefix_color: Option<Color>,
     ) -> BuildResult {
         let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0) as u16;
+        let font_size = self.font_size(None);
         let prefix = Text::new(
             prefix,
             TextStyle::default()
-                .colors(Colors { foreground: prefix_color, background: self.theme.block_quote.colors.base.background }),
+                .colors(Colors { foreground: prefix_color, background: self.theme.block_quote.colors.base.background })
+                .size(font_size),
         );
         let alignment = self.theme.alignment(&ElementType::BlockQuote).clone();
 
@@ -783,6 +789,7 @@ impl<'a> PresentationBuilder<'a> {
                 } else {
                     text.style.colors = text.style.colors.resolve(&self.theme.palette)?;
                 }
+                text.style = text.style.size(font_size);
             }
             self.chunk_operations.push(RenderOperation::RenderBlockLine(BlockLine {
                 prefix: prefix.clone().into(),
@@ -812,12 +819,16 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_aligned_text(&mut self, mut block: Line, alignment: Alignment) -> BuildResult {
+        let default_font_size = self.font_size(None);
         for chunk in &mut block.0 {
             if chunk.style.is_code() {
                 chunk.style.colors = self.theme.inline_code.colors;
             } else {
                 let style = &mut chunk.style;
                 style.colors = style.colors.resolve(&self.theme.palette)?;
+            }
+            if default_font_size > 1 {
+                chunk.style = chunk.style.size(default_font_size);
             }
         }
         if !block.0.is_empty() {
@@ -828,7 +839,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_line_break(&mut self) {
-        self.chunk_operations.push(RenderOperation::RenderLineBreak);
+        self.push_line_breaks(1)
     }
 
     fn push_line_breaks(&mut self, count: usize) {
@@ -854,7 +865,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         let lines =
             SnippetSplitter::new(&self.theme, self.code_executor.hidden_line_prefix(&snippet.language)).split(&snippet);
-        let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0);
+        let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0) * self.slide_font_size() as usize;
         let (lines, context) = self.highlight_lines(&snippet, lines, block_length);
         for line in lines {
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
@@ -932,9 +943,10 @@ impl<'a> PresentationBuilder<'a> {
     ) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let style = self.code_style(code);
+        let font_size = self.slide_font_size();
         let dim_style = {
             let mut highlighter = self.highlighter.language_highlighter(&SnippetLanguage::Rust);
-            highlighter.style_line("//", &style).0.first().expect("no styles").style
+            highlighter.style_line("//", &style).0.first().expect("no styles").style.size(font_size)
         };
         let groups = match self.options.allow_mutations {
             true => code.attributes.highlight_groups.clone(),
@@ -950,13 +962,13 @@ impl<'a> PresentationBuilder<'a> {
         let mut output = Vec::new();
         for line in lines.into_iter() {
             let prefix = line.dim_prefix(&dim_style);
-            let highlighted = line.highlight(&mut code_highlighter, &style);
+            let highlighted = line.highlight(&mut code_highlighter, &style, font_size);
             let not_highlighted = line.dim(&dim_style);
             let line_number = line.line_number;
             let context = context.clone();
             output.push(HighlightedLine {
                 prefix,
-                right_padding_length: line.right_padding_length,
+                right_padding_length: line.right_padding_length * self.slide_font_size() as u16,
                 highlighted,
                 not_highlighted,
                 line_number,
@@ -1165,8 +1177,12 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn font_size(&self, font_size: Option<u8>) -> u8 {
-        let Some(font_size) = font_size else { return 1 };
+        let font_size = font_size.or(self.slide_state.font_size).unwrap_or(1);
         if self.options.font_size_supported { font_size.clamp(1, 7) } else { 1 }
+    }
+
+    fn slide_font_size(&self) -> u8 {
+        self.font_size(None)
     }
 }
 
@@ -1180,6 +1196,7 @@ struct SlideState {
     incremental_lists: Option<bool>,
     layout: LayoutState,
     title: Option<Line>,
+    font_size: Option<u8>,
 }
 
 #[derive(Debug, Default)]
@@ -1258,6 +1275,9 @@ pub enum BuildError {
 
     #[error(transparent)]
     UndefinedPaletteColor(#[from] UndefinedPaletteColorError),
+
+    #[error("font size must be >= 1 and <= 7")]
+    InvalidFontSize,
 }
 
 enum ExecutionMode {
@@ -1282,6 +1302,7 @@ enum CommentCommand {
     IncrementalLists(bool),
     NoFooter,
     SpeakerNote(String),
+    FontSize(u8),
 }
 
 impl FromStr for CommentCommand {

@@ -89,8 +89,11 @@ impl SnippetLine {
         &self,
         code_highlighter: &mut LanguageHighlighter,
         block_style: &CodeBlockStyle,
+        font_size: u8,
     ) -> WeightedLine {
-        code_highlighter.highlight_line(&self.code, block_style).0.into()
+        let mut line = code_highlighter.highlight_line(&self.code, block_style);
+        line.apply_style(&TextStyle::default().size(font_size));
+        line.into()
     }
 
     pub(crate) fn dim(&self, dim_style: &TextStyle) -> WeightedLine {

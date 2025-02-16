@@ -1,17 +1,15 @@
 use crate::{
-    markdown::text_style::{Color, Colors},
+    markdown::text_style::{Color, Colors, TextStyle},
     terminal::image::{
         Image,
         printer::{ImagePrinter, PrintImage, PrintImageError, PrintOptions},
     },
 };
 use crossterm::{
-    QueueableCommand, cursor,
-    style::{self, StyledContent},
+    QueueableCommand, cursor, style,
     terminal::{self},
 };
 use std::{
-    fmt::Display,
     io::{self, Write},
     sync::Arc,
 };
@@ -25,12 +23,7 @@ pub(crate) trait TerminalIo {
     fn move_to_column(&mut self, column: u16) -> io::Result<()>;
     fn move_down(&mut self, amount: u16) -> io::Result<()>;
     fn move_to_next_line(&mut self) -> io::Result<()>;
-    fn print_line(&mut self, text: &str, properties: &TextProperties) -> io::Result<()>;
-    fn print_styled_line<T: Display>(
-        &mut self,
-        content: StyledContent<T>,
-        properties: &TextProperties,
-    ) -> io::Result<()>;
+    fn print_text(&mut self, content: &str, style: &TextStyle, properties: &TextProperties) -> io::Result<()>;
     fn clear_screen(&mut self) -> io::Result<()>;
     fn set_colors(&mut self, colors: Colors) -> io::Result<()>;
     fn set_background_color(&mut self, color: Color) -> io::Result<()>;
@@ -101,17 +94,8 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
         Ok(())
     }
 
-    fn print_line(&mut self, text: &str, properties: &TextProperties) -> io::Result<()> {
-        self.writer.queue(style::Print(text))?;
-        self.current_row_height = self.current_row_height.max(properties.height as u16);
-        Ok(())
-    }
-
-    fn print_styled_line<T: Display>(
-        &mut self,
-        content: StyledContent<T>,
-        properties: &TextProperties,
-    ) -> io::Result<()> {
+    fn print_text(&mut self, content: &str, style: &TextStyle, properties: &TextProperties) -> io::Result<()> {
+        let content = style.apply(content).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         self.writer.queue(style::PrintStyledContent(content))?;
         self.current_row_height = self.current_row_height.max(properties.height as u16);
         Ok(())
