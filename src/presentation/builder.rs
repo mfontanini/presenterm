@@ -714,12 +714,12 @@ impl<'a> PresentationBuilder<'a> {
                 };
                 prefix.push(delimiter);
             }
-            ListItemType::OrderedParens => {
-                prefix.push_str(&(index + 1).to_string());
+            ListItemType::OrderedParens(value) => {
+                prefix.push_str(&value.to_string());
                 prefix.push_str(") ");
             }
-            ListItemType::OrderedPeriod => {
-                prefix.push_str(&(index + 1).to_string());
+            ListItemType::OrderedPeriod(value) => {
+                prefix.push_str(&value.to_string());
                 prefix.push_str(". ");
             }
         };
@@ -1735,15 +1735,15 @@ mod test {
     fn ordered_list_with_pauses() {
         let elements = vec![
             MarkdownElement::List(vec![
-                ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::OrderedPeriod },
-                ListItem { depth: 1, contents: "one_one".into(), item_type: ListItemType::OrderedPeriod },
-                ListItem { depth: 1, contents: "one_two".into(), item_type: ListItemType::OrderedPeriod },
+                ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::OrderedPeriod(1) },
+                ListItem { depth: 1, contents: "one_one".into(), item_type: ListItemType::OrderedPeriod(1) },
+                ListItem { depth: 1, contents: "one_two".into(), item_type: ListItemType::OrderedPeriod(2) },
             ]),
             build_pause(),
             MarkdownElement::List(vec![ListItem {
                 depth: 0,
                 contents: "two".into(),
-                item_type: ListItemType::OrderedPeriod,
+                item_type: ListItemType::OrderedPeriod(2),
             }]),
         ];
         let slides = build_presentation(elements).into_slides();
@@ -1772,14 +1772,14 @@ mod test {
             MarkdownElement::List(vec![ListItem {
                 depth: 0,
                 contents: "one".into(),
-                item_type: ListItemType::OrderedPeriod,
+                item_type: ListItemType::OrderedPeriod(1),
             }]),
             build_pause(),
             MarkdownElement::Heading { level: 1, text: "hi".into() },
             MarkdownElement::List(vec![ListItem {
                 depth: 0,
                 contents: "two".into(),
-                item_type: ListItemType::OrderedPeriod,
+                item_type: ListItemType::OrderedPeriod(2),
             }]),
         ];
         let slides = build_presentation(elements).into_slides();
