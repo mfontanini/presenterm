@@ -213,8 +213,8 @@ impl<'a> MarkdownParser<'a> {
     fn parse_list_item(&self, item: &NodeList, root: &'a AstNode<'a>, depth: u8) -> ParseResult<Vec<ListItem>> {
         let item_type = match (item.list_type, item.delimiter) {
             (ListType::Bullet, _) => ListItemType::Unordered,
-            (ListType::Ordered, ListDelimType::Paren) => ListItemType::OrderedParens,
-            (ListType::Ordered, ListDelimType::Period) => ListItemType::OrderedPeriod,
+            (ListType::Ordered, ListDelimType::Paren) => ListItemType::OrderedParens(item.start),
+            (ListType::Ordered, ListDelimType::Period) => ListItemType::OrderedPeriod(item.start),
         };
         let mut elements = Vec::new();
         for node in root.children() {
@@ -785,6 +785,26 @@ Title
         assert_eq!(next().depth, 1);
         assert_eq!(next().depth, 0);
         assert_eq!(next().depth, 0);
+    }
+
+    #[test]
+    fn ordered_list_starting_non_one() {
+        let parsed = parse_single(
+            r"
+ 4. One
+    1. Sub1
+    2. Sub2
+ 5. Two
+ 6. Three",
+        );
+        let MarkdownElement::List(items) = parsed else { panic!("not a list: {parsed:?}") };
+        let mut items = items.into_iter();
+        let mut next = || items.next().expect("list ended prematurely");
+        assert_eq!(next().item_type, ListItemType::OrderedPeriod(4));
+        assert_eq!(next().item_type, ListItemType::OrderedPeriod(1));
+        assert_eq!(next().item_type, ListItemType::OrderedPeriod(2));
+        assert_eq!(next().item_type, ListItemType::OrderedPeriod(5));
+        assert_eq!(next().item_type, ListItemType::OrderedPeriod(6));
     }
 
     #[test]
