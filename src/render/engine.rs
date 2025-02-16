@@ -21,6 +21,8 @@ use crate::{
 };
 use std::mem;
 
+const MINIMUM_LINE_LENGTH: u16 = 10;
+
 #[derive(Debug)]
 pub(crate) struct RenderEngineOptions {
     pub(crate) validate_overflows: bool,
@@ -192,7 +194,7 @@ where
         let dimensions = self.current_dimensions();
         let positioning = layout.compute(dimensions, text.width() as u16);
         let prefix = "".into();
-        let text_drawer = TextDrawer::new(&prefix, 0, text, positioning, &self.colors)?;
+        let text_drawer = TextDrawer::new(&prefix, 0, text, positioning, &self.colors, MINIMUM_LINE_LENGTH)?;
         text_drawer.draw(self.terminal)?;
         // Restore colors
         self.apply_colors()
@@ -266,7 +268,7 @@ where
             right_padding_length,
             repeat_prefix_on_wrap,
         } = operation;
-        let layout = self.build_layout(alignment.clone());
+        let layout = self.build_layout(alignment.clone()).with_font_size(text.font_size());
 
         let dimensions = self.current_dimensions();
         let Positioning { max_line_length, start_column } = layout.compute(dimensions, *block_length);
@@ -277,9 +279,10 @@ where
         self.terminal.move_to_column(start_column)?;
 
         let positioning = Positioning { max_line_length, start_column };
-        let text_drawer = TextDrawer::new(prefix, *right_padding_length, text, positioning, &self.colors)?
-            .with_surrounding_block(*block_color)
-            .repeat_prefix_on_wrap(*repeat_prefix_on_wrap);
+        let text_drawer =
+            TextDrawer::new(prefix, *right_padding_length, text, positioning, &self.colors, MINIMUM_LINE_LENGTH)?
+                .with_surrounding_block(*block_color)
+                .repeat_prefix_on_wrap(*repeat_prefix_on_wrap);
         text_drawer.draw(self.terminal)?;
 
         // Restore colors
@@ -428,7 +431,11 @@ impl WindowRect {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{markdown::text_style::Color, theme::Margin};
+    use crate::{
+        markdown::text_style::{Color, TextStyle},
+        terminal::printer::TextProperties,
+        theme::Margin,
+    };
     use std::io;
     use unicode_width::UnicodeWidthStr;
 
@@ -439,8 +446,7 @@ mod tests {
         MoveToColumn(u16),
         MoveDown(u16),
         MoveToNextLine,
-        PrintLine(String),
-        PrintStyledLine(String),
+        PrintText(String),
         ClearScreen,
         SetBackgroundColor(Color),
         PrintImage(Image),
@@ -496,29 +502,13 @@ mod tests {
             self.push(Instruction::MoveToNextLine)
         }
 
-        fn print_line(
-            &mut self,
-            text: &str,
-            _properties: &crate::terminal::printer::TextProperties,
-        ) -> std::io::Result<()> {
-            if text.is_empty() {
-                return Ok(());
-            }
-            self.cursor_row = text.width() as u16;
-            self.push(Instruction::PrintLine(text.to_string()))
-        }
-
-        fn print_styled_line<T: std::fmt::Display>(
-            &mut self,
-            content: crossterm::style::StyledContent<T>,
-            _properties: &crate::terminal::printer::TextProperties,
-        ) -> std::io::Result<()> {
+        fn print_text(&mut self, content: &str, _style: &TextStyle, _properties: &TextProperties) -> io::Result<()> {
             let content = content.to_string();
             if content.is_empty() {
                 return Ok(());
             }
             self.cursor_row = content.width() as u16;
-            self.push(Instruction::PrintStyledLine(content))
+            self.push(Instruction::PrintText(content))
         }
 
         fn clear_screen(&mut self) -> std::io::Result<()> {
@@ -582,14 +572,14 @@ mod tests {
         let expected = [
             Instruction::MoveToRow(0),
             Instruction::MoveToColumn(0),
-            Instruction::PrintStyledLine("A".into()),
+            Instruction::PrintText("A".into()),
             Instruction::MoveToRow(0),
             Instruction::MoveToColumn(50),
-            Instruction::PrintStyledLine("B".into()),
+            Instruction::PrintText("B".into()),
             // when we go back we should proceed from where we left off (row == 1)
             Instruction::MoveToRow(1),
             Instruction::MoveToColumn(0),
-            Instruction::PrintStyledLine("1".into()),
+            Instruction::PrintText("1".into()),
         ];
         assert_eq!(ops, expected);
     }
@@ -604,11 +594,11 @@ mod tests {
         ]);
         let expected = [
             Instruction::MoveToColumn(1),
-            Instruction::PrintStyledLine("A".into()),
+            Instruction::PrintText("A".into()),
             // 100 - 10 (bottom margin)
             Instruction::MoveToRow(89),
             Instruction::MoveToColumn(1),
-            Instruction::PrintStyledLine("B".into()),
+            Instruction::PrintText("B".into()),
         ];
         assert_eq!(ops, expected);
     }
@@ -619,8 +609,7 @@ mod tests {
             RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 3, bottom: 0 }),
             RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
         ]);
-        let expected =
-            [Instruction::MoveToRow(3), Instruction::MoveToColumn(1), Instruction::PrintStyledLine("A".into())];
+        let expected = [Instruction::MoveToRow(3), Instruction::MoveToColumn(1), Instruction::PrintText("A".into())];
         assert_eq!(ops, expected);
     }
 
@@ -637,11 +626,11 @@ mod tests {
             Instruction::MoveToRow(3),
             Instruction::MoveToRow(3),
             Instruction::MoveToColumn(1),
-            Instruction::PrintStyledLine("A".into()),
+            Instruction::PrintText("A".into()),
             // 100 - 10 (bottom margin)
             Instruction::MoveToRow(89),
             Instruction::MoveToColumn(1),
-            Instruction::PrintStyledLine("B".into()),
+            Instruction::PrintText("B".into()),
         ];
         assert_eq!(ops, expected);
     }
@@ -661,15 +650,15 @@ mod tests {
         ]);
         let expected = [
             Instruction::MoveToColumn(2),
-            Instruction::PrintStyledLine("A".into()),
+            Instruction::PrintText("A".into()),
             // 100 - 10 (margin) - 10 (second margin)
             Instruction::MoveToRow(79),
             Instruction::MoveToColumn(2),
-            Instruction::PrintStyledLine("B".into()),
+            Instruction::PrintText("B".into()),
             // 100 - 10 (margin)
             Instruction::MoveToRow(89),
             Instruction::MoveToColumn(1),
-            Instruction::PrintStyledLine("C".into()),
+            Instruction::PrintText("C".into()),
         ];
         assert_eq!(ops, expected);
     }
