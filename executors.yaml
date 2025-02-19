@@ -45,7 +45,7 @@ js:
 kotlin:
   filename: snippet.kts
   commands:
-    - ["kotlinc", "-script", "$pwd/script.kts"]
+    - ["kotlinc", "-script", "$pwd/snippet.kts"]
   hidden_line_prefix: "/// "
 lua:
   filename: snippet.lua
