@@ -58,9 +58,11 @@ pub(crate) struct RunSnippetOperation {
     inner: Rc<RefCell<RunSnippetOperationInner>>,
     state_description: RefCell<Text>,
     separator: DisplaySeparator,
+    font_size: u8,
 }
 
 impl RunSnippetOperation {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         code: Snippet,
         executor: Rc<SnippetExecutor>,
@@ -69,6 +71,7 @@ impl RunSnippetOperation {
         block_length: u16,
         separator: DisplaySeparator,
         alignment: Alignment,
+        font_size: u8,
     ) -> Self {
         let block_colors = execution_output_style.colors;
         let status_colors = execution_output_style.status.clone();
@@ -82,7 +85,7 @@ impl RunSnippetOperation {
             output_lines: Vec::new(),
             state: RenderAsyncState::default(),
             max_line_length: 0,
-            starting_style: TextStyle::default(),
+            starting_style: TextStyle::default().size(font_size),
             last_length: 0,
         };
         Self {
@@ -96,6 +99,7 @@ impl RunSnippetOperation {
             inner: Rc::new(RefCell::new(inner)),
             state_description: Text::new("not started", TextStyle::default().colors(not_started_colors)).into(),
             separator,
+            font_size,
         }
     }
 }
@@ -119,7 +123,7 @@ impl AsRenderOperations for RunSnippetOperation {
                     // word-wrapped and looks bad.
                     Alignment::Center { .. } => SeparatorWidth::Fixed(self.block_length.max(MINIMUM_SEPARATOR_WIDTH)),
                 };
-                let separator = RenderSeparator::new(heading, separator_width);
+                let separator = RenderSeparator::new(heading, separator_width, self.font_size);
                 vec![
                     RenderOperation::RenderLineBreak,
                     RenderOperation::RenderDynamic(Rc::new(separator)),
@@ -293,6 +297,7 @@ pub(crate) struct RunAcquireTerminalSnippet {
     executor: Rc<SnippetExecutor>,
     colors: ExecutionStatusBlockStyle,
     state: RefCell<AcquireTerminalSnippetState>,
+    font_size: u8,
 }
 
 impl RunAcquireTerminalSnippet {
@@ -301,8 +306,9 @@ impl RunAcquireTerminalSnippet {
         executor: Rc<SnippetExecutor>,
         colors: ExecutionStatusBlockStyle,
         block_length: u16,
+        font_size: u8,
     ) -> Self {
-        Self { snippet, block_length, executor, colors, state: Default::default() }
+        Self { snippet, block_length, executor, colors, state: Default::default(), font_size }
     }
 }
 
@@ -343,7 +349,7 @@ impl AsRenderOperations for RunAcquireTerminalSnippet {
 
         let heading = Line(vec![" [".into(), separator_text, "] ".into()]);
         let separator_width = SeparatorWidth::Fixed(self.block_length.max(MINIMUM_SEPARATOR_WIDTH));
-        let separator = RenderSeparator::new(heading, separator_width);
+        let separator = RenderSeparator::new(heading, separator_width, self.font_size);
         let mut ops = vec![
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderDynamic(Rc::new(separator)),
