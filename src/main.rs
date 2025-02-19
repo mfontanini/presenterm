@@ -12,7 +12,7 @@ use crate::{
         GraphicsMode,
         image::printer::{ImagePrinter, ImageRegistry},
     },
-    theme::{PresentationTheme, PresentationThemeSet},
+    theme::{PresentationTheme, registry::PresentationThemeRegistry},
     third_party::{ThirdPartyConfigs, ThirdPartyRender},
 };
 use anyhow::anyhow;
@@ -162,7 +162,7 @@ impl Customizations {
         let mut highlight_themes = HighlightThemeSet::default();
         highlight_themes.register_from_directory(themes_path.join("highlighting"))?;
 
-        let mut presentation_themes = PresentationThemeSet::default();
+        let mut presentation_themes = PresentationThemeRegistry::default();
         presentation_themes.register_from_directory(themes_path)?;
 
         let themes = Themes { presentation: presentation_themes, highlight: highlight_themes };

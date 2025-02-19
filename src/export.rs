@@ -353,13 +353,13 @@ impl AsRenderOperations for RenderMany {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::theme::PresentationThemeSet;
+    use crate::theme::registry::PresentationThemeRegistry;
     use comrak::Arena;
 
     fn extract_metadata(content: &str, path: &str) -> ExportMetadata {
         let arena = Arena::new();
         let parser = MarkdownParser::new(&arena);
-        let theme = PresentationThemeSet::default().load_by_name("dark").unwrap();
+        let theme = PresentationThemeRegistry::default().load_by_name("dark").unwrap();
         let resources = Resources::new("examples", "examples", Default::default());
         let third_party = ThirdPartyRender::default();
         let code_executor = Default::default();

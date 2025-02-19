@@ -30,8 +30,8 @@ use crate::{
         printer::{ImageRegistry, RegisterImageError},
     },
     theme::{
-        Alignment, AuthorPositioning, CodeBlockStyle, ElementType, FooterStyle, LoadThemeError, Margin,
-        PresentationTheme, PresentationThemeSet,
+        Alignment, AuthorPositioning, CodeBlockStyle, ElementType, FooterStyle, Margin, PresentationTheme,
+        registry::{LoadThemeError, PresentationThemeRegistry},
     },
     third_party::{ThirdPartyRender, ThirdPartyRenderError, ThirdPartyRenderRequest},
     ui::{
@@ -54,7 +54,7 @@ pub(crate) type BuildResult = Result<(), BuildError>;
 
 #[derive(Default)]
 pub struct Themes {
-    pub presentation: PresentationThemeSet,
+    pub presentation: PresentationThemeRegistry,
     pub highlight: HighlightThemeSet,
 }
 
