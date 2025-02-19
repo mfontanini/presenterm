@@ -582,8 +582,9 @@ impl<'a> PresentationBuilder<'a> {
         }
 
         let style = self.theme.slide_title.clone();
+        let font_size = self.font_size(style.font_size);
         let mut text_style = TextStyle::default().colors(style.colors);
-        text_style = text_style.size(self.font_size(style.font_size));
+        text_style = text_style.size(font_size);
         if style.bold.unwrap_or_default() {
             text_style = text_style.bold();
         }
@@ -603,7 +604,7 @@ impl<'a> PresentationBuilder<'a> {
             self.push_line_break();
         }
         if style.separator {
-            self.chunk_operations.push(RenderSeparator::default().into());
+            self.chunk_operations.push(RenderSeparator::new(Line::default(), Default::default(), font_size).into());
         }
         self.push_line_break();
         self.slide_state.ignore_element_line_break = true;
@@ -646,7 +647,10 @@ impl<'a> PresentationBuilder<'a> {
             self.terminate_slide()?;
             self.slide_state.ignore_element_line_break = true;
         } else {
-            self.chunk_operations.extend([RenderSeparator::default().into(), RenderOperation::RenderLineBreak]);
+            self.chunk_operations.extend([
+                RenderSeparator::new(Line::default(), Default::default(), self.slide_font_size()).into(),
+                RenderOperation::RenderLineBreak,
+            ]);
         }
         Ok(())
     }
@@ -943,6 +947,10 @@ impl<'a> PresentationBuilder<'a> {
     ) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let style = self.code_style(code);
+        let block_length = match self.theme.code.alignment.clone().unwrap_or_default() {
+            Alignment::Left { .. } | Alignment::Right { .. } => block_length,
+            Alignment::Center { minimum_size, .. } => block_length.max(minimum_size as usize),
+        };
         let font_size = self.slide_font_size();
         let dim_style = {
             let mut highlighter = self.highlighter.language_highlighter(&SnippetLanguage::Rust);
@@ -1023,6 +1031,7 @@ impl<'a> PresentationBuilder<'a> {
                 self.code_executor.clone(),
                 self.theme.execution_output.status.clone(),
                 block_length,
+                self.slide_font_size(),
             );
             let operation = RenderOperation::RenderAsync(Rc::new(operation));
             self.chunk_operations.push(operation);
@@ -1046,6 +1055,7 @@ impl<'a> PresentationBuilder<'a> {
             block_length as u16,
             separator,
             alignment,
+            self.slide_font_size(),
         );
         if matches!(mode, ExecutionMode::ReplaceSnippet) {
             operation.start_render();
