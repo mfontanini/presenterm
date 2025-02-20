@@ -3,7 +3,7 @@ use crate::{
         Image,
         printer::{ImageRegistry, RegisterImageError},
     },
-    theme::{PresentationTheme, registry::LoadThemeError},
+    theme::{raw::PresentationTheme, registry::LoadThemeError},
 };
 use std::{
     cell::RefCell,

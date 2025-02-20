@@ -1,12 +1,11 @@
 use crate::{
-    PresentationTheme,
     code::padding::NumberPadder,
     commands::keyboard::KeyBinding,
     config::KeyBindingsConfig,
     markdown::{
         elements::{Line, Text},
         text::WeightedLine,
-        text_style::{Colors, TextStyle},
+        text_style::TextStyle,
     },
     presentation::PresentationState,
     render::{
@@ -14,7 +13,7 @@ use crate::{
         properties::WindowSize,
     },
     terminal::image::Image,
-    theme::Margin,
+    theme::{Margin, clean::PresentationTheme},
 };
 use std::{iter, rc::Rc};
 use unicode_width::UnicodeWidthStr;
@@ -44,9 +43,9 @@ impl IndexBuilder {
             title.0.insert(0, format!("{index}: ").into());
             builder.content.push(title);
         }
-        let base_color = theme.modals.colors.merge(&theme.default_style.colors);
-        let selection_style = TextStyle::default().colors(theme.modals.selection_colors).bold();
-        let ModalContent { prefix, content, suffix, content_width } = builder.build(base_color);
+        let base_style = theme.modals.style;
+        let selection_style = theme.modals.selection_style;
+        let ModalContent { prefix, content, suffix, content_width } = builder.build(base_style);
         let drawer = IndexDrawer {
             prefix,
             rows: content,
@@ -126,8 +125,8 @@ impl KeyBindingsModalBuilder {
             Self::build_line("Exit", &config.exit),
         ]);
         let lines = builder.content.len();
-        let colors = theme.default_style.colors.clone().merge(&theme.modals.colors);
-        let content = builder.build(colors);
+        let style = theme.modals.style;
+        let content = builder.build(style);
         let content_width = content.content_width;
         let mut operations = content.into_operations();
         operations.insert(0, CenterModalContent::new(content_width, lines, self.background).into());
@@ -156,14 +155,14 @@ impl ModalBuilder {
         Self { heading: heading.into(), content: Vec::new() }
     }
 
-    fn build(self, colors: Colors) -> ModalContent {
+    fn build(self, style: TextStyle) -> ModalContent {
         let longest_line = self.content.iter().map(Line::width).max().unwrap_or(0) as u16;
         let longest_line = longest_line.max(self.heading.len() as u16);
         // Ensure we have a minimum width so it doesn't look too narrow.
         let longest_line = longest_line.max(12);
         // The final text looks like "|  <content>  |"
         let content_width = longest_line + 6;
-        let mut prefix = vec![RenderOperation::SetColors(colors)];
+        let mut prefix = vec![RenderOperation::SetColors(style.colors)];
 
         let heading = Self::center_line(self.heading, longest_line as usize);
         prefix.extend(Border::Top.render_line(content_width));

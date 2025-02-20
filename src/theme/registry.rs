@@ -1,4 +1,4 @@
-use super::PresentationTheme;
+use super::raw::PresentationTheme;
 use std::{collections::BTreeMap, fs, io, path::Path};
 
 include!(concat!(env!("OUT_DIR"), "/themes.rs"));
@@ -14,9 +14,7 @@ impl PresentationThemeRegistry {
         match THEMES.get(name) {
             Some(contents) => {
                 // This is going to be caught by the test down here.
-                let mut theme: PresentationTheme = serde_yaml::from_slice(contents).expect("corrupted theme");
-                // SAFETY: we enforce themes are well formed before getting here
-                theme.resolve_palette_colors().expect("failed to resolve colors");
+                let theme = serde_yaml::from_slice(contents).expect("corrupted theme");
                 Some(theme)
             }
             None => self.custom_themes.get(name).cloned(),
@@ -42,10 +40,7 @@ impl PresentationThemeRegistry {
                 if THEMES.contains_key(theme_name) {
                     return Err(LoadThemeError::Duplicate(theme_name.into()));
                 }
-                let mut theme = PresentationTheme::from_path(entry.path())?;
-                theme
-                    .resolve_palette_colors()
-                    .map_err(|e| LoadThemeError::Corrupted(theme_name.to_string(), e.into()))?;
+                let theme = PresentationTheme::from_path(entry.path())?;
                 let base = theme.extends.clone();
                 self.custom_themes.insert(theme_name.into(), theme);
                 dependencies.insert(theme_name.to_string(), base);
@@ -145,6 +140,8 @@ pub enum LoadThemeError {
 
 #[cfg(test)]
 mod test {
+    use crate::resource::Resources;
+
     use super::*;
     use tempfile::{TempDir, tempdir};
 
@@ -158,7 +155,7 @@ mod test {
     fn validate_themes() {
         let themes = PresentationThemeRegistry::default();
         for theme_name in THEMES.keys() {
-            let Some(mut theme) = themes.load_by_name(theme_name).clone() else {
+            let Some(theme) = themes.load_by_name(theme_name).clone() else {
                 panic!("theme '{theme_name}' is corrupted");
             };
 
@@ -168,7 +165,8 @@ mod test {
             let merged = merge_struct::merge(&PresentationTheme::default(), &theme);
             assert!(merged.is_ok(), "theme '{theme_name}' can't be merged: {}", merged.unwrap_err());
 
-            theme.resolve_palette_colors().expect("failed to resolve palette colors");
+            let resources = Resources::new("/tmp/foo", "/tmp/foo", Default::default());
+            crate::theme::clean::PresentationTheme::new(&theme, &resources).expect("malformed theme");
         }
     }
 

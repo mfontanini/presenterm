@@ -1,7 +1,6 @@
 use crate::{
     config::OptionsConfig,
     render::operation::{RenderAsyncState, RenderOperation},
-    theme::PresentationTheme,
 };
 use serde::Deserialize;
 use std::{
@@ -548,7 +547,7 @@ pub(crate) struct PresentationThemeMetadata {
 
     /// Any specific overrides for the presentation's theme.
     #[serde(default, rename = "override")]
-    pub(crate) overrides: Option<PresentationTheme>,
+    pub(crate) overrides: Option<crate::theme::raw::PresentationTheme>,
 }
 
 #[cfg(test)]

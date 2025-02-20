@@ -16,7 +16,7 @@ use crate::{
         Terminal,
         image::printer::{ImagePrinter, PrintImageError},
     },
-    theme::{Alignment, Margin},
+    theme::{Margin, clean::Alignment},
 };
 use engine::{RenderEngine, RenderEngineOptions};
 use std::{

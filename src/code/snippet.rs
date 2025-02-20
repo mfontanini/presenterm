@@ -3,7 +3,6 @@ use super::{
     padding::NumberPadder,
 };
 use crate::{
-    PresentationTheme,
     markdown::{
         elements::{Percent, PercentParseError},
         text::{WeightedLine, WeightedText},
@@ -14,7 +13,7 @@ use crate::{
         operation::{AsRenderOperations, BlockLine, RenderOperation},
         properties::WindowSize,
     },
-    theme::{Alignment, CodeBlockStyle},
+    theme::clean::{Alignment, CodeBlockStyle},
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -24,19 +23,19 @@ use strum::{EnumDiscriminants, EnumIter};
 use unicode_width::UnicodeWidthStr;
 
 pub(crate) struct SnippetSplitter<'a> {
-    theme: &'a PresentationTheme,
+    style: &'a CodeBlockStyle,
     hidden_line_prefix: Option<&'a str>,
 }
 
 impl<'a> SnippetSplitter<'a> {
-    pub(crate) fn new(theme: &'a PresentationTheme, hidden_line_prefix: Option<&'a str>) -> Self {
-        Self { theme, hidden_line_prefix }
+    pub(crate) fn new(style: &'a CodeBlockStyle, hidden_line_prefix: Option<&'a str>) -> Self {
+        Self { style, hidden_line_prefix }
     }
 
     pub(crate) fn split(&self, code: &Snippet) -> Vec<SnippetLine> {
         let mut lines = Vec::new();
-        let horizontal_padding = self.theme.code.padding.horizontal.unwrap_or(0);
-        let vertical_padding = self.theme.code.padding.vertical.unwrap_or(0);
+        let horizontal_padding = self.style.padding.horizontal.unwrap_or(0);
+        let vertical_padding = self.style.padding.vertical.unwrap_or(0);
         if vertical_padding > 0 {
             lines.push(SnippetLine::empty());
         }

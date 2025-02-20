@@ -73,12 +73,6 @@ impl TextStyle {
         self.italics().underlined()
     }
 
-    /// Set the colors for this text style.
-    pub(crate) fn colors(mut self, colors: Colors) -> Self {
-        self.colors = colors;
-        self
-    }
-
     /// Set the background color for this text style.
     pub(crate) fn bg_color(mut self, color: Color) -> Self {
         self.colors.background = Some(color);
@@ -405,12 +399,6 @@ pub(crate) struct Colors {
 }
 
 impl Colors {
-    pub(crate) fn merge(&self, other: &Colors) -> Self {
-        let background = self.background.or(other.background);
-        let foreground = self.foreground.or(other.foreground);
-        Self { background, foreground }
-    }
-
     pub(crate) fn resolve(mut self, palette: &ColorPalette) -> Result<Self, UndefinedPaletteColorError> {
         if let Some(color) = self.foreground.as_mut() {
             *color = color.resolve(palette)?;

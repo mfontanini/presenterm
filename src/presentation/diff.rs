@@ -123,7 +123,7 @@ mod test {
             operation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState},
             properties::WindowSize,
         },
-        theme::{Alignment, Margin},
+        theme::{Margin, clean::Alignment},
     };
     use rstest::rstest;
     use std::rc::Rc;

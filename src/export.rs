@@ -1,5 +1,5 @@
 use crate::{
-    MarkdownParser, PresentationTheme, Resources,
+    MarkdownParser, Resources,
     code::execute::SnippetExecutor,
     config::KeyBindingsConfig,
     markdown::parse::ParseError,
@@ -15,6 +15,7 @@ use crate::{
         Image, ImageSource,
         printer::{ImageProperties, TerminalImage},
     },
+    theme::{clean::ProcessingThemeError, raw::PresentationTheme},
     third_party::ThirdPartyRender,
     tools::{ExecutionError, ThirdPartyTools},
 };
@@ -102,7 +103,7 @@ impl<'a> Exporter<'a> {
             Default::default(),
             KeyBindingsConfig::default(),
             self.options.clone(),
-        )
+        )?
         .build(elements)?;
 
         let async_renders = Self::count_async_render_operations(&presentation);
@@ -228,6 +229,9 @@ pub enum ExportError {
 
     #[error("minimum presenterm-export version ({MINIMUM_EXPORTER_VERSION}) not met")]
     MinimumVersion,
+
+    #[error("processing theme: {0}")]
+    ProcessingTheme(#[from] ProcessingThemeError),
 
     #[error("io: {0}")]
     Io(io::Error),

@@ -12,7 +12,7 @@ use crate::{
         GraphicsMode,
         image::printer::{ImagePrinter, ImageRegistry},
     },
-    theme::{PresentationTheme, registry::PresentationThemeRegistry},
+    theme::{raw::PresentationTheme, registry::PresentationThemeRegistry},
     third_party::{ThirdPartyConfigs, ThirdPartyRender},
 };
 use anyhow::anyhow;

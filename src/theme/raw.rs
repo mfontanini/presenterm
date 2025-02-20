@@ -1,15 +1,13 @@
-use crate::markdown::text_style::{Color, Colors, FixedStr, UndefinedPaletteColorError};
+use super::registry::LoadThemeError;
+use crate::markdown::text_style::{Color, Colors, FixedStr};
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::{
     collections::BTreeMap,
     fmt, fs,
-    marker::PhantomData,
     path::{Path, PathBuf},
     str::FromStr,
 };
-
-use super::registry::LoadThemeError;
 
 /// A presentation theme.
 #[derive(Default, Clone, Debug, Deserialize, Serialize)]
@@ -88,71 +86,6 @@ impl PresentationTheme {
             .map_err(|e| LoadThemeError::Corrupted(path.as_ref().display().to_string(), e.into()))?;
         Ok(theme)
     }
-
-    /// Get the alignment for an element.
-    ///
-    /// This will fall back to the default alignment.
-    pub(crate) fn alignment(&self, element: &ElementType) -> Alignment {
-        use ElementType::*;
-
-        let alignment = match element {
-            SlideTitle => &self.slide_title.alignment,
-            Heading1 => &self.headings.h1.alignment,
-            Heading2 => &self.headings.h2.alignment,
-            Heading3 => &self.headings.h3.alignment,
-            Heading4 => &self.headings.h4.alignment,
-            Heading5 => &self.headings.h5.alignment,
-            Heading6 => &self.headings.h6.alignment,
-            Paragraph | List => &None,
-            Code => &self.code.alignment,
-            PresentationTitle => &self.intro_slide.title.alignment,
-            PresentationSubTitle => &self.intro_slide.subtitle.alignment,
-            PresentationEvent => &self.intro_slide.event.alignment,
-            PresentationLocation => &self.intro_slide.location.alignment,
-            PresentationDate => &self.intro_slide.date.alignment,
-            PresentationAuthor => &self.intro_slide.author.alignment,
-            Table => &self.table,
-            BlockQuote => &self.block_quote.alignment,
-        };
-        alignment.clone().unwrap_or_default()
-    }
-
-    pub(crate) fn resolve_palette_colors(&mut self) -> Result<(), UndefinedPaletteColorError> {
-        let Self {
-            slide_title,
-            code,
-            execution_output,
-            inline_code,
-            block_quote,
-            alert,
-            default_style,
-            headings,
-            intro_slide,
-            footer,
-            typst,
-            mermaid,
-            modals,
-            table: _,
-            palette: _,
-            extends: _,
-        } = self;
-        slide_title.resolve_palette_colors(&self.palette)?;
-        code.resolve_palette_colors(&self.palette)?;
-        execution_output.resolve_palette_colors(&self.palette)?;
-        inline_code.resolve_palette_colors(&self.palette)?;
-        block_quote.resolve_palette_colors(&self.palette)?;
-        alert.resolve_palette_colors(&self.palette)?;
-        default_style.resolve_palette_colors(&self.palette)?;
-        headings.resolve_palette_colors(&self.palette)?;
-        intro_slide.resolve_palette_colors(&self.palette)?;
-        if let Some(footer) = footer.as_mut() {
-            footer.resolve_palette_colors(&self.palette)?;
-        }
-        typst.resolve_palette_colors(&self.palette)?;
-        mermaid.resolve_palette_colors(&self.palette)?;
-        modals.resolve_palette_colors(&self.palette)?;
-        Ok(())
-    }
 }
 
 /// The style of a slide title.
@@ -195,13 +128,6 @@ pub(crate) struct SlideTitleStyle {
     pub(crate) font_size: Option<u8>,
 }
 
-impl SlideTitleStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        self.colors = self.colors.resolve(palette)?;
-        Ok(())
-    }
-}
-
 /// The style for all headings.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct HeadingStyles {
@@ -230,16 +156,6 @@ pub(crate) struct HeadingStyles {
     pub(crate) h6: HeadingStyle,
 }
 
-impl HeadingStyles {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { h1, h2, h3, h4, h5, h6 } = self;
-        for h in [h1, h2, h3, h4, h5, h6] {
-            h.resolve_palette_colors(palette)?;
-        }
-        Ok(())
-    }
-}
-
 /// The style for a heading.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct HeadingStyle {
@@ -262,14 +178,6 @@ pub(crate) struct HeadingStyle {
     pub(crate) font_size: Option<u8>,
 }
 
-impl HeadingStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { colors, alignment: _, prefix: _, font_size: _ } = self;
-        *colors = colors.resolve(palette)?;
-        Ok(())
-    }
-}
-
 /// The style of a block quote.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct BlockQuoteStyle {
@@ -288,14 +196,6 @@ pub(crate) struct BlockQuoteStyle {
     pub(crate) colors: BlockQuoteColors,
 }
 
-impl BlockQuoteStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { colors, alignment: _, prefix: _ } = self;
-        colors.resolve_palette_colors(palette)?;
-        Ok(())
-    }
-}
-
 /// The colors of a block quote.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct BlockQuoteColors {
@@ -306,17 +206,6 @@ pub(crate) struct BlockQuoteColors {
     /// The color of the vertical bar that prefixes each line in the quote.
     #[serde(default)]
     pub(crate) prefix: Option<Color>,
-}
-
-impl BlockQuoteColors {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { base, prefix } = self;
-        *base = base.resolve(palette)?;
-        if let Some(prefix) = prefix.as_mut() {
-            *prefix = prefix.resolve(palette)?;
-        }
-        Ok(())
-    }
 }
 
 /// The style of an alert.
@@ -341,54 +230,33 @@ pub(crate) struct AlertStyle {
     pub(crate) styles: AlertTypeStyles,
 }
 
-impl AlertStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { base_colors, styles, alignment: _, prefix: _ } = self;
-        *base_colors = base_colors.resolve(palette)?;
-        styles.resolve_palette_colors(palette)?;
-        Ok(())
-    }
-}
-
 /// The style for each alert type.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct AlertTypeStyles {
     /// The style for note alert types.
     #[serde(default)]
-    pub(crate) note: AlertTypeStyle<NoteAlertType>,
+    pub(crate) note: AlertTypeStyle,
 
     /// The style for tip alert types.
     #[serde(default)]
-    pub(crate) tip: AlertTypeStyle<TipAlertType>,
+    pub(crate) tip: AlertTypeStyle,
 
     /// The style for important alert types.
     #[serde(default)]
-    pub(crate) important: AlertTypeStyle<ImportantAlertType>,
+    pub(crate) important: AlertTypeStyle,
 
     /// The style for warning alert types.
     #[serde(default)]
-    pub(crate) warning: AlertTypeStyle<WarningAlertType>,
+    pub(crate) warning: AlertTypeStyle,
 
     /// The style for caution alert types.
     #[serde(default)]
-    pub(crate) caution: AlertTypeStyle<CautionAlertType>,
-}
-
-impl AlertTypeStyles {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { note, tip, important, warning, caution } = self;
-        note.resolve_palette_colors(palette)?;
-        tip.resolve_palette_colors(palette)?;
-        important.resolve_palette_colors(palette)?;
-        warning.resolve_palette_colors(palette)?;
-        caution.resolve_palette_colors(palette)?;
-        Ok(())
-    }
+    pub(crate) caution: AlertTypeStyle,
 }
 
 /// The style for an alert type.
-#[derive(Deserialize, Serialize)]
-pub(crate) struct AlertTypeStyle<S: AlertTypeProperties> {
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct AlertTypeStyle {
     /// The color to be used.
     #[serde(default)]
     pub(crate) color: Option<Color>,
@@ -400,137 +268,6 @@ pub(crate) struct AlertTypeStyle<S: AlertTypeProperties> {
     /// The icon to be used.
     #[serde(default)]
     pub(crate) icon: Option<String>,
-
-    #[serde(skip)]
-    _unused: PhantomData<S>,
-}
-
-impl<S: AlertTypeProperties> Default for AlertTypeStyle<S> {
-    fn default() -> Self {
-        Self {
-            color: Default::default(),
-            title: Default::default(),
-            icon: Default::default(),
-            _unused: Default::default(),
-        }
-    }
-}
-
-impl<S: AlertTypeProperties> AlertTypeStyle<S> {
-    pub(crate) fn as_parts(&self) -> (Color, &str, &str) {
-        (
-            self.color.unwrap_or(S::default_color()),
-            self.title.as_deref().unwrap_or(S::default_title()),
-            self.icon.as_deref().unwrap_or(S::default_icon()),
-        )
-    }
-
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { color, title: _, icon: _, _unused: _ } = self;
-        if let Some(color) = color {
-            *color = color.resolve(palette)?;
-        }
-        Ok(())
-    }
-}
-
-impl<S: AlertTypeProperties> fmt::Debug for AlertTypeStyle<S> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("AlertTypeStyle")
-            .field("color", &self.color)
-            .field("title", &self.title)
-            .field("icon", &self.icon)
-            .field("_unused", &self._unused)
-            .finish()
-    }
-}
-
-impl<S: AlertTypeProperties> Clone for AlertTypeStyle<S> {
-    fn clone(&self) -> Self {
-        Self { color: self.color, title: self.title.clone(), icon: self.icon.clone(), _unused: PhantomData }
-    }
-}
-
-pub(crate) trait AlertTypeProperties {
-    fn default_title() -> &'static str;
-    fn default_icon() -> &'static str;
-    fn default_color() -> Color;
-}
-
-pub(crate) struct NoteAlertType;
-pub(crate) struct TipAlertType;
-pub(crate) struct ImportantAlertType;
-pub(crate) struct WarningAlertType;
-pub(crate) struct CautionAlertType;
-
-impl AlertTypeProperties for NoteAlertType {
-    fn default_title() -> &'static str {
-        "Note"
-    }
-
-    fn default_icon() -> &'static str {
-        "󰋽"
-    }
-
-    fn default_color() -> Color {
-        Color::Blue
-    }
-}
-
-impl AlertTypeProperties for TipAlertType {
-    fn default_title() -> &'static str {
-        "Tip"
-    }
-
-    fn default_icon() -> &'static str {
-        ""
-    }
-
-    fn default_color() -> Color {
-        Color::Green
-    }
-}
-
-impl AlertTypeProperties for ImportantAlertType {
-    fn default_title() -> &'static str {
-        "Important"
-    }
-
-    fn default_icon() -> &'static str {
-        ""
-    }
-
-    fn default_color() -> Color {
-        Color::Cyan
-    }
-}
-
-impl AlertTypeProperties for WarningAlertType {
-    fn default_title() -> &'static str {
-        "Warning"
-    }
-
-    fn default_icon() -> &'static str {
-        ""
-    }
-
-    fn default_color() -> Color {
-        Color::Yellow
-    }
-}
-
-impl AlertTypeProperties for CautionAlertType {
-    fn default_title() -> &'static str {
-        "Caution"
-    }
-
-    fn default_icon() -> &'static str {
-        "󰳦"
-    }
-
-    fn default_color() -> Color {
-        Color::Red
-    }
 }
 
 /// The style for the presentation introduction slide.
@@ -565,18 +302,6 @@ pub(crate) struct IntroSlideStyle {
     pub(crate) footer: Option<bool>,
 }
 
-impl IntroSlideStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { title, subtitle, event, location, date, author, footer: _footer } = self;
-        for s in [subtitle, event, location, date] {
-            s.resolve_palette_colors(palette)?;
-        }
-        title.resolve_palette_colors(palette)?;
-        author.resolve_palette_colors(palette)?;
-        Ok(())
-    }
-}
-
 /// A simple style.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct DefaultStyle {
@@ -589,14 +314,6 @@ pub(crate) struct DefaultStyle {
     pub(crate) colors: Colors,
 }
 
-impl DefaultStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { colors, margin: _margin } = self;
-        *colors = colors.resolve(palette)?;
-        Ok(())
-    }
-}
-
 /// A simple style.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct BasicStyle {
@@ -607,14 +324,6 @@ pub(crate) struct BasicStyle {
     /// The colors to be used.
     #[serde(default)]
     pub(crate) colors: Colors,
-}
-
-impl BasicStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { colors, alignment: _ } = self;
-        *colors = colors.resolve(palette)?;
-        Ok(())
-    }
 }
 
 /// The intro slide title's style.
@@ -631,14 +340,6 @@ pub(crate) struct IntroSlideTitleStyle {
     /// The font size to be used if the terminal supports it.
     #[serde(default)]
     pub(crate) font_size: Option<u8>,
-}
-
-impl IntroSlideTitleStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { colors, alignment: _, font_size: _ } = self;
-        *colors = colors.resolve(palette)?;
-        Ok(())
-    }
 }
 
 /// Text alignment.
@@ -695,14 +396,6 @@ pub(crate) struct AuthorStyle {
     pub(crate) positioning: AuthorPositioning,
 }
 
-impl AuthorStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { colors, alignment: _, positioning: _ } = self;
-        *colors = colors.resolve(palette)?;
-        Ok(())
-    }
-}
-
 /// The style of the footer that's shown in every slide.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "style", rename_all = "snake_case")]
@@ -738,19 +431,6 @@ pub(crate) enum FooterStyle {
 
     /// No footer.
     Empty,
-}
-
-impl FooterStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        use FooterStyle::*;
-        match self {
-            Template { colors, left: _, center: _, right: _, height: _ } | ProgressBar { colors, character: _ } => {
-                *colors = colors.resolve(palette)?;
-                Ok(())
-            }
-            Empty => Ok(()),
-        }
-    }
 }
 
 impl Default for FooterStyle {
@@ -886,13 +566,6 @@ pub(crate) struct CodeBlockStyle {
     pub(crate) background: Option<bool>,
 }
 
-impl CodeBlockStyle {
-    fn resolve_palette_colors(&mut self, _: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { alignment: _, padding: _, theme_name: _, background: _ } = self;
-        Ok(())
-    }
-}
-
 /// The style for the output of a code execution block.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct ExecutionOutputBlockStyle {
@@ -903,14 +576,6 @@ pub(crate) struct ExecutionOutputBlockStyle {
     /// The colors to be used for the text that represents the status of the execution block.
     #[serde(default)]
     pub(crate) status: ExecutionStatusBlockStyle,
-}
-
-impl ExecutionOutputBlockStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { colors, status } = self;
-        *colors = colors.resolve(palette)?;
-        status.resolve_palette_colors(palette)
-    }
 }
 
 /// The style for the status of a code execution block.
@@ -933,30 +598,12 @@ pub(crate) struct ExecutionStatusBlockStyle {
     pub(crate) not_started: Colors,
 }
 
-impl ExecutionStatusBlockStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { running, success, failure, not_started } = self;
-        for c in [running, success, failure, not_started] {
-            *c = c.resolve(palette)?;
-        }
-        Ok(())
-    }
-}
-
 /// The style for inline code.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct InlineCodeStyle {
     /// The colors to be used.
     #[serde(default)]
     pub(crate) colors: Colors,
-}
-
-impl InlineCodeStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { colors } = self;
-        *colors = colors.resolve(palette)?;
-        Ok(())
-    }
 }
 
 /// Vertical/horizontal padding.
@@ -1054,14 +701,6 @@ pub(crate) struct TypstStyle {
     pub(crate) colors: Colors,
 }
 
-impl TypstStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { colors, horizontal_margin: _, vertical_margin: _ } = self;
-        *colors = colors.resolve(palette)?;
-        Ok(())
-    }
-}
-
 /// Mermaid styles.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct MermaidStyle {
@@ -1070,13 +709,6 @@ pub(crate) struct MermaidStyle {
 
     /// The background color to use.
     pub(crate) background: Option<String>,
-}
-
-impl MermaidStyle {
-    fn resolve_palette_colors(&mut self, _: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { theme: _, background: _ } = self;
-        Ok(())
-    }
 }
 
 /// Modals style.
@@ -1089,16 +721,6 @@ pub(crate) struct ModalStyle {
     /// The colors to use for selected lines.
     #[serde(default)]
     pub(crate) selection_colors: Colors,
-}
-
-impl ModalStyle {
-    fn resolve_palette_colors(&mut self, palette: &ColorPalette) -> Result<(), UndefinedPaletteColorError> {
-        let Self { colors, selection_colors } = self;
-        for c in [colors, selection_colors] {
-            *c = c.resolve(palette)?;
-        }
-        Ok(())
-    }
 }
 
 /// The color palette.

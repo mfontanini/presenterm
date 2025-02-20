@@ -1,4 +1,4 @@
-use crate::{render::properties::WindowSize, theme::Alignment};
+use crate::{render::properties::WindowSize, theme::clean::Alignment};
 
 #[derive(Debug)]
 pub(crate) struct Layout {

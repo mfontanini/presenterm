@@ -30,7 +30,9 @@ use crate::{
         printer::{ImageRegistry, RegisterImageError},
     },
     theme::{
-        Alignment, AuthorPositioning, CodeBlockStyle, ElementType, FooterStyle, Margin, PresentationTheme,
+        AuthorPositioning, Margin,
+        clean::{Alignment, CodeBlockStyle, ElementType, PresentationTheme, ProcessingThemeError},
+        raw,
         registry::{LoadThemeError, PresentationThemeRegistry},
     },
     third_party::{ThirdPartyRender, ThirdPartyRenderError, ThirdPartyRenderRequest},
@@ -39,7 +41,7 @@ use crate::{
             DisplaySeparator, RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation,
             SnippetExecutionDisabledOperation,
         },
-        footer::{DEFAULT_FOOTER_HEIGHT, FooterContext, FooterGenerator},
+        footer::{FooterContext, FooterGenerator},
         modals::{IndexBuilder, KeyBindingsModalBuilder},
         separator::RenderSeparator,
     },
@@ -47,7 +49,7 @@ use crate::{
 use comrak::nodes::AlertType;
 use image::DynamicImage;
 use serde::Deserialize;
-use std::{borrow::Cow, cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
+use std::{cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 
 pub(crate) type BuildResult = Result<(), BuildError>;
@@ -127,7 +129,8 @@ pub(crate) struct PresentationBuilder<'a> {
     slides: Vec<Slide>,
     highlighter: SnippetHighlighter,
     code_executor: Rc<SnippetExecutor>,
-    theme: Cow<'a, PresentationTheme>,
+    theme: PresentationTheme,
+    default_raw_theme: &'a raw::PresentationTheme,
     resources: Resources,
     third_party: &'a mut ThirdPartyRender,
     slide_state: SlideState,
@@ -144,7 +147,7 @@ impl<'a> PresentationBuilder<'a> {
     /// Construct a new builder.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
-        default_theme: &'a PresentationTheme,
+        default_raw_theme: &'a raw::PresentationTheme,
         resources: Resources,
         third_party: &'a mut ThirdPartyRender,
         code_executor: Rc<SnippetExecutor>,
@@ -152,15 +155,17 @@ impl<'a> PresentationBuilder<'a> {
         image_registry: ImageRegistry,
         bindings_config: KeyBindingsConfig,
         options: PresentationBuilderOptions,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ProcessingThemeError> {
+        let theme = PresentationTheme::new(default_raw_theme, &resources)?;
+        Ok(Self {
             slide_chunks: Vec::new(),
             chunk_operations: Vec::new(),
             chunk_mutators: Vec::new(),
             slides: Vec::new(),
             highlighter: SnippetHighlighter::default(),
             code_executor,
-            theme: Cow::Borrowed(default_theme),
+            theme,
+            default_raw_theme,
             resources,
             third_party,
             slide_state: Default::default(),
@@ -171,7 +176,7 @@ impl<'a> PresentationBuilder<'a> {
             image_registry,
             bindings_config,
             options,
-        }
+        })
     }
 
     /// Build a presentation.
@@ -223,14 +228,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn build_modal_background(&self) -> Result<Image, RegisterImageError> {
-        let color = self
-            .theme
-            .modals
-            .colors
-            .background
-            .as_ref()
-            .or(self.theme.default_style.colors.background.as_ref())
-            .and_then(Color::as_rgb);
+        let color = self.theme.modals.style.colors.background.as_ref().and_then(Color::as_rgb);
         // If we don't have an rgb color (or we don't have a color at all), we default to a dark
         // background.
         let rgba = match color {
@@ -264,17 +262,14 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_slide_prelude(&mut self) -> BuildResult {
-        let colors = self.theme.default_style.colors;
-        self.set_colors(colors)?;
-        let footer_height = match &self.theme.footer {
-            Some(FooterStyle::Template { height, .. }) => height,
-            _ => &None,
-        };
-        let footer_height = footer_height.unwrap_or(DEFAULT_FOOTER_HEIGHT);
+        let style = self.theme.default_style.style;
+        self.set_colors(style.colors)?;
+
+        let footer_height = self.theme.footer.height();
         self.chunk_operations.extend([
             RenderOperation::ClearScreen,
             RenderOperation::ApplyMargin(MarginProperties {
-                horizontal: self.theme.default_style.margin.clone().unwrap_or_default(),
+                horizontal: self.theme.default_style.margin.clone(),
                 top: 0,
                 bottom: footer_height,
             }),
@@ -357,8 +352,8 @@ impl<'a> PresentationBuilder<'a> {
         if metadata.name.is_some() && metadata.path.is_some() {
             return Err(BuildError::InvalidMetadata("cannot have both theme path and theme name".into()));
         }
-        // Only override the theme if we're not forced to use the defaul theme if we're not forced
-        // to use the default one.
+        let mut new_theme = None;
+        // Only override the theme if we're not forced to use the default one.
         if !self.options.force_default_theme {
             if let Some(theme_name) = &metadata.name {
                 let theme = self
@@ -366,11 +361,11 @@ impl<'a> PresentationBuilder<'a> {
                     .presentation
                     .load_by_name(theme_name)
                     .ok_or_else(|| BuildError::InvalidMetadata(format!("theme '{theme_name}' does not exist")))?;
-                self.theme = Cow::Owned(theme);
+                new_theme = Some(theme);
             }
             if let Some(theme_path) = &metadata.path {
                 let theme = self.resources.theme(theme_path)?;
-                self.theme = Cow::Owned(theme);
+                new_theme = Some(theme);
             }
         }
         if let Some(overrides) = &metadata.overrides {
@@ -378,42 +373,40 @@ impl<'a> PresentationBuilder<'a> {
                 return Err(BuildError::InvalidMetadata("theme overrides can't use 'extends'".into()));
             }
             // This shouldn't fail as the models are already correct.
-            let mut theme = merge_struct::merge(self.theme.as_ref(), overrides)
+            let theme = merge_struct::merge(self.default_raw_theme, overrides)
                 .map_err(|e| BuildError::InvalidMetadata(format!("invalid theme: {e}")))?;
-            theme.resolve_palette_colors()?;
-            self.theme = Cow::Owned(theme);
+            new_theme = Some(theme);
+        }
+        if let Some(theme) = new_theme {
+            self.theme = PresentationTheme::new(&theme, &self.resources)?;
         }
         Ok(())
     }
 
     fn set_code_theme(&mut self) -> BuildResult {
-        if let Some(theme) = &self.theme.code.theme_name {
-            let highlighter =
-                self.themes.highlight.load_by_name(theme).ok_or_else(|| BuildError::InvalidCodeTheme(theme.clone()))?;
-            self.highlighter = highlighter;
-        }
+        let theme = &self.theme.code.theme_name;
+        let highlighter =
+            self.themes.highlight.load_by_name(theme).ok_or_else(|| BuildError::InvalidCodeTheme(theme.clone()))?;
+        self.highlighter = highlighter;
         Ok(())
     }
 
     fn push_intro_slide(&mut self, metadata: PresentationMetadata) -> BuildResult {
-        let styles = self.theme.intro_slide.clone();
+        let styles = &self.theme.intro_slide;
         let create_text =
             |text: Option<String>, style: TextStyle| -> Option<Text> { text.map(|text| Text::new(text, style)) };
-        let title = create_text(
-            metadata.title,
-            TextStyle::default().bold().colors(styles.title.colors).size(self.font_size(styles.title.font_size)),
-        );
-        let sub_title = create_text(metadata.sub_title, TextStyle::default().colors(styles.subtitle.colors));
-        let event = create_text(metadata.event, TextStyle::default().colors(styles.event.colors));
-        let location = create_text(metadata.location, TextStyle::default().colors(styles.location.colors));
-        let date = create_text(metadata.date, TextStyle::default().colors(styles.date.colors));
+        let title = create_text(metadata.title, styles.title.style);
+        let sub_title = create_text(metadata.sub_title, styles.subtitle.style);
+        let event = create_text(metadata.event, styles.event.style);
+        let location = create_text(metadata.location, styles.location.style);
+        let date = create_text(metadata.date, styles.date.style);
         let authors: Vec<_> = metadata
             .author
             .into_iter()
             .chain(metadata.authors)
-            .map(|author| Text::new(author, TextStyle::default().colors(styles.author.colors)))
+            .map(|author| Text::new(author, styles.author.style))
             .collect();
-        if styles.footer == Some(false) {
+        if !styles.footer {
             self.slide_state.ignore_footer = true;
         }
         self.chunk_operations.push(RenderOperation::JumpToVerticalCenter);
@@ -582,29 +575,18 @@ impl<'a> PresentationBuilder<'a> {
         }
 
         let style = self.theme.slide_title.clone();
-        let font_size = self.font_size(style.font_size);
-        let mut text_style = TextStyle::default().colors(style.colors);
-        text_style = text_style.size(font_size);
-        if style.bold.unwrap_or_default() {
-            text_style = text_style.bold();
-        }
-        if style.italics.unwrap_or_default() {
-            text_style = text_style.italics();
-        }
-        if style.underlined.unwrap_or_default() {
-            text_style = text_style.underlined();
-        }
-        text.apply_style(&text_style);
+        text.apply_style(&style.style);
 
-        self.push_line_breaks(style.padding_top.unwrap_or(0) as usize);
+        self.push_line_breaks(style.padding_top as usize);
         self.push_text(text, ElementType::SlideTitle)?;
         self.push_line_break();
 
-        for _ in 0..style.padding_bottom.unwrap_or(0) {
+        for _ in 0..style.padding_bottom {
             self.push_line_break();
         }
         if style.separator {
-            self.chunk_operations.push(RenderSeparator::new(Line::default(), Default::default(), font_size).into());
+            self.chunk_operations
+                .push(RenderSeparator::new(Line::default(), Default::default(), style.style.size).into());
         }
         self.push_line_break();
         self.slide_state.ignore_element_line_break = true;
@@ -626,8 +608,7 @@ impl<'a> PresentationBuilder<'a> {
             prefix.push(' ');
             text.0.insert(0, Text::from(prefix));
         }
-        let text_style = TextStyle::default().bold().colors(style.colors).size(self.font_size(style.font_size));
-        text.apply_style(&text_style);
+        text.apply_style(&style.style);
 
         self.push_text(text, element_type)?;
         self.push_line_breaks(self.slide_font_size() as usize);
@@ -672,7 +653,7 @@ impl<'a> PresentationBuilder<'a> {
         };
         let properties = ImageRenderProperties {
             size,
-            background_color: self.theme.default_style.colors.background,
+            background_color: self.theme.default_style.style.colors.background,
             ..Default::default()
         };
         self.chunk_operations.push(RenderOperation::RenderImage(image, properties));
@@ -741,28 +722,38 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_block_quote(&mut self, lines: Vec<Line>) -> BuildResult {
-        let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
-        let prefix_color = self.theme.block_quote.colors.prefix.or(self.theme.block_quote.colors.base.foreground);
-        self.push_quoted_text(lines, prefix, self.theme.block_quote.colors.base, prefix_color)
+        let prefix = self.theme.block_quote.prefix.clone();
+        let prefix_style = self.theme.block_quote.prefix_style;
+        self.push_quoted_text(
+            lines,
+            prefix,
+            self.theme.block_quote.base_style.colors,
+            prefix_style,
+            self.theme.block_quote.alignment.clone(),
+        )
     }
 
     fn push_alert(&mut self, alert_type: AlertType, title: Option<String>, mut lines: Vec<Line>) -> BuildResult {
-        let (title_color, default_title, icon) = match alert_type {
-            AlertType::Note => self.theme.alert.styles.note.as_parts(),
-            AlertType::Tip => self.theme.alert.styles.tip.as_parts(),
-            AlertType::Important => self.theme.alert.styles.important.as_parts(),
-            AlertType::Warning => self.theme.alert.styles.warning.as_parts(),
-            AlertType::Caution => self.theme.alert.styles.caution.as_parts(),
+        let style = match alert_type {
+            AlertType::Note => &self.theme.alert.styles.note,
+            AlertType::Tip => &self.theme.alert.styles.tip,
+            AlertType::Important => &self.theme.alert.styles.important,
+            AlertType::Warning => &self.theme.alert.styles.warning,
+            AlertType::Caution => &self.theme.alert.styles.caution,
         };
-        let title_color = Some(title_color);
-        let title = title.unwrap_or_else(|| default_title.to_string());
-        let title = format!("{icon} {title}");
-        let title_colors = Colors { foreground: title_color, background: self.theme.alert.base_colors.background };
-        lines.insert(0, Line::from(Text::from("")));
-        lines.insert(0, Line::from(Text::new(title, TextStyle::default().colors(title_colors))));
 
-        let prefix = self.theme.block_quote.prefix.clone().unwrap_or_default();
-        self.push_quoted_text(lines, prefix, self.theme.alert.base_colors, title_color)
+        let title = format!("{} {}", style.icon, title.as_deref().unwrap_or(style.title.as_ref()));
+        lines.insert(0, Line::from(Text::from("")));
+        lines.insert(0, Line::from(Text::new(title, style.style)));
+
+        let prefix = self.theme.alert.prefix.clone();
+        self.push_quoted_text(
+            lines,
+            prefix,
+            self.theme.alert.base_style.colors,
+            style.style,
+            self.theme.alert.alignment.clone(),
+        )
     }
 
     fn push_quoted_text(
@@ -770,17 +761,12 @@ impl<'a> PresentationBuilder<'a> {
         lines: Vec<Line>,
         prefix: String,
         base_colors: Colors,
-        prefix_color: Option<Color>,
+        prefix_style: TextStyle,
+        alignment: Alignment,
     ) -> BuildResult {
         let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0) as u16;
         let font_size = self.font_size(None);
-        let prefix = Text::new(
-            prefix,
-            TextStyle::default()
-                .colors(Colors { foreground: prefix_color, background: self.theme.block_quote.colors.base.background })
-                .size(font_size),
-        );
-        let alignment = self.theme.alignment(&ElementType::BlockQuote).clone();
+        let prefix = Text::new(prefix, prefix_style.size(font_size));
 
         for mut line in lines {
             // Apply our colors to each chunk in this line.
@@ -788,7 +774,7 @@ impl<'a> PresentationBuilder<'a> {
                 if text.style.colors.background.is_none() && text.style.colors.foreground.is_none() {
                     text.style.colors = base_colors;
                     if text.style.is_code() {
-                        text.style.colors = self.theme.inline_code.colors;
+                        text.style.colors = self.theme.inline_code.style.colors;
                     }
                 } else {
                     text.style.colors = text.style.colors.resolve(&self.theme.palette)?;
@@ -806,7 +792,7 @@ impl<'a> PresentationBuilder<'a> {
             }));
             self.push_line_break();
         }
-        self.set_colors(self.theme.default_style.colors)?;
+        self.set_colors(self.theme.default_style.style.colors)?;
         Ok(())
     }
 
@@ -826,7 +812,7 @@ impl<'a> PresentationBuilder<'a> {
         let default_font_size = self.font_size(None);
         for chunk in &mut block.0 {
             if chunk.style.is_code() {
-                chunk.style.colors = self.theme.inline_code.colors;
+                chunk.style.colors = self.theme.inline_code.style.colors;
             } else {
                 let style = &mut chunk.style;
                 style.colors = style.colors.resolve(&self.theme.palette)?;
@@ -867,22 +853,22 @@ impl<'a> PresentationBuilder<'a> {
         } else if snippet.attributes.execute_replace && self.options.enable_snippet_execution_replace {
             return self.push_code_execution(snippet, 0, ExecutionMode::ReplaceSnippet);
         }
-        let lines =
-            SnippetSplitter::new(&self.theme, self.code_executor.hidden_line_prefix(&snippet.language)).split(&snippet);
+        let lines = SnippetSplitter::new(&self.theme.code, self.code_executor.hidden_line_prefix(&snippet.language))
+            .split(&snippet);
         let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0) * self.slide_font_size() as usize;
         let (lines, context) = self.highlight_lines(&snippet, lines, block_length);
         for line in lines {
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
         }
-        self.set_colors(self.theme.default_style.colors)?;
+        self.set_colors(self.theme.default_style.style.colors)?;
         if self.options.allow_mutations && context.borrow().groups.len() > 1 {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
 
         if snippet.attributes.execute_replace && !self.options.enable_snippet_execution_replace {
             let operation = SnippetExecutionDisabledOperation::new(
-                self.theme.execution_output.status.failure,
-                self.theme.code.alignment.clone().unwrap_or_default(),
+                self.theme.execution_output.status.failure_style,
+                self.theme.code.alignment.clone(),
             );
             operation.start_render();
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(operation)))
@@ -892,8 +878,8 @@ impl<'a> PresentationBuilder<'a> {
                 self.push_code_execution(snippet, block_length, ExecutionMode::AlongSnippet)?;
             } else {
                 let operation = SnippetExecutionDisabledOperation::new(
-                    self.theme.execution_output.status.failure,
-                    self.theme.code.alignment.clone().unwrap_or_default(),
+                    self.theme.execution_output.status.failure_style,
+                    self.theme.code.alignment.clone(),
                 );
                 self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(operation)))
             }
@@ -947,7 +933,7 @@ impl<'a> PresentationBuilder<'a> {
     ) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let style = self.code_style(code);
-        let block_length = match self.theme.code.alignment.clone().unwrap_or_default() {
+        let block_length = match self.theme.code.alignment.clone() {
             Alignment::Left { .. } | Alignment::Right { .. } => block_length,
             Alignment::Center { minimum_size, .. } => block_length.max(minimum_size as usize),
         };
@@ -964,7 +950,7 @@ impl<'a> PresentationBuilder<'a> {
             groups,
             current: 0,
             block_length,
-            alignment: style.alignment.clone().unwrap_or_default(),
+            alignment: style.alignment.clone(),
         }));
 
         let mut output = Vec::new();
@@ -991,14 +977,11 @@ impl<'a> PresentationBuilder<'a> {
         let mut style = self.theme.code.clone();
         if snippet.attributes.no_background {
             style.alignment = match style.alignment {
-                Some(Alignment::Center { .. }) => {
-                    Some(Alignment::Center { minimum_size: 0, minimum_margin: Margin::default() })
-                }
-                Some(Alignment::Left { .. }) => Some(Alignment::Left { margin: Margin::default() }),
-                Some(Alignment::Right { .. }) => Some(Alignment::Right { margin: Margin::default() }),
-                None => None,
+                Alignment::Center { .. } => Alignment::Center { minimum_size: 0, minimum_margin: Margin::default() },
+                Alignment::Left { .. } => Alignment::Left { margin: Margin::default() },
+                Alignment::Right { .. } => Alignment::Right { margin: Margin::default() },
             };
-            style.background = Some(false);
+            style.background = false;
         }
         style
     }
@@ -1022,7 +1005,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         if snippet.attributes.acquire_terminal {
             let block_length = block_length as u16;
-            let block_length = match self.theme.code.alignment.clone().unwrap_or_default() {
+            let block_length = match self.theme.code.alignment.clone() {
                 Alignment::Left { .. } | Alignment::Right { .. } => block_length,
                 Alignment::Center { minimum_size, .. } => block_length.max(minimum_size),
             };
@@ -1041,11 +1024,11 @@ impl<'a> PresentationBuilder<'a> {
             ExecutionMode::AlongSnippet => DisplaySeparator::On,
             ExecutionMode::ReplaceSnippet => DisplaySeparator::Off,
         };
-        let alignment = self.code_style(&snippet).alignment.unwrap_or_default();
-        let default_colors = self.theme.default_style.colors;
+        let alignment = self.code_style(&snippet).alignment;
+        let default_colors = self.theme.default_style.style.colors;
         let mut execution_output_style = self.theme.execution_output.clone();
         if snippet.attributes.no_background {
-            execution_output_style.colors.background = None;
+            execution_output_style.style.colors.background = None;
         }
         let operation = RunSnippetOperation::new(
             snippet,
@@ -1087,13 +1070,7 @@ impl<'a> PresentationBuilder<'a> {
         if self.slide_state.ignore_footer {
             return Ok(Vec::new());
         }
-        let generator = FooterGenerator::new(
-            self.slides.len(),
-            self.footer_context.clone(),
-            self.theme.footer.clone().unwrap_or_default(),
-            self.resources.clone(),
-        )
-        .map_err(|e| BuildError::LoadFooterImage { error: e.to_string() })?;
+        let generator = FooterGenerator::new(self.slides.len(), self.footer_context.clone(), self.theme.footer.clone());
         Ok(vec![
             // Exit any layout we're in so this gets rendered on a default screen size.
             RenderOperation::ExitLayout,
@@ -1238,9 +1215,6 @@ pub enum BuildError {
     #[error("could not load image '{path}' at {source_position}: {error}")]
     LoadImage { path: PathBuf, source_position: SourcePosition, error: String },
 
-    #[error("could not load footer image: {error}")]
-    LoadFooterImage { error: String },
-
     #[error("failed to register image: {0}")]
     RegisterImage(#[from] RegisterImageError),
 
@@ -1288,6 +1262,9 @@ pub enum BuildError {
 
     #[error("font size must be >= 1 and <= 7")]
     InvalidFontSize,
+
+    #[error("processing theme: {0}")]
+    ThemeProcessing(#[from] ProcessingThemeError),
 }
 
 enum ExecutionMode {
@@ -1484,7 +1461,7 @@ mod test {
         elements: Vec<MarkdownElement>,
         options: PresentationBuilderOptions,
     ) -> Result<Presentation, BuildError> {
-        let theme = PresentationTheme::default();
+        let theme = raw::PresentationTheme::default();
         let resources = Resources::new("/tmp", "/tmp", Default::default());
         let mut third_party = ThirdPartyRender::default();
         let code_executor = Rc::new(SnippetExecutor::default());
@@ -1499,7 +1476,7 @@ mod test {
             Default::default(),
             bindings,
             options,
-        );
+        )?;
         builder.build(elements)
     }
 

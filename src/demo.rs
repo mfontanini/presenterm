@@ -1,5 +1,5 @@
 use crate::{
-    ImageRegistry, MarkdownParser, PresentationBuilderOptions, PresentationTheme, Resources, Themes, ThirdPartyRender,
+    ImageRegistry, MarkdownParser, PresentationBuilderOptions, Resources, Themes, ThirdPartyRender,
     code::execute::SnippetExecutor,
     commands::{
         keyboard::{CommandKeyBindings, KeyboardListener},
@@ -12,6 +12,7 @@ use crate::{
     },
     render::TerminalDrawer,
     terminal::emulator::TerminalEmulator,
+    theme::raw::PresentationTheme,
 };
 use std::{io, rc::Rc};
 
@@ -119,7 +120,7 @@ impl ThemesDemo {
             image_registry,
             bindings_config,
             options,
-        );
+        )?;
         let mut elements = vec![MarkdownElement::SetexHeading { text: format!("theme: {theme_name}").into() }];
         elements.extend(base_elements.iter().cloned());
         builder.build(elements)
