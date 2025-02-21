@@ -3,6 +3,7 @@ use super::{
     html::{HtmlInline, HtmlParser, ParseHtmlError},
     text_style::TextStyle,
 };
+use crate::theme::raw::RawColor;
 use comrak::{
     Arena, ComrakOptions,
     arena_tree::Node,
@@ -118,7 +119,7 @@ impl<'a> MarkdownParser<'a> {
                 Inline::Image { .. } => {}
             }
         }
-        if lines.last() == Some(&Line::from("")) {
+        if lines.last() == Some(&Line::<RawColor>::from("")) {
             lines.pop();
         }
         Ok(MarkdownElement::BlockQuote(lines))
@@ -175,7 +176,7 @@ impl<'a> MarkdownParser<'a> {
         Ok(elements)
     }
 
-    fn parse_text(&self, node: &'a AstNode<'a>) -> ParseResult<Line> {
+    fn parse_text(&self, node: &'a AstNode<'a>) -> ParseResult<Line<RawColor>> {
         let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No).parse(node)?;
         let mut chunks = Vec::new();
         for inline in inlines {
@@ -291,7 +292,7 @@ enum StringifyImages {
 
 struct InlinesParser<'a> {
     inlines: Vec<Inline>,
-    pending_text: Vec<Text>,
+    pending_text: Vec<Text<RawColor>>,
     arena: &'a Arena<AstNode<'a>>,
     soft_break: SoftBreak,
     stringify_images: StringifyImages,
@@ -319,7 +320,7 @@ impl<'a> InlinesParser<'a> {
         &mut self,
         node: &'a AstNode<'a>,
         parent: &'a AstNode<'a>,
-        style: TextStyle,
+        style: TextStyle<RawColor>,
     ) -> ParseResult<Option<HtmlStyle>> {
         let data = node.data.borrow();
         match &data.value {
@@ -426,18 +427,18 @@ impl<'a> InlinesParser<'a> {
         Ok(None)
     }
 
-    fn process_children(&mut self, root: &'a AstNode<'a>, base_style: TextStyle) -> ParseResult<()> {
+    fn process_children(&mut self, root: &'a AstNode<'a>, base_style: TextStyle<RawColor>) -> ParseResult<()> {
         let mut html_styles = Vec::new();
-        let mut style = base_style;
+        let mut style = base_style.clone();
         for node in root.children() {
-            if let Some(html_style) = self.process_node(node, root, style)? {
+            if let Some(html_style) = self.process_node(node, root, style.clone())? {
                 match html_style {
                     HtmlStyle::Add(style) => html_styles.push(style),
                     HtmlStyle::Remove => {
                         html_styles.pop();
                     }
                 };
-                style = base_style;
+                style = base_style.clone();
                 for html_style in html_styles.iter().rev() {
                     style.merge(html_style);
                 }
@@ -448,12 +449,12 @@ impl<'a> InlinesParser<'a> {
 }
 
 enum HtmlStyle {
-    Add(TextStyle),
+    Add(TextStyle<RawColor>),
     Remove,
 }
 
 enum Inline {
-    Text(Line),
+    Text(Line<RawColor>),
     Image { path: String, title: String },
     LineBreak,
 }
@@ -584,7 +585,6 @@ impl Identifier for NodeValue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::markdown::text_style::Color;
     use rstest::rstest;
     use std::path::Path;
 
@@ -646,9 +646,9 @@ boop
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks = vec![
             Text::from("hi"),
-            Text::new("red", TextStyle::default().fg_color(Color::Red)),
-            Text::new("blue", TextStyle::default().fg_color(Color::Red).bg_color(Color::Blue)),
-            Text::new("yellow", TextStyle::default().fg_color(Color::Yellow).bg_color(Color::Blue)),
+            Text::new("red", TextStyle::default().fg_color(RawColor::Red)),
+            Text::new("blue", TextStyle::default().fg_color(RawColor::Red).bg_color(RawColor::Blue)),
+            Text::new("yellow", TextStyle::default().fg_color(RawColor::Yellow).bg_color(RawColor::Blue)),
         ];
 
         let expected_elements = &[Line(expected_chunks)];

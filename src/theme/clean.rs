@@ -14,6 +14,17 @@ const DEFAULT_TYPST_VERTICAL_MARGIN: u16 = 7;
 const DEFAULT_MERMAID_THEME: &str = "default";
 const DEFAULT_MERMAID_BACKGROUND: &str = "transparent";
 
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ThemeOptions {
+    pub(crate) font_size_supported: bool,
+}
+
+impl ThemeOptions {
+    fn adjust_font_size(&self, font_size: Option<u8>) -> u8 {
+        if !self.font_size_supported { 1 } else { font_size.unwrap_or(1).clamp(1, 7) }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct PresentationTheme {
     pub(crate) slide_title: SlideTitleStyle,
@@ -34,7 +45,11 @@ pub(crate) struct PresentationTheme {
 }
 
 impl PresentationTheme {
-    pub(crate) fn new(raw: &raw::PresentationTheme, resources: &Resources) -> Result<Self, ProcessingThemeError> {
+    pub(crate) fn new(
+        raw: &raw::PresentationTheme,
+        resources: &Resources,
+        options: &ThemeOptions,
+    ) -> Result<Self, ProcessingThemeError> {
         let raw::PresentationTheme {
             slide_title,
             code,
@@ -56,7 +71,7 @@ impl PresentationTheme {
 
         let default_style = DefaultStyle::new(default_style, palette)?;
         Ok(Self {
-            slide_title: SlideTitleStyle::new(slide_title, palette)?,
+            slide_title: SlideTitleStyle::new(slide_title, palette, options)?,
             code: CodeBlockStyle::new(code),
             execution_output: ExecutionOutputBlockStyle::new(execution_output, palette)?,
             inline_code: InlineCodeStyle::new(inline_code, palette)?,
@@ -64,8 +79,8 @@ impl PresentationTheme {
             block_quote: BlockQuoteStyle::new(block_quote, palette)?,
             alert: AlertStyle::new(alert, palette)?,
             default_style: default_style.clone(),
-            headings: HeadingStyles::new(headings, palette)?,
-            intro_slide: IntroSlideStyle::new(intro_slide, palette)?,
+            headings: HeadingStyles::new(headings, palette, options)?,
+            intro_slide: IntroSlideStyle::new(intro_slide, palette, options)?,
             footer: FooterStyle::new(&footer.clone().unwrap_or_default(), palette, resources)?,
             typst: TypstStyle::new(typst, palette)?,
             mermaid: MermaidStyle::new(mermaid),
@@ -117,7 +132,11 @@ pub(crate) struct SlideTitleStyle {
 }
 
 impl SlideTitleStyle {
-    fn new(raw: &raw::SlideTitleStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
+    fn new(
+        raw: &raw::SlideTitleStyle,
+        palette: &ColorPalette,
+        options: &ThemeOptions,
+    ) -> Result<Self, ProcessingThemeError> {
         let raw::SlideTitleStyle {
             alignment,
             separator,
@@ -130,7 +149,7 @@ impl SlideTitleStyle {
             font_size,
         } = raw;
         let colors = colors.resolve(palette)?;
-        let mut style = TextStyle::colored(colors).size(font_size.unwrap_or(1));
+        let mut style = TextStyle::colored(colors).size(options.adjust_font_size(*font_size));
         if bold.unwrap_or_default() {
             style = style.bold();
         }
@@ -161,15 +180,19 @@ pub(crate) struct HeadingStyles {
 }
 
 impl HeadingStyles {
-    fn new(raw: &raw::HeadingStyles, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
+    fn new(
+        raw: &raw::HeadingStyles,
+        palette: &ColorPalette,
+        options: &ThemeOptions,
+    ) -> Result<Self, ProcessingThemeError> {
         let raw::HeadingStyles { h1, h2, h3, h4, h5, h6 } = raw;
         Ok(Self {
-            h1: HeadingStyle::new(h1, palette)?,
-            h2: HeadingStyle::new(h2, palette)?,
-            h3: HeadingStyle::new(h3, palette)?,
-            h4: HeadingStyle::new(h4, palette)?,
-            h5: HeadingStyle::new(h5, palette)?,
-            h6: HeadingStyle::new(h6, palette)?,
+            h1: HeadingStyle::new(h1, palette, options)?,
+            h2: HeadingStyle::new(h2, palette, options)?,
+            h3: HeadingStyle::new(h3, palette, options)?,
+            h4: HeadingStyle::new(h4, palette, options)?,
+            h5: HeadingStyle::new(h5, palette, options)?,
+            h6: HeadingStyle::new(h6, palette, options)?,
         })
     }
 }
@@ -182,10 +205,14 @@ pub(crate) struct HeadingStyle {
 }
 
 impl HeadingStyle {
-    fn new(raw: &raw::HeadingStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
+    fn new(
+        raw: &raw::HeadingStyle,
+        palette: &ColorPalette,
+        options: &ThemeOptions,
+    ) -> Result<Self, ProcessingThemeError> {
         let raw::HeadingStyle { alignment, prefix, colors, font_size } = raw;
         let alignment = alignment.clone().unwrap_or_default().into();
-        let style = TextStyle::colored(colors.resolve(palette)?).size(font_size.unwrap_or(1));
+        let style = TextStyle::colored(colors.resolve(palette)?).size(options.adjust_font_size(*font_size));
         Ok(Self { alignment, prefix: prefix.clone(), style })
     }
 }
@@ -297,7 +324,7 @@ impl AlertTypeStyle {
         palette: &ColorPalette,
     ) -> Result<Self, ProcessingThemeError> {
         let raw::AlertTypeStyle { color, title, icon, .. } = raw;
-        let color = color.map(|c| c.resolve(palette)).transpose()?.unwrap_or(defaults.color);
+        let color = color.as_ref().map(|c| c.resolve(palette)).transpose()?.unwrap_or(defaults.color);
         let style = base_style.fg_color(color);
         let title = title.as_deref().unwrap_or(defaults.title).to_string();
         let icon = icon.as_deref().unwrap_or(defaults.icon).to_string();
@@ -323,10 +350,14 @@ pub(crate) struct IntroSlideStyle {
 }
 
 impl IntroSlideStyle {
-    fn new(raw: &raw::IntroSlideStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
+    fn new(
+        raw: &raw::IntroSlideStyle,
+        palette: &ColorPalette,
+        options: &ThemeOptions,
+    ) -> Result<Self, ProcessingThemeError> {
         let raw::IntroSlideStyle { title, subtitle, event, location, date, author, footer } = raw;
         Ok(Self {
-            title: IntroSlideTitleStyle::new(title, palette)?,
+            title: IntroSlideTitleStyle::new(title, palette, options)?,
             subtitle: IntroSlideLabelStyle::new(subtitle, palette)?,
             event: IntroSlideLabelStyle::new(event, palette)?,
             location: IntroSlideLabelStyle::new(location, palette)?,
@@ -358,9 +389,13 @@ pub(crate) struct IntroSlideTitleStyle {
 }
 
 impl IntroSlideTitleStyle {
-    fn new(raw: &raw::IntroSlideTitleStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
+    fn new(
+        raw: &raw::IntroSlideTitleStyle,
+        palette: &ColorPalette,
+        options: &ThemeOptions,
+    ) -> Result<Self, ProcessingThemeError> {
         let raw::IntroSlideTitleStyle { alignment, colors, font_size } = raw;
-        let style = TextStyle::colored(colors.resolve(palette)?).size(font_size.unwrap_or(1));
+        let style = TextStyle::colored(colors.resolve(palette)?).size(options.adjust_font_size(*font_size));
         Ok(Self { alignment: alignment.clone().unwrap_or_default().into(), style })
     }
 }

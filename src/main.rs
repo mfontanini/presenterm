@@ -28,6 +28,7 @@ use std::{
     sync::Arc,
 };
 use terminal::emulator::TerminalEmulator;
+use theme::ThemeOptions;
 
 mod code;
 mod commands;
@@ -263,7 +264,7 @@ impl CoreComponents {
             enable_snippet_execution_replace: config.snippet.exec_replace.enable,
             render_speaker_notes_only,
             auto_render_languages: config.options.auto_render_languages.clone(),
-            font_size_supported: TerminalEmulator::capabilities().font_size,
+            theme_options: ThemeOptions { font_size_supported: TerminalEmulator::capabilities().font_size },
         }
     }
 

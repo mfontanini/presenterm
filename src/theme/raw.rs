@@ -1,5 +1,6 @@
 use super::registry::LoadThemeError;
-use crate::markdown::text_style::{Color, Colors, FixedStr};
+use crate::markdown::text_style::{Color, Colors, FixedStr, UndefinedPaletteColorError};
+use hex::{FromHex, FromHexError};
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::{
@@ -8,6 +9,8 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
+
+pub(crate) type RawColors = Colors<RawColor>;
 
 /// A presentation theme.
 #[derive(Default, Clone, Debug, Deserialize, Serialize)]
@@ -109,7 +112,7 @@ pub(super) struct SlideTitleStyle {
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: Colors,
+    pub(super) colors: RawColors,
 
     /// Whether to use bold font for slide titles.
     #[serde(default)]
@@ -171,7 +174,7 @@ pub(super) struct HeadingStyle {
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: Colors,
+    pub(super) colors: RawColors,
 
     /// The font size to be used if the terminal supports it.
     #[serde(default)]
@@ -201,11 +204,11 @@ pub(super) struct BlockQuoteStyle {
 pub(super) struct BlockQuoteColors {
     /// The foreground/background colors.
     #[serde(flatten)]
-    pub(super) base: Colors,
+    pub(super) base: RawColors,
 
     /// The color of the vertical bar that prefixes each line in the quote.
     #[serde(default)]
-    pub(super) prefix: Option<Color>,
+    pub(super) prefix: Option<RawColor>,
 }
 
 /// The style of an alert.
@@ -217,7 +220,7 @@ pub(super) struct AlertStyle {
 
     /// The base colors.
     #[serde(default)]
-    pub(super) base_colors: Colors,
+    pub(super) base_colors: RawColors,
 
     /// The prefix to be added to this block quote.
     ///
@@ -259,7 +262,7 @@ pub(super) struct AlertTypeStyles {
 pub(super) struct AlertTypeStyle {
     /// The color to be used.
     #[serde(default)]
-    pub(super) color: Option<Color>,
+    pub(super) color: Option<RawColor>,
 
     /// The title to be used.
     #[serde(default)]
@@ -311,7 +314,7 @@ pub(super) struct DefaultStyle {
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: Colors,
+    pub(super) colors: RawColors,
 }
 
 /// A simple style.
@@ -323,7 +326,7 @@ pub(super) struct BasicStyle {
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: Colors,
+    pub(super) colors: RawColors,
 }
 
 /// The intro slide title's style.
@@ -335,7 +338,7 @@ pub(super) struct IntroSlideTitleStyle {
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: Colors,
+    pub(super) colors: RawColors,
 
     /// The font size to be used if the terminal supports it.
     #[serde(default)]
@@ -389,7 +392,7 @@ pub(super) struct AuthorStyle {
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: Colors,
+    pub(super) colors: RawColors,
 
     /// The positioning of the author's name.
     #[serde(default)]
@@ -413,7 +416,7 @@ pub(super) enum FooterStyle {
 
         /// The colors to be used.
         #[serde(default)]
-        colors: Colors,
+        colors: RawColors,
 
         /// The height of the footer area.
         height: Option<u16>,
@@ -426,7 +429,7 @@ pub(super) enum FooterStyle {
 
         /// The colors to be used.
         #[serde(default)]
-        colors: Colors,
+        colors: RawColors,
     },
 
     /// No footer.
@@ -435,7 +438,7 @@ pub(super) enum FooterStyle {
 
 impl Default for FooterStyle {
     fn default() -> Self {
-        Self::Template { left: None, center: None, right: None, colors: Colors::default(), height: None }
+        Self::Template { left: None, center: None, right: None, colors: RawColors::default(), height: None }
     }
 }
 
@@ -571,7 +574,7 @@ pub(super) struct CodeBlockStyle {
 pub(super) struct ExecutionOutputBlockStyle {
     /// The colors to be used for the output pane.
     #[serde(default)]
-    pub(super) colors: Colors,
+    pub(super) colors: RawColors,
 
     /// The colors to be used for the text that represents the status of the execution block.
     #[serde(default)]
@@ -583,19 +586,19 @@ pub(super) struct ExecutionOutputBlockStyle {
 pub(super) struct ExecutionStatusBlockStyle {
     /// The colors for the "running" status.
     #[serde(default)]
-    pub(super) running: Colors,
+    pub(super) running: RawColors,
 
     /// The colors for the "finished" status.
     #[serde(default)]
-    pub(super) success: Colors,
+    pub(super) success: RawColors,
 
     /// The colors for the "finished with error" status.
     #[serde(default)]
-    pub(super) failure: Colors,
+    pub(super) failure: RawColors,
 
     /// The colors for the "not started" status.
     #[serde(default)]
-    pub(super) not_started: Colors,
+    pub(super) not_started: RawColors,
 }
 
 /// The style for inline code.
@@ -603,7 +606,7 @@ pub(super) struct ExecutionStatusBlockStyle {
 pub(super) struct InlineCodeStyle {
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: Colors,
+    pub(super) colors: RawColors,
 }
 
 /// Vertical/horizontal padding.
@@ -698,7 +701,7 @@ pub(super) struct TypstStyle {
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: Colors,
+    pub(super) colors: RawColors,
 }
 
 /// Mermaid styles.
@@ -716,11 +719,11 @@ pub(super) struct MermaidStyle {
 pub(super) struct ModalStyle {
     /// The default colors to use for everything in the modal.
     #[serde(default)]
-    pub(super) colors: Colors,
+    pub(super) colors: RawColors,
 
     /// The colors to use for selected lines.
     #[serde(default)]
-    pub(super) selection_colors: Colors,
+    pub(super) selection_colors: RawColors,
 }
 
 /// The color palette.
@@ -728,6 +731,152 @@ pub(super) struct ModalStyle {
 pub(crate) struct ColorPalette {
     #[serde(default)]
     pub(crate) colors: BTreeMap<FixedStr, Color>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, SerializeDisplay, DeserializeFromStr)]
+pub(crate) enum RawColor {
+    Black,
+    DarkGrey,
+    Red,
+    DarkRed,
+    Green,
+    DarkGreen,
+    Yellow,
+    DarkYellow,
+    Blue,
+    DarkBlue,
+    Magenta,
+    DarkMagenta,
+    Cyan,
+    DarkCyan,
+    White,
+    Grey,
+    Rgb { r: u8, g: u8, b: u8 },
+    Palette(String),
+}
+
+impl RawColor {
+    fn new_palette(name: &str) -> Result<Self, ParseColorError> {
+        if name.is_empty() { Err(ParseColorError::PaletteColorEmpty) } else { Ok(Self::Palette(name.into())) }
+    }
+
+    pub(crate) fn resolve(&self, palette: &ColorPalette) -> Result<Color, UndefinedPaletteColorError> {
+        let color = match self {
+            RawColor::Black => Color::Black,
+            RawColor::DarkGrey => Color::DarkGrey,
+            RawColor::Red => Color::Red,
+            RawColor::DarkRed => Color::DarkRed,
+            RawColor::Green => Color::Green,
+            RawColor::DarkGreen => Color::DarkGreen,
+            RawColor::Yellow => Color::Yellow,
+            RawColor::DarkYellow => Color::DarkYellow,
+            RawColor::Blue => Color::Blue,
+            RawColor::DarkBlue => Color::DarkBlue,
+            RawColor::Magenta => Color::Magenta,
+            RawColor::DarkMagenta => Color::DarkMagenta,
+            RawColor::Cyan => Color::Cyan,
+            RawColor::DarkCyan => Color::DarkCyan,
+            RawColor::White => Color::White,
+            RawColor::Grey => Color::Grey,
+            RawColor::Rgb { r, g, b } => Color::Rgb { r: *r, g: *g, b: *b },
+            RawColor::Palette(name) => {
+                let name = FixedStr::try_from(name.as_str()).unwrap();
+                palette.colors.get(&name).copied().ok_or(UndefinedPaletteColorError(name))?
+            }
+        };
+        Ok(color)
+    }
+}
+
+impl From<Color> for RawColor {
+    fn from(color: Color) -> Self {
+        match color {
+            Color::Black => Self::Black,
+            Color::DarkGrey => Self::DarkGrey,
+            Color::Red => Self::Red,
+            Color::DarkRed => Self::DarkRed,
+            Color::Green => Self::Green,
+            Color::DarkGreen => Self::DarkGreen,
+            Color::Yellow => Self::Yellow,
+            Color::DarkYellow => Self::DarkYellow,
+            Color::Blue => Self::Blue,
+            Color::DarkBlue => Self::DarkBlue,
+            Color::Magenta => Self::Magenta,
+            Color::DarkMagenta => Self::DarkMagenta,
+            Color::Cyan => Self::Cyan,
+            Color::DarkCyan => Self::DarkCyan,
+            Color::White => Self::White,
+            Color::Grey => Self::Grey,
+            Color::Rgb { r, g, b } => Self::Rgb { r, g, b },
+        }
+    }
+}
+
+impl FromStr for RawColor {
+    type Err = ParseColorError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let output = match input {
+            "black" => Self::Black,
+            "white" => Self::White,
+            "grey" => Self::Grey,
+            "dark_grey" => Self::DarkGrey,
+            "red" => Self::Red,
+            "dark_red" => Self::DarkRed,
+            "green" => Self::Green,
+            "dark_green" => Self::DarkGreen,
+            "blue" => Self::Blue,
+            "dark_blue" => Self::DarkBlue,
+            "yellow" => Self::Yellow,
+            "dark_yellow" => Self::DarkYellow,
+            "magenta" => Self::Magenta,
+            "dark_magenta" => Self::DarkMagenta,
+            "cyan" => Self::Cyan,
+            "dark_cyan" => Self::DarkCyan,
+            other if other.starts_with("palette:") => Self::new_palette(other.trim_start_matches("palette:"))?,
+            other if other.starts_with("p:") => Self::new_palette(other.trim_start_matches("p:"))?,
+            // Fallback to hex-encoded rgb
+            _ => {
+                let values = <[u8; 3]>::from_hex(input)?;
+                Self::Rgb { r: values[0], g: values[1], b: values[2] }
+            }
+        };
+        Ok(output)
+    }
+}
+
+impl fmt::Display for RawColor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Rgb { r, g, b } => write!(f, "{}", hex::encode([*r, *g, *b])),
+            Self::Black => write!(f, "black"),
+            Self::White => write!(f, "white"),
+            Self::Grey => write!(f, "grey"),
+            Self::DarkGrey => write!(f, "dark_grey"),
+            Self::Red => write!(f, "red"),
+            Self::DarkRed => write!(f, "dark_red"),
+            Self::Green => write!(f, "green"),
+            Self::DarkGreen => write!(f, "dark_green"),
+            Self::Blue => write!(f, "blue"),
+            Self::DarkBlue => write!(f, "dark_blue"),
+            Self::Yellow => write!(f, "yellow"),
+            Self::DarkYellow => write!(f, "dark_yellow"),
+            Self::Magenta => write!(f, "magenta"),
+            Self::DarkMagenta => write!(f, "dark_magenta"),
+            Self::Cyan => write!(f, "cyan"),
+            Self::DarkCyan => write!(f, "dark_cyan"),
+            Self::Palette(name) => write!(f, "palette:{name}"),
+        }
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub(crate) enum ParseColorError {
+    #[error("invalid hex color: {0}")]
+    Hex(#[from] FromHexError),
+
+    #[error("palette color name is empty")]
+    PaletteColorEmpty,
 }
 
 #[cfg(test)]
@@ -769,5 +918,27 @@ mod test {
     #[case::close_without_open2("author}")]
     fn invalid_footer_templates(#[case] input: &str) {
         FooterTemplate::from_str(input).expect_err("parse succeeded");
+    }
+
+    #[test]
+    fn color_serde() {
+        let color: RawColor = "beef42".parse().unwrap();
+        assert_eq!(color.to_string(), "beef42");
+    }
+
+    #[rstest]
+    #[case::empty1("p:")]
+    #[case::empty2("palette:")]
+    fn invalid_palette_color_names(#[case] input: &str) {
+        RawColor::from_str(input).expect_err("not an error");
+    }
+
+    #[rstest]
+    #[case::short("p:hi", "hi")]
+    #[case::long("palette:bye", "bye")]
+    fn valid_palette_color_names(#[case] input: &str, #[case] expected: &str) {
+        let color = RawColor::from_str(input).expect("failed to parse");
+        let RawColor::Palette(name) = color else { panic!("not a palette color") };
+        assert_eq!(name, expected);
     }
 }

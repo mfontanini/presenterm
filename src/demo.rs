@@ -1,5 +1,5 @@
 use crate::{
-    ImageRegistry, MarkdownParser, PresentationBuilderOptions, Resources, Themes, ThirdPartyRender,
+    ImageRegistry, MarkdownParser, PresentationBuilderOptions, Resources, ThemeOptions, Themes, ThirdPartyRender,
     code::execute::SnippetExecutor,
     commands::{
         keyboard::{CommandKeyBindings, KeyboardListener},
@@ -106,7 +106,7 @@ impl ThemesDemo {
         let resources = Resources::new("non_existent", "non_existent", image_registry.clone());
         let mut third_party = ThirdPartyRender::default();
         let options = PresentationBuilderOptions {
-            font_size_supported: TerminalEmulator::capabilities().font_size,
+            theme_options: ThemeOptions { font_size_supported: TerminalEmulator::capabilities().font_size },
             ..Default::default()
         };
         let executer = Rc::new(SnippetExecutor::default());

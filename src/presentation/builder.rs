@@ -31,7 +31,8 @@ use crate::{
     },
     theme::{
         Alignment, AuthorPositioning, CodeBlockStyle, ElementType, Margin, PresentationTheme, ProcessingThemeError,
-        raw,
+        ThemeOptions,
+        raw::{self, RawColor},
         registry::{LoadThemeError, PresentationThemeRegistry},
     },
     third_party::{ThirdPartyRender, ThirdPartyRenderError, ThirdPartyRenderRequest},
@@ -74,7 +75,7 @@ pub struct PresentationBuilderOptions {
     pub enable_snippet_execution_replace: bool,
     pub render_speaker_notes_only: bool,
     pub auto_render_languages: Vec<SnippetLanguage>,
-    pub font_size_supported: bool,
+    pub theme_options: ThemeOptions,
 }
 
 impl PresentationBuilderOptions {
@@ -112,7 +113,7 @@ impl Default for PresentationBuilderOptions {
             enable_snippet_execution_replace: false,
             render_speaker_notes_only: false,
             auto_render_languages: Default::default(),
-            font_size_supported: false,
+            theme_options: ThemeOptions { font_size_supported: false },
         }
     }
 }
@@ -155,7 +156,7 @@ impl<'a> PresentationBuilder<'a> {
         bindings_config: KeyBindingsConfig,
         options: PresentationBuilderOptions,
     ) -> Result<Self, ProcessingThemeError> {
-        let theme = PresentationTheme::new(default_raw_theme, &resources)?;
+        let theme = PresentationTheme::new(default_raw_theme, &resources, &options.theme_options)?;
         Ok(Self {
             slide_chunks: Vec::new(),
             chunk_operations: Vec::new(),
@@ -255,14 +256,13 @@ impl<'a> PresentationBuilder<'a> {
         if last_valid { Ok(()) } else { Err(BuildError::NotInsideColumn) }
     }
 
-    fn set_colors(&mut self, colors: Colors) -> Result<(), UndefinedPaletteColorError> {
-        self.chunk_operations.push(RenderOperation::SetColors(colors.resolve(&self.theme.palette)?));
-        Ok(())
+    fn set_colors(&mut self, colors: Colors) {
+        self.chunk_operations.push(RenderOperation::SetColors(colors));
     }
 
     fn push_slide_prelude(&mut self) -> BuildResult {
         let style = self.theme.default_style.style;
-        self.set_colors(style.colors)?;
+        self.set_colors(style.colors);
 
         let footer_height = self.theme.footer.height();
         self.chunk_operations.extend([
@@ -377,7 +377,7 @@ impl<'a> PresentationBuilder<'a> {
             new_theme = Some(theme);
         }
         if let Some(theme) = new_theme {
-            self.theme = PresentationTheme::new(&theme, &self.resources)?;
+            self.theme = PresentationTheme::new(&theme, &self.resources, &self.options.theme_options)?;
         }
         Ok(())
     }
@@ -564,7 +564,8 @@ impl<'a> PresentationBuilder<'a> {
         self.slide_chunks.push(SlideChunk::new(chunk_operations, mutators));
     }
 
-    fn push_slide_title(&mut self, mut text: Line) -> BuildResult {
+    fn push_slide_title(&mut self, text: Line<RawColor>) -> BuildResult {
+        let mut text = text.resolve(&self.theme.palette)?;
         if self.options.implicit_slide_ends && !matches!(self.slide_state.last_element, LastElement::None) {
             self.terminate_slide()?;
         }
@@ -592,7 +593,8 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_heading(&mut self, level: u8, mut text: Line) -> BuildResult {
+    fn push_heading(&mut self, level: u8, text: Line<RawColor>) -> BuildResult {
+        let mut text = text.resolve(&self.theme.palette)?;
         let (element_type, style) = match level {
             1 => (ElementType::Heading1, &self.theme.headings.h1),
             2 => (ElementType::Heading2, &self.theme.headings.h2),
@@ -614,9 +616,10 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_paragraph(&mut self, lines: Vec<Line>) -> BuildResult {
-        for text in lines {
-            self.push_text(text, ElementType::Paragraph)?;
+    fn push_paragraph(&mut self, lines: Vec<Line<RawColor>>) -> BuildResult {
+        for line in lines {
+            let line = line.resolve(&self.theme.palette)?;
+            self.push_text(line, ElementType::Paragraph)?;
             self.push_line_breaks(self.slide_font_size() as usize);
         }
         Ok(())
@@ -711,7 +714,7 @@ impl<'a> PresentationBuilder<'a> {
         let prefix_length = prefix.len() as u16 * self.font_size(None) as u16;
         self.push_text(prefix.into(), ElementType::List)?;
 
-        let text = item.contents;
+        let text = item.contents.resolve(&self.theme.palette)?;
         self.push_aligned_text(text, Alignment::Left { margin: Margin::Fixed(prefix_length) })?;
         self.push_line_break();
         if item.depth == 0 {
@@ -720,7 +723,7 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_block_quote(&mut self, lines: Vec<Line>) -> BuildResult {
+    fn push_block_quote(&mut self, lines: Vec<Line<RawColor>>) -> BuildResult {
         let prefix = self.theme.block_quote.prefix.clone();
         let prefix_style = self.theme.block_quote.prefix_style;
         self.push_quoted_text(
@@ -732,7 +735,12 @@ impl<'a> PresentationBuilder<'a> {
         )
     }
 
-    fn push_alert(&mut self, alert_type: AlertType, title: Option<String>, mut lines: Vec<Line>) -> BuildResult {
+    fn push_alert(
+        &mut self,
+        alert_type: AlertType,
+        title: Option<String>,
+        mut lines: Vec<Line<RawColor>>,
+    ) -> BuildResult {
         let style = match alert_type {
             AlertType::Note => &self.theme.alert.styles.note,
             AlertType::Tip => &self.theme.alert.styles.tip,
@@ -743,7 +751,7 @@ impl<'a> PresentationBuilder<'a> {
 
         let title = format!("{} {}", style.icon, title.as_deref().unwrap_or(style.title.as_ref()));
         lines.insert(0, Line::from(Text::from("")));
-        lines.insert(0, Line::from(Text::new(title, style.style)));
+        lines.insert(0, Line::from(Text::new(title, style.style.into_raw())));
 
         let prefix = self.theme.alert.prefix.clone();
         self.push_quoted_text(
@@ -757,7 +765,7 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_quoted_text(
         &mut self,
-        lines: Vec<Line>,
+        lines: Vec<Line<RawColor>>,
         prefix: String,
         base_colors: Colors,
         prefix_style: TextStyle,
@@ -767,7 +775,8 @@ impl<'a> PresentationBuilder<'a> {
         let font_size = self.font_size(None);
         let prefix = Text::new(prefix, prefix_style.size(font_size));
 
-        for mut line in lines {
+        for line in lines {
+            let mut line = line.resolve(&self.theme.palette)?;
             // Apply our colors to each chunk in this line.
             for text in &mut line.0 {
                 if text.style.colors.background.is_none() && text.style.colors.foreground.is_none() {
@@ -775,8 +784,6 @@ impl<'a> PresentationBuilder<'a> {
                     if text.style.is_code() {
                         text.style.colors = self.theme.inline_code.style.colors;
                     }
-                } else {
-                    text.style.colors = text.style.colors.resolve(&self.theme.palette)?;
                 }
                 text.style = text.style.size(font_size);
             }
@@ -791,7 +798,7 @@ impl<'a> PresentationBuilder<'a> {
             }));
             self.push_line_break();
         }
-        self.set_colors(self.theme.default_style.style.colors)?;
+        self.set_colors(self.theme.default_style.style.colors);
         Ok(())
     }
 
@@ -812,9 +819,6 @@ impl<'a> PresentationBuilder<'a> {
         for chunk in &mut block.0 {
             if chunk.style.is_code() {
                 chunk.style.colors = self.theme.inline_code.style.colors;
-            } else {
-                let style = &mut chunk.style;
-                style.colors = style.colors.resolve(&self.theme.palette)?;
             }
             if default_font_size > 1 {
                 chunk.style = chunk.style.size(default_font_size);
@@ -859,7 +863,7 @@ impl<'a> PresentationBuilder<'a> {
         for line in lines {
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
         }
-        self.set_colors(self.theme.default_style.style.colors)?;
+        self.set_colors(self.theme.default_style.style.colors);
         if self.options.allow_mutations && context.borrow().groups.len() > 1 {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
@@ -1083,7 +1087,7 @@ impl<'a> PresentationBuilder<'a> {
         let widths: Vec<_> = (0..table.columns())
             .map(|column| table.iter_column(column).map(|text| text.width()).max().unwrap_or(0))
             .collect();
-        let flattened_header = Self::prepare_table_row(table.header, &widths);
+        let flattened_header = self.prepare_table_row(table.header, &widths)?;
         self.push_text(flattened_header, ElementType::Table)?;
         self.push_line_break();
 
@@ -1106,16 +1110,17 @@ impl<'a> PresentationBuilder<'a> {
         self.push_line_break();
 
         for row in table.rows {
-            let flattened_row = Self::prepare_table_row(row, &widths);
+            let flattened_row = self.prepare_table_row(row, &widths)?;
             self.push_text(flattened_row, ElementType::Table)?;
             self.push_line_break();
         }
         Ok(())
     }
 
-    fn prepare_table_row(row: TableRow, widths: &[usize]) -> Line {
+    fn prepare_table_row(&self, row: TableRow, widths: &[usize]) -> Result<Line, BuildError> {
         let mut flattened_row = Line(Vec::new());
         for (column, text) in row.0.into_iter().enumerate() {
+            let text = text.resolve(&self.theme.palette)?;
             if column > 0 {
                 flattened_row.0.push(Text::from(" │ "));
             }
@@ -1128,7 +1133,7 @@ impl<'a> PresentationBuilder<'a> {
                 flattened_row.0.push(Text::from(padding));
             }
         }
-        flattened_row
+        Ok(flattened_row)
     }
 
     fn parse_image_attributes(
@@ -1164,7 +1169,7 @@ impl<'a> PresentationBuilder<'a> {
 
     fn font_size(&self, font_size: Option<u8>) -> u8 {
         let font_size = font_size.or(self.slide_state.font_size).unwrap_or(1);
-        if self.options.font_size_supported { font_size.clamp(1, 7) } else { 1 }
+        if self.options.theme_options.font_size_supported { font_size.clamp(1, 7) } else { 1 }
     }
 
     fn slide_font_size(&self) -> u8 {
