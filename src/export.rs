@@ -15,7 +15,7 @@ use crate::{
         Image, ImageSource,
         printer::{ImageProperties, TerminalImage},
     },
-    theme::{clean::ProcessingThemeError, raw::PresentationTheme},
+    theme::{ProcessingThemeError, raw::PresentationTheme},
     third_party::ThirdPartyRender,
     tools::{ExecutionError, ThirdPartyTools},
 };

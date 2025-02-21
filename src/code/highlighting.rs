@@ -4,7 +4,7 @@ use crate::{
         elements::{Line, Text},
         text_style::{Color, TextStyle},
     },
-    theme::clean::CodeBlockStyle,
+    theme::CodeBlockStyle,
 };
 use flate2::read::ZlibDecoder;
 use once_cell::sync::Lazy;

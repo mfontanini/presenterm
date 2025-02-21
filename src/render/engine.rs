@@ -17,7 +17,7 @@ use crate::{
         },
         printer::TerminalIo,
     },
-    theme::clean::Alignment,
+    theme::Alignment,
 };
 use std::mem;
 

@@ -13,7 +13,7 @@ use crate::{
         properties::WindowSize,
     },
     terminal::image::{Image, printer::RegisterImageError},
-    theme::clean::{Alignment, MermaidStyle, PresentationTheme, TypstStyle},
+    theme::{Alignment, MermaidStyle, PresentationTheme, TypstStyle},
     tools::{ExecutionError, ThirdPartyTools},
 };
 use std::{

@@ -8,7 +8,7 @@ use crate::{
         operation::{AsRenderOperations, BlockLine, RenderOperation},
         properties::WindowSize,
     },
-    theme::{Margin, clean::Alignment},
+    theme::{Alignment, Margin},
 };
 use std::rc::Rc;
 

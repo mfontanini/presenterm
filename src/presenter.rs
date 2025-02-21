@@ -21,7 +21,7 @@ use crate::{
         image::printer::{ImagePrinter, ImageRegistry},
         printer::TerminalIo,
     },
-    theme::{clean::ProcessingThemeError, raw::PresentationTheme},
+    theme::{ProcessingThemeError, raw::PresentationTheme},
     third_party::ThirdPartyRender,
 };
 use std::{

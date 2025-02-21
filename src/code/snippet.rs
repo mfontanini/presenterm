@@ -13,7 +13,7 @@ use crate::{
         operation::{AsRenderOperations, BlockLine, RenderOperation},
         properties::WindowSize,
     },
-    theme::clean::{Alignment, CodeBlockStyle},
+    theme::{Alignment, CodeBlockStyle},
 };
 use schemars::JsonSchema;
 use serde::Deserialize;

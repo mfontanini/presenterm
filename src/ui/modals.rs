@@ -13,7 +13,7 @@ use crate::{
         properties::WindowSize,
     },
     terminal::image::Image,
-    theme::{Margin, clean::PresentationTheme},
+    theme::{Margin, PresentationTheme},
 };
 use std::{iter, rc::Rc};
 use unicode_width::UnicodeWidthStr;

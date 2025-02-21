@@ -20,10 +20,7 @@ use crate::{
         image::{Image, printer::ImageRegistry},
         should_hide_cursor,
     },
-    theme::{
-        Margin,
-        clean::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle},
-    },
+    theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle, Margin},
 };
 use crossterm::{
     ExecutableCommand, cursor,

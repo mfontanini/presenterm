@@ -30,8 +30,7 @@ use crate::{
         printer::{ImageRegistry, RegisterImageError},
     },
     theme::{
-        AuthorPositioning, Margin,
-        clean::{Alignment, CodeBlockStyle, ElementType, PresentationTheme, ProcessingThemeError},
+        Alignment, AuthorPositioning, CodeBlockStyle, ElementType, Margin, PresentationTheme, ProcessingThemeError,
         raw,
         registry::{LoadThemeError, PresentationThemeRegistry},
     },

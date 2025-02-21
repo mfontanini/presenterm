@@ -5,7 +5,7 @@ use crate::{
         text_style::{Color, Colors},
     },
     terminal::image::Image,
-    theme::{Margin, clean::Alignment},
+    theme::{Alignment, Margin},
 };
 use std::{fmt::Debug, rc::Rc};
 

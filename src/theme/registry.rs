@@ -166,7 +166,7 @@ mod test {
             assert!(merged.is_ok(), "theme '{theme_name}' can't be merged: {}", merged.unwrap_err());
 
             let resources = Resources::new("/tmp/foo", "/tmp/foo", Default::default());
-            crate::theme::clean::PresentationTheme::new(&theme, &resources).expect("malformed theme");
+            crate::theme::PresentationTheme::new(&theme, &resources).expect("malformed theme");
         }
     }
 
