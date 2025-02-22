@@ -100,7 +100,7 @@ where
             RenderOperation::JumpToRow { index } => self.jump_to_row(*index),
             RenderOperation::JumpToBottomRow { index } => self.jump_to_bottom(*index),
             RenderOperation::JumpToColumn { index } => self.jump_to_column(*index),
-            RenderOperation::RenderText { line, alignment } => self.render_text(line, alignment),
+            RenderOperation::RenderText { line, alignment } => self.render_text(line, *alignment),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image, properties) => self.render_image(image, properties),
             RenderOperation::RenderBlockLine(operation) => self.render_block_line(operation),
@@ -189,8 +189,8 @@ where
         Ok(())
     }
 
-    fn render_text(&mut self, text: &WeightedLine, alignment: &Alignment) -> RenderResult {
-        let layout = self.build_layout(alignment.clone());
+    fn render_text(&mut self, text: &WeightedLine, alignment: Alignment) -> RenderResult {
+        let layout = self.build_layout(alignment);
         let dimensions = self.current_dimensions();
         let positioning = layout.compute(dimensions, text.width() as u16);
         let prefix = "".into();
@@ -268,7 +268,7 @@ where
             right_padding_length,
             repeat_prefix_on_wrap,
         } = operation;
-        let layout = self.build_layout(alignment.clone()).with_font_size(text.font_size());
+        let layout = self.build_layout(*alignment).with_font_size(text.font_size());
 
         let dimensions = self.current_dimensions();
         let Positioning { max_line_length, start_column } = layout.compute(dimensions, *block_length);

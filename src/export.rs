@@ -1,5 +1,5 @@
 use crate::{
-    MarkdownParser, PresentationTheme, Resources,
+    MarkdownParser, Resources,
     code::execute::SnippetExecutor,
     config::KeyBindingsConfig,
     markdown::parse::ParseError,
@@ -15,6 +15,7 @@ use crate::{
         Image, ImageSource,
         printer::{ImageProperties, TerminalImage},
     },
+    theme::{ProcessingThemeError, raw::PresentationTheme},
     third_party::ThirdPartyRender,
     tools::{ExecutionError, ThirdPartyTools},
 };
@@ -102,7 +103,7 @@ impl<'a> Exporter<'a> {
             Default::default(),
             KeyBindingsConfig::default(),
             self.options.clone(),
-        )
+        )?
         .build(elements)?;
 
         let async_renders = Self::count_async_render_operations(&presentation);
@@ -229,6 +230,9 @@ pub enum ExportError {
     #[error("minimum presenterm-export version ({MINIMUM_EXPORTER_VERSION}) not met")]
     MinimumVersion,
 
+    #[error("processing theme: {0}")]
+    ProcessingTheme(#[from] ProcessingThemeError),
+
     #[error("io: {0}")]
     Io(io::Error),
 }
@@ -353,13 +357,13 @@ impl AsRenderOperations for RenderMany {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::theme::PresentationThemeSet;
+    use crate::theme::registry::PresentationThemeRegistry;
     use comrak::Arena;
 
     fn extract_metadata(content: &str, path: &str) -> ExportMetadata {
         let arena = Arena::new();
         let parser = MarkdownParser::new(&arena);
-        let theme = PresentationThemeSet::default().load_by_name("dark").unwrap();
+        let theme = PresentationThemeRegistry::default().load_by_name("dark").unwrap();
         let resources = Resources::new("examples", "examples", Default::default());
         let third_party = ThirdPartyRender::default();
         let code_executor = Default::default();

@@ -1,4 +1,5 @@
-use super::text_style::{Color, ParseColorError, TextStyle};
+use super::text_style::{Color, TextStyle};
+use crate::theme::raw::{ParseColorError, RawColor};
 use std::{borrow::Cow, str, str::Utf8Error};
 use tl::Attributes;
 
@@ -37,7 +38,7 @@ impl HtmlParser {
         Ok(HtmlInline::OpenSpan { style })
     }
 
-    fn parse_attributes(&self, attributes: &Attributes) -> Result<TextStyle, ParseHtmlError> {
+    fn parse_attributes(&self, attributes: &Attributes) -> Result<TextStyle<RawColor>, ParseHtmlError> {
         let mut style = TextStyle::default();
         for (name, value) in attributes.iter() {
             let value = value.unwrap_or(Cow::Borrowed(""));
@@ -53,7 +54,7 @@ impl HtmlParser {
         Ok(style)
     }
 
-    fn parse_css_attribute(&self, attribute: &str, style: &mut TextStyle) -> Result<(), ParseHtmlError> {
+    fn parse_css_attribute(&self, attribute: &str, style: &mut TextStyle<RawColor>) -> Result<(), ParseHtmlError> {
         for attribute in attribute.split(';') {
             let attribute = attribute.trim();
             if attribute.is_empty() {
@@ -63,8 +64,8 @@ impl HtmlParser {
             let key = key.trim();
             let value = value.trim();
             match key {
-                "color" => *style = style.fg_color(Self::parse_color(value)?),
-                "background-color" => *style = style.bg_color(Self::parse_color(value)?),
+                "color" => style.colors.foreground = Some(Self::parse_color(value)?),
+                "background-color" => style.colors.background = Some(Self::parse_color(value)?),
                 _ => {
                     if self.options.strict {
                         return Err(ParseHtmlError::UnsupportedCssAttribute(key.into()));
@@ -75,13 +76,13 @@ impl HtmlParser {
         Ok(())
     }
 
-    fn parse_color(input: &str) -> Result<Color, ParseHtmlError> {
+    fn parse_color(input: &str) -> Result<RawColor, ParseHtmlError> {
         if input.starts_with('#') {
             let color = input.strip_prefix('#').unwrap().parse()?;
-            if matches!(color, Color::Rgb { .. }) { Ok(color) } else { Ok(input.parse()?) }
+            if matches!(color, RawColor::Color(Color::Rgb { .. })) { Ok(color) } else { Ok(input.parse()?) }
         } else {
-            let color = input.parse::<Color>()?;
-            if matches!(color, Color::Rgb { .. }) {
+            let color = input.parse::<RawColor>()?;
+            if matches!(color, RawColor::Color(Color::Rgb { .. })) {
                 Err(ParseHtmlError::InvalidColor("missing '#' in rgb color".into()))
             } else {
                 Ok(color)
@@ -92,7 +93,7 @@ impl HtmlParser {
 
 #[derive(Debug)]
 pub(crate) enum HtmlInline {
-    OpenSpan { style: TextStyle },
+    OpenSpan { style: TextStyle<RawColor> },
     CloseSpan,
 }
 
@@ -135,7 +136,6 @@ impl From<ParseColorError> for ParseHtmlError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::markdown::text_style::Color;
     use rstest::rstest;
 
     #[test]
@@ -166,8 +166,8 @@ mod tests {
     #[case::rgb("#ff0000", Color::Rgb{r: 255, g: 0, b: 0})]
     #[case::red("red", Color::Red)]
     fn parse_color(#[case] input: &str, #[case] expected: Color) {
-        let color: Color = HtmlParser::parse_color(input).expect("parse failed");
-        assert_eq!(color, expected);
+        let color = HtmlParser::parse_color(input).expect("parse failed");
+        assert_eq!(color, expected.into());
     }
 
     #[rstest]

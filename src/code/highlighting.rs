@@ -207,7 +207,7 @@ pub(crate) struct StyledTokens<'a> {
 
 impl<'a> StyledTokens<'a> {
     pub(crate) fn new(style: Style, tokens: &'a str, block_style: &CodeBlockStyle) -> Self {
-        let has_background = block_style.background.unwrap_or(true);
+        let has_background = block_style.background;
         let background = has_background.then_some(parse_color(style.background)).flatten();
         let foreground = parse_color(style.foreground);
         let mut style = TextStyle::default();

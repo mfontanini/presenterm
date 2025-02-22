@@ -12,7 +12,7 @@ use crate::{
         GraphicsMode,
         image::printer::{ImagePrinter, ImageRegistry},
     },
-    theme::{PresentationTheme, PresentationThemeSet},
+    theme::{raw::PresentationTheme, registry::PresentationThemeRegistry},
     third_party::{ThirdPartyConfigs, ThirdPartyRender},
 };
 use anyhow::anyhow;
@@ -28,6 +28,7 @@ use std::{
     sync::Arc,
 };
 use terminal::emulator::TerminalEmulator;
+use theme::ThemeOptions;
 
 mod code;
 mod commands;
@@ -162,7 +163,7 @@ impl Customizations {
         let mut highlight_themes = HighlightThemeSet::default();
         highlight_themes.register_from_directory(themes_path.join("highlighting"))?;
 
-        let mut presentation_themes = PresentationThemeSet::default();
+        let mut presentation_themes = PresentationThemeRegistry::default();
         presentation_themes.register_from_directory(themes_path)?;
 
         let themes = Themes { presentation: presentation_themes, highlight: highlight_themes };
@@ -263,7 +264,7 @@ impl CoreComponents {
             enable_snippet_execution_replace: config.snippet.exec_replace.enable,
             render_speaker_notes_only,
             auto_render_languages: config.options.auto_render_languages.clone(),
-            font_size_supported: TerminalEmulator::capabilities().font_size,
+            theme_options: ThemeOptions { font_size_supported: TerminalEmulator::capabilities().font_size },
         }
     }
 

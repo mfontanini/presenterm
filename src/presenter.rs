@@ -21,7 +21,7 @@ use crate::{
         image::printer::{ImagePrinter, ImageRegistry},
         printer::TerminalIo,
     },
-    theme::PresentationTheme,
+    theme::{ProcessingThemeError, raw::PresentationTheme},
     third_party::ThirdPartyRender,
 };
 use std::{
@@ -364,7 +364,7 @@ impl<'a> Presenter<'a> {
             ImageRegistry(self.image_printer.clone()),
             self.options.bindings.clone(),
             self.options.builder_options.clone(),
-        )
+        )?
         .build(elements)?;
         if export_mode {
             ImageReplacer::default().replace_presentation_images(&mut presentation);
@@ -497,6 +497,9 @@ pub enum LoadPresentationError {
 
     #[error(transparent)]
     Processing(#[from] BuildError),
+
+    #[error("processing theme: {0}")]
+    ProcessingTheme(#[from] ProcessingThemeError),
 }
 
 /// An error during the presentation.

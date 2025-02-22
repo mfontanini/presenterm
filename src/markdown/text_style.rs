@@ -1,30 +1,28 @@
-use crate::theme::ColorPalette;
+use crate::theme::{ColorPalette, raw::RawColor};
 use crossterm::style::{StyledContent, Stylize};
-use hex::{FromHex, FromHexError};
+use hex::FromHexError;
 use serde::{Deserialize, Serialize};
-use serde_with::{DeserializeFromStr, SerializeDisplay};
-use std::{
-    fmt::{self, Display},
-    ops::Deref,
-    str::FromStr,
-};
+use std::fmt::{self, Display};
 
 /// The style of a piece of text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct TextStyle {
+pub(crate) struct TextStyle<C = Color> {
     flags: u8,
-    pub(crate) colors: Colors,
+    pub(crate) colors: Colors<C>,
     pub(crate) size: u8,
 }
 
-impl Default for TextStyle {
+impl<C> Default for TextStyle<C> {
     fn default() -> Self {
         Self { flags: Default::default(), colors: Default::default(), size: 1 }
     }
 }
 
-impl TextStyle {
-    pub(crate) fn colored(colors: Colors) -> Self {
+impl<C> TextStyle<C>
+where
+    C: Clone,
+{
+    pub(crate) fn colored(colors: Colors<C>) -> Self {
         Self { colors, ..Default::default() }
     }
 
@@ -73,21 +71,15 @@ impl TextStyle {
         self.italics().underlined()
     }
 
-    /// Set the colors for this text style.
-    pub(crate) fn colors(mut self, colors: Colors) -> Self {
-        self.colors = colors;
-        self
-    }
-
     /// Set the background color for this text style.
-    pub(crate) fn bg_color(mut self, color: Color) -> Self {
-        self.colors.background = Some(color);
+    pub(crate) fn bg_color<U: Into<C>>(mut self, color: U) -> Self {
+        self.colors.background = Some(color.into());
         self
     }
 
     /// Set the foreground color for this text style.
-    pub(crate) fn fg_color(mut self, color: Color) -> Self {
-        self.colors.foreground = Some(color);
+    pub(crate) fn fg_color<U: Into<C>>(mut self, color: U) -> Self {
+        self.colors.foreground = Some(color.into());
         self
     }
 
@@ -117,18 +109,26 @@ impl TextStyle {
     }
 
     /// Merge this style with another one.
-    pub(crate) fn merge(&mut self, other: &TextStyle) {
+    pub(crate) fn merge(&mut self, other: &TextStyle<C>) {
         self.flags |= other.flags;
         self.size = self.size.max(other.size);
-        self.colors.background = self.colors.background.or(other.colors.background);
-        self.colors.foreground = self.colors.foreground.or(other.colors.foreground);
+        self.colors.background = self.colors.background.clone().or(other.colors.background.clone());
+        self.colors.foreground = self.colors.foreground.clone().or(other.colors.foreground.clone());
     }
 
+    fn add_flag(mut self, flag: TextFormatFlags) -> Self {
+        self.flags |= flag as u8;
+        self
+    }
+
+    fn has_flag(&self, flag: TextFormatFlags) -> bool {
+        self.flags & flag as u8 != 0
+    }
+}
+
+impl TextStyle<Color> {
     /// Apply this style to a piece of text.
-    pub(crate) fn apply<'a>(
-        &self,
-        text: &'a str,
-    ) -> Result<StyledContent<impl Display + Clone + 'a>, PaletteColorError> {
+    pub(crate) fn apply<'a>(&self, text: &'a str) -> StyledContent<impl Display + Clone + 'a> {
         let text = FontSizedStr { contents: text, font_size: self.size };
         let mut styled = StyledContent::new(Default::default(), text);
         if self.is_bold() {
@@ -144,21 +144,27 @@ impl TextStyle {
             styled = styled.underlined();
         }
         if let Some(color) = self.colors.background {
-            styled = styled.on(color.try_into()?);
+            styled = styled.on(color.into());
         }
         if let Some(color) = self.colors.foreground {
-            styled = styled.with(color.try_into()?);
+            styled = styled.with(color.into());
         }
-        Ok(styled)
+        styled
     }
 
-    fn add_flag(mut self, flag: TextFormatFlags) -> Self {
-        self.flags |= flag as u8;
-        self
+    pub(crate) fn into_raw(self) -> TextStyle<RawColor> {
+        let colors = Colors {
+            background: self.colors.background.map(Into::into),
+            foreground: self.colors.foreground.map(Into::into),
+        };
+        TextStyle { flags: self.flags, colors, size: self.size }
     }
+}
 
-    fn has_flag(&self, flag: TextFormatFlags) -> bool {
-        self.flags & flag as u8 != 0
+impl TextStyle<RawColor> {
+    pub(crate) fn resolve(&self, palette: &ColorPalette) -> Result<TextStyle, UndefinedPaletteColorError> {
+        let colors = self.colors.resolve(palette)?;
+        Ok(TextStyle { flags: self.flags, colors, size: self.size })
     }
 }
 
@@ -187,7 +193,7 @@ enum TextFormatFlags {
     Underlined = 16,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, SerializeDisplay, DeserializeFromStr)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum Color {
     Black,
     DarkGrey,
@@ -206,17 +212,11 @@ pub(crate) enum Color {
     White,
     Grey,
     Rgb { r: u8, g: u8, b: u8 },
-    Palette(FixedStr),
 }
 
 impl Color {
     pub(crate) fn new(r: u8, g: u8, b: u8) -> Self {
         Self::Rgb { r, g, b }
-    }
-
-    pub(crate) fn new_palette(name: &str) -> Result<Self, ParseColorError> {
-        let color: FixedStr = name.try_into().map_err(|_| ParseColorError::PaletteColorLength(name.to_string()))?;
-        if color.is_empty() { Err(ParseColorError::PaletteColorEmpty) } else { Ok(Self::Palette(color)) }
     }
 
     pub(crate) fn as_rgb(&self) -> Option<(u8, u8, u8)> {
@@ -240,79 +240,12 @@ impl Color {
         };
         Some(color)
     }
-
-    pub(crate) fn resolve(&self, palette: &ColorPalette) -> Result<Color, UndefinedPaletteColorError> {
-        match self {
-            Color::Palette(name) => palette.colors.get(name).cloned().ok_or(UndefinedPaletteColorError(*name)),
-            _ => Ok(*self),
-        }
-    }
 }
 
-impl FromStr for Color {
-    type Err = ParseColorError;
-
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let output = match input {
-            "black" => Self::Black,
-            "white" => Self::White,
-            "grey" => Self::Grey,
-            "dark_grey" => Self::DarkGrey,
-            "red" => Self::Red,
-            "dark_red" => Self::DarkRed,
-            "green" => Self::Green,
-            "dark_green" => Self::DarkGreen,
-            "blue" => Self::Blue,
-            "dark_blue" => Self::DarkBlue,
-            "yellow" => Self::Yellow,
-            "dark_yellow" => Self::DarkYellow,
-            "magenta" => Self::Magenta,
-            "dark_magenta" => Self::DarkMagenta,
-            "cyan" => Self::Cyan,
-            "dark_cyan" => Self::DarkCyan,
-            other if other.starts_with("palette:") => Self::new_palette(other.trim_start_matches("palette:"))?,
-            other if other.starts_with("p:") => Self::new_palette(other.trim_start_matches("p:"))?,
-            // Fallback to hex-encoded rgb
-            _ => {
-                let values = <[u8; 3]>::from_hex(input)?;
-                Self::Rgb { r: values[0], g: values[1], b: values[2] }
-            }
-        };
-        Ok(output)
-    }
-}
-
-impl Display for Color {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Rgb { r, g, b } => write!(f, "{}", hex::encode([*r, *g, *b])),
-            Self::Black => write!(f, "black"),
-            Self::White => write!(f, "white"),
-            Self::Grey => write!(f, "grey"),
-            Self::DarkGrey => write!(f, "dark_grey"),
-            Self::Red => write!(f, "red"),
-            Self::DarkRed => write!(f, "dark_red"),
-            Self::Green => write!(f, "green"),
-            Self::DarkGreen => write!(f, "dark_green"),
-            Self::Blue => write!(f, "blue"),
-            Self::DarkBlue => write!(f, "dark_blue"),
-            Self::Yellow => write!(f, "yellow"),
-            Self::DarkYellow => write!(f, "dark_yellow"),
-            Self::Magenta => write!(f, "magenta"),
-            Self::DarkMagenta => write!(f, "dark_magenta"),
-            Self::Cyan => write!(f, "cyan"),
-            Self::DarkCyan => write!(f, "dark_cyan"),
-            Self::Palette(name) => write!(f, "palette:{name}"),
-        }
-    }
-}
-
-impl TryFrom<Color> for crossterm::style::Color {
-    type Error = PaletteColorError;
-
-    fn try_from(value: Color) -> Result<Self, Self::Error> {
+impl From<Color> for crossterm::style::Color {
+    fn from(value: Color) -> Self {
         use crossterm::style::Color as C;
-        let output = match value {
+        match value {
             Color::Black => C::Black,
             Color::DarkGrey => C::DarkGrey,
             Color::Red => C::Red,
@@ -330,105 +263,47 @@ impl TryFrom<Color> for crossterm::style::Color {
             Color::White => C::White,
             Color::Grey => C::Grey,
             Color::Rgb { r, g, b } => C::Rgb { r, g, b },
-            Color::Palette(color) => return Err(PaletteColorError(color)),
-        };
-        Ok(output)
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, SerializeDisplay, DeserializeFromStr)]
-pub(crate) struct FixedStr<const N: usize = 16> {
-    data: [u8; N],
-    length: u8,
-}
-
-impl<const N: usize> TryFrom<&str> for FixedStr<N> {
-    type Error = &'static str;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let data = value.as_bytes();
-        if data.len() <= N {
-            let mut this = Self { data: [0; N], length: data.len() as u8 };
-            this.data[0..data.len()].copy_from_slice(data);
-            Ok(this)
-        } else {
-            Err("string is too long")
         }
-    }
-}
-
-impl<const N: usize> FromStr for FixedStr<N> {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::try_from(s)
-    }
-}
-
-impl<const N: usize> Deref for FixedStr<N> {
-    type Target = str;
-
-    fn deref(&self) -> &str {
-        let data = &self.data[0..self.length as usize];
-        std::str::from_utf8(data).expect("invalid utf8")
-    }
-}
-
-impl<const N: usize> fmt::Debug for FixedStr<N> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.deref())
-    }
-}
-
-impl<const N: usize> fmt::Display for FixedStr<N> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.deref())
     }
 }
 
 #[derive(Debug, thiserror::Error)]
 #[error("unresolved palette color: {0}")]
-pub(crate) struct PaletteColorError(FixedStr);
+pub(crate) struct PaletteColorError(String);
 
 #[derive(Debug, thiserror::Error)]
 #[error("undefined palette color: {0}")]
-pub(crate) struct UndefinedPaletteColorError(FixedStr);
+pub(crate) struct UndefinedPaletteColorError(pub(crate) String);
 
 /// Text colors.
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
-pub(crate) struct Colors {
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+pub(crate) struct Colors<C = Color> {
     /// The background color.
-    pub(crate) background: Option<Color>,
+    pub(crate) background: Option<C>,
 
     /// The foreground color.
-    pub(crate) foreground: Option<Color>,
+    pub(crate) foreground: Option<C>,
 }
 
-impl Colors {
-    pub(crate) fn merge(&self, other: &Colors) -> Self {
-        let background = self.background.or(other.background);
-        let foreground = self.foreground.or(other.foreground);
-        Self { background, foreground }
-    }
-
-    pub(crate) fn resolve(mut self, palette: &ColorPalette) -> Result<Self, UndefinedPaletteColorError> {
-        if let Some(color) = self.foreground.as_mut() {
-            *color = color.resolve(palette)?;
-        }
-        if let Some(color) = self.background.as_mut() {
-            *color = color.resolve(palette)?;
-        }
-        Ok(self)
+impl<C> Default for Colors<C> {
+    fn default() -> Self {
+        Self { background: None, foreground: None }
     }
 }
 
-impl TryFrom<Colors> for crossterm::style::Colors {
-    type Error = PaletteColorError;
+impl Colors<RawColor> {
+    pub(crate) fn resolve(&self, palette: &ColorPalette) -> Result<Colors<Color>, UndefinedPaletteColorError> {
+        let background = self.background.clone().map(|c| c.resolve(palette)).transpose()?;
+        let foreground = self.foreground.clone().map(|c| c.resolve(palette)).transpose()?;
+        Ok(Colors { foreground, background })
+    }
+}
 
-    fn try_from(value: Colors) -> Result<Self, Self::Error> {
-        let foreground = value.foreground.map(Color::try_into).transpose()?;
-        let background = value.background.map(Color::try_into).transpose()?;
-        Ok(Self { foreground, background })
+impl From<Colors> for crossterm::style::Colors {
+    fn from(value: Colors) -> Self {
+        let foreground = value.foreground.map(Color::into);
+        let background = value.background.map(Color::into);
+        Self { foreground, background }
     }
 }
 
@@ -436,51 +311,4 @@ impl TryFrom<Colors> for crossterm::style::Colors {
 pub(crate) enum ParseColorError {
     #[error("invalid hex color: {0}")]
     Hex(#[from] FromHexError),
-
-    #[error("palette color name is too long: {0}")]
-    PaletteColorLength(String),
-
-    #[error("palette color name is empty")]
-    PaletteColorEmpty,
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use rstest::rstest;
-
-    #[test]
-    fn color_serde() {
-        let color: Color = "beef42".parse().unwrap();
-        assert_eq!(color.to_string(), "beef42");
-    }
-
-    #[test]
-    fn invalid_fixed_str() {
-        FixedStr::<1>::try_from("AB").unwrap_err();
-        FixedStr::<1>::try_from("🚀").unwrap_err();
-    }
-
-    #[test]
-    fn valid_fixed_str() {
-        let str = FixedStr::<3>::try_from("ABC").unwrap();
-        assert_eq!(str.to_string(), "ABC");
-    }
-
-    #[rstest]
-    #[case::empty1("p:")]
-    #[case::empty2("palette:")]
-    #[case::too_long("palette:12345678901234567")]
-    fn invalid_palette_color_names(#[case] input: &str) {
-        Color::from_str(input).expect_err("not an error");
-    }
-
-    #[rstest]
-    #[case::short("p:hi", "hi")]
-    #[case::long("palette:bye", "bye")]
-    fn valid_palette_color_names(#[case] input: &str, #[case] expected: &str) {
-        let color = Color::from_str(input).expect("failed to parse");
-        let Color::Palette(name) = color else { panic!("not a palette color") };
-        assert_eq!(name.deref(), expected);
-    }
 }

@@ -1,5 +1,5 @@
 use crate::{
-    ImageRegistry, MarkdownParser, PresentationBuilderOptions, PresentationTheme, Resources, Themes, ThirdPartyRender,
+    ImageRegistry, MarkdownParser, PresentationBuilderOptions, Resources, ThemeOptions, Themes, ThirdPartyRender,
     code::execute::SnippetExecutor,
     commands::{
         keyboard::{CommandKeyBindings, KeyboardListener},
@@ -12,6 +12,7 @@ use crate::{
     },
     render::TerminalDrawer,
     terminal::emulator::TerminalEmulator,
+    theme::raw::PresentationTheme,
 };
 use std::{io, rc::Rc};
 
@@ -105,7 +106,7 @@ impl ThemesDemo {
         let resources = Resources::new("non_existent", "non_existent", image_registry.clone());
         let mut third_party = ThirdPartyRender::default();
         let options = PresentationBuilderOptions {
-            font_size_supported: TerminalEmulator::capabilities().font_size,
+            theme_options: ThemeOptions { font_size_supported: TerminalEmulator::capabilities().font_size },
             ..Default::default()
         };
         let executer = Rc::new(SnippetExecutor::default());
@@ -119,7 +120,7 @@ impl ThemesDemo {
             image_registry,
             bindings_config,
             options,
-        );
+        )?;
         let mut elements = vec![MarkdownElement::SetexHeading { text: format!("theme: {theme_name}").into() }];
         elements.extend(base_elements.iter().cloned());
         builder.build(elements)

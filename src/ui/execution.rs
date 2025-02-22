@@ -52,7 +52,7 @@ pub(crate) struct RunSnippetOperation {
     executor: Rc<SnippetExecutor>,
     default_colors: Colors,
     block_colors: Colors,
-    status_colors: ExecutionStatusBlockStyle,
+    style: ExecutionStatusBlockStyle,
     block_length: u16,
     alignment: Alignment,
     inner: Rc<RefCell<RunSnippetOperationInner>>,
@@ -67,15 +67,14 @@ impl RunSnippetOperation {
         code: Snippet,
         executor: Rc<SnippetExecutor>,
         default_colors: Colors,
-        execution_output_style: ExecutionOutputBlockStyle,
+        style: ExecutionOutputBlockStyle,
         block_length: u16,
         separator: DisplaySeparator,
         alignment: Alignment,
         font_size: u8,
     ) -> Self {
-        let block_colors = execution_output_style.colors;
-        let status_colors = execution_output_style.status.clone();
-        let not_started_colors = status_colors.not_started;
+        let block_colors = style.style.colors;
+        let status_colors = style.status.clone();
         let block_length = match &alignment {
             Alignment::Left { .. } | Alignment::Right { .. } => block_length,
             Alignment::Center { minimum_size, .. } => block_length.max(*minimum_size),
@@ -93,11 +92,11 @@ impl RunSnippetOperation {
             executor,
             default_colors,
             block_colors,
-            status_colors,
+            style: status_colors,
             block_length,
             alignment,
             inner: Rc::new(RefCell::new(inner)),
-            state_description: Text::new("not started", TextStyle::default().colors(not_started_colors)).into(),
+            state_description: Text::new("not started", style.status.not_started_style).into(),
             separator,
             font_size,
         }
@@ -155,7 +154,7 @@ impl AsRenderOperations for RunSnippetOperation {
                 repeat_prefix_on_wrap: false,
                 text: line.clone(),
                 block_length,
-                alignment: self.alignment.clone(),
+                alignment: self.alignment,
                 block_color: self.block_colors.background,
             }));
             operations.push(RenderOperation::RenderLineBreak);
@@ -173,13 +172,9 @@ impl RenderAsync for RunSnippetOperation {
             let mut state = handle.state.lock().unwrap();
             let ExecutionState { output, status } = &mut *state;
             *self.state_description.borrow_mut() = match status {
-                ProcessStatus::Running => Text::new("running", TextStyle::default().colors(self.status_colors.running)),
-                ProcessStatus::Success => {
-                    Text::new("finished", TextStyle::default().colors(self.status_colors.success))
-                }
-                ProcessStatus::Failure => {
-                    Text::new("finished with error", TextStyle::default().colors(self.status_colors.failure))
-                }
+                ProcessStatus::Running => Text::new("running", self.style.running_style),
+                ProcessStatus::Success => Text::new("finished", self.style.success_style),
+                ProcessStatus::Failure => Text::new("finished with error", self.style.failure_style),
             };
             let modified = output.len() != last_length;
             let is_finished = status.is_finished();
@@ -234,14 +229,14 @@ impl RenderAsync for RunSnippetOperation {
 
 #[derive(Clone, Debug)]
 pub(crate) struct SnippetExecutionDisabledOperation {
-    colors: Colors,
+    style: TextStyle,
     alignment: Alignment,
     started: RefCell<bool>,
 }
 
 impl SnippetExecutionDisabledOperation {
-    pub(crate) fn new(colors: Colors, alignment: Alignment) -> Self {
-        Self { colors, alignment, started: Default::default() }
+    pub(crate) fn new(style: TextStyle, alignment: Alignment) -> Self {
+        Self { style, alignment, started: Default::default() }
     }
 }
 
@@ -253,8 +248,8 @@ impl AsRenderOperations for SnippetExecutionDisabledOperation {
         vec![
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderText {
-                line: vec![Text::new("snippet execution is disabled", TextStyle::default().colors(self.colors))].into(),
-                alignment: self.alignment.clone(),
+                line: vec![Text::new("snippet execution is disabled", self.style)].into(),
+                alignment: self.alignment,
             },
             RenderOperation::RenderLineBreak,
         ]
@@ -338,13 +333,9 @@ impl AsRenderOperations for RunAcquireTerminalSnippet {
     fn as_render_operations(&self, _dimensions: &WindowSize) -> Vec<RenderOperation> {
         let state = self.state.borrow();
         let separator_text = match state.deref() {
-            AcquireTerminalSnippetState::NotStarted => {
-                Text::new("not started", TextStyle::colored(self.colors.not_started))
-            }
-            AcquireTerminalSnippetState::Success => Text::new("finished", TextStyle::colored(self.colors.success)),
-            AcquireTerminalSnippetState::Failure(_) => {
-                Text::new("finished with error", TextStyle::colored(self.colors.failure))
-            }
+            AcquireTerminalSnippetState::NotStarted => Text::new("not started", self.colors.not_started_style),
+            AcquireTerminalSnippetState::Success => Text::new("finished", self.colors.success_style),
+            AcquireTerminalSnippetState::Failure(_) => Text::new("finished with error", self.colors.failure_style),
         };
 
         let heading = Line(vec![" [".into(), separator_text, "] ".into()]);
@@ -360,7 +351,7 @@ impl AsRenderOperations for RunAcquireTerminalSnippet {
             for line in lines {
                 ops.extend([
                     RenderOperation::RenderText {
-                        line: vec![Text::new(line, TextStyle::default().colors(self.colors.failure))].into(),
+                        line: vec![Text::new(line, self.colors.failure_style)].into(),
                         alignment: Alignment::Left { margin: Margin::Percent(25) },
                     },
                     RenderOperation::RenderLineBreak,
@@ -484,7 +475,7 @@ impl AsRenderOperations for RunImageSnippet {
                 let mut output = Vec::new();
                 for line in lines {
                     output.extend([RenderOperation::RenderText {
-                        line: vec![Text::new(line, TextStyle::default().colors(self.colors.failure))].into(),
+                        line: vec![Text::new(line, self.colors.failure_style)].into(),
                         alignment: Alignment::Left { margin: Margin::Percent(25) },
                     }]);
                 }

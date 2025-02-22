@@ -3,7 +3,6 @@ use super::{
     padding::NumberPadder,
 };
 use crate::{
-    PresentationTheme,
     markdown::{
         elements::{Percent, PercentParseError},
         text::{WeightedLine, WeightedText},
@@ -24,19 +23,19 @@ use strum::{EnumDiscriminants, EnumIter};
 use unicode_width::UnicodeWidthStr;
 
 pub(crate) struct SnippetSplitter<'a> {
-    theme: &'a PresentationTheme,
+    style: &'a CodeBlockStyle,
     hidden_line_prefix: Option<&'a str>,
 }
 
 impl<'a> SnippetSplitter<'a> {
-    pub(crate) fn new(theme: &'a PresentationTheme, hidden_line_prefix: Option<&'a str>) -> Self {
-        Self { theme, hidden_line_prefix }
+    pub(crate) fn new(style: &'a CodeBlockStyle, hidden_line_prefix: Option<&'a str>) -> Self {
+        Self { style, hidden_line_prefix }
     }
 
     pub(crate) fn split(&self, code: &Snippet) -> Vec<SnippetLine> {
         let mut lines = Vec::new();
-        let horizontal_padding = self.theme.code.padding.horizontal.unwrap_or(0);
-        let vertical_padding = self.theme.code.padding.vertical.unwrap_or(0);
+        let horizontal_padding = self.style.padding.horizontal;
+        let vertical_padding = self.style.padding.vertical;
         if vertical_padding > 0 {
             lines.push(SnippetLine::empty());
         }
@@ -143,7 +142,7 @@ impl AsRenderOperations for HighlightedLine {
                 repeat_prefix_on_wrap: false,
                 text,
                 block_length: context.block_length as u16,
-                alignment: context.alignment.clone(),
+                alignment: context.alignment,
                 block_color: self.block_color,
             }),
             RenderOperation::RenderLineBreak,

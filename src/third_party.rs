@@ -1,9 +1,9 @@
 use crate::{
-    ImageRegistry, PresentationTheme,
+    ImageRegistry,
     config::{default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
     markdown::{
         elements::{Line, Percent, Text},
-        text_style::{Color, Colors, TextStyle},
+        text_style::{Color, TextStyle},
     },
     presentation::{AsyncPresentationError, AsyncPresentationErrorHolder},
     render::{
@@ -13,7 +13,7 @@ use crate::{
         properties::WindowSize,
     },
     terminal::image::{Image, printer::RegisterImageError},
-    theme::{Alignment, MermaidStyle, TypstStyle},
+    theme::{Alignment, MermaidStyle, PresentationTheme, TypstStyle, raw::RawColor},
     tools::{ExecutionError, ThirdPartyTools},
 };
 use std::{
@@ -24,9 +24,6 @@ use std::{
     sync::{Arc, Condvar, Mutex},
     thread,
 };
-
-const DEFAULT_HORIZONTAL_MARGIN: u16 = 5;
-const DEFAULT_VERTICAL_MARGIN: u16 = 7;
 
 pub struct ThirdPartyConfigs {
     pub typst_ppi: String,
@@ -58,7 +55,7 @@ impl ThirdPartyRender {
         width: Option<Percent>,
     ) -> Result<RenderOperation, ThirdPartyRenderError> {
         let result = self.render_pool.render(request);
-        let operation = Rc::new(RenderThirdParty::new(result, theme.default_style.colors, error_holder, slide, width));
+        let operation = Rc::new(RenderThirdParty::new(result, theme.default_style.style, error_holder, slide, width));
         Ok(RenderOperation::RenderAsync(operation))
     }
 }
@@ -203,9 +200,9 @@ impl Worker {
             "-s",
             &self.shared.config.mermaid_scale,
             "-t",
-            style.theme.as_deref().unwrap_or("default"),
+            &style.theme,
             "-b",
-            style.background.as_deref().unwrap_or("transparent"),
+            &style.background,
         ])
         .run()?;
 
@@ -243,14 +240,19 @@ impl Worker {
     }
 
     fn generate_page_header(style: &TypstStyle) -> Result<String, ThirdPartyRenderError> {
-        let x_margin = style.horizontal_margin.unwrap_or(DEFAULT_HORIZONTAL_MARGIN);
-        let y_margin = style.vertical_margin.unwrap_or(DEFAULT_VERTICAL_MARGIN);
-        let background =
-            style.colors.background.as_ref().map(Self::as_typst_color).unwrap_or_else(|| Ok(String::from("none")))?;
+        let x_margin = style.horizontal_margin;
+        let y_margin = style.vertical_margin;
+        let background = style
+            .style
+            .colors
+            .background
+            .as_ref()
+            .map(Self::as_typst_color)
+            .unwrap_or_else(|| Ok(String::from("none")))?;
         let mut header = format!(
             "#set page(width: auto, height: auto, margin: (x: {x_margin}pt, y: {y_margin}pt), fill: {background})\n"
         );
-        if let Some(color) = &style.colors.foreground {
+        if let Some(color) = &style.style.colors.foreground {
             let color = Self::as_typst_color(color)?;
             header.push_str(&format!("#set text(fill: {color})\n"));
         }
@@ -260,7 +262,7 @@ impl Worker {
     fn as_typst_color(color: &Color) -> Result<String, ThirdPartyRenderError> {
         match color.as_rgb() {
             Some((r, g, b)) => Ok(format!("rgb(\"#{r:02x}{g:02x}{b:02x}\")")),
-            None => Err(ThirdPartyRenderError::UnsupportedColor(color.to_string())),
+            None => Err(ThirdPartyRenderError::UnsupportedColor(RawColor::from(*color).to_string())),
         }
     }
 
@@ -308,7 +310,7 @@ struct ImageSnippet {
 pub(crate) struct RenderThirdParty {
     contents: Arc<Mutex<Option<Image>>>,
     pending_result: Arc<Mutex<RenderResult>>,
-    default_colors: Colors,
+    default_style: TextStyle,
     error_holder: AsyncPresentationErrorHolder,
     slide: usize,
     width: Option<Percent>,
@@ -317,12 +319,12 @@ pub(crate) struct RenderThirdParty {
 impl RenderThirdParty {
     fn new(
         pending_result: Arc<Mutex<RenderResult>>,
-        default_colors: Colors,
+        default_style: TextStyle,
         error_holder: AsyncPresentationErrorHolder,
         slide: usize,
         width: Option<Percent>,
     ) -> Self {
-        Self { contents: Default::default(), pending_result, default_colors, error_holder, slide, width }
+        Self { contents: Default::default(), pending_result, default_style, error_holder, slide, width }
     }
 }
 
@@ -360,7 +362,7 @@ impl AsRenderOperations for RenderThirdParty {
                 };
                 let properties = ImageRenderProperties {
                     size,
-                    background_color: self.default_colors.background,
+                    background_color: self.default_style.colors.background,
                     ..Default::default()
                 };
 

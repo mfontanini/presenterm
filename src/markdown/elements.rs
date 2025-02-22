@@ -1,4 +1,5 @@
-use super::text_style::TextStyle;
+use super::text_style::{Color, TextStyle, UndefinedPaletteColorError};
+use crate::theme::{ColorPalette, raw::RawColor};
 use comrak::nodes::AlertType;
 use std::{fmt, iter, path::PathBuf, str::FromStr};
 use unicode_width::UnicodeWidthStr;
@@ -13,13 +14,13 @@ pub(crate) enum MarkdownElement {
     FrontMatter(String),
 
     /// A setex heading.
-    SetexHeading { text: Line },
+    SetexHeading { text: Line<RawColor> },
 
     /// A normal heading.
-    Heading { level: u8, text: Line },
+    Heading { level: u8, text: Line<RawColor> },
 
     /// A paragraph composed by a list of lines.
-    Paragraph(Vec<Line>),
+    Paragraph(Vec<Line<RawColor>>),
 
     /// An image.
     Image { path: PathBuf, title: String, source_position: SourcePosition },
@@ -51,7 +52,7 @@ pub(crate) enum MarkdownElement {
     Comment { comment: String, source_position: SourcePosition },
 
     /// A block quote containing a list of lines.
-    BlockQuote(Vec<Line>),
+    BlockQuote(Vec<Line<RawColor>>),
 
     /// An alert.
     Alert {
@@ -62,7 +63,7 @@ pub(crate) enum MarkdownElement {
         title: Option<String>,
 
         /// The content lines in this alert.
-        lines: Vec<Line>,
+        lines: Vec<Line<RawColor>>,
     },
 }
 
@@ -98,15 +99,23 @@ impl From<comrak::nodes::LineColumn> for LineColumn {
 /// A text line.
 ///
 /// Text is represented as a series of chunks, each with their own formatting.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub(crate) struct Line(pub(crate) Vec<Text>);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Line<C = Color>(pub(crate) Vec<Text<C>>);
 
-impl Line {
+impl<C> Default for Line<C> {
+    fn default() -> Self {
+        Self(vec![])
+    }
+}
+
+impl<C> Line<C> {
     /// Get the total width for this text.
     pub(crate) fn width(&self) -> usize {
         self.0.iter().map(|text| text.content.width()).sum()
     }
+}
 
+impl Line<Color> {
     /// Applies the given style to this text.
     pub(crate) fn apply_style(&mut self, style: &TextStyle) {
         for text in &mut self.0 {
@@ -115,7 +124,19 @@ impl Line {
     }
 }
 
-impl<T: Into<Text>> From<T> for Line {
+impl Line<RawColor> {
+    /// Resolve the colors in this line.
+    pub(crate) fn resolve(self, palette: &ColorPalette) -> Result<Line<Color>, UndefinedPaletteColorError> {
+        let mut output = Vec::with_capacity(self.0.len());
+        for text in self.0 {
+            let style = text.style.resolve(palette)?;
+            output.push(Text::new(text.content, style));
+        }
+        Ok(Line(output))
+    }
+}
+
+impl<C, T: Into<Text<C>>> From<T> for Line<C> {
     fn from(text: T) -> Self {
         Self(vec![text.into()])
     }
@@ -125,25 +146,25 @@ impl<T: Into<Text>> From<T> for Line {
 ///
 /// This is the most granular text representation: a `String` and a style.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Text {
+pub(crate) struct Text<C = Color> {
     pub(crate) content: String,
-    pub(crate) style: TextStyle,
+    pub(crate) style: TextStyle<C>,
 }
 
-impl Text {
+impl<C> Text<C> {
     /// Construct a new styled text.
-    pub(crate) fn new<S: Into<String>>(content: S, style: TextStyle) -> Self {
+    pub(crate) fn new<S: Into<String>>(content: S, style: TextStyle<C>) -> Self {
         Self { content: content.into(), style }
     }
 }
 
-impl From<String> for Text {
+impl<C> From<String> for Text<C> {
     fn from(text: String) -> Self {
         Self { content: text, style: TextStyle::default() }
     }
 }
 
-impl From<&str> for Text {
+impl<C> From<&str> for Text<C> {
     fn from(text: &str) -> Self {
         Self { content: text.into(), style: TextStyle::default() }
     }
@@ -158,7 +179,7 @@ pub(crate) struct ListItem {
     pub(crate) depth: u8,
 
     /// The contents of this list item.
-    pub(crate) contents: Line,
+    pub(crate) contents: Line<RawColor>,
 
     /// The type of list item.
     pub(crate) item_type: ListItemType,
@@ -196,7 +217,7 @@ impl Table {
     /// Iterates all the text entries in a column.
     ///
     /// This includes the header.
-    pub(crate) fn iter_column(&self, column: usize) -> impl Iterator<Item = &Line> {
+    pub(crate) fn iter_column(&self, column: usize) -> impl Iterator<Item = &Line<RawColor>> {
         let header_element = &self.header.0[column];
         let row_elements = self.rows.iter().map(move |row| &row.0[column]);
         iter::once(header_element).chain(row_elements)
@@ -205,7 +226,7 @@ impl Table {
 
 /// A table row.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct TableRow(pub(crate) Vec<Line>);
+pub(crate) struct TableRow(pub(crate) Vec<Line<RawColor>>);
 
 /// A percentage.
 #[derive(Clone, Debug, PartialEq, Eq)]
