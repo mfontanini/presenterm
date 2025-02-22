@@ -95,7 +95,7 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
     }
 
     fn print_text(&mut self, content: &str, style: &TextStyle, properties: &TextProperties) -> io::Result<()> {
-        let content = style.apply(content).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let content = style.apply(content);
         self.writer.queue(style::PrintStyledContent(content))?;
         self.current_row_height = self.current_row_height.max(properties.height as u16);
         Ok(())
@@ -108,14 +108,14 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
     }
 
     fn set_colors(&mut self, colors: Colors) -> io::Result<()> {
-        let colors = colors.try_into().map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+        let colors = colors.into();
         self.writer.queue(style::ResetColor)?;
         self.writer.queue(style::SetColors(colors))?;
         Ok(())
     }
 
     fn set_background_color(&mut self, color: Color) -> io::Result<()> {
-        let color = color.try_into().map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+        let color = color.into();
         self.writer.queue(style::SetBackgroundColor(color))?;
         Ok(())
     }

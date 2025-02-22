@@ -584,6 +584,8 @@ impl Identifier for NodeValue {
 
 #[cfg(test)]
 mod test {
+    use crate::markdown::text_style::Color;
+
     use super::*;
     use rstest::rstest;
     use std::path::Path;
@@ -646,9 +648,9 @@ boop
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks = vec![
             Text::from("hi"),
-            Text::new("red", TextStyle::default().fg_color(RawColor::Red)),
-            Text::new("blue", TextStyle::default().fg_color(RawColor::Red).bg_color(RawColor::Blue)),
-            Text::new("yellow", TextStyle::default().fg_color(RawColor::Yellow).bg_color(RawColor::Blue)),
+            Text::new("red", TextStyle::default().fg_color(Color::Red)),
+            Text::new("blue", TextStyle::default().fg_color(Color::Red).bg_color(Color::Blue)),
+            Text::new("yellow", TextStyle::default().fg_color(Color::Yellow).bg_color(Color::Blue)),
         ];
 
         let expected_elements = &[Line(expected_chunks)];

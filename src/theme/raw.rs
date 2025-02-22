@@ -1,5 +1,5 @@
 use super::registry::LoadThemeError;
-use crate::markdown::text_style::{Color, Colors, FixedStr, UndefinedPaletteColorError};
+use crate::markdown::text_style::{Color, Colors, UndefinedPaletteColorError};
 use hex::{FromHex, FromHexError};
 use serde::{Deserialize, Serialize};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
@@ -728,30 +728,14 @@ pub(super) struct ModalStyle {
 
 /// The color palette.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(crate) struct ColorPalette {
+pub(super) struct ColorPalette {
     #[serde(default)]
-    pub(crate) colors: BTreeMap<FixedStr, Color>,
+    pub(super) colors: BTreeMap<String, RawColor>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, SerializeDisplay, DeserializeFromStr)]
 pub(crate) enum RawColor {
-    Black,
-    DarkGrey,
-    Red,
-    DarkRed,
-    Green,
-    DarkGreen,
-    Yellow,
-    DarkYellow,
-    Blue,
-    DarkBlue,
-    Magenta,
-    DarkMagenta,
-    Cyan,
-    DarkCyan,
-    White,
-    Grey,
-    Rgb { r: u8, g: u8, b: u8 },
+    Color(Color),
     Palette(String),
 }
 
@@ -760,29 +744,13 @@ impl RawColor {
         if name.is_empty() { Err(ParseColorError::PaletteColorEmpty) } else { Ok(Self::Palette(name.into())) }
     }
 
-    pub(crate) fn resolve(&self, palette: &ColorPalette) -> Result<Color, UndefinedPaletteColorError> {
+    pub(crate) fn resolve(
+        &self,
+        palette: &crate::theme::clean::ColorPalette,
+    ) -> Result<Color, UndefinedPaletteColorError> {
         let color = match self {
-            RawColor::Black => Color::Black,
-            RawColor::DarkGrey => Color::DarkGrey,
-            RawColor::Red => Color::Red,
-            RawColor::DarkRed => Color::DarkRed,
-            RawColor::Green => Color::Green,
-            RawColor::DarkGreen => Color::DarkGreen,
-            RawColor::Yellow => Color::Yellow,
-            RawColor::DarkYellow => Color::DarkYellow,
-            RawColor::Blue => Color::Blue,
-            RawColor::DarkBlue => Color::DarkBlue,
-            RawColor::Magenta => Color::Magenta,
-            RawColor::DarkMagenta => Color::DarkMagenta,
-            RawColor::Cyan => Color::Cyan,
-            RawColor::DarkCyan => Color::DarkCyan,
-            RawColor::White => Color::White,
-            RawColor::Grey => Color::Grey,
-            RawColor::Rgb { r, g, b } => Color::Rgb { r: *r, g: *g, b: *b },
-            RawColor::Palette(name) => {
-                let name = FixedStr::try_from(name.as_str()).unwrap();
-                palette.colors.get(&name).copied().ok_or(UndefinedPaletteColorError(name))?
-            }
+            Self::Color(c) => *c,
+            Self::Palette(name) => palette.colors.get(name).copied().ok_or(UndefinedPaletteColorError(name.clone()))?,
         };
         Ok(color)
     }
@@ -790,25 +758,7 @@ impl RawColor {
 
 impl From<Color> for RawColor {
     fn from(color: Color) -> Self {
-        match color {
-            Color::Black => Self::Black,
-            Color::DarkGrey => Self::DarkGrey,
-            Color::Red => Self::Red,
-            Color::DarkRed => Self::DarkRed,
-            Color::Green => Self::Green,
-            Color::DarkGreen => Self::DarkGreen,
-            Color::Yellow => Self::Yellow,
-            Color::DarkYellow => Self::DarkYellow,
-            Color::Blue => Self::Blue,
-            Color::DarkBlue => Self::DarkBlue,
-            Color::Magenta => Self::Magenta,
-            Color::DarkMagenta => Self::DarkMagenta,
-            Color::Cyan => Self::Cyan,
-            Color::DarkCyan => Self::DarkCyan,
-            Color::White => Self::White,
-            Color::Grey => Self::Grey,
-            Color::Rgb { r, g, b } => Self::Rgb { r, g, b },
-        }
+        Self::Color(color)
     }
 }
 
@@ -817,28 +767,28 @@ impl FromStr for RawColor {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let output = match input {
-            "black" => Self::Black,
-            "white" => Self::White,
-            "grey" => Self::Grey,
-            "dark_grey" => Self::DarkGrey,
-            "red" => Self::Red,
-            "dark_red" => Self::DarkRed,
-            "green" => Self::Green,
-            "dark_green" => Self::DarkGreen,
-            "blue" => Self::Blue,
-            "dark_blue" => Self::DarkBlue,
-            "yellow" => Self::Yellow,
-            "dark_yellow" => Self::DarkYellow,
-            "magenta" => Self::Magenta,
-            "dark_magenta" => Self::DarkMagenta,
-            "cyan" => Self::Cyan,
-            "dark_cyan" => Self::DarkCyan,
+            "black" => Color::Black.into(),
+            "white" => Color::White.into(),
+            "grey" => Color::Grey.into(),
+            "dark_grey" => Color::DarkGrey.into(),
+            "red" => Color::Red.into(),
+            "dark_red" => Color::DarkRed.into(),
+            "green" => Color::Green.into(),
+            "dark_green" => Color::DarkGreen.into(),
+            "blue" => Color::Blue.into(),
+            "dark_blue" => Color::DarkBlue.into(),
+            "yellow" => Color::Yellow.into(),
+            "dark_yellow" => Color::DarkYellow.into(),
+            "magenta" => Color::Magenta.into(),
+            "dark_magenta" => Color::DarkMagenta.into(),
+            "cyan" => Color::Cyan.into(),
+            "dark_cyan" => Color::DarkCyan.into(),
             other if other.starts_with("palette:") => Self::new_palette(other.trim_start_matches("palette:"))?,
             other if other.starts_with("p:") => Self::new_palette(other.trim_start_matches("p:"))?,
             // Fallback to hex-encoded rgb
             _ => {
                 let values = <[u8; 3]>::from_hex(input)?;
-                Self::Rgb { r: values[0], g: values[1], b: values[2] }
+                Color::Rgb { r: values[0], g: values[1], b: values[2] }.into()
             }
         };
         Ok(output)
@@ -847,24 +797,25 @@ impl FromStr for RawColor {
 
 impl fmt::Display for RawColor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Color::*;
         match self {
-            Self::Rgb { r, g, b } => write!(f, "{}", hex::encode([*r, *g, *b])),
-            Self::Black => write!(f, "black"),
-            Self::White => write!(f, "white"),
-            Self::Grey => write!(f, "grey"),
-            Self::DarkGrey => write!(f, "dark_grey"),
-            Self::Red => write!(f, "red"),
-            Self::DarkRed => write!(f, "dark_red"),
-            Self::Green => write!(f, "green"),
-            Self::DarkGreen => write!(f, "dark_green"),
-            Self::Blue => write!(f, "blue"),
-            Self::DarkBlue => write!(f, "dark_blue"),
-            Self::Yellow => write!(f, "yellow"),
-            Self::DarkYellow => write!(f, "dark_yellow"),
-            Self::Magenta => write!(f, "magenta"),
-            Self::DarkMagenta => write!(f, "dark_magenta"),
-            Self::Cyan => write!(f, "cyan"),
-            Self::DarkCyan => write!(f, "dark_cyan"),
+            Self::Color(Rgb { r, g, b }) => write!(f, "{}", hex::encode([*r, *g, *b])),
+            Self::Color(Black) => write!(f, "black"),
+            Self::Color(White) => write!(f, "white"),
+            Self::Color(Grey) => write!(f, "grey"),
+            Self::Color(DarkGrey) => write!(f, "dark_grey"),
+            Self::Color(Red) => write!(f, "red"),
+            Self::Color(DarkRed) => write!(f, "dark_red"),
+            Self::Color(Green) => write!(f, "green"),
+            Self::Color(DarkGreen) => write!(f, "dark_green"),
+            Self::Color(Blue) => write!(f, "blue"),
+            Self::Color(DarkBlue) => write!(f, "dark_blue"),
+            Self::Color(Yellow) => write!(f, "yellow"),
+            Self::Color(DarkYellow) => write!(f, "dark_yellow"),
+            Self::Color(Magenta) => write!(f, "magenta"),
+            Self::Color(DarkMagenta) => write!(f, "dark_magenta"),
+            Self::Color(Cyan) => write!(f, "cyan"),
+            Self::Color(DarkCyan) => write!(f, "dark_cyan"),
             Self::Palette(name) => write!(f, "palette:{name}"),
         }
     }

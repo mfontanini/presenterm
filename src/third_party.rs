@@ -13,7 +13,7 @@ use crate::{
         properties::WindowSize,
     },
     terminal::image::{Image, printer::RegisterImageError},
-    theme::{Alignment, MermaidStyle, PresentationTheme, TypstStyle},
+    theme::{Alignment, MermaidStyle, PresentationTheme, TypstStyle, raw::RawColor},
     tools::{ExecutionError, ThirdPartyTools},
 };
 use std::{
@@ -262,7 +262,7 @@ impl Worker {
     fn as_typst_color(color: &Color) -> Result<String, ThirdPartyRenderError> {
         match color.as_rgb() {
             Some((r, g, b)) => Ok(format!("rgb(\"#{r:02x}{g:02x}{b:02x}\")")),
-            None => Err(ThirdPartyRenderError::UnsupportedColor(color.to_string())),
+            None => Err(ThirdPartyRenderError::UnsupportedColor(RawColor::from(*color).to_string())),
         }
     }
 

@@ -1,9 +1,10 @@
-use super::{AuthorPositioning, ColorPalette, FooterTemplate, Margin, PaddingRect, raw};
+use super::{AuthorPositioning, FooterTemplate, Margin, PaddingRect, raw};
 use crate::{
     markdown::text_style::{Color, TextStyle, UndefinedPaletteColorError},
     resource::Resources,
     terminal::image::{Image, printer::RegisterImageError},
 };
+use std::collections::BTreeMap;
 
 const DEFAULT_CODE_HIGHLIGHT_THEME: &str = "base16-eighties.dark";
 const DEFAULT_BLOCK_QUOTE_PREFIX: &str = "▍ ";
@@ -69,23 +70,24 @@ impl PresentationTheme {
             extends: _,
         } = raw;
 
-        let default_style = DefaultStyle::new(default_style, palette)?;
+        let palette = ColorPalette::try_from(palette)?;
+        let default_style = DefaultStyle::new(default_style, &palette)?;
         Ok(Self {
-            slide_title: SlideTitleStyle::new(slide_title, palette, options)?,
+            slide_title: SlideTitleStyle::new(slide_title, &palette, options)?,
             code: CodeBlockStyle::new(code),
-            execution_output: ExecutionOutputBlockStyle::new(execution_output, palette)?,
-            inline_code: InlineCodeStyle::new(inline_code, palette)?,
+            execution_output: ExecutionOutputBlockStyle::new(execution_output, &palette)?,
+            inline_code: InlineCodeStyle::new(inline_code, &palette)?,
             table: table.clone().unwrap_or_default().into(),
-            block_quote: BlockQuoteStyle::new(block_quote, palette)?,
-            alert: AlertStyle::new(alert, palette)?,
+            block_quote: BlockQuoteStyle::new(block_quote, &palette)?,
+            alert: AlertStyle::new(alert, &palette)?,
             default_style: default_style.clone(),
-            headings: HeadingStyles::new(headings, palette, options)?,
-            intro_slide: IntroSlideStyle::new(intro_slide, palette, options)?,
-            footer: FooterStyle::new(&footer.clone().unwrap_or_default(), palette, resources)?,
-            typst: TypstStyle::new(typst, palette)?,
+            headings: HeadingStyles::new(headings, &palette, options)?,
+            intro_slide: IntroSlideStyle::new(intro_slide, &palette, options)?,
+            footer: FooterStyle::new(&footer.clone().unwrap_or_default(), &palette, resources)?,
+            typst: TypstStyle::new(typst, &palette)?,
             mermaid: MermaidStyle::new(mermaid),
-            modals: ModalStyle::new(modals, &default_style, palette)?,
-            palette: palette.clone(),
+            modals: ModalStyle::new(modals, &default_style, &palette)?,
+            palette,
         })
     }
 
@@ -117,6 +119,9 @@ impl PresentationTheme {
 pub(crate) enum ProcessingThemeError {
     #[error(transparent)]
     Palette(#[from] UndefinedPaletteColorError),
+
+    #[error("palette cannot contain other palette colors")]
+    PaletteColorInPalette,
 
     #[error("invalid footer image: {0}")]
     FooterImage(RegisterImageError),
@@ -657,5 +662,29 @@ impl ModalStyle {
         let mut selection_style = style.bold();
         selection_style.merge(&TextStyle::colored(selection_colors.resolve(palette)?));
         Ok(Self { style, selection_style })
+    }
+}
+
+/// The color palette.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ColorPalette {
+    pub(crate) colors: BTreeMap<String, Color>,
+}
+
+impl TryFrom<&raw::ColorPalette> for ColorPalette {
+    type Error = ProcessingThemeError;
+
+    fn try_from(palette: &raw::ColorPalette) -> Result<Self, Self::Error> {
+        let mut colors = BTreeMap::new();
+        for (name, color) in &palette.colors {
+            let color = match color {
+                raw::RawColor::Color(c) => *c,
+                raw::RawColor::Palette(_) => {
+                    return Err(ProcessingThemeError::PaletteColorInPalette);
+                }
+            };
+            colors.insert(name.clone(), color);
+        }
+        Ok(Self { colors })
     }
 }

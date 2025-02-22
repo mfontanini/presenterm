@@ -1,4 +1,4 @@
-use super::text_style::TextStyle;
+use super::text_style::{Color, TextStyle};
 use crate::theme::raw::{ParseColorError, RawColor};
 use std::{borrow::Cow, str, str::Utf8Error};
 use tl::Attributes;
@@ -79,10 +79,10 @@ impl HtmlParser {
     fn parse_color(input: &str) -> Result<RawColor, ParseHtmlError> {
         if input.starts_with('#') {
             let color = input.strip_prefix('#').unwrap().parse()?;
-            if matches!(color, RawColor::Rgb { .. }) { Ok(color) } else { Ok(input.parse()?) }
+            if matches!(color, RawColor::Color(Color::Rgb { .. })) { Ok(color) } else { Ok(input.parse()?) }
         } else {
             let color = input.parse::<RawColor>()?;
-            if matches!(color, RawColor::Rgb { .. }) {
+            if matches!(color, RawColor::Color(Color::Rgb { .. })) {
                 Err(ParseHtmlError::InvalidColor("missing '#' in rgb color".into()))
             } else {
                 Ok(color)
@@ -143,7 +143,7 @@ mod tests {
         let tag =
             HtmlParser::default().parse(r#"<span style="color: red; background-color: black">"#).expect("parse failed");
         let HtmlInline::OpenSpan { style } = tag else { panic!("not an open tag") };
-        assert_eq!(style, TextStyle::default().bg_color(RawColor::Black).fg_color(RawColor::Red));
+        assert_eq!(style, TextStyle::default().bg_color(Color::Black).fg_color(Color::Red));
     }
 
     #[test]
@@ -163,11 +163,11 @@ mod tests {
     }
 
     #[rstest]
-    #[case::rgb("#ff0000", RawColor::Rgb{r: 255, g: 0, b: 0})]
-    #[case::red("red", RawColor::Red)]
-    fn parse_color(#[case] input: &str, #[case] expected: RawColor) {
+    #[case::rgb("#ff0000", Color::Rgb{r: 255, g: 0, b: 0})]
+    #[case::red("red", Color::Red)]
+    fn parse_color(#[case] input: &str, #[case] expected: Color) {
         let color = HtmlParser::parse_color(input).expect("parse failed");
-        assert_eq!(color, expected);
+        assert_eq!(color, expected.into());
     }
 
     #[rstest]
