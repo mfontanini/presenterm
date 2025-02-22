@@ -142,7 +142,7 @@ impl AsRenderOperations for HighlightedLine {
                 repeat_prefix_on_wrap: false,
                 text,
                 block_length: context.block_length as u16,
-                alignment: context.alignment.clone(),
+                alignment: context.alignment,
                 block_color: self.block_color,
             }),
             RenderOperation::RenderLineBreak,

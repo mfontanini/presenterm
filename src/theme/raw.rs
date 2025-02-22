@@ -622,7 +622,7 @@ pub(super) struct PaddingRect {
 }
 
 /// A margin.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Margin {
     /// A fixed number of characters.

@@ -268,7 +268,7 @@ impl<'a> PresentationBuilder<'a> {
         self.chunk_operations.extend([
             RenderOperation::ClearScreen,
             RenderOperation::ApplyMargin(MarginProperties {
-                horizontal: self.theme.default_style.margin.clone(),
+                horizontal: self.theme.default_style.margin,
                 top: 0,
                 bottom: footer_height,
             }),
@@ -731,7 +731,7 @@ impl<'a> PresentationBuilder<'a> {
             prefix,
             self.theme.block_quote.base_style.colors,
             prefix_style,
-            self.theme.block_quote.alignment.clone(),
+            self.theme.block_quote.alignment,
         )
     }
 
@@ -759,7 +759,7 @@ impl<'a> PresentationBuilder<'a> {
             prefix,
             self.theme.alert.base_style.colors,
             style.style,
-            self.theme.alert.alignment.clone(),
+            self.theme.alert.alignment,
         )
     }
 
@@ -793,7 +793,7 @@ impl<'a> PresentationBuilder<'a> {
                 repeat_prefix_on_wrap: true,
                 text: line.into(),
                 block_length,
-                alignment: alignment.clone(),
+                alignment,
                 block_color: base_colors.background,
             }));
             self.push_line_break();
@@ -825,8 +825,7 @@ impl<'a> PresentationBuilder<'a> {
             }
         }
         if !block.0.is_empty() {
-            self.chunk_operations
-                .push(RenderOperation::RenderText { line: WeightedLine::from(block), alignment: alignment.clone() });
+            self.chunk_operations.push(RenderOperation::RenderText { line: WeightedLine::from(block), alignment });
         }
         Ok(())
     }
@@ -871,7 +870,7 @@ impl<'a> PresentationBuilder<'a> {
         if snippet.attributes.execute_replace && !self.options.enable_snippet_execution_replace {
             let operation = SnippetExecutionDisabledOperation::new(
                 self.theme.execution_output.status.failure_style,
-                self.theme.code.alignment.clone(),
+                self.theme.code.alignment,
             );
             operation.start_render();
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(operation)))
@@ -882,7 +881,7 @@ impl<'a> PresentationBuilder<'a> {
             } else {
                 let operation = SnippetExecutionDisabledOperation::new(
                     self.theme.execution_output.status.failure_style,
-                    self.theme.code.alignment.clone(),
+                    self.theme.code.alignment,
                 );
                 self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(operation)))
             }
@@ -936,9 +935,9 @@ impl<'a> PresentationBuilder<'a> {
     ) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let style = self.code_style(code);
-        let block_length = match self.theme.code.alignment.clone() {
+        let block_length = match &self.theme.code.alignment {
             Alignment::Left { .. } | Alignment::Right { .. } => block_length,
-            Alignment::Center { minimum_size, .. } => block_length.max(minimum_size as usize),
+            Alignment::Center { minimum_size, .. } => block_length.max(*minimum_size as usize),
         };
         let font_size = self.slide_font_size();
         let dim_style = {
@@ -949,12 +948,8 @@ impl<'a> PresentationBuilder<'a> {
             true => code.attributes.highlight_groups.clone(),
             false => vec![HighlightGroup::new(vec![Highlight::All])],
         };
-        let context = Rc::new(RefCell::new(HighlightContext {
-            groups,
-            current: 0,
-            block_length,
-            alignment: style.alignment.clone(),
-        }));
+        let context =
+            Rc::new(RefCell::new(HighlightContext { groups, current: 0, block_length, alignment: style.alignment }));
 
         let mut output = Vec::new();
         for line in lines.into_iter() {
@@ -1008,9 +1003,9 @@ impl<'a> PresentationBuilder<'a> {
         }
         if snippet.attributes.acquire_terminal {
             let block_length = block_length as u16;
-            let block_length = match self.theme.code.alignment.clone() {
+            let block_length = match &self.theme.code.alignment {
                 Alignment::Left { .. } | Alignment::Right { .. } => block_length,
-                Alignment::Center { minimum_size, .. } => block_length.max(minimum_size),
+                Alignment::Center { minimum_size, .. } => block_length.max(*minimum_size),
             };
             let operation = RunAcquireTerminalSnippet::new(
                 snippet,

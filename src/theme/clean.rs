@@ -94,24 +94,23 @@ impl PresentationTheme {
     pub(crate) fn alignment(&self, element: &ElementType) -> Alignment {
         use ElementType::*;
 
-        let alignment = match element {
-            SlideTitle => &self.slide_title.alignment,
-            Heading1 => &self.headings.h1.alignment,
-            Heading2 => &self.headings.h2.alignment,
-            Heading3 => &self.headings.h3.alignment,
-            Heading4 => &self.headings.h4.alignment,
-            Heading5 => &self.headings.h5.alignment,
-            Heading6 => &self.headings.h6.alignment,
-            Paragraph | List => &Default::default(),
-            PresentationTitle => &self.intro_slide.title.alignment,
-            PresentationSubTitle => &self.intro_slide.subtitle.alignment,
-            PresentationEvent => &self.intro_slide.event.alignment,
-            PresentationLocation => &self.intro_slide.location.alignment,
-            PresentationDate => &self.intro_slide.date.alignment,
-            PresentationAuthor => &self.intro_slide.author.alignment,
-            Table => &self.table,
-        };
-        alignment.clone()
+        match element {
+            SlideTitle => self.slide_title.alignment,
+            Heading1 => self.headings.h1.alignment,
+            Heading2 => self.headings.h2.alignment,
+            Heading3 => self.headings.h3.alignment,
+            Heading4 => self.headings.h4.alignment,
+            Heading5 => self.headings.h5.alignment,
+            Heading6 => self.headings.h6.alignment,
+            Paragraph | List => Default::default(),
+            PresentationTitle => self.intro_slide.title.alignment,
+            PresentationSubTitle => self.intro_slide.subtitle.alignment,
+            PresentationEvent => self.intro_slide.event.alignment,
+            PresentationLocation => self.intro_slide.location.alignment,
+            PresentationDate => self.intro_slide.date.alignment,
+            PresentationAuthor => self.intro_slide.author.alignment,
+            Table => self.table,
+        }
     }
 }
 
@@ -429,13 +428,13 @@ pub(crate) struct DefaultStyle {
 impl DefaultStyle {
     fn new(raw: &raw::DefaultStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
         let raw::DefaultStyle { margin, colors } = raw;
-        let margin = margin.clone().unwrap_or_default();
+        let margin = margin.unwrap_or_default();
         let style = TextStyle::colored(colors.resolve(palette)?);
         Ok(Self { margin, style })
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) enum Alignment {
     Left { margin: Margin },
     Right { margin: Margin },

@@ -154,7 +154,7 @@ impl AsRenderOperations for RunSnippetOperation {
                 repeat_prefix_on_wrap: false,
                 text: line.clone(),
                 block_length,
-                alignment: self.alignment.clone(),
+                alignment: self.alignment,
                 block_color: self.block_colors.background,
             }));
             operations.push(RenderOperation::RenderLineBreak);
@@ -249,7 +249,7 @@ impl AsRenderOperations for SnippetExecutionDisabledOperation {
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderText {
                 line: vec![Text::new("snippet execution is disabled", self.style)].into(),
-                alignment: self.alignment.clone(),
+                alignment: self.alignment,
             },
             RenderOperation::RenderLineBreak,
         ]

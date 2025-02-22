@@ -83,13 +83,13 @@ impl TerminalDrawer {
             }),
             RenderOperation::ClearScreen,
             RenderOperation::JumpToRow { index: starting_row },
-            RenderOperation::RenderText { line: WeightedLine::from(heading), alignment: alignment.clone() },
+            RenderOperation::RenderText { line: WeightedLine::from(heading), alignment },
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
         ];
         for line in message.lines() {
             let error = vec![Text::from(line)];
-            let op = RenderOperation::RenderText { line: WeightedLine::from(error), alignment: alignment.clone() };
+            let op = RenderOperation::RenderText { line: WeightedLine::from(error), alignment };
             operations.extend([op, RenderOperation::RenderLineBreak]);
         }
         let engine = self.create_engine(dimensions);
