@@ -34,8 +34,8 @@ impl<'a> SnippetSplitter<'a> {
 
     pub(crate) fn split(&self, code: &Snippet) -> Vec<SnippetLine> {
         let mut lines = Vec::new();
-        let horizontal_padding = self.style.padding.horizontal.unwrap_or(0);
-        let vertical_padding = self.style.padding.vertical.unwrap_or(0);
+        let horizontal_padding = self.style.padding.horizontal;
+        let vertical_padding = self.style.padding.vertical;
         if vertical_padding > 0 {
             lines.push(SnippetLine::empty());
         }

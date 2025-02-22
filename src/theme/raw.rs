@@ -611,14 +611,14 @@ pub(super) struct InlineCodeStyle {
 
 /// Vertical/horizontal padding.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(crate) struct PaddingRect {
+pub(super) struct PaddingRect {
     /// The number of columns to use as horizontal padding.
     #[serde(default)]
-    pub(crate) horizontal: Option<u8>,
+    pub(super) horizontal: Option<u8>,
 
     /// The number of rows to use as vertical padding.
     #[serde(default)]
-    pub(crate) vertical: Option<u8>,
+    pub(super) vertical: Option<u8>,
 }
 
 /// A margin.

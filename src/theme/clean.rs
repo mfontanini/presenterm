@@ -1,4 +1,4 @@
-use super::{AuthorPositioning, FooterTemplate, Margin, PaddingRect, raw};
+use super::{AuthorPositioning, FooterTemplate, Margin, raw};
 use crate::{
     markdown::text_style::{Color, TextStyle, UndefinedPaletteColorError},
     resource::Resources,
@@ -536,14 +536,29 @@ pub(crate) struct CodeBlockStyle {
 impl CodeBlockStyle {
     fn new(raw: &raw::CodeBlockStyle) -> Self {
         let raw::CodeBlockStyle { alignment, padding, theme_name, background } = raw;
+        let padding = PaddingRect {
+            horizontal: padding.horizontal.unwrap_or_default(),
+            vertical: padding.vertical.unwrap_or_default(),
+        };
         Self {
             alignment: alignment.clone().unwrap_or_default().into(),
-            padding: padding.clone(),
+            padding,
             theme_name: theme_name.as_deref().unwrap_or(DEFAULT_CODE_HIGHLIGHT_THEME).to_string(),
             background: background.unwrap_or(true),
         }
     }
 }
+
+/// Vertical/horizontal padding.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct PaddingRect {
+    /// The number of columns to use as horizontal padding.
+    pub(crate) horizontal: u8,
+
+    /// The number of rows to use as vertical padding.
+    pub(crate) vertical: u8,
+}
+
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ExecutionOutputBlockStyle {
     pub(crate) style: TextStyle,

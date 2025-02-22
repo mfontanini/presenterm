@@ -1,6 +1,5 @@
-use crate::theme::{ColorPalette, raw::RawColor};
-
 use super::text_style::{Color, TextStyle, UndefinedPaletteColorError};
+use crate::theme::{ColorPalette, raw::RawColor};
 use comrak::nodes::AlertType;
 use std::{fmt, iter, path::PathBuf, str::FromStr};
 use unicode_width::UnicodeWidthStr;
