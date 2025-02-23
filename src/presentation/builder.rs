@@ -13,6 +13,7 @@ use crate::{
             Line, ListItem, ListItemType, MarkdownElement, Percent, PercentParseError, SourcePosition, Table, TableRow,
             Text,
         },
+        parse::MarkdownParser,
         text::WeightedLine,
         text_style::{Color, Colors, TextStyle, UndefinedPaletteColorError},
     },
@@ -46,7 +47,7 @@ use crate::{
         separator::RenderSeparator,
     },
 };
-use comrak::nodes::AlertType;
+use comrak::{Arena, nodes::AlertType};
 use image::DynamicImage;
 use serde::Deserialize;
 use std::{cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
@@ -390,11 +391,21 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
+    fn format_presentation_title(&self, title: String) -> Result<Line, BuildError> {
+        let arena = Arena::default();
+        let parser = MarkdownParser::new(&arena);
+        let line = parser.parse_inlines(&title).map_err(|e| BuildError::PresentationTitle(e.to_string()))?;
+        let mut line = line.resolve(&self.theme.palette)?;
+        line.apply_style(&self.theme.intro_slide.title.style);
+        Ok(line)
+    }
+
     fn push_intro_slide(&mut self, metadata: PresentationMetadata) -> BuildResult {
         let styles = &self.theme.intro_slide;
         let create_text =
             |text: Option<String>, style: TextStyle| -> Option<Text> { text.map(|text| Text::new(text, style)) };
-        let title = create_text(metadata.title, styles.title.style);
+        let title = metadata.title.map(|t| self.format_presentation_title(t)).transpose()?;
+
         let sub_title = create_text(metadata.sub_title, styles.subtitle.style);
         let event = create_text(metadata.event, styles.event.style);
         let location = create_text(metadata.location, styles.location.style);
@@ -410,7 +421,8 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.chunk_operations.push(RenderOperation::JumpToVerticalCenter);
         if let Some(title) = title {
-            self.push_line(title, ElementType::PresentationTitle)?;
+            self.push_text(title, ElementType::PresentationTitle)?;
+            self.push_line_break();
         }
         if let Some(sub_title) = sub_title {
             self.push_line(sub_title, ElementType::PresentationSubTitle)?;
@@ -1264,6 +1276,9 @@ pub enum BuildError {
 
     #[error("processing theme: {0}")]
     ThemeProcessing(#[from] ProcessingThemeError),
+
+    #[error("invalid presentation title: {0}")]
+    PresentationTitle(String),
 }
 
 enum ExecutionMode {
