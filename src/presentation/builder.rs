@@ -195,7 +195,7 @@ impl<'a> PresentationBuilder<'a> {
         self.set_code_theme()?;
 
         if self.chunk_operations.is_empty() {
-            self.push_slide_prelude()?;
+            self.push_slide_prelude();
         }
         for element in elements {
             self.slide_state.ignore_element_line_break = false;
@@ -210,7 +210,7 @@ impl<'a> PresentationBuilder<'a> {
             }
         }
         if !self.chunk_operations.is_empty() || !self.slide_chunks.is_empty() {
-            self.terminate_slide()?;
+            self.terminate_slide();
         }
         self.footer_context.borrow_mut().total_slides = self.slides.len();
 
@@ -261,7 +261,7 @@ impl<'a> PresentationBuilder<'a> {
         self.chunk_operations.push(RenderOperation::SetColors(colors));
     }
 
-    fn push_slide_prelude(&mut self) -> BuildResult {
+    fn push_slide_prelude(&mut self) {
         let style = self.theme.default_style.style;
         self.set_colors(style.colors);
 
@@ -275,7 +275,6 @@ impl<'a> PresentationBuilder<'a> {
             }),
         ]);
         self.push_line_break();
-        Ok(())
     }
 
     fn process_element_for_presentation_mode(&mut self, element: MarkdownElement) -> BuildResult {
@@ -290,7 +289,7 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::List(elements) => self.push_list(elements)?,
             MarkdownElement::Snippet { info, code, source_position } => self.push_code(info, code, source_position)?,
             MarkdownElement::Table(table) => self.push_table(table)?,
-            MarkdownElement::ThematicBreak => self.process_thematic_break()?,
+            MarkdownElement::ThematicBreak => self.process_thematic_break(),
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
             MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines)?,
             MarkdownElement::Image { path, title, source_position } => {
@@ -342,7 +341,7 @@ impl<'a> PresentationBuilder<'a> {
 
         self.set_theme(&metadata.theme)?;
         if metadata.has_frontmatter() {
-            self.push_slide_prelude()?;
+            self.push_slide_prelude();
             self.push_intro_slide(metadata)?;
         }
         Ok(())
@@ -402,6 +401,7 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_intro_slide(&mut self, metadata: PresentationMetadata) -> BuildResult {
         let styles = &self.theme.intro_slide;
+
         let create_text =
             |text: Option<String>, style: TextStyle| -> Option<Text> { text.map(|text| Text::new(text, style)) };
         let title = metadata.title.map(|t| self.format_presentation_title(t)).transpose()?;
@@ -421,22 +421,23 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.chunk_operations.push(RenderOperation::JumpToVerticalCenter);
         if let Some(title) = title {
-            self.push_text(title, ElementType::PresentationTitle)?;
+            self.push_text(title, ElementType::PresentationTitle);
             self.push_line_break();
         }
+
         if let Some(sub_title) = sub_title {
-            self.push_line(sub_title, ElementType::PresentationSubTitle)?;
+            self.push_intro_slide_text(sub_title, ElementType::PresentationSubTitle);
         }
         if event.is_some() || location.is_some() || date.is_some() {
             self.push_line_breaks(2);
             if let Some(event) = event {
-                self.push_line(event, ElementType::PresentationEvent)?;
+                self.push_intro_slide_text(event, ElementType::PresentationEvent);
             }
             if let Some(location) = location {
-                self.push_line(location, ElementType::PresentationLocation)?;
+                self.push_intro_slide_text(location, ElementType::PresentationLocation);
             }
             if let Some(date) = date {
-                self.push_line(date, ElementType::PresentationDate)?;
+                self.push_intro_slide_text(date, ElementType::PresentationDate);
             }
         }
         if !authors.is_empty() {
@@ -449,11 +450,12 @@ impl<'a> PresentationBuilder<'a> {
                 }
             };
             for author in authors {
-                self.push_line(author, ElementType::PresentationAuthor)?;
+                self.push_intro_slide_text(author, ElementType::PresentationAuthor);
             }
         }
         self.slide_state.title = Some(Line::from("[Introduction]"));
-        self.terminate_slide()
+        self.terminate_slide();
+        Ok(())
     }
 
     fn process_comment(&mut self, comment: String, source_position: SourcePosition) -> BuildResult {
@@ -471,7 +473,8 @@ impl<'a> PresentationBuilder<'a> {
         };
 
         if self.options.render_speaker_notes_only {
-            self.process_comment_command_speaker_notes_mode(command)
+            self.process_comment_command_speaker_notes_mode(command);
+            Ok(())
         } else {
             self.process_comment_command_presentation_mode(command)
         }
@@ -480,7 +483,7 @@ impl<'a> PresentationBuilder<'a> {
     fn process_comment_command_presentation_mode(&mut self, comment_command: CommentCommand) -> BuildResult {
         match comment_command {
             CommentCommand::Pause => self.process_pause(),
-            CommentCommand::EndSlide => self.terminate_slide()?,
+            CommentCommand::EndSlide => self.terminate_slide(),
             CommentCommand::NewLine => self.push_line_breaks(self.slide_font_size() as usize),
             CommentCommand::NewLines(count) => {
                 self.push_line_breaks(count as usize * self.slide_font_size() as usize);
@@ -529,18 +532,17 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn process_comment_command_speaker_notes_mode(&mut self, comment_command: CommentCommand) -> BuildResult {
+    fn process_comment_command_speaker_notes_mode(&mut self, comment_command: CommentCommand) {
         match comment_command {
             CommentCommand::SpeakerNote(note) => {
                 for line in note.lines() {
-                    self.push_text(line.into(), ElementType::Paragraph)?;
+                    self.push_text(line.into(), ElementType::Paragraph);
                     self.push_line_break();
                 }
             }
-            CommentCommand::EndSlide => self.terminate_slide()?,
+            CommentCommand::EndSlide => self.terminate_slide(),
             _ => {}
         }
-        Ok(())
     }
 
     fn should_ignore_comment(&self, comment: &str) -> bool {
@@ -579,7 +581,7 @@ impl<'a> PresentationBuilder<'a> {
     fn push_slide_title(&mut self, text: Line<RawColor>) -> BuildResult {
         let mut text = text.resolve(&self.theme.palette)?;
         if self.options.implicit_slide_ends && !matches!(self.slide_state.last_element, LastElement::None) {
-            self.terminate_slide()?;
+            self.terminate_slide();
         }
 
         if self.slide_state.title.is_none() {
@@ -590,7 +592,7 @@ impl<'a> PresentationBuilder<'a> {
         text.apply_style(&style.style);
 
         self.push_line_breaks(style.padding_top as usize);
-        self.push_text(text, ElementType::SlideTitle)?;
+        self.push_text(text, ElementType::SlideTitle);
         self.push_line_break();
 
         for _ in 0..style.padding_bottom {
@@ -623,7 +625,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         text.apply_style(&style.style);
 
-        self.push_text(text, element_type)?;
+        self.push_text(text, element_type);
         self.push_line_breaks(self.slide_font_size() as usize);
         Ok(())
     }
@@ -631,15 +633,15 @@ impl<'a> PresentationBuilder<'a> {
     fn push_paragraph(&mut self, lines: Vec<Line<RawColor>>) -> BuildResult {
         for line in lines {
             let line = line.resolve(&self.theme.palette)?;
-            self.push_text(line, ElementType::Paragraph)?;
+            self.push_text(line, ElementType::Paragraph);
             self.push_line_breaks(self.slide_font_size() as usize);
         }
         Ok(())
     }
 
-    fn process_thematic_break(&mut self) -> BuildResult {
+    fn process_thematic_break(&mut self) {
         if self.options.end_slide_shorthand {
-            self.terminate_slide()?;
+            self.terminate_slide();
             self.slide_state.ignore_element_line_break = true;
         } else {
             self.chunk_operations.extend([
@@ -647,7 +649,6 @@ impl<'a> PresentationBuilder<'a> {
                 RenderOperation::RenderLineBreak,
             ]);
         }
-        Ok(())
     }
 
     fn push_image_from_path(&mut self, path: PathBuf, title: String, source_position: SourcePosition) -> BuildResult {
@@ -724,10 +725,10 @@ impl<'a> PresentationBuilder<'a> {
         };
 
         let prefix_length = prefix.len() as u16 * self.font_size(None) as u16;
-        self.push_text(prefix.into(), ElementType::List)?;
+        self.push_text(prefix.into(), ElementType::List);
 
         let text = item.contents.resolve(&self.theme.palette)?;
-        self.push_aligned_text(text, Alignment::Left { margin: Margin::Fixed(prefix_length) })?;
+        self.push_aligned_text(text, Alignment::Left { margin: Margin::Fixed(prefix_length) });
         self.push_line_break();
         if item.depth == 0 {
             self.slide_state.last_element = LastElement::List { last_index: index };
@@ -814,19 +815,17 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_line(&mut self, text: Text, element_type: ElementType) -> BuildResult {
-        self.push_text(Line::from(text), element_type)?;
+    fn push_intro_slide_text(&mut self, text: Text, element_type: ElementType) {
+        self.push_text(Line::from(text), element_type);
         self.push_line_break();
-        Ok(())
     }
 
-    fn push_text(&mut self, line: Line, element_type: ElementType) -> BuildResult {
+    fn push_text(&mut self, line: Line, element_type: ElementType) {
         let alignment = self.theme.alignment(&element_type);
-        self.push_aligned_text(line, alignment)?;
-        Ok(())
+        self.push_aligned_text(line, alignment);
     }
 
-    fn push_aligned_text(&mut self, mut block: Line, alignment: Alignment) -> BuildResult {
+    fn push_aligned_text(&mut self, mut block: Line, alignment: Alignment) {
         let default_font_size = self.font_size(None);
         for chunk in &mut block.0 {
             if chunk.style.is_code() {
@@ -839,7 +838,6 @@ impl<'a> PresentationBuilder<'a> {
         if !block.0.is_empty() {
             self.chunk_operations.push(RenderOperation::RenderText { line: WeightedLine::from(block), alignment });
         }
-        Ok(())
     }
 
     fn push_line_break(&mut self) {
@@ -1058,8 +1056,8 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn terminate_slide(&mut self) -> BuildResult {
-        let footer = self.generate_footer()?;
+    fn terminate_slide(&mut self) {
+        let footer = self.generate_footer();
 
         let operations = mem::take(&mut self.chunk_operations);
         let mutators = mem::take(&mut self.chunk_mutators);
@@ -1070,24 +1068,23 @@ impl<'a> PresentationBuilder<'a> {
         self.index_builder.add_title(self.slide_state.title.take().unwrap_or_else(|| Text::from("<no title>").into()));
         self.slides.push(slide);
 
-        self.push_slide_prelude()?;
+        self.push_slide_prelude();
         self.slide_state = Default::default();
         self.slide_state.last_element = LastElement::None;
-        Ok(())
     }
 
-    fn generate_footer(&mut self) -> Result<Vec<RenderOperation>, BuildError> {
+    fn generate_footer(&mut self) -> Vec<RenderOperation> {
         if self.slide_state.ignore_footer {
-            return Ok(Vec::new());
+            return Vec::new();
         }
         let generator = FooterGenerator::new(self.slides.len(), self.footer_context.clone(), self.theme.footer.clone());
-        Ok(vec![
+        vec![
             // Exit any layout we're in so this gets rendered on a default screen size.
             RenderOperation::ExitLayout,
             // Pop the slide margin so we're at the terminal rect.
             RenderOperation::PopMargin,
             RenderOperation::RenderDynamic(Rc::new(generator)),
-        ])
+        ]
     }
 
     fn push_table(&mut self, table: Table) -> BuildResult {
@@ -1095,7 +1092,7 @@ impl<'a> PresentationBuilder<'a> {
             .map(|column| table.iter_column(column).map(|text| text.width()).max().unwrap_or(0))
             .collect();
         let flattened_header = self.prepare_table_row(table.header, &widths)?;
-        self.push_text(flattened_header, ElementType::Table)?;
+        self.push_text(flattened_header, ElementType::Table);
         self.push_line_break();
 
         let mut separator = Line(Vec::new());
@@ -1113,12 +1110,12 @@ impl<'a> PresentationBuilder<'a> {
             separator.0.push(Text::from(contents));
         }
 
-        self.push_text(separator, ElementType::Table)?;
+        self.push_text(separator, ElementType::Table);
         self.push_line_break();
 
         for row in table.rows {
             let flattened_row = self.prepare_table_row(row, &widths)?;
-            self.push_text(flattened_row, ElementType::Table)?;
+            self.push_text(flattened_row, ElementType::Table);
             self.push_line_break();
         }
         Ok(())
