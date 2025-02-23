@@ -63,6 +63,32 @@ impl<'a> MarkdownParser<'a> {
         Ok(elements)
     }
 
+    /// Parse inlines in a markdown input.
+    pub(crate) fn parse_inlines(&self, line: &str) -> Result<Line<RawColor>, ParseInlinesError> {
+        let node = parse_document(self.arena, line, &self.options);
+        if node.children().count() != 1 {
+            return Err(ParseInlinesError("inline must be simple text".into()));
+        }
+        let node = node.first_child().expect("must have one child");
+        let data = node.data.borrow();
+        let NodeValue::Paragraph = &data.value else {
+            return Err(ParseInlinesError("inline must be simple text".into()));
+        };
+        let parser = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No);
+        let inlines = parser.parse(node).map_err(|e| ParseInlinesError(e.to_string()))?;
+        let mut output = Line::default();
+        for inline in inlines {
+            match inline {
+                Inline::Text(line) => {
+                    output.0.extend(line.0);
+                }
+                Inline::Image { .. } => return Err(ParseInlinesError("images not supported".into())),
+                Inline::LineBreak => return Err(ParseInlinesError("line breaks not supported".into())),
+            };
+        }
+        Ok(output)
+    }
+
     fn parse_node(&self, node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
         let data = node.data.borrow();
         let element = match &data.value {
@@ -582,6 +608,10 @@ impl Identifier for NodeValue {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("invalid markdown line: {0}")]
+pub(crate) struct ParseInlinesError(String);
+
 #[cfg(test)]
 mod test {
     use crate::markdown::text_style::Color;
@@ -1028,5 +1058,20 @@ mom
             panic!("not an alert");
         };
         assert_eq!(lines.len(), 2);
+    }
+
+    #[test]
+    fn parse_inlines() {
+        let arena = Arena::new();
+        let input = "hello **mom** how _are you_?";
+        let parsed = MarkdownParser::new(&arena).parse_inlines(input).expect("parse failed");
+        let expected = &[
+            "hello ".into(),
+            Text::new("mom", TextStyle::default().bold()),
+            " how ".into(),
+            Text::new("are you", TextStyle::default().italics()),
+            "?".into(),
+        ];
+        assert_eq!(parsed.0, expected);
     }
 }
