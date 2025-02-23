@@ -19,7 +19,7 @@ use crate::{
     },
     presentation::{
         ChunkMutator, Modals, Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata,
-        RenderOperation, Slide, SlideBuilder, SlideChunk,
+        RenderOperation, SlideBuilder, SlideChunk,
     },
     render::{
         operation::{AsRenderOperations, BlockLine, ImageRenderProperties, ImageSize, MarginProperties, RenderAsync},
@@ -42,7 +42,7 @@ use crate::{
             DisplaySeparator, RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation,
             SnippetExecutionDisabledOperation,
         },
-        footer::{FooterContext, FooterGenerator},
+        footer::{FooterGenerator, FooterVariables},
         modals::{IndexBuilder, KeyBindingsModalBuilder},
         separator::RenderSeparator,
     },
@@ -50,7 +50,7 @@ use crate::{
 use comrak::{Arena, nodes::AlertType};
 use image::DynamicImage;
 use serde::Deserialize;
-use std::{cell::RefCell, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
+use std::{cell::RefCell, collections::HashSet, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
 use unicode_width::UnicodeWidthStr;
 
 pub(crate) type BuildResult = Result<(), BuildError>;
@@ -127,7 +127,7 @@ pub(crate) struct PresentationBuilder<'a> {
     slide_chunks: Vec<SlideChunk>,
     chunk_operations: Vec<RenderOperation>,
     chunk_mutators: Vec<Box<dyn ChunkMutator>>,
-    slides: Vec<Slide>,
+    slide_builders: Vec<SlideBuilder>,
     highlighter: SnippetHighlighter,
     code_executor: Rc<SnippetExecutor>,
     theme: PresentationTheme,
@@ -136,11 +136,12 @@ pub(crate) struct PresentationBuilder<'a> {
     third_party: &'a mut ThirdPartyRender,
     slide_state: SlideState,
     presentation_state: PresentationState,
-    footer_context: Rc<RefCell<FooterContext>>,
+    footer_vars: FooterVariables,
     themes: &'a Themes,
     index_builder: IndexBuilder,
     image_registry: ImageRegistry,
     bindings_config: KeyBindingsConfig,
+    slides_without_footer: HashSet<usize>,
     options: PresentationBuilderOptions,
 }
 
@@ -162,7 +163,7 @@ impl<'a> PresentationBuilder<'a> {
             slide_chunks: Vec::new(),
             chunk_operations: Vec::new(),
             chunk_mutators: Vec::new(),
-            slides: Vec::new(),
+            slide_builders: Vec::new(),
             highlighter: SnippetHighlighter::default(),
             code_executor,
             theme,
@@ -171,11 +172,12 @@ impl<'a> PresentationBuilder<'a> {
             third_party,
             slide_state: Default::default(),
             presentation_state: Default::default(),
-            footer_context: Default::default(),
+            footer_vars: Default::default(),
             themes,
             index_builder: Default::default(),
             image_registry,
             bindings_config,
+            slides_without_footer: HashSet::new(),
             options,
         })
     }
@@ -212,7 +214,6 @@ impl<'a> PresentationBuilder<'a> {
         if !self.chunk_operations.is_empty() || !self.slide_chunks.is_empty() {
             self.terminate_slide();
         }
-        self.footer_context.borrow_mut().total_slides = self.slides.len();
 
         let mut bindings_modal_builder = KeyBindingsModalBuilder::default();
         if self.options.print_modal_background {
@@ -221,10 +222,21 @@ impl<'a> PresentationBuilder<'a> {
             bindings_modal_builder.set_background(background);
         };
 
-        let slide_index = self.index_builder.build(&self.theme, self.presentation_state.clone());
+        let mut slides = Vec::new();
+        let builders = mem::take(&mut self.slide_builders);
+        self.footer_vars.total_slides = builders.len();
+        for (index, mut builder) in builders.into_iter().enumerate() {
+            self.footer_vars.current_slide = index + 1;
+            if !self.slides_without_footer.contains(&index) {
+                builder = builder.footer(self.generate_footer()?);
+            }
+            slides.push(builder.build());
+        }
+
         let bindings = bindings_modal_builder.build(&self.theme, &self.bindings_config);
+        let slide_index = self.index_builder.build(&self.theme, self.presentation_state.clone());
         let modals = Modals { slide_index, bindings };
-        let presentation = Presentation::new(self.slides, modals, self.presentation_state);
+        let presentation = Presentation::new(slides, modals, self.presentation_state);
         Ok(presentation)
     }
 
@@ -330,7 +342,7 @@ impl<'a> PresentationBuilder<'a> {
         }
 
         {
-            let mut footer_context = self.footer_context.borrow_mut();
+            let footer_context = &mut self.footer_vars;
             footer_context.title = metadata.title.clone().unwrap_or_default();
             footer_context.sub_title = metadata.sub_title.clone().unwrap_or_default();
             footer_context.location = metadata.location.clone().unwrap_or_default();
@@ -931,8 +943,13 @@ impl<'a> PresentationBuilder<'a> {
                 })?;
             }
         };
-        let operation =
-            self.third_party.render(request, &self.theme, error_holder, self.slides.len() + 1, attributes.width)?;
+        let operation = self.third_party.render(
+            request,
+            &self.theme,
+            error_holder,
+            self.slide_builders.len() + 1,
+            attributes.width,
+        )?;
         self.chunk_operations.push(operation);
         Ok(())
     }
@@ -1057,34 +1074,34 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn terminate_slide(&mut self) {
-        let footer = self.generate_footer();
-
         let operations = mem::take(&mut self.chunk_operations);
         let mutators = mem::take(&mut self.chunk_mutators);
         self.slide_chunks.push(SlideChunk::new(operations, mutators));
 
         let chunks = mem::take(&mut self.slide_chunks);
-        let slide = SlideBuilder::default().chunks(chunks).footer(footer).build();
+        let builder = SlideBuilder::default().chunks(chunks);
         self.index_builder.add_title(self.slide_state.title.take().unwrap_or_else(|| Text::from("<no title>").into()));
-        self.slides.push(slide);
+
+        if self.slide_state.ignore_footer {
+            self.slides_without_footer.insert(self.slide_builders.len());
+        }
+        self.slide_builders.push(builder);
 
         self.push_slide_prelude();
         self.slide_state = Default::default();
         self.slide_state.last_element = LastElement::None;
     }
 
-    fn generate_footer(&mut self) -> Vec<RenderOperation> {
-        if self.slide_state.ignore_footer {
-            return Vec::new();
-        }
-        let generator = FooterGenerator::new(self.slides.len(), self.footer_context.clone(), self.theme.footer.clone());
-        vec![
+    fn generate_footer(&self) -> Result<Vec<RenderOperation>, BuildError> {
+        let generator = FooterGenerator::new(self.theme.footer.clone(), &self.footer_vars, &self.theme.palette)
+            .map_err(|e| BuildError::InvalidFooter(e.to_string()))?;
+        Ok(vec![
             // Exit any layout we're in so this gets rendered on a default screen size.
             RenderOperation::ExitLayout,
             // Pop the slide margin so we're at the terminal rect.
             RenderOperation::PopMargin,
             RenderOperation::RenderDynamic(Rc::new(generator)),
-        ]
+        ])
     }
 
     fn push_table(&mut self, table: Table) -> BuildResult {
@@ -1276,6 +1293,9 @@ pub enum BuildError {
 
     #[error("invalid presentation title: {0}")]
     PresentationTitle(String),
+
+    #[error("invalid footer: {0}")]
+    InvalidFooter(String),
 }
 
 enum ExecutionMode {
@@ -1450,6 +1470,8 @@ impl AsRenderOperations for Differ {
 
 #[cfg(test)]
 mod test {
+    use crate::presentation::Slide;
+
     use super::*;
     use rstest::rstest;
 
