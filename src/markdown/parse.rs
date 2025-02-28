@@ -66,7 +66,10 @@ impl<'a> MarkdownParser<'a> {
     /// Parse inlines in a markdown input.
     pub(crate) fn parse_inlines(&self, line: &str) -> Result<Line<RawColor>, ParseInlinesError> {
         let node = parse_document(self.arena, line, &self.options);
-        if node.children().count() != 1 {
+        if node.children().count() == 0 {
+            return Ok(Default::default());
+        }
+        if node.children().count() > 1 {
             return Err(ParseInlinesError("inline must be simple text".into()));
         }
         let node = node.first_child().expect("must have one child");

@@ -185,21 +185,24 @@ impl FooterLine {
         vars: &FooterVariables,
         palette: &ColorPalette,
     ) -> Result<Self, InvalidFooterTemplateError> {
+        use FooterTemplateChunk::*;
         let mut line = Line::default();
         let FooterVariables { current_slide, total_slides, author, title, sub_title, event, location, date } = vars;
         let arena = Arena::default();
         let parser = MarkdownParser::new(&arena);
         for chunk in template.0 {
             let raw_text = match chunk {
-                FooterTemplateChunk::CurrentSlide => Cow::Owned(current_slide.to_string()),
-                FooterTemplateChunk::Literal(text) => Cow::Owned(text),
-                FooterTemplateChunk::TotalSlides => Cow::Owned(total_slides.to_string()),
-                FooterTemplateChunk::Author => Cow::Borrowed(author),
-                FooterTemplateChunk::Title => Cow::Borrowed(title),
-                FooterTemplateChunk::SubTitle => Cow::Borrowed(sub_title),
-                FooterTemplateChunk::Event => Cow::Borrowed(event),
-                FooterTemplateChunk::Location => Cow::Borrowed(location),
-                FooterTemplateChunk::Date => Cow::Borrowed(date),
+                CurrentSlide => Cow::Owned(current_slide.to_string()),
+                OpenBrace => Cow::Borrowed("{"),
+                ClosedBrace => Cow::Borrowed("}"),
+                Literal(text) => Cow::Owned(text),
+                TotalSlides => Cow::Owned(total_slides.to_string()),
+                Author => Cow::Borrowed(author.as_str()),
+                Title => Cow::Borrowed(title.as_str()),
+                SubTitle => Cow::Borrowed(sub_title.as_str()),
+                Event => Cow::Borrowed(event.as_str()),
+                Location => Cow::Borrowed(location.as_str()),
+                Date => Cow::Borrowed(date.as_str()),
             };
             if raw_text.lines().count() != 1 {
                 return Err(InvalidFooterTemplateError("footer cannot contain newlines".into()));
