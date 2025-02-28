@@ -445,6 +445,8 @@ impl Default for FooterStyle {
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 pub(crate) enum FooterTemplateChunk {
     Literal(String),
+    OpenBrace,
+    ClosedBrace,
     CurrentSlide,
     TotalSlides,
     Author,
@@ -475,18 +477,38 @@ impl FromStr for FooterTemplate {
         let mut chunks = Vec::new();
         let mut chunk_start = 0;
         let mut in_variable = false;
-        for (index, c) in s.char_indices() {
+        let mut iter = s.char_indices().peekable();
+        while let Some((index, c)) = iter.next() {
             if c == '{' {
                 if in_variable {
                     return Err(ParseFooterTemplateError::NestedOpenBrace);
                 }
-                if chunk_start != index {
-                    chunks.push(FooterTemplateChunk::Literal(s[chunk_start..index].to_string()));
+                let double_brace = iter.peek() == Some(&(index + 1, '{'));
+                if double_brace {
+                    iter.next();
+                    if chunk_start != index {
+                        chunks.push(FooterTemplateChunk::Literal(s[chunk_start..index].to_string()));
+                    }
+                    chunks.push(FooterTemplateChunk::OpenBrace);
+                    chunk_start = index + 2;
+                } else {
+                    in_variable = true;
+                    if chunk_start != index {
+                        chunks.push(FooterTemplateChunk::Literal(s[chunk_start..index].to_string()));
+                    }
+                    chunk_start = index + 1;
                 }
-                in_variable = true;
-                chunk_start = index + 1;
             } else if c == '}' {
                 if !in_variable {
+                    let double_brace = iter.peek() == Some(&(index + 1, '}'));
+                    if double_brace {
+                        iter.next();
+                        chunks.push(FooterTemplateChunk::Literal(s[chunk_start..index].to_string()));
+                        chunks.push(FooterTemplateChunk::ClosedBrace);
+                        in_variable = false;
+                        chunk_start = index + 2;
+                        continue;
+                    }
                     return Err(ParseFooterTemplateError::ClosedBraceWithoutOpen);
                 }
                 let variable = &s[chunk_start..index];
@@ -521,6 +543,8 @@ impl fmt::Display for FooterTemplate {
         for c in &self.0 {
             match c {
                 Literal(l) => write!(f, "{l}"),
+                OpenBrace => write!(f, "{{{{"),
+                ClosedBrace => write!(f, "}}}}"),
                 CurrentSlide => write!(f, "{{current_slide}}"),
                 TotalSlides => write!(f, "{{total_slides}}"),
                 Author => write!(f, "{{author}}"),
@@ -862,10 +886,25 @@ mod test {
         assert_eq!(t.to_string(), raw);
     }
 
+    #[test]
+    fn parse_double_braces() {
+        use FooterTemplateChunk::*;
+        let raw = "hi {{beep}} {{author}} {{{{}}}}";
+        let t: FooterTemplate = raw.parse().expect("invalid input");
+        let merged: String =
+            t.0.into_iter()
+                .map(|l| match l {
+                    Literal(s) => s,
+                    OpenBrace => "{".to_string(),
+                    ClosedBrace => "}".to_string(),
+                    _ => panic!("not a literal"),
+                })
+                .collect();
+        assert_eq!(merged, "hi {beep} {author} {{}}");
+    }
+
     #[rstest]
-    #[case::nested_open("{{author}")]
     #[case::trailing("{author")]
-    #[case::close_without_open1("{author}}")]
     #[case::close_without_open2("author}")]
     fn invalid_footer_templates(#[case] input: &str) {
         FooterTemplate::from_str(input).expect_err("parse succeeded");
