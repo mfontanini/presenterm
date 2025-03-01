@@ -755,12 +755,17 @@ pub(super) struct ModalStyle {
 pub(super) struct ColorPalette {
     #[serde(default)]
     pub(super) colors: BTreeMap<String, RawColor>,
+
+    #[serde(default)]
+    pub(super) classes: BTreeMap<String, RawColors>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, SerializeDisplay, DeserializeFromStr)]
 pub(crate) enum RawColor {
     Color(Color),
     Palette(String),
+    ForegroundClass(String),
+    BackgroundClass(String),
 }
 
 impl RawColor {
@@ -771,10 +776,19 @@ impl RawColor {
     pub(crate) fn resolve(
         &self,
         palette: &crate::theme::clean::ColorPalette,
-    ) -> Result<Color, UndefinedPaletteColorError> {
+    ) -> Result<Option<Color>, UndefinedPaletteColorError> {
         let color = match self {
-            Self::Color(c) => *c,
-            Self::Palette(name) => palette.colors.get(name).copied().ok_or(UndefinedPaletteColorError(name.clone()))?,
+            Self::Color(c) => Some(*c),
+            Self::Palette(name) => {
+                Some(palette.colors.get(name).copied().ok_or(UndefinedPaletteColorError(name.clone()))?)
+            }
+            // TODO better error
+            Self::ForegroundClass(name) => {
+                palette.classes.get(name).ok_or(UndefinedPaletteColorError(name.clone()))?.foreground
+            }
+            Self::BackgroundClass(name) => {
+                palette.classes.get(name).ok_or(UndefinedPaletteColorError(name.clone()))?.background
+            }
         };
         Ok(color)
     }
@@ -841,6 +855,8 @@ impl fmt::Display for RawColor {
             Self::Color(Cyan) => write!(f, "cyan"),
             Self::Color(DarkCyan) => write!(f, "dark_cyan"),
             Self::Palette(name) => write!(f, "palette:{name}"),
+            Self::ForegroundClass(_) => Err(fmt::Error),
+            Self::BackgroundClass(_) => Err(fmt::Error),
         }
     }
 }
