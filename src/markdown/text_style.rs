@@ -293,8 +293,8 @@ impl<C> Default for Colors<C> {
 
 impl Colors<RawColor> {
     pub(crate) fn resolve(&self, palette: &ColorPalette) -> Result<Colors<Color>, UndefinedPaletteColorError> {
-        let background = self.background.clone().map(|c| c.resolve(palette)).transpose()?;
-        let foreground = self.foreground.clone().map(|c| c.resolve(palette)).transpose()?;
+        let background = self.background.clone().map(|c| c.resolve(palette)).transpose()?.flatten();
+        let foreground = self.foreground.clone().map(|c| c.resolve(palette)).transpose()?.flatten();
         Ok(Colors { foreground, background })
     }
 }

@@ -270,8 +270,10 @@ mod tests {
         date: "now".into(),
     });
 
-    static PALETTE: Lazy<ColorPalette> =
-        Lazy::new(|| ColorPalette { colors: [("red".into(), Color::new(255, 0, 0))].into() });
+    static PALETTE: Lazy<ColorPalette> = Lazy::new(|| ColorPalette {
+        colors: [("red".into(), Color::new(255, 0, 0))].into(),
+        classes: Default::default(),
+    });
 
     #[rstest]
     #[case::literal(FooterTemplateChunk::Literal("hi".into()), &["hi".into()])]

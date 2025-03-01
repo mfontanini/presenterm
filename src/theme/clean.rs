@@ -1,6 +1,9 @@
-use super::{AuthorPositioning, FooterTemplate, Margin, raw};
+use super::{
+    AuthorPositioning, FooterTemplate, Margin,
+    raw::{self, RawColor},
+};
 use crate::{
-    markdown::text_style::{Color, TextStyle, UndefinedPaletteColorError},
+    markdown::text_style::{Color, Colors, TextStyle, UndefinedPaletteColorError},
     resource::Resources,
     terminal::image::{Image, printer::RegisterImageError},
 };
@@ -237,7 +240,7 @@ impl BlockQuoteStyle {
         let base_style = TextStyle::colored(colors.base.resolve(palette)?);
         let mut prefix_style = TextStyle::colored(colors.base.resolve(palette)?);
         if let Some(color) = &colors.prefix {
-            prefix_style = prefix_style.fg_color(color.resolve(palette)?);
+            prefix_style.colors.foreground = color.resolve(palette)?;
         }
         Ok(Self { alignment, prefix, base_style, prefix_style })
     }
@@ -328,7 +331,7 @@ impl AlertTypeStyle {
         palette: &ColorPalette,
     ) -> Result<Self, ProcessingThemeError> {
         let raw::AlertTypeStyle { color, title, icon, .. } = raw;
-        let color = color.as_ref().map(|c| c.resolve(palette)).transpose()?.unwrap_or(defaults.color);
+        let color = color.as_ref().map(|c| c.resolve(palette)).transpose()?.flatten().unwrap_or(defaults.color);
         let style = base_style.fg_color(color);
         let title = title.as_deref().unwrap_or(defaults.title).to_string();
         let icon = icon.as_deref().unwrap_or(defaults.icon).to_string();
@@ -683,6 +686,7 @@ impl ModalStyle {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ColorPalette {
     pub(crate) colors: BTreeMap<String, Color>,
+    pub(crate) classes: BTreeMap<String, Colors>,
 }
 
 impl TryFrom<&raw::ColorPalette> for ColorPalette {
@@ -690,15 +694,28 @@ impl TryFrom<&raw::ColorPalette> for ColorPalette {
 
     fn try_from(palette: &raw::ColorPalette) -> Result<Self, Self::Error> {
         let mut colors = BTreeMap::new();
+        let mut classes = BTreeMap::new();
+
         for (name, color) in &palette.colors {
-            let color = match color {
-                raw::RawColor::Color(c) => *c,
-                raw::RawColor::Palette(_) => {
-                    return Err(ProcessingThemeError::PaletteColorInPalette);
-                }
+            let raw::RawColor::Color(color) = color else {
+                return Err(ProcessingThemeError::PaletteColorInPalette);
             };
-            colors.insert(name.clone(), color);
+            colors.insert(name.clone(), *color);
         }
-        Ok(Self { colors })
+
+        let resolve_local = |color: &RawColor| match color {
+            raw::RawColor::Color(c) => Ok(*c),
+            raw::RawColor::Palette(name) => colors
+                .get(name)
+                .copied()
+                .ok_or_else(|| ProcessingThemeError::Palette(UndefinedPaletteColorError(name.clone()))),
+            _ => Err(ProcessingThemeError::PaletteColorInPalette),
+        };
+        for (name, colors) in &palette.classes {
+            let foreground = colors.foreground.as_ref().map(resolve_local).transpose()?;
+            let background = colors.background.as_ref().map(resolve_local).transpose()?;
+            classes.insert(name.clone(), Colors { foreground, background });
+        }
+        Ok(Self { colors, classes })
     }
 }

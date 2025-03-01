@@ -44,6 +44,10 @@ impl HtmlParser {
             let value = value.unwrap_or(Cow::Borrowed(""));
             match name.as_ref() {
                 "style" => self.parse_css_attribute(&value, &mut style)?,
+                "class" => {
+                    style = style.fg_color(RawColor::ForegroundClass(value.to_string()));
+                    style = style.bg_color(RawColor::BackgroundClass(value.to_string()));
+                }
                 _ => {
                     if self.options.strict {
                         return Err(ParseHtmlError::UnsupportedTagAttribute(name.to_string()));
@@ -139,11 +143,23 @@ mod tests {
     use rstest::rstest;
 
     #[test]
-    fn parse() {
+    fn parse_style() {
         let tag =
             HtmlParser::default().parse(r#"<span style="color: red; background-color: black">"#).expect("parse failed");
         let HtmlInline::OpenSpan { style } = tag else { panic!("not an open tag") };
         assert_eq!(style, TextStyle::default().bg_color(Color::Black).fg_color(Color::Red));
+    }
+
+    #[test]
+    fn parse_class() {
+        let tag = HtmlParser::default().parse(r#"<span class="foo">"#).expect("parse failed");
+        let HtmlInline::OpenSpan { style } = tag else { panic!("not an open tag") };
+        assert_eq!(
+            style,
+            TextStyle::default()
+                .bg_color(RawColor::BackgroundClass("foo".into()))
+                .fg_color(RawColor::ForegroundClass("foo".into()))
+        );
     }
 
     #[test]
