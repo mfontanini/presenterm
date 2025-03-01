@@ -600,7 +600,10 @@ impl<'a> PresentationBuilder<'a> {
             self.slide_state.title = Some(text.clone());
         }
 
-        let style = self.theme.slide_title.clone();
+        let mut style = self.theme.slide_title.clone();
+        if let Some(font_size) = self.slide_state.font_size {
+            style.style = style.style.size(font_size);
+        }
         text.apply_style(&style.style);
 
         self.push_line_breaks(style.padding_top as usize);
@@ -736,7 +739,7 @@ impl<'a> PresentationBuilder<'a> {
             }
         };
 
-        let prefix_length = prefix.len() as u16 * self.font_size(None) as u16;
+        let prefix_length = prefix.len() as u16 * self.slide_font_size() as u16;
         self.push_text(prefix.into(), ElementType::List);
 
         let text = item.contents.resolve(&self.theme.palette)?;
@@ -797,7 +800,7 @@ impl<'a> PresentationBuilder<'a> {
         alignment: Alignment,
     ) -> BuildResult {
         let block_length = lines.iter().map(|line| line.width() + prefix.width()).max().unwrap_or(0) as u16;
-        let font_size = self.font_size(None);
+        let font_size = self.slide_font_size();
         let prefix = Text::new(prefix, prefix_style.size(font_size));
 
         for line in lines {
@@ -838,7 +841,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_aligned_text(&mut self, mut block: Line, alignment: Alignment) {
-        let default_font_size = self.font_size(None);
+        let default_font_size = self.slide_font_size();
         for chunk in &mut block.0 {
             if chunk.style.is_code() {
                 chunk.style.colors = self.theme.inline_code.style.colors;
@@ -1188,13 +1191,9 @@ impl<'a> PresentationBuilder<'a> {
         }
     }
 
-    fn font_size(&self, font_size: Option<u8>) -> u8 {
-        let font_size = font_size.or(self.slide_state.font_size).unwrap_or(1);
-        if self.options.theme_options.font_size_supported { font_size.clamp(1, 7) } else { 1 }
-    }
-
     fn slide_font_size(&self) -> u8 {
-        self.font_size(None)
+        let font_size = self.slide_state.font_size.unwrap_or(1);
+        if self.options.theme_options.font_size_supported { font_size.clamp(1, 7) } else { 1 }
     }
 }
 
