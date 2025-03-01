@@ -1,7 +1,7 @@
 use super::registry::LoadThemeError;
 use crate::markdown::text_style::{Color, Colors, UndefinedPaletteColorError};
 use hex::{FromHex, FromHexError};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Visitor};
 use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::{
     collections::BTreeMap,
@@ -457,7 +457,7 @@ pub(crate) enum FooterTemplateChunk {
     Date,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 pub(super) enum FooterContent {
     Template(FooterTemplate),
@@ -465,6 +465,47 @@ pub(super) enum FooterContent {
         #[serde(rename = "image")]
         path: PathBuf,
     },
+}
+
+struct FooterContentVisitor;
+
+impl<'de> Visitor<'de> for FooterContentVisitor {
+    type Value = FooterContent;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a valid footer")
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        let template = FooterTemplate::from_str(v).map_err(|e| E::custom(e.to_string()))?;
+        Ok(FooterContent::Template(template))
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::MapAccess<'de>,
+    {
+        let Some((key, value)): Option<(String, PathBuf)> = map.next_entry()? else {
+            return Err(serde::de::Error::custom("invalid footer"));
+        };
+
+        match key.as_str() {
+            "image" => Ok(FooterContent::Image { path: value }),
+            _ => Err(serde::de::Error::invalid_value(serde::de::Unexpected::Str(&key), &self)),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for FooterContent {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(FooterContentVisitor)
+    }
 }
 
 #[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr)]
