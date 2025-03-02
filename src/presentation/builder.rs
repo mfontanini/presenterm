@@ -42,7 +42,7 @@ use crate::{
             DisplaySeparator, RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation,
             SnippetExecutionDisabledOperation,
         },
-        footer::{FooterGenerator, FooterVariables},
+        footer::{FooterGenerator, FooterVariables, InvalidFooterTemplateError},
         modals::{IndexBuilder, KeyBindingsModalBuilder},
         separator::RenderSeparator,
     },
@@ -343,12 +343,12 @@ impl<'a> PresentationBuilder<'a> {
 
         {
             let footer_context = &mut self.footer_vars;
-            footer_context.title = metadata.title.clone().unwrap_or_default();
-            footer_context.sub_title = metadata.sub_title.clone().unwrap_or_default();
-            footer_context.location = metadata.location.clone().unwrap_or_default();
-            footer_context.event = metadata.event.clone().unwrap_or_default();
-            footer_context.date = metadata.date.clone().unwrap_or_default();
-            footer_context.author = metadata.author.clone().unwrap_or_default();
+            footer_context.title.clone_from(&metadata.title);
+            footer_context.sub_title.clone_from(&metadata.sub_title);
+            footer_context.location.clone_from(&metadata.location);
+            footer_context.event.clone_from(&metadata.event);
+            footer_context.date.clone_from(&metadata.date);
+            footer_context.author.clone_from(&metadata.author);
         }
 
         self.set_theme(&metadata.theme)?;
@@ -1096,8 +1096,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn generate_footer(&self) -> Result<Vec<RenderOperation>, BuildError> {
-        let generator = FooterGenerator::new(self.theme.footer.clone(), &self.footer_vars, &self.theme.palette)
-            .map_err(|e| BuildError::InvalidFooter(e.to_string()))?;
+        let generator = FooterGenerator::new(self.theme.footer.clone(), &self.footer_vars, &self.theme.palette)?;
         Ok(vec![
             // Exit any layout we're in so this gets rendered on a default screen size.
             RenderOperation::ExitLayout,
@@ -1294,7 +1293,7 @@ pub enum BuildError {
     PresentationTitle(String),
 
     #[error("invalid footer: {0}")]
-    InvalidFooter(String),
+    InvalidFooter(#[from] InvalidFooterTemplateError),
 }
 
 enum ExecutionMode {
