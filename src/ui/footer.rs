@@ -1,8 +1,8 @@
 use crate::{
     markdown::{
         elements::{Line, Text},
-        parse::MarkdownParser,
-        text_style::TextStyle,
+        parse::{MarkdownParser, ParseInlinesError},
+        text_style::{TextStyle, UndefinedPaletteColorError},
     },
     render::{
         operation::{AsRenderOperations, ImageRenderProperties, MarginProperties, RenderOperation},
@@ -19,12 +19,12 @@ use unicode_width::UnicodeWidthStr;
 pub(crate) struct FooterVariables {
     pub(crate) current_slide: usize,
     pub(crate) total_slides: usize,
-    pub(crate) author: String,
-    pub(crate) title: String,
-    pub(crate) sub_title: String,
-    pub(crate) event: String,
-    pub(crate) location: String,
-    pub(crate) date: String,
+    pub(crate) author: Option<String>,
+    pub(crate) title: Option<String>,
+    pub(crate) sub_title: Option<String>,
+    pub(crate) event: Option<String>,
+    pub(crate) location: Option<String>,
+    pub(crate) date: Option<String>,
 }
 
 #[derive(Debug)]
@@ -197,23 +197,23 @@ impl FooterLine {
                 ClosedBrace => Cow::Borrowed("}"),
                 Literal(text) => Cow::Owned(text),
                 TotalSlides => Cow::Owned(total_slides.to_string()),
-                Author => Cow::Borrowed(author.as_str()),
-                Title => Cow::Borrowed(title.as_str()),
-                SubTitle => Cow::Borrowed(sub_title.as_str()),
-                Event => Cow::Borrowed(event.as_str()),
-                Location => Cow::Borrowed(location.as_str()),
-                Date => Cow::Borrowed(date.as_str()),
+                Author => Self::extract_variable("author", author)?,
+                Title => Self::extract_variable("title", title)?,
+                SubTitle => Self::extract_variable("sub_title", sub_title)?,
+                Event => Self::extract_variable("event", event)?,
+                Location => Self::extract_variable("location", location)?,
+                Date => Self::extract_variable("date", date)?,
             };
             if raw_text.lines().count() != 1 {
-                return Err(InvalidFooterTemplateError("footer cannot contain newlines".into()));
+                return Err(InvalidFooterTemplateError::NoNewlines);
             }
             let starting_length = raw_text.len();
             let raw_text = raw_text.trim_start();
             let left_whitespace = starting_length - raw_text.len();
             let raw_text = raw_text.trim_end();
             let right_whitespace = starting_length - raw_text.len() - left_whitespace;
-            let inlines = parser.parse_inlines(raw_text).map_err(|e| InvalidFooterTemplateError(e.to_string()))?;
-            let mut contents = inlines.resolve(palette).map_err(|e| InvalidFooterTemplateError(e.to_string()))?;
+            let inlines = parser.parse_inlines(raw_text)?;
+            let mut contents = inlines.resolve(palette)?;
             if left_whitespace != 0 {
                 contents.0.insert(0, " ".repeat(left_whitespace).into());
             }
@@ -224,6 +224,13 @@ impl FooterLine {
         }
         line.apply_style(style);
         Ok(Self(line))
+    }
+
+    fn extract_variable<'a>(
+        name: &'static str,
+        variable: &'a Option<String>,
+    ) -> Result<Cow<'a, str>, InvalidFooterTemplateError> {
+        variable.as_deref().map(Cow::Borrowed).ok_or(InvalidFooterTemplateError::VariableNotSet(name))
     }
 }
 
@@ -248,8 +255,19 @@ impl RenderedFooterContent {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("invalid footer template: {0}")]
-pub(crate) struct InvalidFooterTemplateError(String);
+pub(crate) enum InvalidFooterTemplateError {
+    #[error("footer cannot contain multiple lines")]
+    NoNewlines,
+
+    #[error("invalid markdown: {0}")]
+    Inlines(#[from] ParseInlinesError),
+
+    #[error(transparent)]
+    PaletteColor(#[from] UndefinedPaletteColorError),
+
+    #[error("variable '{0}' not set")]
+    VariableNotSet(&'static str),
+}
 
 #[cfg(test)]
 mod tests {
@@ -262,12 +280,12 @@ mod tests {
     static VARIABLES: Lazy<FooterVariables> = Lazy::new(|| FooterVariables {
         current_slide: 1,
         total_slides: 5,
-        author: "bob".into(),
-        title: "hi".into(),
-        sub_title: "bye".into(),
-        event: "test".into(),
-        location: "here".into(),
-        date: "now".into(),
+        author: Some("bob".into()),
+        title: Some("hi".into()),
+        sub_title: Some("bye".into()),
+        event: Some("test".into()),
+        location: Some("here".into()),
+        date: Some("now".into()),
     });
 
     static PALETTE: Lazy<ColorPalette> = Lazy::new(|| ColorPalette {
