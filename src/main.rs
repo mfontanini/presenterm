@@ -19,6 +19,7 @@ use anyhow::anyhow;
 use clap::{CommandFactory, Parser, error::ErrorKind};
 use commands::speaker_notes::{SpeakerNotesEventListener, SpeakerNotesEventPublisher};
 use comrak::Arena;
+use config::ConfigLoadError;
 use directories::ProjectDirs;
 use std::{
     env::{self, current_dir},
@@ -153,8 +154,13 @@ impl Customizations {
         };
         let themes_path = configs_path.join("themes");
         let themes = Self::load_themes(&themes_path)?;
+        let require_config_file = config_file_path.is_some();
         let config_file_path = config_file_path.unwrap_or_else(|| configs_path.join("config.yaml"));
-        let config = Config::load(&config_file_path)?;
+        let config = match Config::load(&config_file_path) {
+            Ok(config) => config,
+            Err(ConfigLoadError::NotFound) if !require_config_file => Default::default(),
+            Err(e) => return Err(e.into()),
+        };
         let code_executor = SnippetExecutor::new(config.snippet.exec.custom.clone(), cwd.to_path_buf())?;
         Ok(Customizations { config, themes, themes_path: Some(themes_path), code_executor })
     }
