@@ -74,7 +74,7 @@ pub struct DefaultsConfig {
     pub theme: Option<String>,
 
     /// Override the terminal font size when in windows or when using sixel.
-    #[serde(default = "default_font_size")]
+    #[serde(default = "default_terminal_font_size")]
     #[validate(range(min = 1))]
     pub terminal_font_size: u8,
 
@@ -89,22 +89,43 @@ pub struct DefaultsConfig {
     /// A max width in columns that the presentation must always be capped to.
     #[serde(default = "default_max_columns")]
     pub max_columns: u16,
+
+    /// The alignment the presentation should have if `max_columns` is set and the terminal is
+    /// larger than that.
+    #[serde(default)]
+    pub max_columns_alignment: MaxColumnsAlignment,
 }
 
 impl Default for DefaultsConfig {
     fn default() -> Self {
         Self {
             theme: Default::default(),
-            terminal_font_size: default_font_size(),
+            terminal_font_size: default_terminal_font_size(),
             image_protocol: Default::default(),
             validate_overflows: Default::default(),
             max_columns: default_max_columns(),
+            max_columns_alignment: Default::default(),
         }
     }
 }
 
-fn default_font_size() -> u8 {
+fn default_terminal_font_size() -> u8 {
     16
+}
+
+/// The alignment to use when `defaults.max_columns` is set.
+#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MaxColumnsAlignment {
+    /// Align the presentation to the left.
+    Left,
+
+    /// Align the presentation on the center.
+    #[default]
+    Center,
+
+    /// Align the presentation to the right.
+    Right,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]

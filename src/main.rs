@@ -418,6 +418,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             bindings: config.bindings,
             validate_overflows,
             max_columns: config.defaults.max_columns,
+            max_columns_alignment: config.defaults.max_columns_alignment,
         };
         let presenter = Presenter::new(
             &default_theme,

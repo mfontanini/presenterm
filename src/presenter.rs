@@ -4,7 +4,7 @@ use crate::{
         listener::{Command, CommandListener},
         speaker_notes::{SpeakerNotesEvent, SpeakerNotesEventPublisher},
     },
-    config::KeyBindingsConfig,
+    config::{KeyBindingsConfig, MaxColumnsAlignment},
     export::ImageReplacer,
     markdown::parse::{MarkdownParser, ParseError},
     presentation::{
@@ -43,6 +43,7 @@ pub struct PresenterOptions {
     pub bindings: KeyBindingsConfig,
     pub validate_overflows: bool,
     pub max_columns: u16,
+    pub max_columns_alignment: MaxColumnsAlignment,
 }
 
 /// A slideshow presenter.
@@ -105,6 +106,7 @@ impl<'a> Presenter<'a> {
         let drawer_options = TerminalDrawerOptions {
             font_size_fallback: self.options.font_size_fallback,
             max_columns: self.options.max_columns,
+            max_columns_alignment: self.options.max_columns_alignment,
         };
         let mut drawer = TerminalDrawer::new(self.image_printer.clone(), drawer_options)?;
         loop {
