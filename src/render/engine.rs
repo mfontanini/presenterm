@@ -1,5 +1,6 @@
 use super::{RenderError, RenderResult, layout::Layout, properties::CursorPosition, text::TextDrawer};
 use crate::{
+    config::MaxColumnsAlignment,
     markdown::{text::WeightedLine, text_style::Colors},
     render::{
         layout::Positioning,
@@ -27,12 +28,18 @@ const MINIMUM_LINE_LENGTH: u16 = 10;
 pub(crate) struct RenderEngineOptions {
     pub(crate) validate_overflows: bool,
     pub(crate) max_columns: u16,
+    pub(crate) max_columns_alignment: MaxColumnsAlignment,
     pub(crate) column_layout_margin: u16,
 }
 
 impl Default for RenderEngineOptions {
     fn default() -> Self {
-        Self { validate_overflows: false, max_columns: u16::MAX, column_layout_margin: 4 }
+        Self {
+            validate_overflows: false,
+            max_columns: u16::MAX,
+            max_columns_alignment: Default::default(),
+            column_layout_margin: 4,
+        }
     }
 }
 
@@ -71,7 +78,12 @@ where
         if window_dimensions.columns > options.max_columns {
             let extra_width = window_dimensions.columns - options.max_columns;
             let dimensions = window_dimensions.shrink_columns(extra_width);
-            WindowRect { dimensions, start_column: extra_width / 2, start_row }
+            let start_column = match options.max_columns_alignment {
+                MaxColumnsAlignment::Left => 0,
+                MaxColumnsAlignment::Center => extra_width / 2,
+                MaxColumnsAlignment::Right => extra_width,
+            };
+            WindowRect { dimensions, start_column, start_row }
         } else {
             WindowRect { dimensions: window_dimensions, start_column: 0, start_row }
         }
@@ -549,7 +561,12 @@ mod tests {
     fn render(operations: &[RenderOperation]) -> Vec<Instruction> {
         let mut buf = TerminalBuf::default();
         let dimensions = WindowSize { rows: 100, columns: 100, height: 200, width: 200 };
-        let options = RenderEngineOptions { validate_overflows: false, max_columns: u16::MAX, column_layout_margin: 0 };
+        let options = RenderEngineOptions {
+            validate_overflows: false,
+            max_columns: u16::MAX,
+            max_columns_alignment: Default::default(),
+            column_layout_margin: 0,
+        };
         let engine = RenderEngine::new(&mut buf, dimensions, options);
         engine.render(operations.iter()).expect("render failed");
         buf.instructions

@@ -6,6 +6,7 @@ pub(crate) mod text;
 pub(crate) mod validate;
 
 use crate::{
+    config::MaxColumnsAlignment,
     markdown::{
         elements::Text,
         text::WeightedLine,
@@ -28,16 +29,14 @@ use std::{
 pub(crate) type RenderResult = Result<(), RenderError>;
 
 pub(crate) struct TerminalDrawerOptions {
-    /// The font size to fall back to if we can't find the window size in pixels.
     pub(crate) font_size_fallback: u8,
-
-    /// The max width in columns that the presentation should be capped to.
     pub(crate) max_columns: u16,
+    pub(crate) max_columns_alignment: MaxColumnsAlignment,
 }
 
 impl Default for TerminalDrawerOptions {
     fn default() -> Self {
-        Self { font_size_fallback: 1, max_columns: u16::MAX }
+        Self { font_size_fallback: 1, max_columns: u16::MAX, max_columns_alignment: Default::default() }
     }
 }
 
@@ -98,7 +97,11 @@ impl TerminalDrawer {
     }
 
     fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<Terminal<Stdout>> {
-        let options = RenderEngineOptions { max_columns: self.options.max_columns, ..Default::default() };
+        let options = RenderEngineOptions {
+            max_columns: self.options.max_columns,
+            max_columns_alignment: self.options.max_columns_alignment,
+            ..Default::default()
+        };
         RenderEngine::new(&mut self.terminal, dimensions, options)
     }
 }

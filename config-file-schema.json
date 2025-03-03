@@ -50,6 +50,14 @@
           "format": "uint16",
           "minimum": 0.0
         },
+        "max_columns_alignment": {
+          "description": "The alignment the presentation should have if `max_columns` is set and the terminal is larger than that.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/MaxColumnsAlignment"
+            }
+          ]
+        },
         "terminal_font_size": {
           "description": "Override the terminal font size when in windows or when using sixel.",
           "default": 16,
@@ -266,6 +274,32 @@
           ]
         }
       }
+    },
+    "MaxColumnsAlignment": {
+      "description": "The alignment to use when `defaults.max_columns` is set.",
+      "oneOf": [
+        {
+          "description": "Align the presentation to the left.",
+          "type": "string",
+          "enum": [
+            "left"
+          ]
+        },
+        {
+          "description": "Align the presentation on the center.",
+          "type": "string",
+          "enum": [
+            "center"
+          ]
+        },
+        {
+          "description": "Align the presentation to the right.",
+          "type": "string",
+          "enum": [
+            "right"
+          ]
+        }
+      ]
     },
     "MermaidConfig": {
       "type": "object",
