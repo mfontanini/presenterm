@@ -46,9 +46,9 @@ impl FooterGenerator {
         Ok(Self { current_slide, total_slides, style })
     }
 
-    fn render_line(line: &FooterLine, alignment: Alignment, operations: &mut Vec<RenderOperation>) {
+    fn render_line(line: &FooterLine, alignment: Alignment, height: u16, operations: &mut Vec<RenderOperation>) {
         operations.extend([
-            RenderOperation::JumpToBottomRow { index: 1 },
+            RenderOperation::JumpToBottomRow { index: height / 2 },
             RenderOperation::RenderText { line: line.0.clone().into(), alignment },
         ]);
     }
@@ -106,7 +106,7 @@ impl AsRenderOperations for FooterGenerator {
                     if let Some(content) = content {
                         match content {
                             RenderedFooterContent::Line(line) => {
-                                Self::render_line(line, alignment, &mut operations);
+                                Self::render_line(line, alignment, *height, &mut operations);
                             }
                             RenderedFooterContent::Image(image) => {
                                 self.push_image(image, alignment, dimensions, &mut operations);
@@ -116,7 +116,7 @@ impl AsRenderOperations for FooterGenerator {
                 }
                 // We don't support images on the right so treat this differently
                 if let Some(line) = right {
-                    Self::render_line(line, Alignment::Right { margin: Default::default() }, &mut operations);
+                    Self::render_line(line, Alignment::Right { margin: Default::default() }, *height, &mut operations);
                 }
                 operations.push(RenderOperation::PopMargin);
                 operations
