@@ -211,7 +211,7 @@ impl SnippetParser {
     fn parse_block_info(input: &str) -> ParseResult<(SnippetLanguage, SnippetAttributes)> {
         let (language, input) = Self::parse_language(input);
         let attributes = Self::parse_attributes(input)?;
-        if attributes.width.is_some() && !attributes.render {
+        if attributes.width.is_some() && !matches!(attributes.representation, SnippetRepr::Render) {
             return Err(SnippetBlockParseError::NotRenderSnippet("width"));
         }
         Ok((language, attributes))
@@ -233,19 +233,30 @@ impl SnippetParser {
             if processed_attributes.contains(&discriminant) {
                 return Err(SnippetBlockParseError::DuplicateAttribute("duplicate attribute"));
             }
+            use SnippetAttribute::*;
             match attribute {
-                SnippetAttribute::LineNumbers => attributes.line_numbers = true,
-                SnippetAttribute::Exec => attributes.execute = true,
-                SnippetAttribute::ExecReplace => attributes.execute_replace = true,
-                SnippetAttribute::Image => {
-                    attributes.execute_replace = true;
-                    attributes.image = true;
+                ExecReplace | Image | Render if attributes.representation != SnippetRepr::Snippet => {
+                    return Err(SnippetBlockParseError::MultipleRepresentation);
                 }
-                SnippetAttribute::Render => attributes.render = true,
-                SnippetAttribute::NoBackground => attributes.no_background = true,
-                SnippetAttribute::AcquireTerminal => attributes.acquire_terminal = true,
-                SnippetAttribute::HighlightedLines(lines) => attributes.highlight_groups = lines,
-                SnippetAttribute::Width(width) => attributes.width = Some(width),
+                LineNumbers => attributes.line_numbers = true,
+                Exec => {
+                    if attributes.execution != SnippetExec::AcquireTerminal {
+                        attributes.execution = SnippetExec::Exec;
+                    }
+                }
+                ExecReplace => {
+                    attributes.representation = SnippetRepr::ExecReplace;
+                    attributes.execution = SnippetExec::Exec;
+                }
+                Image => {
+                    attributes.representation = SnippetRepr::Image;
+                    attributes.execution = SnippetExec::Exec;
+                }
+                Render => attributes.representation = SnippetRepr::Render,
+                AcquireTerminal => attributes.execution = SnippetExec::AcquireTerminal,
+                NoBackground => attributes.no_background = true,
+                HighlightedLines(lines) => attributes.highlight_groups = lines,
+                Width(width) => attributes.width = Some(width),
             };
             processed_attributes.push(discriminant);
             input = rest;
@@ -370,6 +381,9 @@ pub enum SnippetBlockParseError {
 
     #[error("duplicate attribute: {0}")]
     DuplicateAttribute(&'static str),
+
+    #[error("+exec_replace +image and +render can't be used together ")]
+    MultipleRepresentation,
 
     #[error("attribute {0} can only be set in +render blocks")]
     NotRenderSnippet(&'static str),
@@ -571,22 +585,11 @@ impl FromStr for SnippetLanguage {
 /// Attributes for code snippets.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct SnippetAttributes {
-    /// Whether the snippet is marked as executable.
-    pub(crate) execute: bool,
+    /// The way the snippet should be represented.
+    pub(crate) representation: SnippetRepr,
 
-    /// Whether the snippet is marked as an executable block that will be replaced with the output
-    /// of its execution.
-    pub(crate) execute_replace: bool,
-
-    /// Whether the snippet should be executed and its output should be considered to be an image
-    /// and replaced with it.
-    pub(crate) image: bool,
-
-    /// Whether a snippet is marked to be rendered.
-    ///
-    /// A rendered snippet is transformed during parsing, leading to some visual
-    /// representation of it being shown rather than the original code.
-    pub(crate) render: bool,
+    /// The way the snippet should be executed.
+    pub(crate) execution: SnippetExec,
 
     /// Whether the snippet should show line numbers.
     pub(crate) line_numbers: bool,
@@ -601,9 +604,23 @@ pub(crate) struct SnippetAttributes {
 
     /// Whether to add no background to a snippet.
     pub(crate) no_background: bool,
+}
 
-    /// Whether this code snippet acquires the terminal when ran.
-    pub(crate) acquire_terminal: bool,
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) enum SnippetRepr {
+    #[default]
+    Snippet,
+    Image,
+    Render,
+    ExecReplace,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) enum SnippetExec {
+    #[default]
+    None,
+    Exec,
+    AcquireTerminal,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -699,15 +716,31 @@ mod test {
     #[test]
     fn one_attribute() {
         let attributes = parse_attributes("bash +exec");
-        assert!(attributes.execute);
+        assert_eq!(attributes.execution, SnippetExec::Exec);
         assert!(!attributes.line_numbers);
     }
 
     #[test]
     fn two_attributes() {
         let attributes = parse_attributes("bash +exec +line_numbers");
-        assert!(attributes.execute);
+        assert_eq!(attributes.execution, SnippetExec::Exec);
         assert!(attributes.line_numbers);
+    }
+
+    #[test]
+    fn acquire_terminal() {
+        let attributes = parse_attributes("bash +acquire_terminal +exec");
+        assert_eq!(attributes.execution, SnippetExec::AcquireTerminal);
+        assert_eq!(attributes.representation, SnippetRepr::Snippet);
+        assert!(!attributes.line_numbers);
+    }
+
+    #[test]
+    fn image() {
+        let attributes = parse_attributes("bash +image +exec");
+        assert_eq!(attributes.execution, SnippetExec::Exec);
+        assert_eq!(attributes.representation, SnippetRepr::Image);
+        assert!(!attributes.line_numbers);
     }
 
     #[test]
@@ -764,7 +797,7 @@ mod test {
     #[test]
     fn parse_width() {
         let attributes = parse_attributes("mermaid +width:50% +render");
-        assert!(attributes.render);
+        assert_eq!(attributes.representation, SnippetRepr::Render);
         assert_eq!(attributes.width, Some(Percent(50)));
     }
 
