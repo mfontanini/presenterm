@@ -19,37 +19,10 @@ Code execution **must be explicitly enabled** by using either:
 * Setting the `snippet.exec.enable` property to `true` in your [_presenterm_ config 
 file](../../configuration/settings.md#snippet-execution).
 
+Refer to [the table in the highlighting page](highlighting.md#code-highlighting) for the list of languages for which 
+code execution is supported.
+
 ---
-
-The list of languages that support execution are:
-
-* bash
-* c++
-* c
-* fish
-* go
-* haskell
-* java
-* js
-* kotlin
-* lua
-* nushell
-* perl
-* php
-* python
-* r
-* ruby
-* rust
-* rust-script: this highlights as normal Rust but uses [rust-script](https://rust-script.org/) to execute the snippet so 
-it lets you use dependencies.
-* sh
-* zsh
-* c#
-
-If there's a language that is not in this list and you would like it to be supported, please [create an 
-issue](https://github.com/mfontanini/presenterm/issues/new) providing details on how to compile (if necessary) and run 
-snippets for that language. You can also configure how to run code snippet for a language locally in your [config 
-file](../../configuration/settings.md#custom-snippet-executors).
 
 [![asciicast](https://asciinema.org/a/BbAY817esxagCgPtnKUwgYnHr.svg)](https://asciinema.org/a/BbAY817esxagCgPtnKUwgYnHr)
 

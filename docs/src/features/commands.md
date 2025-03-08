@@ -13,6 +13,22 @@ command:
 <!-- pause -->
 ```
 
+## Font size
+
+The font size can be changed by using the `font_size` command:
+
+```html
+<!-- font_size: 2 -->
+```
+
+This causes the remainder of the slide to use the font size specified. The font size can range from 1 to 7, 1 being the 
+default.
+
+> ![note]
+> This is currently only supported in the [_kitty_](https://sw.kovidgoyal.net/kitty/) terminal and only as of version 
+> 0.40.0. See the notes on font sizes on the [introduction page](introduction.md#font-sizes) for more information on 
+> this.
+
 ## Jumping to the vertical center
 
 The command `jump_to_middle` lets you jump to the middle of the page vertically. This is useful in combination
@@ -68,5 +84,13 @@ bullet point to appear only after you move to the next slide:
 
 * this appears
 * all at once
+```
+
+## No footer
+
+If you don't want the footer to show up in some particular slide for some reason, you can use the `no_footer` command:
+
+```html
+<!-- no_footer -->
 ```
 

@@ -2,59 +2,74 @@
 
 Code highlighting is supported for the following languages:
 
-* ada
-* asp
-* awk
-* bash
-* batchfile
-* C
-* cmake
-* crontab
-* C#
-* clojure
-* C++
-* CSS
-* D
-* diff
-* docker
-* dotenv
-* elixir
-* elm
-* erlang
-* go
-* haskell
-* HTML
-* java
-* javascript
-* json
-* kotlin
-* latex
-* lua
-* makefile
-* markdown
-* nix
-* ocaml
-* perl
-* php
-* protobuf
-* puppet
-* python
-* R
-* ruby
-* rust
-* scala
-* shell
-* sql
-* swift
-* svelte
-* tcl
-* toml
-* terraform
-* typescript
-* xml
-* yaml
-* vue
-* zig
+| Language   | Execution support |
+| -----------|-------------------|
+| ada        |                   |
+| asp        |                   |
+| awk        |                   |
+| bash       |         ✓         |
+| batchfile  |                   |
+| C          |         ✓         |
+| cmake      |                   |
+| crontab    |                   |
+| C#         |         ✓         |
+| clojure    |                   |
+| C++        |         ✓         |
+| CSS        |                   |
+| D          |                   |
+| diff       |                   |
+| docker     |                   |
+| dotenv     |                   |
+| elixir     |                   |
+| elm        |                   |
+| erlang     |                   |
+| fish       |         ✓         |
+| go         |         ✓         |
+| haskell    |         ✓         |
+| HTML       |                   |
+| java       |         ✓         |
+| javascript |         ✓         |
+| json       |                   |
+| kotlin     |         ✓         |
+| latex      |                   |
+| lua        |         ✓         |
+| makefile   |                   |
+| markdown   |                   |
+| nix        |                   |
+| ocaml      |                   |
+| perl       |         ✓         |
+| php        |         ✓         |
+| protobuf   |                   |
+| puppet     |                   |
+| python     |         ✓         |
+| R          |         ✓         |
+| ruby       |         ✓         |
+| rust       |         ✓         |
+| scala      |                   |
+| shell      |         ✓         |
+| sql        |                   |
+| swift      |                   |
+| svelte     |                   |
+| tcl        |                   |
+| toml       |                   |
+| terraform  |                   |
+| typescript |                   |
+| xml        |                   |
+| yaml       |                   |
+| vue        |                   |
+| zig        |                   |
+| zsh        |         ✓         |
+
+Other languages that are supported are:
+
+* nushell, for which highlighting isn't supported but execution is.
+* rust-script, which is highlighted as rust but is executed via the [rust-script](https://rust-script.org/) tool,
+which lets you specify dependencies in your snippet.
+
+If there's a language that is not in this list and you would like it to be supported, please [create an 
+issue](https://github.com/mfontanini/presenterm/issues/new). If you'd also like code execution support, provide details 
+on how to compile (if necessary) and run snippets for that language. You can also configure how to run code snippet for 
+a language locally in your [config file](../../configuration/settings.md#custom-snippet-executors).
 
 ## Enabling line numbers
 
