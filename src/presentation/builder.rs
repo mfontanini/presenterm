@@ -874,6 +874,8 @@ impl<'a> PresentationBuilder<'a> {
             snippet = self.load_external_snippet(snippet, source_position)?;
         }
         self.push_differ(snippet.contents.clone());
+        // Redraw slide if attributes change
+        self.push_differ(format!("{:?}", snippet.attributes));
 
         if snippet.attributes.render || self.options.auto_render_languages.contains(&snippet.language) {
             return self.push_rendered_code(snippet, source_position);
