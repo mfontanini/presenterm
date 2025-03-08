@@ -1,4 +1,38 @@
-# v0.10.1 - 2025-0214
+# v0.11.0 - 2025-03-08
+
+## Breaking changes
+
+* Footer templates are now sanitized, and any variables surrounded in braces that aren't supported (e.g. `{potato}`) will now cause _presenterm_ to display an error. If you'd like to use braces in contexts where you're not trying to reference a variable you can use double braces, e.g. `live at {{PotatoConf}}` ([#442](https://github.com/mfontanini/presenterm/issues/442)) ([#467](https://github.com/mfontanini/presenterm/issues/467)) ([#469](https://github.com/mfontanini/presenterm/issues/469)) ([#471](https://github.com/mfontanini/presenterm/issues/471)).
+
+## New features
+
+* [Add support for kitty's font size protocol](https://mfontanini.github.io/presenterm/features/introduction.html#font-sizes). This is now used by default in built in themes in a few components such as the intro slide's title and slide titles. See the [example presentation gif](https://github.com/mfontanini/presenterm/blob/master/docs/src/assets/demo.gif) to check out how this looks like. Terminal suport for this feature is detected on startup and will be ignored if unsupported. This requires _kitty_ >= 0.40.0 ([#438](https://github.com/mfontanini/presenterm/issues/438)) ([#460](https://github.com/mfontanini/presenterm/issues/460)) ([#470](https://github.com/mfontanini/presenterm/issues/470)).
+* [Allow specifying font size in a comment command](https://mfontanini.github.io/presenterm/features/commands.html#font-sizes), which causes any subsequent text in a slide to use the specified font size. Just like the above, only supported in _kitty_ >= 0.40.0 for now ([#458](https://github.com/mfontanini/presenterm/issues/458)).
+* [Footers can now contain images](https://mfontanini.github.io/presenterm/features/themes/definition.html#footer-images) in the left and center components. This allows including some form of branding/company logo to your presentations ([#450](https://github.com/mfontanini/presenterm/issues/450)) ([#476](https://github.com/mfontanini/presenterm/issues/476)).
+* [Footers can now contain inline markdown](https://mfontanini.github.io/presenterm/features/themes/definition.html#template-footers), which allows using bold, italics, `<span>` tags for colors, etc ([#466](https://github.com/mfontanini/presenterm/issues/466)).
+* [Presentation titles can now contain inline markdown](https://mfontanini.github.io/presenterm/features/introduction.html#introduction-slide) ([#464](https://github.com/mfontanini/presenterm/issues/464)).
+* [Introduce palette.classes in themes](https://mfontanini.github.io/presenterm/features/themes/definition.html#color-palette) to allow specifying combinations of foreground/background colors that can be referenced via the `class` attribute in `<span>` tags ([#468](https://github.com/mfontanini/presenterm/issues/468)).
+* It's now possible to [configure the alignment](https://mfontanini.github.io/presenterm/configuration/settings.html#maximum-presentation-width) to use when `max_columns` is configured and the terminal width is larger than it ([#475](https://github.com/mfontanini/presenterm/issues/475)).
+* Add support for wikilinks ([#448](https://github.com/mfontanini/presenterm/issues/448)).
+
+## Fixes
+
+* Don't get stuck if tmux doesn't passthrough ([#456](https://github.com/mfontanini/presenterm/issues/456)).
+* Don't squash image if terminal's font aspect ratio is not 2:1 ([#446](https://github.com/mfontanini/presenterm/issues/446)).
+* Fail if `--config-file` points to non existent file ([#474](https://github.com/mfontanini/presenterm/issues/474)).
+* Use right script name for kotlin files when executing ([#462](https://github.com/mfontanini/presenterm/issues/462)).
+* Respect lists that start at non 1 indexes ([#459](https://github.com/mfontanini/presenterm/issues/459)).
+* Jump to right slide on code attribute change ([#478](https://github.com/mfontanini/presenterm/issues/478)).
+
+## Improvements
+
+* Remove `result` return type from builder fns that don't need it ([#465](https://github.com/mfontanini/presenterm/issues/465)).
+* Refactor theme code ([#463](https://github.com/mfontanini/presenterm/issues/463)).
+* Restructure `terminal` code and add test for margins/layouts ([#443](https://github.com/mfontanini/presenterm/issues/443)).
+* Use `fastrand` instead of `rand` ([#441](https://github.com/mfontanini/presenterm/issues/441)).
+* Avoid cloning strings when styling them ([#440](https://github.com/mfontanini/presenterm/issues/440)).
+
+# v0.10.1 - 2025-02-14
 
 ## Fixes
 
