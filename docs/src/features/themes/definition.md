@@ -191,6 +191,8 @@ specifies. This parameter should be adjusted accordingly if taller-than-wider im
 See the [footer example](https://github.com/mfontanini/presenterm/blob/master/examples/footer.md) as a showcase of how a 
 footer can contain images and colored text.
 
+![](../../assets/example-footer.png)
+
 ### Progress bar footers
 
 A progress bar that will advance as you move in your presentation. This will by default use a block-looking character to 
