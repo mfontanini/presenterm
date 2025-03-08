@@ -3,9 +3,15 @@ theme:
   override:
     footer:
       style: template
-      left: "@myhandle"
-      center: "Introduction to footer styling"
+      left:
+        image: doge.png
+      center: '**Introduction** to <span class="noice">footer</span> _styling_'
       right: "{current_slide} / {total_slides}"
+      height: 5
+    palette:
+      classes:
+        noice:
+          foreground: red
 ---
 
 First slide
