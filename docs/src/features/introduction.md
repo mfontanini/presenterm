@@ -27,18 +27,19 @@ text (**bold**, _italics_, ~strikethrough~, `inline code`, etc), code blocks, bl
 
 ## Introduction slide
 
-By setting a front matter at the beginning of your presentation, you can configure the title, sub title, and author of 
-your presentation and implicitly create an introduction slide:
+By setting a front matter at the beginning of your presentation you can configure the title, sub title, author and other 
+metadata about your presentation. Doing so will cause _presenterm_ to create an introduction slide:
 
 ```yaml
 ---
-title: My first presentation
+title: "My _first_ **presentation**"
 sub_title: (in presenterm!)
 author: Myself
 ---
 ```
 
-All of these attributes are optional so you're not forced to set them all.
+All of these attributes are optional and should be avoided if an introduction slide is not needed. Note that the `title` 
+key can contain arbitrary markdown so you can use bold, italics, `<span>` tags, etc.
 
 ### Multiple authors
 
@@ -86,10 +87,15 @@ If you really would prefer to use thematic breaks (`---`) to delimit slides, you
 
 ## Colored text
 
-`span` HTML tags can be used to provide foreground and/or background colors to text. Currently only the `style` 
-attribute is supported, and only the CSS attributes `color` and `background-color` can be used to set the foreground and 
-background colors respectively. Colors used in both CSS attributes can refer to [theme palette 
-colors](themes/definition.md#color-palette) by using the `palette:<name>` or `p:<name` syntaxes.
+`span` HTML tags can be used to provide foreground and/or background colors to text. There's currently two ways to 
+specify colors:
+
+* Via the `style` attribute, in which only the CSS attributes `color` and `background-color` can be used to set the 
+foreground and background colors respectively. Colors used in both CSS attributes can refer to 
+[theme palette colors](themes/definition.md#color-palette) by using the `palette:<name>` or `p:<name` syntaxes.
+* Via the `class` attribute, which must point to a class defined in the [theme 
+palette](themes/definition.md#color-palette). Classes allow configuring foreground/background color combinations to be 
+used across your presentation.
 
 For example, the following will use `ff0000` as the foreground color and whatever the active theme's palette defines as 
 `foo`:
@@ -98,8 +104,36 @@ For example, the following will use `ff0000` as the foreground color and whateve
 <span style="color: #ff0000; background-color: palette:foo">colored text!</span>
 ```
 
+Alternatively, can you can define a class that contains a foreground/background color combination in your theme's 
+palette and use it:
+
+```markdown
+<span class="my_class">colored text!</span>
+```
+
 > [!note]
 > Keep in mind **only `span` tags are supported**.
+
+## Font sizes
+
+The [_kitty_](https://sw.kovidgoyal.net/kitty/) terminal added in version 0.40.0 support for a new protocol that allows 
+TUIs to specify the font size to be used when printing text. _presenterm_ is one of the first applications supports this 
+protocol in various places:
+
+* Themes can specify it in the presentation title in the introduction slide, in slide titles, and in headers by using 
+the `font_size` property. All built in themes currently set font size to 2 (1 is the default) for these elements.
+* Explicitly by using the `font_size` comment command:
+
+```markdown
+# Normal text
+
+<!-- font_size: 2 -->
+
+# Larger text
+```
+
+Terminal support for this feature is verified when _presenterm_ starts and any attempt to change the font size, be it 
+via the theme or via the comment command, will be ignored if it's not supported.
 
 # Key bindings
 

@@ -1,38 +1,34 @@
 ---
-title: Introducing presenterm
+title: Introducing _presenterm_
 author: Matias
 ---
 
-Introduction slide
+Customizability
 ---
 
-An introduction slide can be defined by using a front matter at the beginning of the markdown file:
+_presenterm_ allows configuring almost anything about your presentation:
+
+* The colors used.
+* Layouts.
+* Footers, including images in the footer.
+
+<!-- pause -->
+
+This is an example on how to configure a footer:
 
 ```yaml
----
-title: My presentation title
-sub_title: An optional subtitle
-author: Your name which will appear somewhere in the bottom
----
-```
+footer:
+  style: template
+  left:
+    image: doge.png
+  center: '<span class="noice">Colored</span> _footer_'
+  right: "{current_slide} / {total_slides}"
+  height: 5
 
-The slide's theme can also be configured in the front matter:
-
-```yaml
----
-theme:
-  # Specify it by name for built-in themes
-  name: my-favorite-theme
-
-  # Otherwise specify the path for it
-  path: /home/myself/themes/epic.yaml
-
-  # Or override parts of the theme right here
-  override:
-    default:
-      colors:
-        foreground: white
----
+palette:
+  classes:
+    noice:
+      foreground: red
 ```
 
 <!-- end_slide -->
@@ -40,58 +36,27 @@ theme:
 Headers
 ---
 
-Using commonmark setext headers allows you to set titles for your slides (like seen above!):
+Markdown headers can be used to set slide titles like:
 
-```
+```markdown
 Headers
----
+-------
 ```
 
-# Other headers
+# Headers
 
-All other header types are simply treated as headers within your slide.
+Each header type can be styled differently.
 
 ## Subheaders
+
 ### And more
-
-<!-- end_slide -->
-
-Slide commands
----
-
-Certain commands in the form of HTML comments can be used:
-
-# Ending slides
-
-In order to end a single slide, use:
-
-```html
-<!-- end_slide -->
-```
-
-# Creating pauses
-
-Slides can be paused by using the `pause` command:
-
-```html
-<!-- pause -->
-```
-
-This allows you to:
-
-<!-- pause -->
-* Create suspense.
-<!-- pause -->
-* Have more interactive presentations.
-<!-- pause -->
-* Possibly more!
 
 <!-- end_slide -->
 
 Code highlighting
 ---
 
-Code highlighting is enabled for code blocks that include the most commonly used programming languages:
+Highlight code in 50+ programming languages:
 
 ```rust
 // Rust
@@ -106,22 +71,25 @@ def greet() -> str:
     return "hi mom"
 ```
 
-```cpp
+<!-- pause -->
+
+-------
+
+Code snippets can have different styles including no background:
+
+```cpp +no_background +line_numbers
 // C++
 string greet() {
     return "hi mom";
 }
 ```
 
-And many more!
-
 <!-- end_slide -->
 
 Dynamic code highlighting
 ---
 
-Select specific subsets of lines to be highlighted dynamically as you move to the next slide. Optionally enable line
-numbers to make it easier to specify which lines you're referring to!
+Dynamically highlight different subsets of lines:
 
 ```rust {1-4|6-10|all} +line_numbers
 #[derive(Clone, Debug)]
@@ -141,12 +109,11 @@ impl Person {
 Snippet execution
 ---
 
-Code snippets can be executed:
+Code snippets can be executed on demand:
 
-* For various languages, including compiled ones.
-* Their output is shown in real time.
-* Unimportant lines can be hidden so they don't clutter what you're trying to convey.
-* By default by pressing `<ctrl-e>`.
+* For 20+ languages, including compiled ones.
+* Display their output in real time.
+* Comment out unimportant lines to hide them.
 
 ```rust +exec
 # use std::thread::sleep;
@@ -165,12 +132,17 @@ fn main() {
 Images
 ---
 
-Image rendering is supported as long as you're using iterm2, your terminal supports
-the kitty graphics protocol (such as the kitty terminal itself!), or the sixel format.
+Images and animated gifs are supported in terminals such as:
 
-* Include images in your slides by using `![](path-to-image.extension)`.
-* Images will be rendered in **their original size**.
-    * If they're too big they will be scaled down to fit the screen.
+* kitty
+* iterm2
+* wezterm
+* ghostty
+* Any sixel enabled terminal
+
+<!-- column_layout: [1, 3, 1] -->
+
+<!-- column: 1 -->
 
 ![](doge.png)
 
@@ -181,13 +153,15 @@ _Picture by Alexis Bailey / CC BY-NC 4.0_
 Column layouts
 ---
 
-<!-- column_layout: [2, 1] -->
+<!-- column_layout: [7, 3] -->
 
 <!-- column: 0 -->
 
-Column layouts let you organize content into columns.
+Use column layouts to structure your presentation:
 
-Here you can place code:
+* Define the number of columns.
+* Adjust column widths as needed.
+* Write content into every column.
 
 ```rust
 fn potato() -> u32 {
@@ -195,21 +169,15 @@ fn potato() -> u32 {
 }
 ```
 
-Plus pretty much anything else:
-* Bullet points.
-* Images.
-* _more_!
-
 <!-- column: 1 -->
 
 ![](doge.png)
 
-_Picture by Alexis Bailey / CC BY-NC 4.0_
-
 <!-- reset_layout -->
 
-Because we just reset the layout, this text is now below both of the columns. Code and any other element will now look
-like it usually does:
+---
+
+Layouts can be reset at any time.
 
 ```python
 print("Hello world!")
@@ -220,23 +188,29 @@ print("Hello world!")
 Text formatting
 ---
 
-Text formatting works as expected:
+Text formatting works including:
 
-* **This is bold text**.
-* _This is italics_.
-* **This is bold _and this is bold and italic_**.
-* ~This is strikethrough text.~
-* Inline code `is also supported`.
-* Links look like this [](https://example.com/)
-* Text can be <span style="color: red">colored</span>.
-* Text background color can be <span style="color: blue; background-color: black">changed too</span>.
+* **Bold text**.
+* _Italics_.
+* **_Bold and italic_**.
+* ~Strikethrough~.
+* `Inline code`.
+* Links [](https://example.com/)
+* <span style="color: red">Colored</span> text.
+* <span style="color: blue; background-color: black">Background color</span> can be changed too.
 
 <!-- end_slide -->
 
-Other elements
+More markdown
 ---
 
-Other elements supported are:
+Other markdown elements supported are:
+
+# Block quotes
+
+> Lorem ipsum dolor sit amet. Eos laudantium animi ut ipsam beataeet
+> et exercitationem deleniti et quia maiores a cumque enim et
+> aspernatur nesciunt sed adipisci quis.
 
 # Alerts
 
@@ -245,19 +219,14 @@ Other elements supported are:
 
 # Tables
 
-| Name | Taste |
+| Name   | Taste  |
 | ------ | ------ |
-| Potato | Great |
-| Carrot | Yuck |
+| Potato | Great  |
+| Carrot | Yuck   |
 
-# Block quotes
+<!-- end_slide -->
 
-> Lorem ipsum dolor sit amet. Eos laudantium animi ut ipsam beataeet
-> et exercitationem deleniti et quia maiores a cumque enim et
-> aspernatur nesciunt sed adipisci quis.
+<!-- jump_to_middle -->
 
-# Thematic breaks
-
-A horizontal line by using `---`.
-
+The end
 ---

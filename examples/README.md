@@ -39,7 +39,7 @@ This example uses a template-style footer, which lets you place some text on the
 A few template variables, such as `current_slide` and `total_slides` can be used to reference properties of the 
 presentation.
 
-[![asciicast](https://asciinema.org/a/DLpBDpCbEp5pSrNZ2Vh4mmIY1.svg)](https://asciinema.org/a/DLpBDpCbEp5pSrNZ2Vh4mmIY1)
+![](../docs/src/assets/example-footer.png)
 
 # Columns
 

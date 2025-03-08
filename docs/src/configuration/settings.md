@@ -58,6 +58,16 @@ defaults:
   max_columns: 100
 ```
 
+If you would like your presentation to be left or right aligned instead of centered when the terminal is too wide, you 
+can use the `max_columns_alignment` key:
+
+
+```yaml
+defaults:
+  max_columns: 100
+  max_columns_alignment: left
+```
+
 # Key bindings
 
 Key bindings that _presenterm_ uses can be manually configured in the config file via the `bindings` key. The following 

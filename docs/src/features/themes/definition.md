@@ -126,16 +126,74 @@ intro_slide:
 
 The footer currently comes in 3 flavors:
 
-### None
+### Template footers
 
-No footer at all!
+A template footer lets you put text on the left, center and/or right of the screen. The template strings
+can reference `{current_slide}` and `{total_slides}` which will be replaced with the current and total number of slides.
+
+Besides those special variables, any of the attributes defined in the front matter can also be used:
+
+* `title`.
+* `sub_title`.
+* `event`.
+* `location`.
+* `date`.
+* `author`.
+
+Strings used in template footers can contain arbitrary markdown, including `span` tags that let you use colored text. A 
+`height` attribute allows specifying how tall, in terminal rows, the footer is. The text in the footer will always be 
+placed at the center of the footer area. The default footer height is 2.
 
 ```yaml
 footer:
-  style: empty
+  style: template
+  left: "My **name** is {author}"
+  center: "_@myhandle_"
+  right: "{current_slide} / {total_slides}"
+  height: 3
 ```
 
-### Progress bar
+Do note that:
+
+* Only existing attributes in the front matter can be referenced. That is, if you use `{date}` but the `date` isn't set, 
+an error will be shown.
+* Similarly, referencing unsupported variables (e.g. `{potato}`) will cause an error to be displayed. If you'd like the 
+`{}` characters to be used in contexts where you don't want to reference a variable, you will need to escape them by 
+using another brace. e.g. `{{potato}} farms` will be displayed as `{potato} farms`.
+
+#### Footer images
+
+Besides text, images can also be used in the left and center positions. This can be done by specifying an `image` key 
+under each of those attributes:
+
+```yaml
+footer:
+  style: template
+  left:
+    image: potato.png
+  center:
+    image: banana.png
+  right: "{current_slide} / {total_slides}"
+  # The height of the footer to adjust image sizes
+  height: 5
+```
+
+Images will be looked up:
+
+* First, relative to the presentation file just like any other image.
+* If the image is not found, it will be looked up relative to the themes directory. e.g. `~/.config/presenterm/themes`. 
+This allows you to define a custom theme in your themes directory that points to a local image within that same 
+location.
+
+Images will preserve their aspect ratio and expand vertically to take up as many terminal rows as `footer.height` 
+specifies. This parameter should be adjusted accordingly if taller-than-wider images are used in a footer.
+
+See the [footer example](https://github.com/mfontanini/presenterm/blob/master/examples/footer.md) as a showcase of how a 
+footer can contain images and colored text.
+
+![](../../assets/example-footer.png)
+
+### Progress bar footers
 
 A progress bar that will advance as you move in your presentation. This will by default use a block-looking character to 
 draw the progress bar but you can customize it:
@@ -148,27 +206,15 @@ footer:
   character: 🚀
 ```
 
-### Template
+### None
 
-A template footer that lets you put something on the left, center and/or right of the screen. The template strings
-can reference `{current_slide}` and `{total_slides}` which will be replaced with the current and total number of slides.
-
-Besides those special variables, any of the attributes defined in the front matter can also be used:
-
-* `title`.
-* `sub_title`.
-* `event`.
-* `location`.
-* `date`.
-* `author`.
+No footer at all!
 
 ```yaml
 footer:
-  style: template
-  left: "My name is {author}"
-  center: @myhandle
-  right: "{current_slide} / {total_slides}"
+  style: empty
 ```
+
 
 ## Slide title
 
@@ -315,8 +361,9 @@ _almost_ liking a built in theme but there's only some properties you don't like
 
 ## Color palette
 
-Every theme can define a color palette, which is essentially a named list of colors. These can then be used both in 
-other parts of the theme, as well as when styling text via `span` HTML tags.
+Every theme can define a color palette, which includes a list of pre-defined colors and a list of background/foreground 
+pairs called "classes". Colors and classes can be used when styling text via `<span>` HTML tags, whereas colors can also 
+be used inside themes to avoid duplicating the same colors all over the theme definition.
 
 A palette can de defined as follows:
 
@@ -325,6 +372,10 @@ palette:
   colors:
     red: "f78ca2"
     purple: "986ee2"
+  classes:
+    foo:
+      foreground: "ff0000"
+      background: "00ff00"
 ```
 
 Any palette color can be referenced using either `palette:<name>` or `p:<name>`. This means now any part of the theme 
@@ -334,5 +385,9 @@ Similarly, these colors can be used in `span` tags like:
 
 ```html
 <span style="color: palette:red">this is red</span>
+
+<span class="foo">this is foo-colored</span>
 ```
 
+These colors can used anywhere in your presentation as well as in other places such as in
+[template footers](#template-footers) and [introduction slides](../introduction.md#introduction-slide).
