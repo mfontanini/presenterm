@@ -16,8 +16,9 @@ presenterm
 [scoop-package]: https://scoop.sh/#/apps?q=presenterm&id=a462290f824b50f180afbaa6d8c7c1e6e0952e3a
 
 _presenterm_ lets you create presentations in markdown format and run them from your terminal, with support for image 
-and animated gifs, highly customizable themes, code highlighting, exporting presentations into PDF format, and 
-plenty of other features. This is how the [demo presentation](/examples/demo.md) looks like:
+and animated gifs, highly customizable themes, code highlighting, exporting presentations into PDF format, and plenty of 
+other features. This is how the [demo presentation](/examples/demo.md) looks like when running in the [kitty 
+terminal](https://sw.kovidgoyal.net/kitty/):
 
 ![](/docs/src/assets/demo.gif)
 
@@ -35,6 +36,7 @@ Visit the [documentation][docs-introduction] to get started.
   slide, etc. Several [built-in themes][docs-builtin-themes] can give your presentation the look you want without 
   having to define your own.
 * Code highlighting for a [wide list of programming languages][docs-code-highlight].
+* [Font sizes][docs-font-sizes] for terminals that support them.
 * [Selective/dynamic][docs-selective-highlight] code highlighting that only highlights portions of code at a time.
 * [Column layouts][docs-layout].
 * [mermaid graph rendering][docs-mermaid].
@@ -56,6 +58,7 @@ See the [introduction page][docs-introduction] to learn more.
 [docs-basics]: https://mfontanini.github.io/presenterm/features/introduction.html
 [docs-intro-slide]: https://mfontanini.github.io/presenterm/features/introduction.html#introduction-slide
 [docs-slide-titles]: https://mfontanini.github.io/presenterm/features/introduction.html#slide-titles
+[docs-font-sizes]: https://mfontanini.github.io/presenterm/features/introduction.html#font-sizes
 [docs-pauses]: https://mfontanini.github.io/presenterm/features/commands.html#pauses
 [docs-images]: https://mfontanini.github.io/presenterm/features/images.html
 [docs-themes]: https://mfontanini.github.io/presenterm/features/themes/introduction.html
