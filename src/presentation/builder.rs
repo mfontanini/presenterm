@@ -4,7 +4,7 @@ use crate::{
         highlighting::{HighlightThemeSet, SnippetHighlighter},
         snippet::{
             ExternalFile, Highlight, HighlightContext, HighlightGroup, HighlightMutator, HighlightedLine, Snippet,
-            SnippetLanguage, SnippetLine, SnippetParser, SnippetSplitter,
+            SnippetExec, SnippetLanguage, SnippetLine, SnippetParser, SnippetRepr, SnippetSplitter,
         },
     },
     config::{KeyBindingsConfig, OptionsConfig},
@@ -873,19 +873,58 @@ impl<'a> PresentationBuilder<'a> {
         if matches!(snippet.language, SnippetLanguage::File) {
             snippet = self.load_external_snippet(snippet, source_position)?;
         }
+        if self.options.auto_render_languages.contains(&snippet.language) {
+            snippet.attributes.representation = SnippetRepr::Render;
+        }
         self.push_differ(snippet.contents.clone());
         // Redraw slide if attributes change
         self.push_differ(format!("{:?}", snippet.attributes));
 
-        if snippet.attributes.render || self.options.auto_render_languages.contains(&snippet.language) {
-            return self.push_rendered_code(snippet, source_position);
-        } else if snippet.attributes.execute_replace && self.options.enable_snippet_execution_replace {
-            return self.push_code_execution(snippet, 0, ExecutionMode::ReplaceSnippet);
+        let execution_allowed = self.is_execution_allowed(&snippet);
+        match snippet.attributes.representation {
+            SnippetRepr::Render => return self.push_rendered_code(snippet, source_position),
+            SnippetRepr::Image => {
+                if execution_allowed {
+                    return self.push_code_as_image(snippet);
+                }
+            }
+            SnippetRepr::ExecReplace => {
+                if execution_allowed {
+                    return self.push_code_execution(snippet, 0, ExecutionMode::ReplaceSnippet);
+                }
+            }
+            SnippetRepr::Snippet => (),
+        };
+
+        let block_length = self.push_code_lines(&snippet);
+        match snippet.attributes.execution {
+            SnippetExec::None => Ok(()),
+            SnippetExec::Exec | SnippetExec::AcquireTerminal if !execution_allowed => {
+                let auto_start = match snippet.attributes.representation {
+                    SnippetRepr::Image | SnippetRepr::ExecReplace => true,
+                    SnippetRepr::Render | SnippetRepr::Snippet => false,
+                };
+                self.push_execution_disabled_operation(auto_start);
+                Ok(())
+            }
+            SnippetExec::Exec => self.push_code_execution(snippet, block_length, ExecutionMode::AlongSnippet),
+            SnippetExec::AcquireTerminal => self.push_acquire_terminal_execution(snippet, block_length),
         }
+    }
+
+    fn is_execution_allowed(&self, snippet: &Snippet) -> bool {
+        match snippet.attributes.representation {
+            SnippetRepr::Snippet => self.options.enable_snippet_execution,
+            SnippetRepr::Image | SnippetRepr::ExecReplace => self.options.enable_snippet_execution_replace,
+            SnippetRepr::Render => true,
+        }
+    }
+
+    fn push_code_lines(&mut self, snippet: &Snippet) -> usize {
         let lines = SnippetSplitter::new(&self.theme.code, self.code_executor.hidden_line_prefix(&snippet.language))
-            .split(&snippet);
+            .split(snippet);
         let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0) * self.slide_font_size() as usize;
-        let (lines, context) = self.highlight_lines(&snippet, lines, block_length);
+        let (lines, context) = self.highlight_lines(snippet, lines, block_length);
         for line in lines {
             self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
         }
@@ -893,27 +932,7 @@ impl<'a> PresentationBuilder<'a> {
         if self.options.allow_mutations && context.borrow().groups.len() > 1 {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
-
-        if snippet.attributes.execute_replace && !self.options.enable_snippet_execution_replace {
-            let operation = SnippetExecutionDisabledOperation::new(
-                self.theme.execution_output.status.failure_style,
-                self.theme.code.alignment,
-            );
-            operation.start_render();
-            self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(operation)))
-        }
-        if snippet.attributes.execute {
-            if self.options.enable_snippet_execution {
-                self.push_code_execution(snippet, block_length, ExecutionMode::AlongSnippet)?;
-            } else {
-                let operation = SnippetExecutionDisabledOperation::new(
-                    self.theme.execution_output.status.failure_style,
-                    self.theme.code.alignment,
-                );
-                self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(operation)))
-            }
-        }
-        Ok(())
+        block_length
     }
 
     fn load_external_snippet(
@@ -1016,39 +1035,58 @@ impl<'a> PresentationBuilder<'a> {
         style
     }
 
-    fn push_code_execution(&mut self, snippet: Snippet, block_length: usize, mode: ExecutionMode) -> BuildResult {
+    fn push_execution_disabled_operation(&mut self, auto_start: bool) {
+        let operation = SnippetExecutionDisabledOperation::new(
+            self.theme.execution_output.status.failure_style,
+            self.theme.code.alignment,
+        );
+        if auto_start {
+            operation.start_render();
+        }
+        self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(operation)));
+    }
+
+    fn push_code_as_image(&mut self, snippet: Snippet) -> BuildResult {
         if !self.code_executor.is_execution_supported(&snippet.language) {
             return Err(BuildError::UnsupportedExecution(snippet.language));
         }
-        if snippet.attributes.image {
-            let operation = RunImageSnippet::new(
-                snippet,
-                self.code_executor.clone(),
-                self.image_registry.clone(),
-                self.theme.execution_output.status.clone(),
-            );
-            operation.start_render();
+        let operation = RunImageSnippet::new(
+            snippet,
+            self.code_executor.clone(),
+            self.image_registry.clone(),
+            self.theme.execution_output.status.clone(),
+        );
+        operation.start_render();
 
-            let operation = RenderOperation::RenderAsync(Rc::new(operation));
-            self.chunk_operations.push(operation);
-            return Ok(());
+        let operation = RenderOperation::RenderAsync(Rc::new(operation));
+        self.chunk_operations.push(operation);
+        Ok(())
+    }
+
+    fn push_acquire_terminal_execution(&mut self, snippet: Snippet, block_length: usize) -> BuildResult {
+        if !self.code_executor.is_execution_supported(&snippet.language) {
+            return Err(BuildError::UnsupportedExecution(snippet.language));
         }
-        if snippet.attributes.acquire_terminal {
-            let block_length = block_length as u16;
-            let block_length = match &self.theme.code.alignment {
-                Alignment::Left { .. } | Alignment::Right { .. } => block_length,
-                Alignment::Center { minimum_size, .. } => block_length.max(*minimum_size),
-            };
-            let operation = RunAcquireTerminalSnippet::new(
-                snippet,
-                self.code_executor.clone(),
-                self.theme.execution_output.status.clone(),
-                block_length,
-                self.slide_font_size(),
-            );
-            let operation = RenderOperation::RenderAsync(Rc::new(operation));
-            self.chunk_operations.push(operation);
-            return Ok(());
+        let block_length = block_length as u16;
+        let block_length = match &self.theme.code.alignment {
+            Alignment::Left { .. } | Alignment::Right { .. } => block_length,
+            Alignment::Center { minimum_size, .. } => block_length.max(*minimum_size),
+        };
+        let operation = RunAcquireTerminalSnippet::new(
+            snippet,
+            self.code_executor.clone(),
+            self.theme.execution_output.status.clone(),
+            block_length,
+            self.slide_font_size(),
+        );
+        let operation = RenderOperation::RenderAsync(Rc::new(operation));
+        self.chunk_operations.push(operation);
+        Ok(())
+    }
+
+    fn push_code_execution(&mut self, snippet: Snippet, block_length: usize, mode: ExecutionMode) -> BuildResult {
+        if !self.code_executor.is_execution_supported(&snippet.language) {
+            return Err(BuildError::UnsupportedExecution(snippet.language));
         }
         let separator = match mode {
             ExecutionMode::AlongSnippet => DisplaySeparator::On,

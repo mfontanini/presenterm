@@ -1,5 +1,6 @@
 //! Code execution.
 
+use super::snippet::{SnippetExec, SnippetRepr};
 use crate::{
     code::snippet::{Snippet, SnippetLanguage},
     config::LanguageSnippetExecutionConfig,
@@ -59,9 +60,9 @@ impl SnippetExecutor {
         let config = self.language_config(snippet)?;
         let script_dir = Self::write_snippet(snippet, config)?;
         let state: Arc<Mutex<ExecutionState>> = Default::default();
-        let output_type = match snippet.attributes.image {
-            true => OutputType::Binary,
-            false => OutputType::Lines,
+        let output_type = match snippet.attributes.representation {
+            SnippetRepr::Image => OutputType::Binary,
+            _ => OutputType::Lines,
         };
         let reader_handle = CommandsRunner::spawn(
             state.clone(),
@@ -107,7 +108,9 @@ impl SnippetExecutor {
     }
 
     fn language_config(&self, snippet: &Snippet) -> Result<&LanguageSnippetExecutionConfig, CodeExecuteError> {
-        if !snippet.attributes.execute && !snippet.attributes.execute_replace {
+        let is_executable = !matches!(snippet.attributes.execution, SnippetExec::None);
+        let is_exec_replace = matches!(snippet.attributes.representation, SnippetRepr::ExecReplace);
+        if !is_executable && !is_exec_replace {
             return Err(CodeExecuteError::NotExecutableCode);
         }
         self.executors.get(&snippet.language).ok_or(CodeExecuteError::UnsupportedExecution)
@@ -326,7 +329,7 @@ echo 'bye'"
         let code = Snippet {
             contents,
             language: SnippetLanguage::Shell,
-            attributes: SnippetAttributes { execute: true, ..Default::default() },
+            attributes: SnippetAttributes { execution: SnippetExec::Exec, ..Default::default() },
         };
         let handle = SnippetExecutor::default().execute_async(&code).expect("execution failed");
         let state = loop {
@@ -346,7 +349,7 @@ echo 'bye'"
         let code = Snippet {
             contents,
             language: SnippetLanguage::Shell,
-            attributes: SnippetAttributes { execute: false, ..Default::default() },
+            attributes: SnippetAttributes { execution: SnippetExec::None, ..Default::default() },
         };
         let result = SnippetExecutor::default().execute_async(&code);
         assert!(result.is_err());
@@ -362,7 +365,7 @@ echo 'hello world'
         let code = Snippet {
             contents,
             language: SnippetLanguage::Shell,
-            attributes: SnippetAttributes { execute: true, ..Default::default() },
+            attributes: SnippetAttributes { execution: SnippetExec::Exec, ..Default::default() },
         };
         let handle = SnippetExecutor::default().execute_async(&code).expect("execution failed");
         let state = loop {
@@ -387,7 +390,7 @@ echo 'hello world'
         let code = Snippet {
             contents,
             language: SnippetLanguage::Shell,
-            attributes: SnippetAttributes { execute: true, ..Default::default() },
+            attributes: SnippetAttributes { execution: SnippetExec::Exec, ..Default::default() },
         };
         let handle = SnippetExecutor::default().execute_async(&code).expect("execution failed");
         let state = loop {
