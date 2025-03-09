@@ -444,6 +444,15 @@ pub(crate) enum Alignment {
     Center { minimum_margin: Margin, minimum_size: u16 },
 }
 
+impl Alignment {
+    pub(crate) fn adjust_size(&self, size: u16) -> u16 {
+        match self {
+            Self::Left { .. } | Self::Right { .. } => size,
+            Self::Center { minimum_size, .. } => size.max(*minimum_size),
+        }
+    }
+}
+
 impl From<raw::Alignment> for Alignment {
     fn from(alignment: raw::Alignment) -> Self {
         match alignment {

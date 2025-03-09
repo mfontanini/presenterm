@@ -110,7 +110,7 @@ impl SnippetLine {
 pub(crate) struct HighlightContext {
     pub(crate) groups: Vec<HighlightGroup>,
     pub(crate) current: usize,
-    pub(crate) block_length: usize,
+    pub(crate) block_length: u16,
     pub(crate) alignment: Alignment,
 }
 
@@ -141,7 +141,7 @@ impl AsRenderOperations for HighlightedLine {
                 right_padding_length: self.right_padding_length,
                 repeat_prefix_on_wrap: false,
                 text,
-                block_length: context.block_length as u16,
+                block_length: context.block_length,
                 alignment: context.alignment,
                 block_color: self.block_color,
             }),

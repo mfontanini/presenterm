@@ -16,7 +16,7 @@ use crate::{
         properties::WindowSize,
     },
     resource::Resources,
-    theme::{Alignment, CodeBlockStyle, PresentationTheme},
+    theme::{CodeBlockStyle, PresentationTheme},
     third_party::{ThirdPartyRender, ThirdPartyRenderRequest},
     ui::execution::{
         DisplaySeparator, RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation,
@@ -148,10 +148,11 @@ impl<'a> SnippetProcessor<'a> {
         }
     }
 
-    fn push_code_lines(&mut self, snippet: &Snippet) -> usize {
+    fn push_code_lines(&mut self, snippet: &Snippet) -> u16 {
         let lines = SnippetSplitter::new(&self.theme.code, self.snippet_executor.hidden_line_prefix(&snippet.language))
             .split(snippet);
         let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0) * self.font_size as usize;
+        let block_length = block_length as u16;
         let (lines, context) = self.highlight_lines(snippet, lines, block_length);
         for line in lines {
             self.operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
@@ -205,14 +206,11 @@ impl<'a> SnippetProcessor<'a> {
         &self,
         code: &Snippet,
         lines: Vec<SnippetLine>,
-        block_length: usize,
+        block_length: u16,
     ) -> (Vec<HighlightedLine>, Rc<RefCell<HighlightContext>>) {
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let style = self.code_style(code);
-        let block_length = match &self.theme.code.alignment {
-            Alignment::Left { .. } | Alignment::Right { .. } => block_length,
-            Alignment::Center { minimum_size, .. } => block_length.max(*minimum_size as usize),
-        };
+        let block_length = self.theme.code.alignment.adjust_size(block_length);
         let font_size = self.font_size;
         let dim_style = {
             let mut highlighter = self.highlighter.language_highlighter(&SnippetLanguage::Rust);
@@ -248,11 +246,6 @@ impl<'a> SnippetProcessor<'a> {
     fn code_style(&self, snippet: &Snippet) -> CodeBlockStyle {
         let mut style = self.theme.code.clone();
         if snippet.attributes.no_background {
-            style.alignment = match style.alignment {
-                Alignment::Center { .. } => Alignment::Center { minimum_size: 0, minimum_margin: Default::default() },
-                Alignment::Left { .. } => Alignment::Left { margin: Default::default() },
-                Alignment::Right { .. } => Alignment::Right { margin: Default::default() },
-            };
             style.background = false;
         }
         style
@@ -286,15 +279,11 @@ impl<'a> SnippetProcessor<'a> {
         Ok(())
     }
 
-    fn push_acquire_terminal_execution(&mut self, snippet: Snippet, block_length: usize) -> BuildResult {
+    fn push_acquire_terminal_execution(&mut self, snippet: Snippet, block_length: u16) -> BuildResult {
         if !self.snippet_executor.is_execution_supported(&snippet.language) {
             return Err(BuildError::UnsupportedExecution(snippet.language));
         }
-        let block_length = block_length as u16;
-        let block_length = match &self.theme.code.alignment {
-            Alignment::Left { .. } | Alignment::Right { .. } => block_length,
-            Alignment::Center { minimum_size, .. } => block_length.max(*minimum_size),
-        };
+        let block_length = self.theme.code.alignment.adjust_size(block_length);
         let operation = RunAcquireTerminalSnippet::new(
             snippet,
             self.snippet_executor.clone(),
@@ -307,7 +296,7 @@ impl<'a> SnippetProcessor<'a> {
         Ok(())
     }
 
-    fn push_code_execution(&mut self, snippet: Snippet, block_length: usize, mode: ExecutionMode) -> BuildResult {
+    fn push_code_execution(&mut self, snippet: Snippet, block_length: u16, mode: ExecutionMode) -> BuildResult {
         if !self.snippet_executor.is_execution_supported(&snippet.language) {
             return Err(BuildError::UnsupportedExecution(snippet.language));
         }
@@ -326,7 +315,7 @@ impl<'a> SnippetProcessor<'a> {
             self.snippet_executor.clone(),
             default_colors,
             execution_output_style,
-            block_length as u16,
+            block_length,
             separator,
             alignment,
             self.font_size,
