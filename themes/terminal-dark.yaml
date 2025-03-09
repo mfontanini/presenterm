@@ -24,19 +24,20 @@ code:
   padding:
     horizontal: 2
     vertical: 1
+  background: false
 
 execution_output:
   colors:
-    background: grey
+    foreground: white
   status:
     running:
-      foreground: "blue"
+      foreground: blue
     success:
-      foreground: "green"
+      foreground: green
     failure:
-      foreground: "red"
+      foreground: red
     not_started:
-      foreground: "yellow"
+      foreground: yellow
 
 inline_code:
   colors:
