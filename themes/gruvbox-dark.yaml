@@ -1,0 +1,140 @@
+---
+default:
+  margin:
+    percent: 8
+  colors:
+    foreground: "ebdbb2"
+    background: "282828"
+
+slide_title:
+  alignment: center
+  padding_bottom: 1
+  padding_top: 1
+  colors:
+    foreground: "fabd2f"
+  bold: true
+  font_size: 2
+
+code:
+  alignment: center
+  minimum_size: 50
+  minimum_margin:
+    percent: 8
+  theme_name: base16-eighties.dark
+  padding:
+    horizontal: 2
+    vertical: 1
+
+execution_output:
+  colors:
+    foreground: "ebdbb2"
+    background: "3c3836"
+  status:
+    running:
+      foreground: "83a598"
+    success:
+      foreground: "b8bb26"
+    failure:
+      foreground: "fb4934"
+    not_started:
+      foreground: "fabd2f"
+
+inline_code:
+  colors:
+    foreground: "b8bb26"
+
+intro_slide:
+  title:
+    alignment: center
+    colors:
+      foreground: "b8bb26"
+    font_size: 2
+  subtitle:
+    alignment: center
+    colors:
+      foreground: "83a598"
+  event:
+    alignment: center
+    colors:
+      foreground: "b8bb26"
+  location:
+    alignment: center
+    colors:
+      foreground: "83a598"
+  date:
+    alignment: center
+    colors:
+      foreground: "fabd2f"
+  author:
+    alignment: center
+    colors:
+      foreground: "d5c4a1"
+    positioning: page_bottom
+  footer: false
+
+headings:
+  h1:
+    prefix: "██"
+    colors:
+      foreground: "8ec07c"
+  h2:
+    prefix: "▓▓▓"
+    colors:
+      foreground: "d3869b"
+  h3:
+    prefix: "▒▒▒▒"
+    colors:
+      foreground: "83a598"
+  h4:
+    prefix: "░░░░░"
+    colors:
+      foreground: "fb4934"
+  h5:
+    prefix: "░░░░░░"
+    colors:
+      foreground: "b8bb26"
+  h6:
+    prefix: "░░░░░░░"
+    colors:
+      foreground: "fe8019"
+
+block_quote:
+  prefix: "▍ "
+  colors:
+    foreground: "ebdbb2"
+    background: "3c3836"
+    prefix: "fabd2f"
+
+alert:
+  prefix: "▍ "
+  base_colors:
+    foreground: "ebdbb2"
+    background: "3c3836"
+  styles:
+    note:
+      color: "83a598"
+    tip:
+      color: "b8bb26"
+    important:
+      color: "d3869b"
+    warning:
+      color: "fe8019"
+    caution:
+      color: "fb4934"
+
+typst:
+  colors:
+    foreground: "ebdbb2"
+    background: "3c3836"
+
+footer:
+  style: template
+  right: "{current_slide} / {total_slides}"
+
+modals:
+  selection_colors:
+    foreground: "83a598"
+
+mermaid:
+  background: transparent
+  theme: dark
