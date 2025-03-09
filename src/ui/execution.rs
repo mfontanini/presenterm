@@ -75,10 +75,7 @@ impl RunSnippetOperation {
     ) -> Self {
         let block_colors = style.style.colors;
         let status_colors = style.status.clone();
-        let block_length = match &alignment {
-            Alignment::Left { .. } | Alignment::Right { .. } => block_length,
-            Alignment::Center { minimum_size, .. } => block_length.max(*minimum_size),
-        };
+        let block_length = alignment.adjust_size(block_length);
         let inner = RunSnippetOperationInner {
             handle: None,
             output_lines: Vec::new(),
