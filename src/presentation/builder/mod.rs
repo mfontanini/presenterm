@@ -69,6 +69,8 @@ pub struct PresentationBuilderOptions {
     pub render_speaker_notes_only: bool,
     pub auto_render_languages: Vec<SnippetLanguage>,
     pub theme_options: ThemeOptions,
+    pub pause_before_incremental_lists: bool,
+    pub pause_after_incremental_lists: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -107,6 +109,8 @@ impl Default for PresentationBuilderOptions {
             render_speaker_notes_only: false,
             auto_render_languages: Default::default(),
             theme_options: ThemeOptions { font_size_supported: false },
+            pause_before_incremental_lists: true,
+            pause_after_incremental_lists: true,
         }
     }
 }
@@ -486,7 +490,7 @@ impl<'a> PresentationBuilder<'a> {
 
     fn process_comment_command_presentation_mode(&mut self, comment_command: CommentCommand) -> BuildResult {
         match comment_command {
-            CommentCommand::Pause => self.process_pause(),
+            CommentCommand::Pause => self.push_pause(),
             CommentCommand::EndSlide => self.terminate_slide(),
             CommentCommand::NewLine => self.push_line_breaks(self.slide_font_size() as usize),
             CommentCommand::NewLines(count) => {
@@ -574,7 +578,7 @@ impl<'a> PresentationBuilder<'a> {
         }
     }
 
-    fn process_pause(&mut self) {
+    fn push_pause(&mut self) {
         self.slide_state.last_chunk_ended_in_list = matches!(self.slide_state.last_element, LastElement::List { .. });
 
         let chunk_operations = mem::take(&mut self.chunk_operations);
@@ -700,11 +704,17 @@ impl<'a> PresentationBuilder<'a> {
 
         let incremental_lists = self.slide_state.incremental_lists.unwrap_or(self.options.incremental_lists);
         let iter = ListIterator::new(list, start_index);
+        if self.options.pause_before_incremental_lists {
+            self.push_pause();
+        }
         for (index, item) in iter.enumerate() {
             if index > 0 && incremental_lists {
-                self.process_pause();
+                self.push_pause();
             }
             self.push_list_item(item.index, item.item)?;
+        }
+        if self.options.pause_after_incremental_lists {
+            self.push_pause();
         }
         Ok(())
     }
@@ -1556,8 +1566,19 @@ mod test {
         assert_eq!(lines, expected_lines);
     }
 
-    #[test]
-    fn automatic_pauses() {
+    #[rstest]
+    #[case::default(Default::default(), 5)]
+    #[case::no_pause_before(PresentationBuilderOptions{pause_before_incremental_lists: false, ..Default::default()}, 4)]
+    #[case::no_pause_after(PresentationBuilderOptions{pause_after_incremental_lists: false, ..Default::default()}, 4)]
+    #[case::no_pauses(
+        PresentationBuilderOptions{
+            pause_before_incremental_lists: false,
+            pause_after_incremental_lists: false,
+            ..Default::default()
+        },
+        3
+    )]
+    fn automatic_pauses(#[case] options: PresentationBuilderOptions, #[case] expected_chunks: usize) {
         let elements = vec![
             MarkdownElement::Comment { comment: "incremental_lists: true".into(), source_position: Default::default() },
             MarkdownElement::List(vec![
@@ -1566,8 +1587,8 @@ mod test {
                 ListItem { depth: 0, contents: "three".into(), item_type: ListItemType::Unordered },
             ]),
         ];
-        let slides = build_presentation(elements).into_slides();
-        assert_eq!(slides[0].iter_chunks().count(), 3);
+        let slides = build_presentation_with_options(elements, options).into_slides();
+        assert_eq!(slides[0].iter_chunks().count(), expected_chunks);
     }
 
     #[test]

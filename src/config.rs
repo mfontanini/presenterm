@@ -94,6 +94,10 @@ pub struct DefaultsConfig {
     /// larger than that.
     #[serde(default)]
     pub max_columns_alignment: MaxColumnsAlignment,
+
+    /// The configuration for lists when incremental lists are enabled.
+    #[serde(default)]
+    pub incremental_lists: IncrementalListsConfig,
 }
 
 impl Default for DefaultsConfig {
@@ -105,8 +109,22 @@ impl Default for DefaultsConfig {
             validate_overflows: Default::default(),
             max_columns: default_max_columns(),
             max_columns_alignment: Default::default(),
+            incremental_lists: Default::default(),
         }
     }
+}
+
+/// The configuration for lists when incremental lists are enabled.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct IncrementalListsConfig {
+    /// Whether to pause before a list begins.
+    #[serde(default)]
+    pub pause_before: Option<bool>,
+
+    /// Whether to pause after a list ends.
+    #[serde(default)]
+    pub pause_after: Option<bool>,
 }
 
 fn default_terminal_font_size() -> u8 {
