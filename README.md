@@ -32,7 +32,7 @@ Visit the [documentation][docs-introduction] to get started.
 
 * Define your presentation in a single markdown file.
 * [Images and animated gifs][docs-images] on terminals like _kitty_, _iterm2_, and _wezterm_.
-* [Customizeable themes][docs-themes] including colors, margins, layout (left/center aligned content), footer for every 
+* [Customizable themes][docs-themes] including colors, margins, layout (left/center aligned content), footer for every 
   slide, etc. Several [built-in themes][docs-builtin-themes] can give your presentation the look you want without 
   having to define your own.
 * Code highlighting for a [wide list of programming languages][docs-code-highlight].
