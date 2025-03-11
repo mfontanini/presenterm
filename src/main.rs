@@ -83,8 +83,12 @@ struct Cli {
     theme: Option<String>,
 
     /// List all supported themes.
-    #[clap(long)]
+    #[clap(long, group = "target")]
     list_themes: bool,
+
+    /// Print the theme in use.
+    #[clap(long, group = "target")]
+    current_theme: bool,
 
     /// Display acknowledgements.
     #[clap(long, group = "target")]
@@ -369,6 +373,13 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         let bindings = config.bindings.try_into()?;
         let demo = ThemesDemo::new(themes, bindings)?;
         demo.run()?;
+        return Ok(());
+    } else if cli.current_theme {
+        let Customizations { config, .. } =
+            Customizations::load(cli.config_file.clone().map(PathBuf::from), &current_dir()?)?;
+        let theme_name =
+            cli.theme.as_ref().or(config.defaults.theme.as_ref()).map(|s| s.as_str()).unwrap_or(DEFAULT_THEME);
+        println!("{theme_name}");
         return Ok(());
     }
     // Disable this so we don't mess things up when generating PDFs
