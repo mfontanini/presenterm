@@ -43,6 +43,14 @@
             }
           ]
         },
+        "incremental_lists": {
+          "description": "The configuration for lists when incremental lists are enabled.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/IncrementalListsConfig"
+            }
+          ]
+        },
         "max_columns": {
           "description": "A max width in columns that the presentation must always be capped to.",
           "default": 65535,
@@ -128,6 +136,29 @@
           ]
         }
       ]
+    },
+    "IncrementalListsConfig": {
+      "description": "The configuration for lists when incremental lists are enabled.",
+      "type": "object",
+      "properties": {
+        "pause_after": {
+          "description": "Whether to pause after a list ends.",
+          "default": null,
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "pause_before": {
+          "description": "Whether to pause before a list begins.",
+          "default": null,
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
     },
     "KeyBinding": {
       "type": "string"
