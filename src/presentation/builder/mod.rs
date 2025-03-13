@@ -530,6 +530,16 @@ impl<'a> PresentationBuilder<'a> {
                 }
                 self.slide_state.font_size = Some(size)
             }
+            CommentCommand::Alignment(alignment) => {
+                let alignment = match alignment {
+                    CommentCommandAlignment::Left => Alignment::Left { margin: Default::default() },
+                    CommentCommandAlignment::Center => {
+                        Alignment::Center { minimum_margin: Default::default(), minimum_size: Default::default() }
+                    }
+                    CommentCommandAlignment::Right => Alignment::Right { margin: Default::default() },
+                };
+                self.slide_state.alignment = Some(alignment);
+            }
         };
         // Don't push line breaks for any comments.
         self.slide_state.ignore_element_line_break = true;
@@ -828,7 +838,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_text(&mut self, line: Line, element_type: ElementType) {
-        let alignment = self.theme.alignment(&element_type);
+        let alignment = self.slide_state.alignment.unwrap_or_else(|| self.theme.alignment(&element_type));
         self.push_aligned_text(line, alignment);
     }
 
@@ -1006,6 +1016,7 @@ struct SlideState {
     layout: LayoutState,
     title: Option<Line>,
     font_size: Option<u8>,
+    alignment: Option<Alignment>,
 }
 
 #[derive(Debug, Default)]
@@ -1118,6 +1129,7 @@ enum CommentCommand {
     NoFooter,
     SpeakerNote(String),
     FontSize(u8),
+    Alignment(CommentCommandAlignment),
 }
 
 impl FromStr for CommentCommand {
@@ -1130,6 +1142,14 @@ impl FromStr for CommentCommand {
         let wrapper = serde_yaml::from_str::<CommandWrapper>(s)?;
         Ok(wrapper.0)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum CommentCommandAlignment {
+    Left,
+    Center,
+    Right,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -1592,6 +1612,35 @@ mod test {
         // This is pretty easy to break, refactor soon
         let last_operation = &operations[operations.len() - 4];
         assert!(matches!(last_operation, RenderOperation::RenderLineBreak), "last operation is {last_operation:?}");
+    }
+
+    #[test]
+    fn alignment() {
+        let elements = vec![
+            MarkdownElement::Paragraph(vec!["hi".into()]),
+            MarkdownElement::Comment { comment: "alignment: center".into(), source_position: Default::default() },
+            MarkdownElement::Paragraph(vec!["hello".into()]),
+            MarkdownElement::Comment { comment: "alignment: right".into(), source_position: Default::default() },
+            MarkdownElement::Paragraph(vec!["hola".into()]),
+        ];
+
+        let slides = build_presentation(elements).into_slides();
+        let operations = slides.into_iter().next().unwrap().into_operations();
+        let alignments: Vec<_> = operations
+            .into_iter()
+            .filter_map(|op| match op {
+                RenderOperation::RenderText { alignment, .. } => Some(alignment),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            alignments,
+            &[
+                Alignment::Left { margin: Default::default() },
+                Alignment::Center { minimum_margin: Default::default(), minimum_size: Default::default() },
+                Alignment::Right { margin: Default::default() },
+            ]
+        );
     }
 
     #[test]
