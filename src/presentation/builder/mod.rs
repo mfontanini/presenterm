@@ -315,6 +315,12 @@ impl<'a> PresentationBuilder<'a> {
         match element {
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
             MarkdownElement::SetexHeading { text } => self.push_slide_title(text)?,
+            MarkdownElement::ThematicBreak => {
+                if self.options.end_slide_shorthand {
+                    self.terminate_slide();
+                    self.slide_state.ignore_element_line_break = true;
+                }
+            }
             _ => {}
         }
         // Allows us to start the next speaker slide when a title is pushed and implicit_slide_ends is enabled.
