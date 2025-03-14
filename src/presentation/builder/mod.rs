@@ -720,7 +720,7 @@ impl<'a> PresentationBuilder<'a> {
 
         let incremental_lists = self.slide_state.incremental_lists.unwrap_or(self.options.incremental_lists);
         let iter = ListIterator::new(list, start_index);
-        if self.options.pause_before_incremental_lists {
+        if incremental_lists && self.options.pause_before_incremental_lists {
             self.push_pause();
         }
         for (index, item) in iter.enumerate() {
@@ -729,7 +729,7 @@ impl<'a> PresentationBuilder<'a> {
             }
             self.push_list_item(item.index, item.item)?;
         }
-        if self.options.pause_after_incremental_lists {
+        if incremental_lists && self.options.pause_after_incremental_lists {
             self.push_pause();
         }
         Ok(())
@@ -1615,6 +1615,24 @@ mod test {
         ];
         let slides = build_presentation_with_options(elements, options).into_slides();
         assert_eq!(slides[0].iter_chunks().count(), expected_chunks);
+    }
+
+    #[test]
+    fn automatic_pauses_no_incremental_lists() {
+        let elements = vec![
+            MarkdownElement::Comment {
+                comment: "incremental_lists: false".into(),
+                source_position: Default::default(),
+            },
+            MarkdownElement::List(vec![
+                ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 1, contents: "two".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 0, contents: "three".into(), item_type: ListItemType::Unordered },
+            ]),
+        ];
+        let options = PresentationBuilderOptions { pause_after_incremental_lists: false, ..Default::default() };
+        let slides = build_presentation_with_options(elements, options).into_slides();
+        assert_eq!(slides[0].iter_chunks().count(), 1);
     }
 
     #[test]
