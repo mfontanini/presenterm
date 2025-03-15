@@ -151,6 +151,12 @@ pub(crate) struct Text<C = Color> {
     pub(crate) style: TextStyle<C>,
 }
 
+impl<C> Default for Text<C> {
+    fn default() -> Self {
+        Self { content: Default::default(), style: TextStyle::default() }
+    }
+}
+
 impl<C> Text<C> {
     /// Construct a new styled text.
     pub(crate) fn new<S: Into<String>>(content: S, style: TextStyle<C>) -> Self {
