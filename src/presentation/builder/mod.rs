@@ -494,8 +494,8 @@ impl<'a> PresentationBuilder<'a> {
         }
     }
 
-    fn process_comment_command_presentation_mode(&mut self, comment_command: CommentCommand) -> BuildResult {
-        match comment_command {
+    fn process_comment_command_presentation_mode(&mut self, command: CommentCommand) -> BuildResult {
+        match command {
             CommentCommand::Pause => self.push_pause(),
             CommentCommand::EndSlide => self.terminate_slide(),
             CommentCommand::NewLine => self.push_line_breaks(self.slide_font_size() as usize),
@@ -549,6 +549,9 @@ impl<'a> PresentationBuilder<'a> {
                     CommentCommandAlignment::Right => Alignment::Right { margin: Default::default() },
                 };
                 self.slide_state.alignment = Some(alignment);
+            }
+            CommentCommand::SkipSlide => {
+                self.slide_state.skip_slide = true;
             }
         };
         // Don't push line breaks for any comments.
@@ -904,16 +907,20 @@ impl<'a> PresentationBuilder<'a> {
     fn terminate_slide(&mut self) {
         let operations = mem::take(&mut self.chunk_operations);
         let mutators = mem::take(&mut self.chunk_mutators);
-        self.slide_chunks.push(SlideChunk::new(operations, mutators));
 
-        let chunks = mem::take(&mut self.slide_chunks);
-        let builder = SlideBuilder::default().chunks(chunks);
-        self.index_builder.add_title(self.slide_state.title.take().unwrap_or_else(|| Text::from("<no title>").into()));
+        if !self.slide_state.skip_slide {
+            self.slide_chunks.push(SlideChunk::new(operations, mutators));
 
-        if self.slide_state.ignore_footer {
-            self.slides_without_footer.insert(self.slide_builders.len());
+            let chunks = mem::take(&mut self.slide_chunks);
+            let builder = SlideBuilder::default().chunks(chunks);
+            self.index_builder
+                .add_title(self.slide_state.title.take().unwrap_or_else(|| Text::from("<no title>").into()));
+
+            if self.slide_state.ignore_footer {
+                self.slides_without_footer.insert(self.slide_builders.len());
+            }
+            self.slide_builders.push(builder);
         }
-        self.slide_builders.push(builder);
 
         self.push_slide_prelude();
         self.slide_state = Default::default();
@@ -1033,6 +1040,7 @@ struct SlideState {
     title: Option<Line>,
     font_size: Option<u8>,
     alignment: Option<Alignment>,
+    skip_slide: bool,
 }
 
 #[derive(Debug, Default)]
@@ -1146,6 +1154,7 @@ enum CommentCommand {
     SpeakerNote(String),
     FontSize(u8),
     Alignment(CommentCommandAlignment),
+    SkipSlide,
 }
 
 impl FromStr for CommentCommand {
@@ -1633,6 +1642,17 @@ mod test {
         let options = PresentationBuilderOptions { pause_after_incremental_lists: false, ..Default::default() };
         let slides = build_presentation_with_options(elements, options).into_slides();
         assert_eq!(slides[0].iter_chunks().count(), 1);
+    }
+
+    #[test]
+    fn skip_slide() {
+        let elements = vec![
+            MarkdownElement::Paragraph(vec![Line::from("hi")]),
+            MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
+        ];
+        let options = PresentationBuilderOptions { pause_after_incremental_lists: false, ..Default::default() };
+        let slides = build_presentation_with_options(elements, options).into_slides();
+        assert_eq!(slides.len(), 0);
     }
 
     #[test]
