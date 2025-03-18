@@ -802,7 +802,6 @@ dependencies = [
  "os_pipe",
  "rstest",
  "schemars",
- "semver",
  "serde",
  "serde_json",
  "serde_with",

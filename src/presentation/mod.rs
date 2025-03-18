@@ -40,6 +40,11 @@ impl Presentation {
         self.slides.iter()
     }
 
+    /// Iterate the slides in this presentation.
+    pub(crate) fn iter_slides_mut(&mut self) -> impl Iterator<Item = &mut Slide> {
+        self.slides.iter_mut()
+    }
+
     /// Iterate the operations that render the slide index.
     pub(crate) fn iter_slide_index_operations(&self) -> impl Iterator<Item = &RenderOperation> {
         self.modals.slide_index.iter()
@@ -51,7 +56,6 @@ impl Presentation {
     }
 
     /// Consume this presentation and return its slides.
-    #[cfg(test)]
     pub(crate) fn into_slides(self) -> Vec<Slide> {
         self.slides
     }
@@ -139,21 +143,6 @@ impl Presentation {
         self.current_slide().current_chunk_index()
     }
 
-    /// Trigger async render operations in all slides.
-    pub(crate) fn trigger_all_async_renders(&mut self) -> HashSet<usize> {
-        let mut triggered_slides = HashSet::new();
-        for (index, slide) in self.slides.iter_mut().enumerate() {
-            for operation in slide.iter_operations_mut() {
-                if let RenderOperation::RenderAsync(operation) = operation {
-                    if operation.start_render() {
-                        triggered_slides.insert(index);
-                    }
-                }
-            }
-        }
-        triggered_slides
-    }
-
     /// Trigger async render operations in this slide.
     pub(crate) fn trigger_slide_async_renders(&mut self) -> bool {
         let slide = self.current_slide_mut();
@@ -206,22 +195,6 @@ impl Presentation {
             }
         }
         slide_state
-    }
-
-    /// Run a callback through every operation and let it mutate it in place.
-    ///
-    /// This should be used with care!
-    pub(crate) fn mutate_operations<F>(&mut self, mut callback: F)
-    where
-        F: FnMut(&mut RenderOperation),
-    {
-        for slide in &mut self.slides {
-            for chunk in &mut slide.chunks {
-                for operation in &mut chunk.operations {
-                    callback(operation);
-                }
-            }
-        }
     }
 
     fn current_slide_mut(&mut self) -> &mut Slide {

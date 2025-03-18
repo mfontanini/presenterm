@@ -3,7 +3,7 @@ use crate::{
     commands::listener::CommandListener,
     config::{Config, ImageProtocol, ValidateOverflows},
     demo::ThemesDemo,
-    export::Exporter,
+    export::exporter::Exporter,
     markdown::parse::MarkdownParser,
     presentation::builder::{PresentationBuilderOptions, Themes},
     presenter::{PresentMode, Presenter, PresenterOptions},
@@ -20,7 +20,12 @@ use clap::{CommandFactory, Parser, error::ErrorKind};
 use commands::speaker_notes::{SpeakerNotesEventListener, SpeakerNotesEventPublisher};
 use comrak::Arena;
 use config::ConfigLoadError;
+use crossterm::{
+    execute,
+    style::{PrintStyledContent, Stylize},
+};
 use directories::ProjectDirs;
+use render::properties::WindowSize;
 use std::{
     env::{self, current_dir},
     io,
@@ -62,17 +67,9 @@ struct Cli {
     #[clap(short, long)]
     export_pdf: bool,
 
-    /// Generate the PDF metadata without generating the PDF itself.
-    #[clap(long, hide = true)]
-    generate_pdf_metadata: bool,
-
     /// Generate a JSON schema for the configuration file.
     #[clap(long)]
     generate_config_file_schema: bool,
-
-    /// Run in export mode.
-    #[clap(long, hide = true)]
-    enable_export_mode: bool,
 
     /// Use presentation mode.
     #[clap(short, long, default_value_t = false)]
@@ -207,14 +204,12 @@ impl CoreComponents {
 
         let default_theme = Self::load_default_theme(&config, &themes, cli);
         let force_default_theme = cli.theme.is_some();
-        let present_mode = match (cli.present, cli.enable_export_mode) {
-            (true, _) => PresentMode::Presentation,
-            (false, true) => PresentMode::Export,
+        let present_mode = match (cli.present, cli.export_pdf) {
+            (true, _) | (_, true) => PresentMode::Presentation,
             (false, false) => PresentMode::Development,
         };
 
-        let mut builder_options =
-            Self::make_builder_options(&config, &present_mode, force_default_theme, cli.listen_speaker_notes);
+        let mut builder_options = Self::make_builder_options(&config, force_default_theme, cli.listen_speaker_notes);
         if cli.enable_snippet_execution {
             builder_options.enable_snippet_execution = true;
         }
@@ -252,12 +247,11 @@ impl CoreComponents {
 
     fn make_builder_options(
         config: &Config,
-        mode: &PresentMode,
         force_default_theme: bool,
         render_speaker_notes_only: bool,
     ) -> PresentationBuilderOptions {
         PresentationBuilderOptions {
-            allow_mutations: !matches!(mode, PresentMode::Export),
+            allow_mutations: true,
             implicit_slide_ends: config.options.implicit_slide_ends.unwrap_or_default(),
             command_prefix: config.options.command_prefix.clone().unwrap_or_default(),
             image_attribute_prefix: config
@@ -281,7 +275,7 @@ impl CoreComponents {
     }
 
     fn select_graphics_mode(cli: &Cli, config: &Config) -> GraphicsMode {
-        if cli.enable_export_mode || cli.export_pdf || cli.generate_pdf_metadata {
+        if cli.export_pdf {
             GraphicsMode::AsciiBlocks
         } else {
             let protocol = cli.image_protocol.as_ref().unwrap_or(&config.defaults.image_protocol);
@@ -341,23 +335,6 @@ fn overflow_validation_enabled(mode: &PresentMode, config: &ValidateOverflows) -
     }
 }
 
-fn build_exporter_args(cli: &Cli) -> Vec<&str> {
-    let mut args = Vec::new();
-    if let Some(theme) = cli.theme.as_ref() {
-        args.extend(["--theme", theme]);
-    }
-    if let Some(path) = cli.config_file.as_ref() {
-        args.extend(["--config-file", path]);
-    }
-    if cli.enable_snippet_execution {
-        args.push("-x");
-    }
-    if cli.enable_snippet_execution_replace {
-        args.push("-X");
-    }
-    args
-}
-
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     if cli.generate_config_file_schema {
         let schema = schemars::schema_for!(Config);
@@ -385,7 +362,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     // Disable this so we don't mess things up when generating PDFs
-    if cli.export_pdf || cli.generate_pdf_metadata || cli.enable_export_mode {
+    if cli.export_pdf {
         TerminalEmulator::disable_capability_detection();
     }
 
@@ -408,16 +385,19 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let parser = MarkdownParser::new(&arena);
     let validate_overflows =
         overflow_validation_enabled(&present_mode, &config.defaults.validate_overflows) || cli.validate_overflows;
-    if cli.export_pdf || cli.generate_pdf_metadata {
-        let mut exporter =
-            Exporter::new(parser, &default_theme, resources, third_party, code_executor, themes, builder_options);
-        if cli.export_pdf {
-            let args = build_exporter_args(&cli);
-            exporter.export_pdf(&path, &args)?;
-        } else {
-            let meta = exporter.generate_metadata(&path)?;
-            println!("{}", serde_json::to_string_pretty(&meta)?);
-        }
+    if cli.export_pdf {
+        let dimensions = WindowSize::current(config.defaults.terminal_font_size)?;
+        let exporter = Exporter::new(
+            parser,
+            &default_theme,
+            resources,
+            third_party,
+            code_executor,
+            themes,
+            builder_options,
+            dimensions,
+        );
+        exporter.export_pdf(&path)?;
     } else {
         let SpeakerNotesComponents { events_listener, events_publisher } =
             SpeakerNotesComponents::new(&cli, &config, &path)?;
@@ -453,7 +433,8 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 fn main() {
     let cli = Cli::parse();
     if let Err(e) = run(cli) {
-        eprintln!("{e}");
+        let _ =
+            execute!(io::stdout(), PrintStyledContent(format!("{e}\n").stylize().with(crossterm::style::Color::Red)));
         std::process::exit(1);
     }
 }
