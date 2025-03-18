@@ -22,8 +22,8 @@ impl ThirdPartyTools {
         Tool::new(mmdc, args)
     }
 
-    pub(crate) fn presenterm_export(args: &[&str]) -> Tool {
-        Tool::new("presenterm-export", args).inherit_stdout().max_error_lines(100)
+    pub(crate) fn weasyprint(args: &[&str]) -> Tool {
+        Tool::new("weasyprint", args).inherit_stdout().max_error_lines(100)
     }
 }
 

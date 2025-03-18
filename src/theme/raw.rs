@@ -823,7 +823,6 @@ impl RawColor {
             Self::Palette(name) => {
                 Some(palette.colors.get(name).copied().ok_or(UndefinedPaletteColorError(name.clone()))?)
             }
-            // TODO better error
             Self::ForegroundClass(name) => {
                 palette.classes.get(name).ok_or(UndefinedPaletteColorError(name.clone()))?.foreground
             }

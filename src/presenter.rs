@@ -5,7 +5,6 @@ use crate::{
         speaker_notes::{SpeakerNotesEvent, SpeakerNotesEventPublisher},
     },
     config::{KeyBindingsConfig, MaxColumnsAlignment},
-    export::ImageReplacer,
     markdown::parse::{MarkdownParser, ParseError},
     presentation::{
         Presentation,
@@ -110,11 +109,6 @@ impl<'a> Presenter<'a> {
         };
         let mut drawer = TerminalDrawer::new(self.image_printer.clone(), drawer_options)?;
         loop {
-            if matches!(self.options.mode, PresentMode::Export) {
-                if let PresenterState::Failure { error, .. } = &self.state {
-                    return Err(PresentationError::Fatal(format!("failed to run presentation: {error}")));
-                }
-            }
             // Poll async renders once before we draw just in case.
             self.poll_async_renders()?;
             self.render(&mut drawer)?;
@@ -314,15 +308,7 @@ impl<'a> Presenter<'a> {
                     presentation.go_to_slide(current.current_slide_index());
                     presentation.jump_chunk(current.current_chunk());
                 }
-                self.slides_with_pending_async_renders = match self.options.mode {
-                    PresentMode::Development | PresentMode::Presentation => {
-                        presentation.slides_with_async_renders().into_iter().collect()
-                    }
-                    // Trigger all async renders so we get snippet execution output in the PDF
-                    // file.
-                    PresentMode::Export => presentation.trigger_all_async_renders(),
-                };
-
+                self.slides_with_pending_async_renders = presentation.slides_with_async_renders().into_iter().collect();
                 self.state = self.validate_overflows(presentation);
             }
             Err(e) => {
@@ -356,8 +342,7 @@ impl<'a> Presenter<'a> {
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
         let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
         let elements = self.parser.parse(&content)?;
-        let export_mode = matches!(self.options.mode, PresentMode::Export);
-        let mut presentation = PresentationBuilder::new(
+        let presentation = PresentationBuilder::new(
             self.default_theme,
             self.resources.clone(),
             &mut self.third_party,
@@ -368,10 +353,6 @@ impl<'a> Presenter<'a> {
             self.options.builder_options.clone(),
         )?
         .build(elements)?;
-        if export_mode {
-            ImageReplacer::default().replace_presentation_images(&mut presentation);
-        }
-
         Ok(presentation)
     }
 
@@ -483,9 +464,6 @@ pub enum PresentMode {
 
     /// This is a live presentation so we don't want hot reloading.
     Presentation,
-
-    /// We are running a presentation that's being consumed by `presenterm-export`.
-    Export,
 }
 
 /// An error when loading a presentation.
@@ -512,7 +490,4 @@ pub enum PresentationError {
 
     #[error("io: {0}")]
     Io(#[from] io::Error),
-
-    #[error("fatal error: {0}")]
-    Fatal(String),
 }

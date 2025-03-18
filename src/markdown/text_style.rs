@@ -83,6 +83,12 @@ where
         self
     }
 
+    /// Set the colors on this style.
+    pub(crate) fn colors(mut self, colors: Colors<C>) -> Self {
+        self.colors = colors;
+        self
+    }
+
     /// Check whether this text style is bold.
     pub(crate) fn is_bold(&self) -> bool {
         self.has_flag(TextFormatFlags::Bold)
@@ -114,6 +120,12 @@ where
         self.size = self.size.max(other.size);
         self.colors.background = self.colors.background.clone().or(other.colors.background.clone());
         self.colors.foreground = self.colors.foreground.clone().or(other.colors.foreground.clone());
+    }
+
+    /// Return a new style merged with the one passed in.
+    pub(crate) fn merged(mut self, other: &TextStyle<C>) -> Self {
+        self.merge(other);
+        self
     }
 
     fn add_flag(mut self, flag: TextFormatFlags) -> Self {
