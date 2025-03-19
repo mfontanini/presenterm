@@ -98,6 +98,10 @@ impl HtmlSlide {
             let color = Self::color_to_html(color);
             css_styles.push(format!("color: {color}").into());
         }
+        if style.size > 1 {
+            let font_size = FONT_SIZE * style.size as u16;
+            css_styles.push(format!("font-size: {font_size}px").into());
+        }
         let css_style = css_styles.join("; ");
         format!("<span style=\"{css_style}\">{s}</span>")
     }
