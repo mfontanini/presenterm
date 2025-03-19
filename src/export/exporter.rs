@@ -53,6 +53,7 @@ impl<'a> Exporter<'a> {
     ) -> Self {
         // We don't want dynamically highlighted code blocks.
         options.allow_mutations = false;
+        options.theme_options.font_size_supported = true;
 
         // Make sure we have a 1:2 aspect ratio.
         let width = (0.5 * dimensions.columns as f64) / (dimensions.rows as f64 / dimensions.height as f64);
