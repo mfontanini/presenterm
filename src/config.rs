@@ -40,6 +40,9 @@ pub struct Config {
 
     #[serde(default)]
     pub speaker_notes: SpeakerNotesConfig,
+
+    #[serde(default)]
+    pub export: ExportConfig,
 }
 
 impl Config {
@@ -457,6 +460,25 @@ impl Default for SpeakerNotesConfig {
             always_publish: false,
         }
     }
+}
+
+/// The export configuration.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExportConfig {
+    /// The dimensions to use for presentation exports.
+    pub dimensions: Option<ExportDimensionsConfig>,
+}
+
+/// The dimensions to use for presentation exports.
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExportDimensionsConfig {
+    /// The number of rows.
+    pub rows: u16,
+
+    /// The number of columns.
+    pub columns: u16,
 }
 
 fn make_keybindings<const N: usize>(raw_bindings: [&str; N]) -> Vec<KeyBinding> {

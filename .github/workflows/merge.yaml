@@ -36,6 +36,26 @@ jobs:
       - name: Run cargo fmt
         run: cargo +nightly fmt --all -- --check
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install weasyprint
+        run: |
+          uv venv
+          source ./.venv/bin/activate
+          uv pip install weasyprint
+
+      - name: Export demo presentation as PDF
+        run: |
+          cat >/tmp/config.yaml <<EOL
+          export:
+            dimensions:
+              rows: 35
+              columns: 135
+          EOL
+          source ./.venv/bin/activate
+          cargo run -- -e -c /tmp/config.yaml examples/demo.md
+
   nix-flake:
     name: Validate nix flake
     runs-on: ubuntu-latest

@@ -14,6 +14,9 @@
         }
       ]
     },
+    "export": {
+      "$ref": "#/definitions/ExportConfig"
+    },
     "mermaid": {
       "$ref": "#/definitions/MermaidConfig"
     },
@@ -87,6 +90,47 @@
               "$ref": "#/definitions/ValidateOverflows"
             }
           ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExportConfig": {
+      "description": "The export configuration.",
+      "type": "object",
+      "properties": {
+        "dimensions": {
+          "description": "The dimensions to use for presentation exports.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ExportDimensionsConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExportDimensionsConfig": {
+      "description": "The dimensions to use for presentation exports.",
+      "type": "object",
+      "required": [
+        "columns",
+        "rows"
+      ],
+      "properties": {
+        "columns": {
+          "description": "The number of columns.",
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "rows": {
+          "description": "The number of rows.",
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
         }
       },
       "additionalProperties": false
