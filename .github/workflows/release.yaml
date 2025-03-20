@@ -68,7 +68,7 @@ jobs:
         with:
           use-cross: true
           command: build
-          args: --release --locked --target ${{ matrix.config.TARGET }}
+          args: --release --locked --target ${{ matrix.config.TARGET }} --features sixel
 
       - name: Prepare release assets
         shell: bash
