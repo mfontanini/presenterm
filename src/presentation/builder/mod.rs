@@ -25,7 +25,7 @@ use crate::{
         printer::{ImageRegistry, RegisterImageError},
     },
     theme::{
-        Alignment, AuthorPositioning, ElementType, Margin, PresentationTheme, ProcessingThemeError, ThemeOptions,
+        Alignment, AuthorPositioning, ElementType, PresentationTheme, ProcessingThemeError, ThemeOptions,
         raw::{self, RawColor},
         registry::{LoadThemeError, PresentationThemeRegistry},
     },
@@ -721,6 +721,9 @@ impl<'a> PresentationBuilder<'a> {
             _ => 0,
         };
 
+        let block_length =
+            list.iter().map(|l| Self::list_item_prefix(l).width() + l.contents.width()).max().unwrap_or_default()
+                as u16;
         let incremental_lists = self.slide_state.incremental_lists.unwrap_or(self.options.incremental_lists);
         let iter = ListIterator::new(list, start_index);
         if incremental_lists && self.options.pause_before_incremental_lists {
@@ -730,7 +733,7 @@ impl<'a> PresentationBuilder<'a> {
             if index > 0 && incremental_lists {
                 self.push_pause();
             }
-            self.push_list_item(item.index, item.item)?;
+            self.push_list_item(item.index, item.item, block_length)?;
         }
         if incremental_lists && self.options.pause_after_incremental_lists {
             self.push_pause();
@@ -738,7 +741,27 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn push_list_item(&mut self, index: usize, item: ListItem) -> BuildResult {
+    fn push_list_item(&mut self, index: usize, item: ListItem, block_length: u16) -> BuildResult {
+        let prefix = Self::list_item_prefix(&item);
+        let text = item.contents.resolve(&self.theme.palette)?;
+        let alignment = self.slide_state.alignment.unwrap_or_default();
+        self.chunk_operations.push(RenderOperation::RenderBlockLine(BlockLine {
+            prefix: prefix.clone().into(),
+            right_padding_length: 0,
+            repeat_prefix_on_wrap: false,
+            text: text.into(),
+            block_length,
+            alignment,
+            block_color: None,
+        }));
+        self.push_line_break();
+        if item.depth == 0 {
+            self.slide_state.last_element = LastElement::List { last_index: index };
+        }
+        Ok(())
+    }
+
+    fn list_item_prefix(item: &ListItem) -> String {
         let padding_length = (item.depth as usize + 1) * 3;
         let mut prefix: String = " ".repeat(padding_length);
         match item.item_type {
@@ -749,6 +772,7 @@ impl<'a> PresentationBuilder<'a> {
                     _ => '▪',
                 };
                 prefix.push(delimiter);
+                prefix.push_str("  ");
             }
             ListItemType::OrderedParens(value) => {
                 prefix.push_str(&value.to_string());
@@ -759,17 +783,7 @@ impl<'a> PresentationBuilder<'a> {
                 prefix.push_str(". ");
             }
         };
-
-        let prefix_length = prefix.len() as u16 * self.slide_font_size() as u16;
-        self.push_text(prefix.into(), ElementType::List);
-
-        let text = item.contents.resolve(&self.theme.palette)?;
-        self.push_aligned_text(text, Alignment::Left { margin: Margin::Fixed(prefix_length) });
-        self.push_line_break();
-        if item.depth == 0 {
-            self.slide_state.last_element = LastElement::List { last_index: index };
-        }
-        Ok(())
+        prefix
     }
 
     fn push_block_quote(&mut self, lines: Vec<Line<RawColor>>) -> BuildResult {
@@ -1387,8 +1401,13 @@ mod test {
         for operation in operations {
             match operation {
                 RenderOperation::RenderText { line, .. } => {
-                    let texts: Vec<_> = line.iter_texts().map(|text| text.text().content.clone()).collect();
-                    current_line.push_str(&texts.join(""));
+                    let text: String = line.iter_texts().map(|text| text.text().content.clone()).collect();
+                    current_line.push_str(&text);
+                }
+                RenderOperation::RenderBlockLine(line) => {
+                    current_line.push_str(&line.prefix.text().content);
+                    current_line
+                        .push_str(&line.text.iter_texts().map(|text| text.text().content.clone()).collect::<String>());
                 }
                 RenderOperation::RenderLineBreak if !current_line.is_empty() => {
                     output.push(mem::take(&mut current_line));
