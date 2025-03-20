@@ -53,6 +53,8 @@ mod tools;
 mod ui;
 
 const DEFAULT_THEME: &str = "dark";
+const DEFAULT_EXPORT_PIXELS_PER_COLUMN: u16 = 20;
+const DEFAULT_EXPORT_PIXELS_PER_ROW: u16 = DEFAULT_EXPORT_PIXELS_PER_COLUMN * 2;
 
 /// Run slideshows from your terminal.
 #[derive(Parser)]
@@ -386,7 +388,15 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let validate_overflows =
         overflow_validation_enabled(&present_mode, &config.defaults.validate_overflows) || cli.validate_overflows;
     if cli.export_pdf {
-        let dimensions = WindowSize::current(config.defaults.terminal_font_size)?;
+        let dimensions = match config.export.dimensions {
+            Some(dimensions) => WindowSize {
+                rows: dimensions.rows,
+                columns: dimensions.columns,
+                height: dimensions.rows * DEFAULT_EXPORT_PIXELS_PER_ROW,
+                width: dimensions.columns * DEFAULT_EXPORT_PIXELS_PER_COLUMN,
+            },
+            None => WindowSize::current(config.defaults.terminal_font_size)?,
+        };
         let exporter = Exporter::new(
             parser,
             &default_theme,
