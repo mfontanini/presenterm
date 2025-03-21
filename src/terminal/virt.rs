@@ -29,12 +29,22 @@ pub(crate) struct VirtualTerminal {
     rows: Vec<Vec<StyledChar>>,
     background_color: Option<Color>,
     images: HashMap<(u16, u16), PrintedImage>,
+    row_heights: Vec<u16>,
 }
 
 impl VirtualTerminal {
     pub(crate) fn new(dimensions: WindowSize) -> Self {
         let rows = vec![vec![StyledChar::default(); dimensions.columns as usize]; dimensions.rows as usize];
-        Self { row: 0, column: 0, colors: Default::default(), rows, background_color: None, images: Default::default() }
+        let row_heights = vec![1; dimensions.rows as usize];
+        Self {
+            row: 0,
+            column: 0,
+            colors: Default::default(),
+            rows,
+            background_color: None,
+            images: Default::default(),
+            row_heights,
+        }
     }
 
     pub(crate) fn into_contents(self) -> TerminalGrid {
@@ -43,6 +53,16 @@ impl VirtualTerminal {
 
     fn current_cell_mut(&mut self) -> Option<&mut StyledChar> {
         self.rows.get_mut(self.row as usize).and_then(|row| row.get_mut(self.column as usize))
+    }
+
+    fn set_current_row_height(&mut self, height: u16) {
+        if let Some(current) = self.row_heights.get_mut(self.row as usize) {
+            *current = height;
+        }
+    }
+
+    fn current_row_height(&self) -> u16 {
+        *self.row_heights.get(self.row as usize).unwrap_or(&1)
     }
 }
 
@@ -67,6 +87,7 @@ impl TerminalIo for VirtualTerminal {
 
     fn move_to_row(&mut self, row: u16) -> io::Result<()> {
         self.row = row;
+        self.set_current_row_height(1);
         Ok(())
     }
 
@@ -81,12 +102,14 @@ impl TerminalIo for VirtualTerminal {
     }
 
     fn move_to_next_line(&mut self) -> io::Result<()> {
-        self.row += 1;
+        let amount = self.current_row_height();
+        self.row += amount;
         self.column = 0;
+        self.set_current_row_height(1);
         Ok(())
     }
 
-    fn print_text(&mut self, content: &str, style: &TextStyle, _properties: &TextProperties) -> io::Result<()> {
+    fn print_text(&mut self, content: &str, style: &TextStyle, properties: &TextProperties) -> io::Result<()> {
         let style = style.merged(&TextStyle::default().colors(self.colors));
         for c in content.chars() {
             let Some(cell) = self.current_cell_mut() else {
@@ -96,6 +119,8 @@ impl TerminalIo for VirtualTerminal {
             cell.style = style;
             self.column += 1;
         }
+        let height = self.current_row_height().max(properties.height as u16);
+        self.set_current_row_height(height);
         Ok(())
     }
 
