@@ -743,7 +743,12 @@ impl<'a> PresentationBuilder<'a> {
 
     fn push_list_item(&mut self, index: usize, item: ListItem, block_length: u16) -> BuildResult {
         let prefix = Self::list_item_prefix(&item);
-        let text = item.contents.resolve(&self.theme.palette)?;
+        let mut text = item.contents.resolve(&self.theme.palette)?;
+        for piece in &mut text.0 {
+            if piece.style.is_code() {
+                piece.style.colors = self.theme.inline_code.style.colors;
+            }
+        }
         let alignment = self.slide_state.alignment.unwrap_or_default();
         self.chunk_operations.push(RenderOperation::RenderBlockLine(BlockLine {
             prefix: prefix.clone().into(),
