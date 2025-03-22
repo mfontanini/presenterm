@@ -1,4 +1,4 @@
-use super::exporter::ExportError;
+use super::exporter::{ExportError, OutputDirectory};
 use crate::{
     markdown::text_style::{Color, TextStyle},
     presentation::Slide,
@@ -18,7 +18,6 @@ use std::{
     fs, io,
     path::{Path, PathBuf},
 };
-use tempfile::TempDir;
 
 // A magical multiplier that converts a font size in pixels to a font width.
 //
@@ -130,14 +129,13 @@ impl HtmlSlide {
 }
 
 pub(crate) struct ContentManager {
-    output_directory: TempDir,
+    output_directory: OutputDirectory,
     image_count: usize,
 }
 
 impl ContentManager {
-    pub(crate) fn new() -> io::Result<Self> {
-        let output_directory = TempDir::with_suffix("presenterm")?;
-        Ok(Self { output_directory, image_count: 0 })
+    pub(crate) fn new(output_directory: OutputDirectory) -> Self {
+        Self { output_directory, image_count: 0 }
     }
 
     fn persist_image(&mut self, image: &Image) -> Result<PathBuf, ExportError> {
@@ -177,9 +175,9 @@ pub(crate) struct PdfRender {
 }
 
 impl PdfRender {
-    pub(crate) fn new(dimensions: WindowSize) -> io::Result<Self> {
-        let image_manager = ContentManager::new()?;
-        Ok(Self { content_manager: image_manager, dimensions, html_body: "".to_string(), background_color: None })
+    pub(crate) fn new(dimensions: WindowSize, output_directory: OutputDirectory) -> Self {
+        let image_manager = ContentManager::new(output_directory);
+        Self { content_manager: image_manager, dimensions, html_body: "".to_string(), background_color: None }
     }
 
     pub(crate) fn process_slide(&mut self, slide: Slide) -> Result<(), ExportError> {
