@@ -25,6 +25,7 @@ use crossterm::{
     style::{PrintStyledContent, Stylize},
 };
 use directories::ProjectDirs;
+use export::exporter::OutputDirectory;
 use render::properties::WindowSize;
 use std::{
     env::{self, current_dir},
@@ -68,6 +69,10 @@ struct Cli {
     /// Export the presentation as a PDF rather than displaying it.
     #[clap(short, long)]
     export_pdf: bool,
+
+    /// The path in which to store temporary files used when exporting.
+    #[clap(long, requires = "export_pdf")]
+    export_temporary_path: Option<PathBuf>,
 
     /// Generate a JSON schema for the configuration file.
     #[clap(long)]
@@ -407,7 +412,11 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             builder_options,
             dimensions,
         );
-        exporter.export_pdf(&path)?;
+        let output_directory = match cli.export_temporary_path {
+            Some(path) => OutputDirectory::external(path),
+            None => OutputDirectory::temporary(),
+        }?;
+        exporter.export_pdf(&path, output_directory)?;
     } else {
         let SpeakerNotesComponents { events_listener, events_publisher } =
             SpeakerNotesComponents::new(&cli, &config, &path)?;

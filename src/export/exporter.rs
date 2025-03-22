@@ -24,7 +24,38 @@ use crossterm::{
     terminal::{Clear, ClearType},
 };
 use image::ImageError;
-use std::{fs, io, path::Path, rc::Rc, thread::sleep, time::Duration};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+    rc::Rc,
+    thread::sleep,
+    time::Duration,
+};
+use tempfile::TempDir;
+
+pub enum OutputDirectory {
+    Temporary(TempDir),
+    External(PathBuf),
+}
+
+impl OutputDirectory {
+    pub fn temporary() -> io::Result<Self> {
+        let dir = TempDir::with_suffix("presenterm")?;
+        Ok(Self::Temporary(dir))
+    }
+
+    pub fn external(path: PathBuf) -> io::Result<Self> {
+        fs::create_dir_all(&path)?;
+        Ok(Self::External(path))
+    }
+
+    pub(crate) fn path(&self) -> &Path {
+        match self {
+            Self::Temporary(temp) => temp.path(),
+            Self::External(path) => path,
+        }
+    }
+}
 
 /// Allows exporting presentations into PDF.
 pub struct Exporter<'a> {
@@ -65,7 +96,11 @@ impl<'a> Exporter<'a> {
     /// Export the given presentation into PDF.
     ///
     /// This uses a separate `presenterm-export` tool.
-    pub fn export_pdf(mut self, presentation_path: &Path) -> Result<(), ExportError> {
+    pub fn export_pdf(
+        mut self,
+        presentation_path: &Path,
+        output_directory: OutputDirectory,
+    ) -> Result<(), ExportError> {
         println!(
             "exporting using rows={}, columns={}, width={}, height={}",
             self.dimensions.rows, self.dimensions.columns, self.dimensions.width, self.dimensions.height
@@ -91,7 +126,7 @@ impl<'a> Exporter<'a> {
         .build(elements)?;
         Self::validate_theme_colors(&presentation)?;
 
-        let mut render = PdfRender::new(self.dimensions)?;
+        let mut render = PdfRender::new(self.dimensions, output_directory);
         Self::log("waiting for images to be generated and code to be executed, if any...")?;
         for slide in presentation.iter_slides_mut() {
             Self::render_async_images(slide);
