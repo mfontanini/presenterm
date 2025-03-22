@@ -89,29 +89,9 @@ where
         self
     }
 
-    /// Check whether this text style is bold.
-    pub(crate) fn is_bold(&self) -> bool {
-        self.has_flag(TextFormatFlags::Bold)
-    }
-
-    /// Check whether this text style has italics.
-    pub(crate) fn is_italics(&self) -> bool {
-        self.has_flag(TextFormatFlags::Italics)
-    }
-
     /// Check whether this text is code.
     pub(crate) fn is_code(&self) -> bool {
         self.has_flag(TextFormatFlags::Code)
-    }
-
-    /// Check whether this text style is strikethrough.
-    pub(crate) fn is_strikethrough(&self) -> bool {
-        self.has_flag(TextFormatFlags::Strikethrough)
-    }
-
-    /// Check whether this text style is underlined.
-    pub(crate) fn is_underlined(&self) -> bool {
-        self.has_flag(TextFormatFlags::Underlined)
     }
 
     /// Merge this style with another one.
@@ -143,23 +123,15 @@ impl TextStyle<Color> {
     pub(crate) fn apply<'a>(&self, text: &'a str) -> StyledContent<impl Display + Clone + 'a> {
         let text = FontSizedStr { contents: text, font_size: self.size };
         let mut styled = StyledContent::new(Default::default(), text);
-        if self.is_bold() {
-            styled = styled.bold();
-        }
-        if self.is_italics() {
-            styled = styled.italic();
-        }
-        if self.is_strikethrough() {
-            styled = styled.crossed_out();
-        }
-        if self.is_underlined() {
-            styled = styled.underlined();
-        }
-        if let Some(color) = self.colors.background {
-            styled = styled.on(color.into());
-        }
-        if let Some(color) = self.colors.foreground {
-            styled = styled.with(color.into());
+        for attr in self.iter_attributes() {
+            styled = match attr {
+                TextAttribute::Bold => styled.bold(),
+                TextAttribute::Italics => styled.italic(),
+                TextAttribute::Strikethrough => styled.crossed_out(),
+                TextAttribute::Underlined => styled.underlined(),
+                TextAttribute::ForegroundColor(color) => styled.with(color.into()),
+                TextAttribute::BackgroundColor(color) => styled.on(color.into()),
+            }
         }
         styled
     }
@@ -171,6 +143,16 @@ impl TextStyle<Color> {
         };
         TextStyle { flags: self.flags, colors, size: self.size }
     }
+
+    /// Iterate all attributes in this style.
+    pub(crate) fn iter_attributes(&self) -> AttributeIterator {
+        AttributeIterator {
+            flags: self.flags,
+            next_mask: Some(TextFormatFlags::Bold),
+            background_color: self.colors.background,
+            foreground_color: self.colors.foreground,
+        }
+    }
 }
 
 impl TextStyle<RawColor> {
@@ -178,6 +160,57 @@ impl TextStyle<RawColor> {
         let colors = self.colors.resolve(palette)?;
         Ok(TextStyle { flags: self.flags, colors, size: self.size })
     }
+}
+
+pub(crate) struct AttributeIterator {
+    flags: u8,
+    next_mask: Option<TextFormatFlags>,
+    background_color: Option<Color>,
+    foreground_color: Option<Color>,
+}
+
+impl Iterator for AttributeIterator {
+    type Item = TextAttribute;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(c) = self.background_color.take() {
+            return Some(TextAttribute::BackgroundColor(c));
+        }
+        if let Some(c) = self.foreground_color.take() {
+            return Some(TextAttribute::ForegroundColor(c));
+        }
+        use TextFormatFlags::*;
+        loop {
+            let next_mask = self.next_mask?;
+            self.next_mask = match next_mask {
+                Bold => Some(Italics),
+                Italics => Some(Strikethrough),
+                Code => Some(Strikethrough),
+                Strikethrough => Some(Underlined),
+                Underlined => None,
+            };
+            if self.flags & next_mask as u8 != 0 {
+                let attr = match next_mask {
+                    Bold => TextAttribute::Bold,
+                    Italics => TextAttribute::Italics,
+                    Code => panic!("code shouldn't reach here"),
+                    Strikethrough => TextAttribute::Strikethrough,
+                    Underlined => TextAttribute::Underlined,
+                };
+                return Some(attr);
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum TextAttribute {
+    Bold,
+    Italics,
+    Strikethrough,
+    Underlined,
+    ForegroundColor(Color),
+    BackgroundColor(Color),
 }
 
 #[derive(Clone)]
@@ -196,7 +229,7 @@ impl fmt::Display for FontSizedStr<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 enum TextFormatFlags {
     Bold = 1,
     Italics = 2,
@@ -323,4 +356,35 @@ impl From<Colors> for crossterm::style::Colors {
 pub(crate) enum ParseColorError {
     #[error("invalid hex color: {0}")]
     Hex(#[from] FromHexError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::default(TextStyle::default(), &[])]
+    #[case::code(TextStyle::default().code(), &[])]
+    #[case::bold(TextStyle::default().bold(), &[TextAttribute::Bold])]
+    #[case::italics(TextStyle::default().italics(), &[TextAttribute::Italics])]
+    #[case::strikethrough(TextStyle::default().strikethrough(), &[TextAttribute::Strikethrough])]
+    #[case::underlined(TextStyle::default().underlined(), &[TextAttribute::Underlined])]
+    #[case::bg_color(TextStyle::default().bg_color(Color::Red), &[TextAttribute::BackgroundColor(Color::Red)])]
+    #[case::bg_color(TextStyle::default().fg_color(Color::Red), &[TextAttribute::ForegroundColor(Color::Red)])]
+    #[case::all(
+        TextStyle::default().bold().code().italics().strikethrough().underlined().bg_color(Color::Black).fg_color(Color::Red),
+        &[
+            TextAttribute::BackgroundColor(Color::Black),
+            TextAttribute::ForegroundColor(Color::Red),
+            TextAttribute::Bold,
+            TextAttribute::Italics,
+            TextAttribute::Strikethrough,
+            TextAttribute::Underlined,
+        ]
+    )]
+    fn iterate_attributes(#[case] style: TextStyle, #[case] expected: &[TextAttribute]) {
+        let attrs: Vec<_> = style.iter_attributes().collect();
+        assert_eq!(attrs, expected);
+    }
 }

@@ -1,6 +1,10 @@
-use super::exporter::{ExportError, OutputDirectory};
+use super::{
+    exporter::{ExportError, OutputDirectory},
+    html::{FontSize, color_to_html},
+};
 use crate::{
-    markdown::text_style::{Color, TextStyle},
+    export::html::HtmlText,
+    markdown::text_style::TextStyle,
     presentation::Slide,
     render::{engine::RenderEngine, properties::WindowSize},
     terminal::{
@@ -14,7 +18,6 @@ use crate::{
 };
 use image::{ImageEncoder, codecs::png::PngEncoder};
 use std::{
-    borrow::Cow,
     fs, io,
     path::{Path, PathBuf},
 };
@@ -68,63 +71,11 @@ impl HtmlSlide {
             rows.push(finalized_row);
         }
 
-        Ok(HtmlSlide { rows, background_color: grid.background_color.as_ref().map(Self::color_to_html) })
+        Ok(HtmlSlide { rows, background_color: grid.background_color.as_ref().map(color_to_html) })
     }
 
     fn finalize_string(s: &str, style: &TextStyle) -> String {
-        if style == &TextStyle::default() {
-            return s.to_string();
-        }
-        let mut css_styles = Vec::new();
-        if style.is_bold() {
-            css_styles.push(Cow::Borrowed("font-weight: bold"));
-        }
-        if style.is_italics() {
-            css_styles.push(Cow::Borrowed("font-style: italic"));
-        }
-        if style.is_strikethrough() && style.is_underlined() {
-            css_styles.push(Cow::Borrowed("text-decoration: line-through underline"));
-        } else if style.is_strikethrough() {
-            css_styles.push(Cow::Borrowed("text-decoration: line-through"));
-        } else if style.is_underlined() {
-            css_styles.push(Cow::Borrowed("text-decoration: underline"));
-        }
-        if let Some(color) = &style.colors.background {
-            let color = Self::color_to_html(color);
-            css_styles.push(format!("background-color: {color}").into());
-        }
-        if let Some(color) = &style.colors.foreground {
-            let color = Self::color_to_html(color);
-            css_styles.push(format!("color: {color}").into());
-        }
-        if style.size > 1 {
-            let font_size = FONT_SIZE * style.size as u16;
-            css_styles.push(format!("font-size: {font_size}px").into());
-        }
-        let css_style = css_styles.join("; ");
-        format!("<span style=\"{css_style}\">{s}</span>")
-    }
-
-    fn color_to_html(color: &Color) -> String {
-        match color {
-            Color::Black => "#000000".into(),
-            Color::DarkGrey => "#5a5a5a".into(),
-            Color::Red => "#ff0000".into(),
-            Color::DarkRed => "#8b0000".into(),
-            Color::Green => "#00ff00".into(),
-            Color::DarkGreen => "#006400".into(),
-            Color::Yellow => "#ffff00".into(),
-            Color::DarkYellow => "#8b8000".into(),
-            Color::Blue => "#0000ff".into(),
-            Color::DarkBlue => "#00008b".into(),
-            Color::Magenta => "#ff00ff".into(),
-            Color::DarkMagenta => "#8b008b".into(),
-            Color::Cyan => "#00ffff".into(),
-            Color::DarkCyan => "#008b8b".into(),
-            Color::White => "#ffffff".into(),
-            Color::Grey => "#808080".into(),
-            Color::Rgb { r, g, b } => format!("#{r:02x}{g:02x}{b:02x}"),
-        }
+        HtmlText::new(s, style, FontSize::Pixels(FONT_SIZE)).to_string()
     }
 }
 
