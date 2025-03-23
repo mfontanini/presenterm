@@ -94,3 +94,30 @@ If you don't want the footer to show up in some particular slide for some reason
 <!-- no_footer -->
 ```
 
+## Skip slide
+
+If you don't want a specific slide to be included in the presentation use the `skip_slide` command:
+
+```html
+<!-- skip_slide -->
+```
+
+## Text alignment
+
+The text alignment for the remainder of the slide can be configured via the `alignment` command, which can use values: 
+`left`, `center`, and `right`:
+
+```markdown
+<!-- alignment: left -->
+
+left alignment, the default
+
+<!-- alignment: center -->
+
+centered
+
+<!-- alignment: right -->
+
+right aligned
+```
+
