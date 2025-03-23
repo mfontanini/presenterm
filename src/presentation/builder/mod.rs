@@ -722,8 +722,8 @@ impl<'a> PresentationBuilder<'a> {
         };
 
         let block_length =
-            list.iter().map(|l| Self::list_item_prefix(l).width() + l.contents.width()).max().unwrap_or_default()
-                as u16;
+            list.iter().map(|l| self.list_item_prefix(l).width() + l.contents.width()).max().unwrap_or_default() as u16;
+        let block_length = block_length * self.slide_font_size() as u16;
         let incremental_lists = self.slide_state.incremental_lists.unwrap_or(self.options.incremental_lists);
         let iter = ListIterator::new(list, start_index);
         if incremental_lists && self.options.pause_before_incremental_lists {
@@ -742,16 +742,18 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_list_item(&mut self, index: usize, item: ListItem, block_length: u16) -> BuildResult {
-        let prefix = Self::list_item_prefix(&item);
+        let prefix = self.list_item_prefix(&item);
         let mut text = item.contents.resolve(&self.theme.palette)?;
+        let font_size = self.slide_font_size();
         for piece in &mut text.0 {
             if piece.style.is_code() {
                 piece.style.colors = self.theme.inline_code.style.colors;
             }
+            piece.style = piece.style.size(font_size);
         }
         let alignment = self.slide_state.alignment.unwrap_or_default();
         self.chunk_operations.push(RenderOperation::RenderBlockLine(BlockLine {
-            prefix: prefix.clone().into(),
+            prefix: prefix.into(),
             right_padding_length: 0,
             repeat_prefix_on_wrap: false,
             text: text.into(),
@@ -766,8 +768,19 @@ impl<'a> PresentationBuilder<'a> {
         Ok(())
     }
 
-    fn list_item_prefix(item: &ListItem) -> String {
-        let padding_length = (item.depth as usize + 1) * 3;
+    fn list_item_prefix(&self, item: &ListItem) -> Text {
+        let font_size = self.slide_font_size();
+        let spaces_per_indent = match item.depth {
+            0 => 3_u8.div_ceil(font_size),
+            _ => {
+                if font_size == 1 {
+                    3
+                } else {
+                    2
+                }
+            }
+        };
+        let padding_length = (item.depth as usize + 1) * spaces_per_indent as usize;
         let mut prefix: String = " ".repeat(padding_length);
         match item.item_type {
             ListItemType::Unordered => {
@@ -788,7 +801,7 @@ impl<'a> PresentationBuilder<'a> {
                 prefix.push_str(". ");
             }
         };
-        prefix
+        Text::new(prefix, TextStyle::default().size(font_size))
     }
 
     fn push_block_quote(&mut self, lines: Vec<Line<RawColor>>) -> BuildResult {
@@ -1623,6 +1636,30 @@ mod test {
         let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
         let expected_lines = &["   1. one", "      1. one_one", "      2. one_two", "   2. two"];
         assert_eq!(lines, expected_lines);
+    }
+
+    #[rstest]
+    #[case::two(2, &["  •  0", "    ◦  00"])]
+    #[case::three(3, &[" •  0", "    ◦  00"])]
+    #[case::four(4, &[" •  0", "    ◦  00"])]
+    fn list_font_size(#[case] font_size: u8, #[case] expected: &[&str]) {
+        let elements = vec![
+            MarkdownElement::Comment {
+                comment: format!("font_size: {font_size}"),
+                source_position: Default::default(),
+            },
+            MarkdownElement::List(vec![
+                ListItem { depth: 0, contents: "0".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 1, contents: "00".into(), item_type: ListItemType::Unordered },
+            ]),
+        ];
+        let options = PresentationBuilderOptions {
+            theme_options: ThemeOptions { font_size_supported: true },
+            ..Default::default()
+        };
+        let slides = build_presentation_with_options(elements, options).into_slides();
+        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        assert_eq!(lines, expected);
     }
 
     #[rstest]
