@@ -85,6 +85,7 @@ impl TerminalCapabilities {
             response.font_size = true;
         }
         stdout.queue(terminal::LeaveAlternateScreen)?;
+        stdout.flush()?;
         Ok(response)
     }
 
