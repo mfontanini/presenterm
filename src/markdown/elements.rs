@@ -162,6 +162,11 @@ impl<C> Text<C> {
     pub(crate) fn new<S: Into<String>>(content: S, style: TextStyle<C>) -> Self {
         Self { content: content.into(), style }
     }
+
+    /// Get the width of this text.
+    pub(crate) fn width(&self) -> usize {
+        self.content.width()
+    }
 }
 
 impl<C> From<String> for Text<C> {
