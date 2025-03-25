@@ -74,6 +74,10 @@ struct Cli {
     #[clap(long, requires = "export_pdf")]
     export_temporary_path: Option<PathBuf>,
 
+    /// The output path for the exported PDF.
+    #[clap(short = 'o', long = "output", requires = "export_pdf")]
+    export_output: Option<PathBuf>,
+
     /// Generate a JSON schema for the configuration file.
     #[clap(long)]
     generate_config_file_schema: bool,
@@ -416,7 +420,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             Some(path) => OutputDirectory::external(path),
             None => OutputDirectory::temporary(),
         }?;
-        exporter.export_pdf(&path, output_directory)?;
+        exporter.export_pdf(&path, output_directory, cli.export_output.as_deref())?;
     } else {
         let SpeakerNotesComponents { events_listener, events_publisher } =
             SpeakerNotesComponents::new(&cli, &config, &path)?;

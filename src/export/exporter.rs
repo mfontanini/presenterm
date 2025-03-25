@@ -100,6 +100,7 @@ impl<'a> Exporter<'a> {
         mut self,
         presentation_path: &Path,
         output_directory: OutputDirectory,
+        output_path: Option<&Path>,
     ) -> Result<(), ExportError> {
         println!(
             "exporting using rows={}, columns={}, width={}, height={}",
@@ -138,7 +139,10 @@ impl<'a> Exporter<'a> {
         }
         Self::log("invoking weasyprint...")?;
 
-        let pdf_path = presentation_path.with_extension("pdf");
+        let pdf_path = match output_path {
+            Some(path) => path.to_path_buf(),
+            None => presentation_path.with_extension("pdf"),
+        };
         render.generate(&pdf_path)?;
 
         execute!(
