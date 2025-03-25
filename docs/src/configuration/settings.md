@@ -68,6 +68,19 @@ defaults:
   max_columns_alignment: left
 ```
 
+## Incremental lists behavior
+
+By default, [incremental lists](../features/commands.md) will pause before and after a list. If you would like to change 
+this behavior, use the `defaults.incremental_lists` key:
+
+```yaml
+defaults:
+  incremental_lists:
+    # The defaults, change to false if desired.
+    pause_before: true
+    pause_after: true
+```
+
 # Key bindings
 
 Key bindings that _presenterm_ uses can be manually configured in the config file via the `bindings` key. The following 
@@ -219,4 +232,15 @@ speaker_notes:
   always_pubblish: true
 ```
 
+## PDF export size
 
+The size of exported PDFs can be configured via the `export.dimensions` key:
+
+```yaml
+export:
+    dimensions:
+        columns: 80
+        rows: 30
+```
+
+See [the PDF export page](../features/pdf-export.md) for more information.

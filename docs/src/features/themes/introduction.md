@@ -69,17 +69,18 @@ when used.
 
 Currently, the following themes are supported:
 
-* `dark`: A dark theme.
-* `light`: A light theme.
-* `tokyonight-storm`: A theme inspired by the colors used in [toyonight](https://github.com/folke/tokyonight.nvim).
 * A set of themes based on the [catppuccin](https://github.com/catppuccin/catppuccin) color palette:
   * `catppuccin-latte`
   * `catppuccin-frappe`
   * `catppuccin-macchiato`
   * `catppuccin-mocha`
+* `dark`: A dark theme.
+* `gruvbox`: A theme inspired by the colors used in [gruvbox](https://github.com/morhetz/gruvbox).
+* `light`: A light theme.
 * `terminal-dark`: A theme that uses your terminals color and looks best if your terminal uses a dark color scheme. This 
-  means if your terminal background is e.g. transparent, or uses an image, the presentation will inherit that.
+means if your terminal background is e.g. transparent, or uses an image, the presentation will inherit that.
 * `terminal-light`: The same as `terminal-dark` but works best if your terminal uses a light color scheme.
+* `tokyonight-storm`: A theme inspired by the colors used in [toyonight](https://github.com/folke/tokyonight.nvim).
 
 ## Trying out built-in themes
 

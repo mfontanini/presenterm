@@ -1,21 +1,15 @@
 # Exporting presentations in PDF format
 
-Presentations can be converted into PDF by using a [helper tool](https://github.com/mfontanini/presenterm-export). You 
-can install it by running:
+Presentations can be converted into PDF by using [weasyprint](https://pypi.org/project/weasyprint/). Follow their 
+[installation instructions](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) since it may require you 
+to install extra dependencies for the tool to work.
 
-```bash
-pip install presenterm-export
-```
+> [!note]
+> If you were using _presenterm-export_ before, that tool already required _weasyprint_ so it is already installed in 
+> whatever virtual env you were using and there's nothing to be done.
 
-> [!important]
-> Make sure that `presenterm-export` works by running `presenterm-export --version` before attempting to generate a PDF 
-> file. If you get errors related to _weasyprint_, follow their [installation instructions](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) to ensure you meet all of their 
-> dependencies. This has otherwise caused issues in macOS.
 
-_presenterm-export_ uses [tmux](https://github.com/tmux/tmux/) to run _presenterm_ inside it and capture its output. 
-
-After you've installed both _presenterm-export_ and _tmux_, run _presenterm_ with the `--export-pdf` parameter to 
-generate the output PDF:
+After you've installed _weasyprint_, run _presenterm_ with the `--export-pdf` parameter to generate the output PDF:
 
 ```bash
 presenterm --export-pdf examples/demo.md
@@ -24,22 +18,13 @@ presenterm --export-pdf examples/demo.md
 The output PDF will be placed in `examples/demo.pdf`. 
 
 > [!note]
-> If you're using a separate virtual env to install _presenterm-export_ just make sure you activate it before running 
+> If you're using a separate virtual env to install _weasyprint_ just make sure you activate it before running 
 > _presenterm_ with the `--export-pdf` parameter.
 
-## Page sizes
+## PDF page size
 
-The size of each page in the generated PDF will depend on the size of your terminal. Make sure to adjust accordingly 
-before running the command above, and not to resize it while the generation is happening to avoid issues.
+By default, the size of each page in the generated PDF will depend on the size of your terminal. 
 
-## tmux <= 3.5a active sessions bug
+If you would like to instead configure the dimensions by hand, set the `export.dimensions` key in the configuration file 
+as described in the [settings page](../configuration/settings.md#pdf-export-size).
 
-Because of a [bug in tmux <= 3.5a](https://github.com/tmux/tmux/issues/4268), exporting a PDF while having other tmux
-sessions running and attached will cause the size of the output PDF to match the size of those other sessions rather 
-than the size of the terminal you're running _presenterm_ in. The workaround is to only have one attached tmux session
-and to run the PDF export from that session.
-
-## How it works
-
-The conversion into PDF format is pretty convoluted. If you'd like to learn more visit 
-[presenterm-export](https://github.com/mfontanini/presenterm-export)'s repo.
