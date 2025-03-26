@@ -3,11 +3,12 @@ use super::{
         Image,
         printer::{PrintImageError, PrintOptions},
     },
-    printer::{TerminalIo, TextProperties},
+    printer::{TerminalError, TerminalIo, TextProperties},
 };
 use crate::{
     WindowSize,
     markdown::text_style::{Color, Colors, TextStyle},
+    terminal::printer::TerminalCommand,
 };
 use std::{collections::HashMap, io};
 
@@ -63,20 +64,6 @@ impl VirtualTerminal {
 
     fn current_row_height(&self) -> u16 {
         *self.row_heights.get(self.row as usize).unwrap_or(&1)
-    }
-}
-
-impl TerminalIo for VirtualTerminal {
-    fn begin_update(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-
-    fn end_update(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-
-    fn cursor_row(&self) -> u16 {
-        self.row
     }
 
     fn move_to(&mut self, column: u16, row: u16) -> io::Result<()> {
@@ -154,9 +141,31 @@ impl TerminalIo for VirtualTerminal {
         self.images.insert(key, image);
         Ok(())
     }
+}
 
-    fn suspend(&mut self) {}
-    fn resume(&mut self) {}
+impl TerminalIo for VirtualTerminal {
+    fn execute(&mut self, command: &TerminalCommand<'_>) -> Result<(), TerminalError> {
+        use TerminalCommand::*;
+        match command {
+            BeginUpdate | EndUpdate => (),
+            MoveTo { column, row } => self.move_to(*column, *row)?,
+            MoveToRow(row) => self.move_to_row(*row)?,
+            MoveToColumn(column) => self.move_to_column(*column)?,
+            MoveDown(amount) => self.move_down(*amount)?,
+            MoveToNextLine => self.move_to_next_line()?,
+            PrintText { content, style, properties } => self.print_text(content, style, properties)?,
+            ClearScreen => self.clear_screen()?,
+            SetColors(colors) => self.set_colors(*colors)?,
+            SetBackgroundColor(color) => self.set_background_color(*color)?,
+            Flush => self.flush()?,
+            PrintImage { image, options } => self.print_image(image, options)?,
+        };
+        Ok(())
+    }
+
+    fn cursor_row(&self) -> u16 {
+        self.row
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -5,7 +5,7 @@ use crate::{
         text_style::{Color, Colors, TextStyle},
     },
     render::{RenderError, RenderResult, layout::Positioning},
-    terminal::printer::{TerminalIo, TextProperties},
+    terminal::printer::{TerminalCommand, TerminalIo, TextProperties},
 };
 
 /// Draws text on the screen.
@@ -80,33 +80,41 @@ impl<'a> TextDrawer<'a> {
         T: TerminalIo,
     {
         let mut line_length: u16 = 0;
-        terminal.move_to_column(self.positioning.start_column)?;
+        terminal.execute(&TerminalCommand::MoveToColumn(self.positioning.start_column))?;
 
         // Print the prefix at the beginning of the line.
         if self.prefix_width > 0 {
             let Text { content, style } = self.prefix.text();
-            terminal.print_text(content, style, &self.properties)?;
+            terminal.execute(&TerminalCommand::PrintText { content, style: *style, properties: self.properties })?;
         }
         for (line_index, line) in self.line.split(self.positioning.max_line_length as usize).enumerate() {
             if line_index > 0 {
                 // Complete the current line's block to the right before moving down.
                 self.print_block_background(line_length, terminal)?;
-                terminal.move_down(self.properties.height as u16)?;
-                terminal.move_to_column(self.positioning.start_column)?;
+                terminal.execute(&TerminalCommand::MoveDown(self.properties.height as u16))?;
+                terminal.execute(&TerminalCommand::MoveToColumn(self.positioning.start_column))?;
                 line_length = 0;
 
                 // Complete the new line in this block to the left where the prefix would be.
                 if self.prefix_width > 0 {
                     if self.repeat_prefix {
                         let Text { content, style } = self.prefix.text();
-                        terminal.print_text(content, style, &self.properties)?;
+                        terminal.execute(&TerminalCommand::PrintText {
+                            content,
+                            style: *style,
+                            properties: self.properties,
+                        })?;
                     } else {
                         if let Some(color) = self.block_color {
-                            terminal.set_background_color(color)?;
+                            terminal.execute(&TerminalCommand::SetBackgroundColor(color))?;
                         }
                         let text = " ".repeat(self.prefix_width as usize / self.properties.height as usize);
                         let style = TextStyle::default().size(self.properties.height);
-                        terminal.print_text(&text, &style, &self.properties)?;
+                        terminal.execute(&TerminalCommand::PrintText {
+                            content: &text,
+                            style,
+                            properties: self.properties,
+                        })?;
                     }
                 }
             }
@@ -114,12 +122,12 @@ impl<'a> TextDrawer<'a> {
                 line_length = line_length.saturating_add(chunk.width() as u16);
 
                 let (text, style) = chunk.into_parts();
-                terminal.print_text(text, &style, &self.properties)?;
+                terminal.execute(&TerminalCommand::PrintText { content: text, style, properties: self.properties })?;
 
                 // Crossterm resets colors if any attributes are set so let's just re-apply colors
                 // if the format has anything on it at all.
                 if style != Default::default() {
-                    terminal.set_colors(*self.default_colors)?;
+                    terminal.execute(&TerminalCommand::SetColors(*self.default_colors))?;
                 }
             }
         }
@@ -136,11 +144,11 @@ impl<'a> TextDrawer<'a> {
                 self.positioning.max_line_length.saturating_sub(line_length).saturating_add(self.right_padding_length);
             if remaining > 0 {
                 if let Some(color) = self.block_color {
-                    terminal.set_background_color(color)?;
+                    terminal.execute(&TerminalCommand::SetBackgroundColor(color))?;
                 }
                 let text = " ".repeat(remaining as usize / self.properties.height as usize);
                 let style = TextStyle::default().size(self.properties.height);
-                terminal.print_text(&text, &style, &self.properties)?;
+                terminal.execute(&TerminalCommand::PrintText { content: &text, style, properties: self.properties })?;
             }
         }
         Ok(())
@@ -150,7 +158,7 @@ impl<'a> TextDrawer<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::terminal::image::{Image, printer::PrintOptions};
+    use crate::terminal::printer::TerminalError;
     use std::io;
     use unicode_width::UnicodeWidthStr;
 
@@ -172,28 +180,6 @@ mod tests {
             self.instructions.push(instruction);
             Ok(())
         }
-    }
-
-    impl TerminalIo for TerminalBuf {
-        fn begin_update(&mut self) -> std::io::Result<()> {
-            unimplemented!()
-        }
-
-        fn end_update(&mut self) -> std::io::Result<()> {
-            unimplemented!()
-        }
-
-        fn cursor_row(&self) -> u16 {
-            self.cursor_row
-        }
-
-        fn move_to(&mut self, _column: u16, _row: u16) -> std::io::Result<()> {
-            unimplemented!()
-        }
-
-        fn move_to_row(&mut self, _row: u16) -> std::io::Result<()> {
-            unimplemented!()
-        }
 
         fn move_to_column(&mut self, column: u16) -> std::io::Result<()> {
             self.push(Instruction::MoveToColumn(column))
@@ -201,10 +187,6 @@ mod tests {
 
         fn move_down(&mut self, amount: u16) -> std::io::Result<()> {
             self.push(Instruction::MoveDown(amount))
-        }
-
-        fn move_to_next_line(&mut self) -> std::io::Result<()> {
-            unimplemented!()
         }
 
         fn print_text(&mut self, content: &str, style: &TextStyle, _properties: &TextProperties) -> io::Result<()> {
@@ -232,21 +214,28 @@ mod tests {
         fn flush(&mut self) -> std::io::Result<()> {
             Ok(())
         }
+    }
 
-        fn print_image(
-            &mut self,
-            _image: &Image,
-            _options: &PrintOptions,
-        ) -> Result<(), crate::terminal::image::printer::PrintImageError> {
-            unimplemented!()
+    impl TerminalIo for TerminalBuf {
+        fn execute(&mut self, command: &TerminalCommand<'_>) -> Result<(), TerminalError> {
+            use TerminalCommand::*;
+            match command {
+                BeginUpdate | EndUpdate | MoveToRow(_) | MoveToNextLine | MoveTo { .. } | PrintImage { .. } => {
+                    unimplemented!()
+                }
+                MoveToColumn(column) => self.move_to_column(*column)?,
+                MoveDown(amount) => self.move_down(*amount)?,
+                PrintText { content, style, properties } => self.print_text(content, style, properties)?,
+                ClearScreen => self.clear_screen()?,
+                SetColors(colors) => self.set_colors(*colors)?,
+                SetBackgroundColor(color) => self.set_background_color(*color)?,
+                Flush => self.flush()?,
+            };
+            Ok(())
         }
 
-        fn suspend(&mut self) {
-            unimplemented!()
-        }
-
-        fn resume(&mut self) {
-            unimplemented!()
+        fn cursor_row(&self) -> u16 {
+            self.cursor_row
         }
     }
 

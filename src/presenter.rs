@@ -16,10 +16,7 @@ use crate::{
         properties::WindowSize, validate::OverflowValidator,
     },
     resource::Resources,
-    terminal::{
-        image::printer::{ImagePrinter, ImageRegistry},
-        printer::TerminalIo,
-    },
+    terminal::image::printer::{ImagePrinter, ImageRegistry},
     theme::{ProcessingThemeError, raw::PresentationTheme},
     third_party::ThirdPartyRender,
 };

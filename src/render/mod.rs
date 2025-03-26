@@ -16,6 +16,7 @@ use crate::{
     terminal::{
         Terminal,
         image::printer::{ImagePrinter, PrintImageError},
+        printer::TerminalError,
     },
     theme::{Alignment, Margin},
 };
@@ -111,6 +112,9 @@ impl TerminalDrawer {
 pub(crate) enum RenderError {
     #[error("io: {0}")]
     Io(#[from] io::Error),
+
+    #[error("terminal: {0}")]
+    Terminal(#[from] TerminalError),
 
     #[error("screen is too small")]
     TerminalTooSmall,

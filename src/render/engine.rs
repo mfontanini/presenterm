@@ -16,7 +16,7 @@ use crate::{
             printer::{ImageProperties, PrintOptions},
             scale::{ImageScaler, TerminalRect},
         },
-        printer::TerminalIo,
+        printer::{TerminalCommand, TerminalIo},
     },
     theme::Alignment,
 };
@@ -90,12 +90,12 @@ where
     }
 
     pub(crate) fn render<'b>(mut self, operations: impl Iterator<Item = &'b RenderOperation>) -> RenderResult {
-        self.terminal.begin_update()?;
+        self.terminal.execute(&TerminalCommand::BeginUpdate)?;
         for operation in operations {
             self.render_one(operation)?;
         }
-        self.terminal.end_update()?;
-        self.terminal.flush()?;
+        self.terminal.execute(&TerminalCommand::EndUpdate)?;
+        self.terminal.execute(&TerminalCommand::Flush)?;
         if self.options.validate_overflows && self.max_modified_row > self.window_rects[0].dimensions.rows {
             return Err(RenderError::VerticalOverflow);
         }
@@ -139,8 +139,8 @@ where
     }
 
     fn clear_screen(&mut self) -> RenderResult {
-        self.terminal.clear_screen()?;
-        self.terminal.move_to(0, 0)?;
+        self.terminal.execute(&TerminalCommand::ClearScreen)?;
+        self.terminal.execute(&TerminalCommand::MoveTo { column: 0, row: 0 })?;
         self.max_modified_row = 0;
         Ok(())
     }
@@ -171,33 +171,33 @@ where
     }
 
     fn apply_colors(&mut self) -> RenderResult {
-        self.terminal.set_colors(self.colors)?;
+        self.terminal.execute(&TerminalCommand::SetColors(self.colors))?;
         Ok(())
     }
 
     fn jump_to_vertical_center(&mut self) -> RenderResult {
         let center_row = self.current_dimensions().rows / 2;
-        self.terminal.move_to_row(center_row)?;
+        self.terminal.execute(&TerminalCommand::MoveToRow(center_row))?;
         Ok(())
     }
 
     fn jump_to_row(&mut self, row: u16) -> RenderResult {
         // Make this relative to the beginning of the current rect.
         let row = self.current_rect().start_row.saturating_add(row);
-        self.terminal.move_to_row(row)?;
+        self.terminal.execute(&TerminalCommand::MoveToRow(row))?;
         Ok(())
     }
 
     fn jump_to_bottom(&mut self, index: u16) -> RenderResult {
         let target_row = self.current_dimensions().rows.saturating_sub(index).saturating_sub(1);
-        self.terminal.move_to_row(target_row)?;
+        self.terminal.execute(&TerminalCommand::MoveToRow(target_row))?;
         Ok(())
     }
 
     fn jump_to_column(&mut self, column: u16) -> RenderResult {
         // Make this relative to the beginning of the current rect.
         let column = self.current_rect().start_column.saturating_add(column);
-        self.terminal.move_to_column(column)?;
+        self.terminal.execute(&TerminalCommand::MoveToColumn(column))?;
         Ok(())
     }
 
@@ -213,7 +213,7 @@ where
     }
 
     fn render_line_break(&mut self) -> RenderResult {
-        self.terminal.move_to_next_line()?;
+        self.terminal.execute(&TerminalCommand::MoveToNextLine)?;
         Ok(())
     }
 
@@ -255,11 +255,12 @@ where
             row_height: rect.dimensions.pixels_per_row() as u16,
             background_color: properties.background_color,
         };
-        self.terminal.print_image(image, &options)?;
+        self.terminal.execute(&TerminalCommand::PrintImage { image: image.clone(), options })?;
         if properties.restore_cursor {
-            self.terminal.move_to(starting_cursor.column, starting_cursor.row)?;
+            self.terminal
+                .execute(&TerminalCommand::MoveTo { column: starting_cursor.column, row: starting_cursor.row })?;
         } else {
-            self.terminal.move_to_row(starting_cursor.row + rows)?;
+            self.terminal.execute(&TerminalCommand::MoveToRow(starting_cursor.row + rows))?;
         }
         self.apply_colors()
     }
@@ -288,7 +289,7 @@ where
             return Err(RenderError::HorizontalOverflow);
         }
 
-        self.terminal.move_to_column(start_column)?;
+        self.terminal.execute(&TerminalCommand::MoveToColumn(start_column))?;
 
         let positioning = Positioning { max_line_length, start_column };
         let text_drawer =
@@ -364,7 +365,7 @@ where
         }
 
         self.window_rects.push(dimensions);
-        self.terminal.move_to_row(start_row)?;
+        self.terminal.execute(&TerminalCommand::MoveToRow(start_row))?;
         self.layout = LayoutState::EnteredColumn { column: column_index, columns };
         Ok(())
     }
@@ -373,7 +374,7 @@ where
         match &self.layout {
             LayoutState::Default | LayoutState::InitializedColumn { .. } => Ok(()),
             LayoutState::EnteredColumn { .. } => {
-                self.terminal.move_to(0, self.max_modified_row)?;
+                self.terminal.execute(&TerminalCommand::MoveTo { column: 0, row: self.max_modified_row })?;
                 self.layout = LayoutState::Default;
                 self.pop_margin()?;
                 Ok(())
@@ -445,7 +446,7 @@ mod tests {
     use super::*;
     use crate::{
         markdown::text_style::{Color, TextStyle},
-        terminal::printer::TextProperties,
+        terminal::printer::{TerminalError, TextProperties},
         theme::Margin,
     };
     use std::io;
@@ -462,8 +463,6 @@ mod tests {
         ClearScreen,
         SetBackgroundColor(Color),
         PrintImage(Image),
-        Suspend,
-        Resume,
     }
 
     #[derive(Default)]
@@ -476,20 +475,6 @@ mod tests {
         fn push(&mut self, instruction: Instruction) -> io::Result<()> {
             self.instructions.push(instruction);
             Ok(())
-        }
-    }
-
-    impl TerminalIo for TerminalBuf {
-        fn begin_update(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-
-        fn end_update(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-
-        fn cursor_row(&self) -> u16 {
-            self.cursor_row
         }
 
         fn move_to(&mut self, column: u16, row: u16) -> std::io::Result<()> {
@@ -548,13 +533,31 @@ mod tests {
             let _ = self.push(Instruction::PrintImage(image.clone()));
             Ok(())
         }
+    }
 
-        fn suspend(&mut self) {
-            let _ = self.push(Instruction::Suspend);
+    impl TerminalIo for TerminalBuf {
+        fn execute(&mut self, command: &TerminalCommand<'_>) -> Result<(), TerminalError> {
+            use TerminalCommand::*;
+            match command {
+                BeginUpdate => (),
+                EndUpdate => (),
+                MoveTo { column, row } => self.move_to(*column, *row)?,
+                MoveToRow(row) => self.move_to_row(*row)?,
+                MoveToColumn(column) => self.move_to_column(*column)?,
+                MoveDown(amount) => self.move_down(*amount)?,
+                MoveToNextLine => self.move_to_next_line()?,
+                PrintText { content, style, properties } => self.print_text(content, style, properties)?,
+                ClearScreen => self.clear_screen()?,
+                SetColors(colors) => self.set_colors(*colors)?,
+                SetBackgroundColor(color) => self.set_background_color(*color)?,
+                Flush => self.flush()?,
+                PrintImage { image, options } => self.print_image(image, options)?,
+            };
+            Ok(())
         }
 
-        fn resume(&mut self) {
-            let _ = self.push(Instruction::Resume);
+        fn cursor_row(&self) -> u16 {
+            self.cursor_row
         }
     }
 
