@@ -3,19 +3,52 @@ use super::{
         Image,
         printer::{PrintImageError, PrintOptions},
     },
-    printer::{TerminalIo, TextProperties},
+    printer::{TerminalError, TerminalIo, TextProperties},
 };
 use crate::{
     WindowSize,
-    markdown::text_style::{Color, Colors, TextStyle},
+    markdown::{
+        elements::Text,
+        text_style::{Color, Colors, TextStyle},
+    },
+    terminal::printer::TerminalCommand,
 };
 use std::{collections::HashMap, io};
 
+#[derive(Debug)]
 pub(crate) struct PrintedImage {
     pub(crate) image: Image,
     pub(crate) width_columns: u16,
 }
 
+pub(crate) struct TerminalRowIterator<'a> {
+    row: &'a [StyledChar],
+}
+
+impl<'a> TerminalRowIterator<'a> {
+    pub(crate) fn new(row: &'a [StyledChar]) -> Self {
+        Self { row }
+    }
+}
+
+impl Iterator for TerminalRowIterator<'_> {
+    type Item = Text;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let style = self.row.first()?.style;
+        let mut output = String::new();
+        while let Some(c) = self.row.first() {
+            if c.style != style {
+                break;
+            }
+            output.push(c.character);
+            self.row = &self.row[1..];
+        }
+        Some(Text::new(output, style))
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct TerminalGrid {
     pub(crate) rows: Vec<Vec<StyledChar>>,
     pub(crate) background_color: Option<Color>,
@@ -63,20 +96,6 @@ impl VirtualTerminal {
 
     fn current_row_height(&self) -> u16 {
         *self.row_heights.get(self.row as usize).unwrap_or(&1)
-    }
-}
-
-impl TerminalIo for VirtualTerminal {
-    fn begin_update(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-
-    fn end_update(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-
-    fn cursor_row(&self) -> u16 {
-        self.row
     }
 
     fn move_to(&mut self, column: u16, row: u16) -> io::Result<()> {
@@ -154,9 +173,31 @@ impl TerminalIo for VirtualTerminal {
         self.images.insert(key, image);
         Ok(())
     }
+}
 
-    fn suspend(&mut self) {}
-    fn resume(&mut self) {}
+impl TerminalIo for VirtualTerminal {
+    fn execute(&mut self, command: &TerminalCommand<'_>) -> Result<(), TerminalError> {
+        use TerminalCommand::*;
+        match command {
+            BeginUpdate | EndUpdate => (),
+            MoveTo { column, row } => self.move_to(*column, *row)?,
+            MoveToRow(row) => self.move_to_row(*row)?,
+            MoveToColumn(column) => self.move_to_column(*column)?,
+            MoveDown(amount) => self.move_down(*amount)?,
+            MoveToNextLine => self.move_to_next_line()?,
+            PrintText { content, style, properties } => self.print_text(content, style, properties)?,
+            ClearScreen => self.clear_screen()?,
+            SetColors(colors) => self.set_colors(*colors)?,
+            SetBackgroundColor(color) => self.set_background_color(*color)?,
+            Flush => self.flush()?,
+            PrintImage { image, options } => self.print_image(image, options)?,
+        };
+        Ok(())
+    }
+
+    fn cursor_row(&self) -> u16 {
+        self.row
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -217,5 +258,18 @@ mod tests {
 
         let grid = term.into_contents();
         grid.assert_contents(&["A C", " BD"]);
+    }
+
+    #[test]
+    fn iterator() {
+        let row = &[
+            StyledChar { character: ' ', style: TextStyle::default() },
+            StyledChar { character: 'A', style: TextStyle::default() },
+            StyledChar { character: 'B', style: TextStyle::default().bold() },
+            StyledChar { character: 'C', style: TextStyle::default().bold() },
+            StyledChar { character: 'D', style: TextStyle::default() },
+        ];
+        let texts: Vec<_> = TerminalRowIterator::new(row).collect();
+        assert_eq!(texts, &[Text::from(" A"), Text::new("BC", TextStyle::default().bold()), Text::from("D")]);
     }
 }

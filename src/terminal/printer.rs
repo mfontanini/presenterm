@@ -14,23 +14,35 @@ use std::{
     sync::Arc,
 };
 
+#[derive(Debug, PartialEq)]
+pub(crate) enum TerminalCommand<'a> {
+    BeginUpdate,
+    EndUpdate,
+    MoveTo { column: u16, row: u16 },
+    MoveToRow(u16),
+    MoveToColumn(u16),
+    MoveDown(u16),
+    MoveToNextLine,
+    PrintText { content: &'a str, style: TextStyle, properties: TextProperties },
+    ClearScreen,
+    SetColors(Colors),
+    SetBackgroundColor(Color),
+    Flush,
+    PrintImage { image: Image, options: PrintOptions },
+}
+
 pub(crate) trait TerminalIo {
-    fn begin_update(&mut self) -> io::Result<()>;
-    fn end_update(&mut self) -> io::Result<()>;
+    fn execute(&mut self, command: &TerminalCommand<'_>) -> Result<(), TerminalError>;
     fn cursor_row(&self) -> u16;
-    fn move_to(&mut self, column: u16, row: u16) -> io::Result<()>;
-    fn move_to_row(&mut self, row: u16) -> io::Result<()>;
-    fn move_to_column(&mut self, column: u16) -> io::Result<()>;
-    fn move_down(&mut self, amount: u16) -> io::Result<()>;
-    fn move_to_next_line(&mut self) -> io::Result<()>;
-    fn print_text(&mut self, content: &str, style: &TextStyle, properties: &TextProperties) -> io::Result<()>;
-    fn clear_screen(&mut self) -> io::Result<()>;
-    fn set_colors(&mut self, colors: Colors) -> io::Result<()>;
-    fn set_background_color(&mut self, color: Color) -> io::Result<()>;
-    fn flush(&mut self) -> io::Result<()>;
-    fn print_image(&mut self, image: &Image, options: &PrintOptions) -> Result<(), PrintImageError>;
-    fn suspend(&mut self);
-    fn resume(&mut self);
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum TerminalError {
+    #[error("io: {0}")]
+    Io(#[from] io::Error),
+
+    #[error("image: {0}")]
+    Image(#[from] PrintImageError),
 }
 
 /// A wrapper over the terminal write handle.
@@ -46,9 +58,7 @@ impl<I: TerminalWrite> Terminal<I> {
         writer.init()?;
         Ok(Self { writer, image_printer, cursor_row: 0, current_row_height: 1 })
     }
-}
 
-impl<I: TerminalWrite> TerminalIo for Terminal<I> {
     fn begin_update(&mut self) -> io::Result<()> {
         self.writer.queue(terminal::BeginSynchronizedUpdate)?;
         Ok(())
@@ -57,10 +67,6 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
     fn end_update(&mut self) -> io::Result<()> {
         self.writer.queue(terminal::EndSynchronizedUpdate)?;
         Ok(())
-    }
-
-    fn cursor_row(&self) -> u16 {
-        self.cursor_row
     }
 
     fn move_to(&mut self, column: u16, row: u16) -> io::Result<()> {
@@ -104,6 +110,7 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
     fn clear_screen(&mut self) -> io::Result<()> {
         self.writer.queue(terminal::Clear(terminal::ClearType::All))?;
         self.cursor_row = 0;
+        self.current_row_height = 1;
         Ok(())
     }
 
@@ -132,12 +139,38 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
         Ok(())
     }
 
-    fn suspend(&mut self) {
+    pub(crate) fn suspend(&mut self) {
         self.writer.deinit();
     }
 
-    fn resume(&mut self) {
+    pub(crate) fn resume(&mut self) {
         let _ = self.writer.init();
+    }
+}
+
+impl<I: TerminalWrite> TerminalIo for Terminal<I> {
+    fn execute(&mut self, command: &TerminalCommand<'_>) -> Result<(), TerminalError> {
+        use TerminalCommand::*;
+        match command {
+            BeginUpdate => self.begin_update()?,
+            EndUpdate => self.end_update()?,
+            MoveTo { column, row } => self.move_to(*column, *row)?,
+            MoveToRow(row) => self.move_to_row(*row)?,
+            MoveToColumn(column) => self.move_to_column(*column)?,
+            MoveDown(amount) => self.move_down(*amount)?,
+            MoveToNextLine => self.move_to_next_line()?,
+            PrintText { content, style, properties } => self.print_text(content, style, properties)?,
+            ClearScreen => self.clear_screen()?,
+            SetColors(colors) => self.set_colors(*colors)?,
+            SetBackgroundColor(color) => self.set_background_color(*color)?,
+            Flush => self.flush()?,
+            PrintImage { image, options } => self.print_image(image, options)?,
+        };
+        Ok(())
+    }
+
+    fn cursor_row(&self) -> u16 {
+        self.cursor_row
     }
 }
 
@@ -147,7 +180,7 @@ impl<I: TerminalWrite> Drop for Terminal<I> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct TextProperties {
     pub(crate) height: u8,
 }

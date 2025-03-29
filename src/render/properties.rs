@@ -92,7 +92,7 @@ impl From<(u16, u16)> for WindowSize {
 }
 
 /// The cursor's position.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct CursorPosition {
     pub(crate) column: u16,
     pub(crate) row: u16,

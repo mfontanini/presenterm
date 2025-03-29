@@ -29,6 +29,16 @@
     "speaker_notes": {
       "$ref": "#/definitions/SpeakerNotesConfig"
     },
+    "transition": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/SlideTransitionConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "typst": {
       "$ref": "#/definitions/TypstConfig"
     }
@@ -443,6 +453,57 @@
         }
       },
       "additionalProperties": false
+    },
+    "SlideTransitionConfig": {
+      "type": "object",
+      "required": [
+        "animation"
+      ],
+      "properties": {
+        "animation": {
+          "description": "The slide transition style.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SlideTransitionStyleConfig"
+            }
+          ]
+        },
+        "duration_millis": {
+          "description": "The amount of time to take to perform the transition.",
+          "default": 1000,
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "frames": {
+          "description": "The number of frames in a transition.",
+          "default": 30,
+          "type": "integer",
+          "format": "uint",
+          "minimum": 0.0
+        }
+      },
+      "additionalProperties": false
+    },
+    "SlideTransitionStyleConfig": {
+      "oneOf": [
+        {
+          "description": "Slide horizontally.",
+          "type": "object",
+          "required": [
+            "style"
+          ],
+          "properties": {
+            "style": {
+              "type": "string",
+              "enum": [
+                "slide_horizontal"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "SnippetConfig": {
       "type": "object",

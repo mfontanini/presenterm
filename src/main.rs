@@ -51,6 +51,7 @@ mod terminal;
 mod theme;
 mod third_party;
 mod tools;
+mod transitions;
 mod ui;
 
 const DEFAULT_THEME: &str = "dark";
@@ -435,6 +436,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             validate_overflows,
             max_columns: config.defaults.max_columns,
             max_columns_alignment: config.defaults.max_columns_alignment,
+            transition: config.transition,
         };
         let presenter = Presenter::new(
             &default_theme,

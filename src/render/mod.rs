@@ -16,6 +16,7 @@ use crate::{
     terminal::{
         Terminal,
         image::printer::{ImagePrinter, PrintImageError},
+        printer::TerminalError,
     },
     theme::{Alignment, Margin},
 };
@@ -96,12 +97,16 @@ impl TerminalDrawer {
         Ok(())
     }
 
-    fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<Terminal<Stdout>> {
-        let options = RenderEngineOptions {
+    pub(crate) fn render_engine_options(&self) -> RenderEngineOptions {
+        RenderEngineOptions {
             max_columns: self.options.max_columns,
             max_columns_alignment: self.options.max_columns_alignment,
             ..Default::default()
-        };
+        }
+    }
+
+    fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<Terminal<Stdout>> {
+        let options = self.render_engine_options();
         RenderEngine::new(&mut self.terminal, dimensions, options)
     }
 }
@@ -111,6 +116,9 @@ impl TerminalDrawer {
 pub(crate) enum RenderError {
     #[error("io: {0}")]
     Io(#[from] io::Error),
+
+    #[error("terminal: {0}")]
+    Terminal(#[from] TerminalError),
 
     #[error("screen is too small")]
     TerminalTooSmall,
