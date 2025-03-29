@@ -14,6 +14,7 @@ use std::{
     sync::Arc,
 };
 
+#[derive(Debug, PartialEq)]
 pub(crate) enum TerminalCommand<'a> {
     BeginUpdate,
     EndUpdate,
@@ -109,6 +110,7 @@ impl<I: TerminalWrite> Terminal<I> {
     fn clear_screen(&mut self) -> io::Result<()> {
         self.writer.queue(terminal::Clear(terminal::ClearType::All))?;
         self.cursor_row = 0;
+        self.current_row_height = 1;
         Ok(())
     }
 
@@ -178,7 +180,7 @@ impl<I: TerminalWrite> Drop for Terminal<I> {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) struct TextProperties {
     pub(crate) height: u8,
 }

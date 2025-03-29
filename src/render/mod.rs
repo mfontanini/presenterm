@@ -97,12 +97,16 @@ impl TerminalDrawer {
         Ok(())
     }
 
-    fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<Terminal<Stdout>> {
-        let options = RenderEngineOptions {
+    pub(crate) fn render_engine_options(&self) -> RenderEngineOptions {
+        RenderEngineOptions {
             max_columns: self.options.max_columns,
             max_columns_alignment: self.options.max_columns_alignment,
             ..Default::default()
-        };
+        }
+    }
+
+    fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<Terminal<Stdout>> {
+        let options = self.render_engine_options();
         RenderEngine::new(&mut self.terminal, dimensions, options)
     }
 }

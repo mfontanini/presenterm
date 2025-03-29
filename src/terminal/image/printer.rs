@@ -37,7 +37,7 @@ pub(crate) trait ImageProperties {
     fn dimensions(&self) -> (u32, u32);
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct PrintOptions {
     pub(crate) columns: u16,
     pub(crate) rows: u16,

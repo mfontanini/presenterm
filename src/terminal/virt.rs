@@ -7,16 +7,48 @@ use super::{
 };
 use crate::{
     WindowSize,
-    markdown::text_style::{Color, Colors, TextStyle},
+    markdown::{
+        elements::Text,
+        text_style::{Color, Colors, TextStyle},
+    },
     terminal::printer::TerminalCommand,
 };
 use std::{collections::HashMap, io};
 
+#[derive(Debug)]
 pub(crate) struct PrintedImage {
     pub(crate) image: Image,
     pub(crate) width_columns: u16,
 }
 
+pub(crate) struct TerminalRowIterator<'a> {
+    row: &'a [StyledChar],
+}
+
+impl<'a> TerminalRowIterator<'a> {
+    pub(crate) fn new(row: &'a [StyledChar]) -> Self {
+        Self { row }
+    }
+}
+
+impl Iterator for TerminalRowIterator<'_> {
+    type Item = Text;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let style = self.row.first()?.style;
+        let mut output = String::new();
+        while let Some(c) = self.row.first() {
+            if c.style != style {
+                break;
+            }
+            output.push(c.character);
+            self.row = &self.row[1..];
+        }
+        Some(Text::new(output, style))
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct TerminalGrid {
     pub(crate) rows: Vec<Vec<StyledChar>>,
     pub(crate) background_color: Option<Color>,
@@ -226,5 +258,18 @@ mod tests {
 
         let grid = term.into_contents();
         grid.assert_contents(&["A C", " BD"]);
+    }
+
+    #[test]
+    fn iterator() {
+        let row = &[
+            StyledChar { character: ' ', style: TextStyle::default() },
+            StyledChar { character: 'A', style: TextStyle::default() },
+            StyledChar { character: 'B', style: TextStyle::default().bold() },
+            StyledChar { character: 'C', style: TextStyle::default().bold() },
+            StyledChar { character: 'D', style: TextStyle::default() },
+        ];
+        let texts: Vec<_> = TerminalRowIterator::new(row).collect();
+        assert_eq!(texts, &[Text::from(" A"), Text::new("BC", TextStyle::default().bold()), Text::from("D")]);
     }
 }

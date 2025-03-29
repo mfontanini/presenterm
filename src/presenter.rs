@@ -4,21 +4,29 @@ use crate::{
         listener::{Command, CommandListener},
         speaker_notes::{SpeakerNotesEvent, SpeakerNotesEventPublisher},
     },
-    config::{KeyBindingsConfig, MaxColumnsAlignment},
+    config::{KeyBindingsConfig, MaxColumnsAlignment, SlideTransitionConfig, SlideTransitionStyleConfig},
     markdown::parse::{MarkdownParser, ParseError},
     presentation::{
-        Presentation,
+        Presentation, Slide,
         builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
         diff::PresentationDiffer,
     },
     render::{
-        ErrorSource, RenderError, RenderResult, TerminalDrawer, TerminalDrawerOptions, operation::RenderAsyncState,
-        properties::WindowSize, validate::OverflowValidator,
+        ErrorSource, RenderError, RenderResult, TerminalDrawer, TerminalDrawerOptions,
+        engine::{RenderEngine, RenderEngineOptions},
+        operation::RenderAsyncState,
+        properties::WindowSize,
+        validate::OverflowValidator,
     },
     resource::Resources,
-    terminal::image::printer::{ImagePrinter, ImageRegistry},
+    terminal::{
+        image::printer::{ImagePrinter, ImageRegistry},
+        printer::{TerminalCommand, TerminalIo},
+        virt::{TerminalGrid, VirtualTerminal},
+    },
     theme::{ProcessingThemeError, raw::PresentationTheme},
     third_party::ThirdPartyRender,
+    transitions::{AnimateTransition, AnimationFrame, TransitionDirection, slide_horizontal::SlideHorizontalAnimation},
 };
 use std::{
     collections::HashSet,
@@ -30,6 +38,7 @@ use std::{
     path::Path,
     rc::Rc,
     sync::Arc,
+    time::{Duration, Instant},
 };
 
 pub struct PresenterOptions {
@@ -40,6 +49,7 @@ pub struct PresenterOptions {
     pub validate_overflows: bool,
     pub max_columns: u16,
     pub max_columns_alignment: MaxColumnsAlignment,
+    pub transition: Option<SlideTransitionConfig>,
 }
 
 /// A slideshow presenter.
@@ -141,6 +151,14 @@ impl<'a> Presenter<'a> {
                         break;
                     }
                     CommandSideEffect::Redraw => {
+                        break;
+                    }
+                    CommandSideEffect::NextSlide => {
+                        self.next_slide(&mut drawer)?;
+                        break;
+                    }
+                    CommandSideEffect::PreviousSlide => {
+                        self.previous_slide(&mut drawer)?;
                         break;
                     }
                     CommandSideEffect::None => (),
@@ -253,9 +271,27 @@ impl<'a> Presenter<'a> {
             }
         };
         let needs_redraw = match command {
-            Command::Next => presentation.jump_next(),
+            Command::Next => {
+                let current_slide = presentation.current_slide_index();
+                if !presentation.jump_next() {
+                    false
+                } else if presentation.current_slide_index() != current_slide {
+                    return CommandSideEffect::NextSlide;
+                } else {
+                    true
+                }
+            }
             Command::NextFast => presentation.jump_next_fast(),
-            Command::Previous => presentation.jump_previous(),
+            Command::Previous => {
+                let current_slide = presentation.current_slide_index();
+                if !presentation.jump_previous() {
+                    false
+                } else if presentation.current_slide_index() != current_slide {
+                    return CommandSideEffect::PreviousSlide;
+                } else {
+                    true
+                }
+            }
             Command::PreviousFast => presentation.jump_previous_fast(),
             Command::FirstSlide => presentation.jump_first_slide(),
             Command::LastSlide => presentation.jump_last_slide(),
@@ -383,6 +419,98 @@ impl<'a> Presenter<'a> {
             drawer.terminal.resume();
         }
     }
+
+    fn next_slide(&mut self, drawer: &mut TerminalDrawer) -> RenderResult {
+        let Some(transition) = &self.options.transition else {
+            return Ok(());
+        };
+        let options = drawer.render_engine_options();
+        let presentation = self.state.presentation_mut();
+        let dimensions = WindowSize::current(self.options.font_size_fallback)?;
+        presentation.jump_previous();
+        let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
+        presentation.jump_next();
+        let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
+        let direction = TransitionDirection::Next;
+        match transition.animation {
+            SlideTransitionStyleConfig::SlideHorizontal => self.animate(
+                drawer,
+                SlideHorizontalAnimation::new(left, right, dimensions),
+                transition.clone(),
+                direction,
+            ),
+        }
+    }
+
+    fn previous_slide(&mut self, drawer: &mut TerminalDrawer) -> RenderResult {
+        let Some(transition) = &self.options.transition else {
+            return Ok(());
+        };
+        let options = drawer.render_engine_options();
+        let presentation = self.state.presentation_mut();
+        let dimensions = WindowSize::current(self.options.font_size_fallback)?;
+        presentation.jump_next();
+        let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
+        presentation.jump_previous();
+        let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
+        let direction = TransitionDirection::Previous;
+        match transition.animation {
+            SlideTransitionStyleConfig::SlideHorizontal => self.animate(
+                drawer,
+                SlideHorizontalAnimation::new(left, right, dimensions),
+                transition.clone(),
+                direction,
+            ),
+        }
+    }
+
+    fn animate<T>(
+        &mut self,
+        drawer: &mut TerminalDrawer,
+        animation: T,
+        config: SlideTransitionConfig,
+        direction: TransitionDirection,
+    ) -> RenderResult
+    where
+        T: AnimateTransition,
+    {
+        let total_time = Duration::from_millis(config.duration_millis as u64);
+        let frames: usize = config.frames;
+        let total_frames = animation.total_frames();
+        let step = total_time / (frames as u32 * 2);
+        let mut frame_index = 1;
+        while frame_index < total_frames {
+            let start = Instant::now();
+            let frame = animation.build_frame(frame_index, direction.clone());
+            // let frame = animation.build_frame(13, direction.clone());
+            let commands = frame.build_commands();
+            drawer.terminal.execute(&TerminalCommand::BeginUpdate)?;
+            for command in commands {
+                drawer.terminal.execute(&command)?;
+            }
+            drawer.terminal.execute(&TerminalCommand::EndUpdate)?;
+            drawer.terminal.execute(&TerminalCommand::Flush)?;
+
+            let elapsed = start.elapsed();
+            let sleep_needed = step.saturating_sub(elapsed);
+            if sleep_needed.as_millis() > 0 {
+                std::thread::sleep(step);
+            }
+            frame_index += total_frames.div_ceil(frames);
+        }
+        Ok(())
+    }
+
+    fn virtual_render(
+        slide: &Slide,
+        dimensions: WindowSize,
+        options: &RenderEngineOptions,
+    ) -> Result<TerminalGrid, RenderError> {
+        let mut term = VirtualTerminal::new(dimensions.clone());
+        let engine = RenderEngine::new(&mut term, dimensions.clone(), options.clone());
+        engine.render(slide.iter_visible_operations())?;
+        Ok(term.into_contents())
+    }
 }
 
 enum CommandSideEffect {
@@ -390,6 +518,8 @@ enum CommandSideEffect {
     Suspend,
     Redraw,
     Reload,
+    NextSlide,
+    PreviousSlide,
     None,
 }
 

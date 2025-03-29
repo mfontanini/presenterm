@@ -43,6 +43,9 @@ pub struct Config {
 
     #[serde(default)]
     pub export: ExportConfig,
+
+    #[serde(default)]
+    pub transition: Option<SlideTransitionConfig>,
 }
 
 impl Config {
@@ -481,6 +484,32 @@ pub struct ExportDimensionsConfig {
     pub columns: u16,
 }
 
+// The slide transition configuration.
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[serde(tag = "style")]
+pub struct SlideTransitionConfig {
+    /// The amount of time to take to perform the transition.
+    #[serde(default = "default_transition_duration_millis")]
+    pub duration_millis: u16,
+
+    /// The number of frames in a transition.
+    #[serde(default = "default_transition_frames")]
+    pub frames: usize,
+
+    /// The slide transition style.
+    pub animation: SlideTransitionStyleConfig,
+}
+
+// The slide transition style configuration.
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[serde(tag = "style", rename_all = "snake_case")]
+pub enum SlideTransitionStyleConfig {
+    /// Slide horizontally.
+    SlideHorizontal,
+}
+
 fn make_keybindings<const N: usize>(raw_bindings: [&str; N]) -> Vec<KeyBinding> {
     let mut bindings = Vec::new();
     for binding in raw_bindings {
@@ -543,6 +572,14 @@ fn default_exit_bindings() -> Vec<KeyBinding> {
 
 fn default_suspend_bindings() -> Vec<KeyBinding> {
     make_keybindings(["<c-z>"])
+}
+
+fn default_transition_duration_millis() -> u16 {
+    1000
+}
+
+fn default_transition_frames() -> usize {
+    30
 }
 
 #[cfg(target_os = "linux")]

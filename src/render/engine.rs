@@ -24,7 +24,7 @@ use std::mem;
 
 const MINIMUM_LINE_LENGTH: u16 = 10;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct RenderEngineOptions {
     pub(crate) validate_overflows: bool,
     pub(crate) max_columns: u16,
