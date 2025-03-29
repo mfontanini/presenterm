@@ -56,6 +56,16 @@ time. Each instance will only listen to events for the presentation it was start
 
 On Mac this is not supported and only a single listener can be used at a time.
 
+### Enabling publishing by default
+
+You can use the `speaker_notes.always_publish` key in your config file to always publish speaker notes. This means you 
+will only ever need to use `--listen-speaker-notes` and you will never need to use `--publish-speaker-notes`:
+
+```yaml
+speaker_notes:
+  always_publish: true
+```
+
 ### Internals
 
 This uses UDP sockets on localhost to communicate between instances. The main instance sends events every time a slide 

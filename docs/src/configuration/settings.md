@@ -229,7 +229,7 @@ can set the `speaker_notes.always_publish` attribute to `true`.
 
 ```yaml
 speaker_notes:
-  always_pubblish: true
+  always_publish: true
 ```
 
 ## PDF export size
