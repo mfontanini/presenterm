@@ -3,7 +3,7 @@ use super::{
         Image,
         printer::{PrintImageError, PrintOptions},
     },
-    printer::{TerminalError, TerminalIo, TextProperties},
+    printer::{TerminalError, TerminalIo},
 };
 use crate::{
     WindowSize,
@@ -128,7 +128,7 @@ impl VirtualTerminal {
         Ok(())
     }
 
-    fn print_text(&mut self, content: &str, style: &TextStyle, properties: &TextProperties) -> io::Result<()> {
+    fn print_text(&mut self, content: &str, style: &TextStyle) -> io::Result<()> {
         let style = style.merged(&TextStyle::default().colors(self.colors));
         for c in content.chars() {
             let Some(cell) = self.current_cell_mut() else {
@@ -138,7 +138,7 @@ impl VirtualTerminal {
             cell.style = style;
             self.column += 1;
         }
-        let height = self.current_row_height().max(properties.height as u16);
+        let height = self.current_row_height().max(style.size as u16);
         self.set_current_row_height(height);
         Ok(())
     }
@@ -185,7 +185,7 @@ impl TerminalIo for VirtualTerminal {
             MoveToColumn(column) => self.move_to_column(*column)?,
             MoveDown(amount) => self.move_down(*amount)?,
             MoveToNextLine => self.move_to_next_line()?,
-            PrintText { content, style, properties } => self.print_text(content, style, properties)?,
+            PrintText { content, style } => self.print_text(content, style)?,
             ClearScreen => self.clear_screen()?,
             SetColors(colors) => self.set_colors(*colors)?,
             SetBackgroundColor(color) => self.set_background_color(*color)?,
@@ -235,10 +235,10 @@ mod tests {
         let dimensions = WindowSize { rows: 2, columns: 3, height: 0, width: 0 };
         let mut term = VirtualTerminal::new(dimensions);
         for c in "abc".chars() {
-            term.print_text(&c.to_string(), &Default::default(), &Default::default()).expect("print failed");
+            term.print_text(&c.to_string(), &Default::default()).expect("print failed");
         }
         term.move_to_next_line().unwrap();
-        term.print_text("A", &Default::default(), &Default::default()).expect("print failed");
+        term.print_text("A", &Default::default()).expect("print failed");
         let grid = term.into_contents();
         grid.assert_contents(&["abc", "A  "]);
     }
@@ -247,14 +247,14 @@ mod tests {
     fn movement() {
         let dimensions = WindowSize { rows: 2, columns: 3, height: 0, width: 0 };
         let mut term = VirtualTerminal::new(dimensions);
-        term.print_text("A", &Default::default(), &Default::default()).unwrap();
+        term.print_text("A", &Default::default()).unwrap();
         term.move_down(1).unwrap();
-        term.print_text("B", &Default::default(), &Default::default()).unwrap();
+        term.print_text("B", &Default::default()).unwrap();
         term.move_to(2, 0).unwrap();
-        term.print_text("C", &Default::default(), &Default::default()).unwrap();
+        term.print_text("C", &Default::default()).unwrap();
         term.move_to_row(1).unwrap();
         term.move_to_column(2).unwrap();
-        term.print_text("D", &Default::default(), &Default::default()).unwrap();
+        term.print_text("D", &Default::default()).unwrap();
 
         let grid = term.into_contents();
         grid.assert_contents(&["A C", " BD"]);

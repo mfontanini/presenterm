@@ -23,7 +23,7 @@ pub(crate) enum TerminalCommand<'a> {
     MoveToColumn(u16),
     MoveDown(u16),
     MoveToNextLine,
-    PrintText { content: &'a str, style: TextStyle, properties: TextProperties },
+    PrintText { content: &'a str, style: TextStyle },
     ClearScreen,
     SetColors(Colors),
     SetBackgroundColor(Color),
@@ -100,10 +100,10 @@ impl<I: TerminalWrite> Terminal<I> {
         Ok(())
     }
 
-    fn print_text(&mut self, content: &str, style: &TextStyle, properties: &TextProperties) -> io::Result<()> {
+    fn print_text(&mut self, content: &str, style: &TextStyle) -> io::Result<()> {
         let content = style.apply(content);
         self.writer.queue(style::PrintStyledContent(content))?;
-        self.current_row_height = self.current_row_height.max(properties.height as u16);
+        self.current_row_height = self.current_row_height.max(style.size as u16);
         Ok(())
     }
 
@@ -159,7 +159,7 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
             MoveToColumn(column) => self.move_to_column(*column)?,
             MoveDown(amount) => self.move_down(*amount)?,
             MoveToNextLine => self.move_to_next_line()?,
-            PrintText { content, style, properties } => self.print_text(content, style, properties)?,
+            PrintText { content, style } => self.print_text(content, style)?,
             ClearScreen => self.clear_screen()?,
             SetColors(colors) => self.set_colors(*colors)?,
             SetBackgroundColor(color) => self.set_background_color(*color)?,
@@ -177,17 +177,6 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
 impl<I: TerminalWrite> Drop for Terminal<I> {
     fn drop(&mut self) {
         self.writer.deinit();
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub(crate) struct TextProperties {
-    pub(crate) height: u8,
-}
-
-impl Default for TextProperties {
-    fn default() -> Self {
-        Self { height: 1 }
     }
 }
 

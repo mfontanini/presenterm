@@ -446,7 +446,7 @@ mod tests {
     use super::*;
     use crate::{
         markdown::text_style::{Color, TextStyle},
-        terminal::printer::{TerminalError, TextProperties},
+        terminal::printer::TerminalError,
         theme::Margin,
     };
     use std::io;
@@ -499,7 +499,7 @@ mod tests {
             self.push(Instruction::MoveToNextLine)
         }
 
-        fn print_text(&mut self, content: &str, _style: &TextStyle, _properties: &TextProperties) -> io::Result<()> {
+        fn print_text(&mut self, content: &str, _style: &TextStyle) -> io::Result<()> {
             let content = content.to_string();
             if content.is_empty() {
                 return Ok(());
@@ -546,7 +546,7 @@ mod tests {
                 MoveToColumn(column) => self.move_to_column(*column)?,
                 MoveDown(amount) => self.move_down(*amount)?,
                 MoveToNextLine => self.move_to_next_line()?,
-                PrintText { content, style, properties } => self.print_text(content, style, properties)?,
+                PrintText { content, style } => self.print_text(content, style)?,
                 ClearScreen => self.clear_screen()?,
                 SetColors(colors) => self.set_colors(*colors)?,
                 SetBackgroundColor(color) => self.set_background_color(*color)?,
