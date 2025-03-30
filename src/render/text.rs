@@ -212,7 +212,13 @@ mod tests {
         fn execute(&mut self, command: &TerminalCommand<'_>) -> Result<(), TerminalError> {
             use TerminalCommand::*;
             match command {
-                BeginUpdate | EndUpdate | MoveToRow(_) | MoveToNextLine | MoveTo { .. } | PrintImage { .. } => {
+                BeginUpdate
+                | EndUpdate
+                | MoveToRow(_)
+                | MoveToNextLine
+                | MoveTo { .. }
+                | MoveRight(_)
+                | PrintImage { .. } => {
                     unimplemented!()
                 }
                 MoveToColumn(column) => self.move_to_column(*column)?,

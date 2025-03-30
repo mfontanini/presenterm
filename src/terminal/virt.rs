@@ -120,6 +120,11 @@ impl VirtualTerminal {
         Ok(())
     }
 
+    fn move_right(&mut self, amount: u16) -> io::Result<()> {
+        self.column += amount;
+        Ok(())
+    }
+
     fn move_to_next_line(&mut self) -> io::Result<()> {
         let amount = self.current_row_height();
         self.row += amount;
@@ -184,6 +189,7 @@ impl TerminalIo for VirtualTerminal {
             MoveToRow(row) => self.move_to_row(*row)?,
             MoveToColumn(column) => self.move_to_column(*column)?,
             MoveDown(amount) => self.move_down(*amount)?,
+            MoveRight(amount) => self.move_right(*amount)?,
             MoveToNextLine => self.move_to_next_line()?,
             PrintText { content, style } => self.print_text(content, style)?,
             ClearScreen => self.clear_screen()?,

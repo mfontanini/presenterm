@@ -1,4 +1,7 @@
-use crate::terminal::image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError};
+use crate::terminal::{
+    image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError},
+    printer::{TerminalCommand, TerminalIo},
+};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use image::{GenericImageView, ImageEncoder, codecs::png::PngEncoder};
 use std::{fs, path::Path};
@@ -43,18 +46,18 @@ impl PrintImage for ItermPrinter {
         Ok(ItermImage::new(contents, image.dimensions()))
     }
 
-    fn print<W>(&self, image: &Self::Image, options: &PrintOptions, writer: &mut W) -> Result<(), PrintImageError>
+    fn print<T>(&self, image: &Self::Image, options: &PrintOptions, terminal: &mut T) -> Result<(), PrintImageError>
     where
-        W: std::io::Write,
+        T: TerminalIo,
     {
         let size = image.raw_length;
         let columns = options.columns;
         let rows = options.rows;
         let contents = &image.base64_contents;
-        write!(
-            writer,
+        let content = format!(
             "\x1b]1337;File=size={size};width={columns};height={rows};inline=1;preserveAspectRatio=1:{contents}\x07"
-        )?;
+        );
+        terminal.execute(&TerminalCommand::PrintText { content: &content, style: Default::default() })?;
         Ok(())
     }
 }
