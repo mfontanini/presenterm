@@ -73,6 +73,25 @@ pub(crate) struct KittyImage {
     resource: GenericResource<KittyBuffer>,
 }
 
+impl KittyImage {
+    pub(crate) fn as_rgba8(&self) -> RgbaImage {
+        let first_frame = match &self.resource {
+            GenericResource::Image(buffer) => buffer,
+            GenericResource::Gif(gif_frames) => &gif_frames[0].buffer,
+        };
+        let buffer = match first_frame {
+            KittyBuffer::Filesystem(path) => {
+                let Ok(contents) = fs::read(path) else {
+                    return RgbaImage::default();
+                };
+                contents
+            }
+            KittyBuffer::Memory(buffer) => buffer.clone(),
+        };
+        RgbaImage::from_raw(self.dimensions.0, self.dimensions.1, buffer).unwrap_or_default()
+    }
+}
+
 impl ImageProperties for KittyImage {
     fn dimensions(&self) -> (u32, u32) {
         self.dimensions

@@ -22,7 +22,7 @@ use crate::{
     terminal::{
         image::printer::{ImagePrinter, ImageRegistry},
         printer::{TerminalCommand, TerminalIo},
-        virt::{TerminalGrid, VirtualTerminal},
+        virt::{ImageBehavior, TerminalGrid, VirtualTerminal},
     },
     theme::{ProcessingThemeError, raw::PresentationTheme},
     third_party::ThirdPartyRender,
@@ -506,7 +506,7 @@ impl<'a> Presenter<'a> {
         dimensions: WindowSize,
         options: &RenderEngineOptions,
     ) -> Result<TerminalGrid, RenderError> {
-        let mut term = VirtualTerminal::new(dimensions.clone());
+        let mut term = VirtualTerminal::new(dimensions.clone(), ImageBehavior::PrintAscii);
         let engine = RenderEngine::new(&mut term, dimensions.clone(), options.clone());
         engine.render(slide.iter_visible_operations())?;
         Ok(term.into_contents())

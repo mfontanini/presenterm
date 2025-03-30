@@ -3,7 +3,7 @@ use crate::terminal::{
     printer::{TerminalCommand, TerminalIo},
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
-use image::{GenericImageView, ImageEncoder, codecs::png::PngEncoder};
+use image::{GenericImageView, ImageEncoder, RgbaImage, codecs::png::PngEncoder};
 use std::{fs, path::Path};
 
 pub(crate) struct ItermImage {
@@ -17,6 +17,12 @@ impl ItermImage {
         let raw_length = contents.len();
         let base64_contents = STANDARD.encode(&contents);
         Self { dimensions, raw_length, base64_contents }
+    }
+
+    pub(crate) fn as_rgba8(&self) -> RgbaImage {
+        let contents = STANDARD.decode(&self.base64_contents).expect("base64 must be valid");
+        let image = image::load_from_memory(&contents).expect("image must have been originally valid");
+        image.to_rgba8()
     }
 }
 

@@ -1,7 +1,8 @@
 use super::{
     image::{
         Image,
-        printer::{PrintImageError, PrintOptions},
+        printer::{PrintImage, PrintImageError, PrintOptions, TerminalImage},
+        protocols::ascii::AsciiPrinter,
     },
     printer::{TerminalError, TerminalIo},
 };
@@ -13,7 +14,8 @@ use crate::{
     },
     terminal::printer::TerminalCommand,
 };
-use std::{collections::HashMap, io};
+use image::DynamicImage;
+use std::{collections::HashMap, io, ops::Deref};
 
 #[derive(Debug)]
 pub(crate) struct PrintedImage {
@@ -63,10 +65,11 @@ pub(crate) struct VirtualTerminal {
     background_color: Option<Color>,
     images: HashMap<(u16, u16), PrintedImage>,
     row_heights: Vec<u16>,
+    image_behavior: ImageBehavior,
 }
 
 impl VirtualTerminal {
-    pub(crate) fn new(dimensions: WindowSize) -> Self {
+    pub(crate) fn new(dimensions: WindowSize, image_behavior: ImageBehavior) -> Self {
         let rows = vec![vec![StyledChar::default(); dimensions.columns as usize]; dimensions.rows as usize];
         let row_heights = vec![1; dimensions.rows as usize];
         Self {
@@ -77,6 +80,7 @@ impl VirtualTerminal {
             background_color: None,
             images: Default::default(),
             row_heights,
+            image_behavior,
         }
     }
 
@@ -173,9 +177,32 @@ impl VirtualTerminal {
     }
 
     fn print_image(&mut self, image: &Image, options: &PrintOptions) -> Result<(), PrintImageError> {
-        let key = (options.cursor_position.row, options.cursor_position.column);
-        let image = PrintedImage { image: image.clone(), width_columns: options.columns };
-        self.images.insert(key, image);
+        match &self.image_behavior {
+            ImageBehavior::Store => {
+                let key = (options.cursor_position.row, options.cursor_position.column);
+                let image = PrintedImage { image: image.clone(), width_columns: options.columns };
+                self.images.insert(key, image);
+            }
+            ImageBehavior::PrintAscii => {
+                let image_printer = AsciiPrinter;
+                match image.image.deref() {
+                    TerminalImage::Kitty(image) => {
+                        let image = DynamicImage::from(image.as_rgba8());
+                        image_printer.print(&image.into(), options, self)
+                    }
+                    TerminalImage::Iterm(image) => {
+                        let image = DynamicImage::from(image.as_rgba8());
+                        image_printer.print(&image.into(), options, self)
+                    }
+                    TerminalImage::Ascii(image) => image_printer.print(image, options, self),
+                    #[cfg(feature = "sixel")]
+                    TerminalImage::Sixel(image) => {
+                        let image = DynamicImage::from(image.as_rgba8());
+                        image_printer.print(&image.into(), options, self)
+                    }
+                }?;
+            }
+        };
         Ok(())
     }
 }
@@ -204,6 +231,13 @@ impl TerminalIo for VirtualTerminal {
     fn cursor_row(&self) -> u16 {
         self.row
     }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) enum ImageBehavior {
+    #[default]
+    Store,
+    PrintAscii,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -239,7 +273,7 @@ mod tests {
     #[test]
     fn text() {
         let dimensions = WindowSize { rows: 2, columns: 3, height: 0, width: 0 };
-        let mut term = VirtualTerminal::new(dimensions);
+        let mut term = VirtualTerminal::new(dimensions, Default::default());
         for c in "abc".chars() {
             term.print_text(&c.to_string(), &Default::default()).expect("print failed");
         }
@@ -252,7 +286,7 @@ mod tests {
     #[test]
     fn movement() {
         let dimensions = WindowSize { rows: 2, columns: 3, height: 0, width: 0 };
-        let mut term = VirtualTerminal::new(dimensions);
+        let mut term = VirtualTerminal::new(dimensions, Default::default());
         term.print_text("A", &Default::default()).unwrap();
         term.move_down(1).unwrap();
         term.print_text("B", &Default::default()).unwrap();

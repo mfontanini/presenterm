@@ -132,7 +132,7 @@ impl PdfRender {
     }
 
     pub(crate) fn process_slide(&mut self, slide: Slide) -> Result<(), ExportError> {
-        let mut terminal = VirtualTerminal::new(self.dimensions.clone());
+        let mut terminal = VirtualTerminal::new(self.dimensions.clone(), Default::default());
         let engine = RenderEngine::new(&mut terminal, self.dimensions.clone(), Default::default());
         engine.render(slide.iter_operations())?;
 
