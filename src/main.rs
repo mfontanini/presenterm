@@ -26,7 +26,7 @@ use crossterm::{
 };
 use directories::ProjectDirs;
 use export::exporter::OutputDirectory;
-use render::properties::WindowSize;
+use render::{engine::MaxSize, properties::WindowSize};
 use std::{
     env::{self, current_dir},
     io,
@@ -434,8 +434,12 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             font_size_fallback: config.defaults.terminal_font_size,
             bindings: config.bindings,
             validate_overflows,
-            max_columns: config.defaults.max_columns,
-            max_columns_alignment: config.defaults.max_columns_alignment,
+            max_size: MaxSize {
+                max_columns: config.defaults.max_columns,
+                max_columns_alignment: config.defaults.max_columns_alignment,
+                max_rows: config.defaults.max_rows,
+                max_rows_alignment: config.defaults.max_rows_alignment,
+            },
             transition: config.transition,
         };
         let presenter = Presenter::new(

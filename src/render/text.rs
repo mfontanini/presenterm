@@ -218,6 +218,7 @@ mod tests {
                 | MoveToNextLine
                 | MoveTo { .. }
                 | MoveRight(_)
+                | MoveLeft(_)
                 | PrintImage { .. } => {
                     unimplemented!()
                 }

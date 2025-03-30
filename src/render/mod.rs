@@ -6,7 +6,6 @@ pub(crate) mod text;
 pub(crate) mod validate;
 
 use crate::{
-    config::MaxColumnsAlignment,
     markdown::{
         elements::Text,
         text::WeightedLine,
@@ -20,9 +19,12 @@ use crate::{
     },
     theme::{Alignment, Margin},
 };
-use engine::{RenderEngine, RenderEngineOptions};
+use engine::{MaxSize, RenderEngine, RenderEngineOptions};
+use operation::AsRenderOperations;
 use std::{
     io::{self, Stdout},
+    iter,
+    rc::Rc,
     sync::Arc,
 };
 
@@ -31,13 +33,12 @@ pub(crate) type RenderResult = Result<(), RenderError>;
 
 pub(crate) struct TerminalDrawerOptions {
     pub(crate) font_size_fallback: u8,
-    pub(crate) max_columns: u16,
-    pub(crate) max_columns_alignment: MaxColumnsAlignment,
+    pub(crate) max_size: MaxSize,
 }
 
 impl Default for TerminalDrawerOptions {
     fn default() -> Self {
-        Self { font_size_fallback: 1, max_columns: u16::MAX, max_columns_alignment: Default::default() }
+        Self { font_size_fallback: 1, max_size: Default::default() }
     }
 }
 
@@ -64,45 +65,16 @@ impl TerminalDrawer {
     }
 
     pub(crate) fn render_error(&mut self, message: &str, source: &ErrorSource) -> RenderResult {
+        let operation = RenderErrorOperation { message: message.into(), source: source.clone() };
+        let operation = RenderOperation::RenderDynamic(Rc::new(operation));
         let dimensions = WindowSize::current(self.options.font_size_fallback)?;
-        let heading_text = match source {
-            ErrorSource::Presentation => "Error loading presentation".to_string(),
-            ErrorSource::Slide(slide) => {
-                format!("Error in slide {slide}")
-            }
-        };
-        let heading = vec![Text::new(heading_text, TextStyle::default().bold()), Text::from(": ")];
-        let total_lines = message.lines().count();
-        let starting_row = (dimensions.rows / 2).saturating_sub(total_lines as u16 / 2 + 3);
-        let alignment = Alignment::Left { margin: Margin::Percent(25) };
-
-        let mut operations = vec![
-            RenderOperation::SetColors(Colors {
-                foreground: Some(Color::new(255, 0, 0)),
-                background: Some(Color::new(0, 0, 0)),
-            }),
-            RenderOperation::ClearScreen,
-            RenderOperation::JumpToRow { index: starting_row },
-            RenderOperation::RenderText { line: WeightedLine::from(heading), alignment },
-            RenderOperation::RenderLineBreak,
-            RenderOperation::RenderLineBreak,
-        ];
-        for line in message.lines() {
-            let error = vec![Text::from(line)];
-            let op = RenderOperation::RenderText { line: WeightedLine::from(error), alignment };
-            operations.extend([op, RenderOperation::RenderLineBreak]);
-        }
         let engine = self.create_engine(dimensions);
-        engine.render(operations.iter())?;
+        engine.render(iter::once(&operation))?;
         Ok(())
     }
 
     pub(crate) fn render_engine_options(&self) -> RenderEngineOptions {
-        RenderEngineOptions {
-            max_columns: self.options.max_columns,
-            max_columns_alignment: self.options.max_columns_alignment,
-            ..Default::default()
-        }
+        RenderEngineOptions { max_size: self.options.max_size.clone(), ..Default::default() }
     }
 
     fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<Terminal<Stdout>> {
@@ -142,7 +114,47 @@ pub(crate) enum RenderError {
     PaletteColor(#[from] PaletteColorError),
 }
 
+#[derive(Clone, Debug)]
 pub(crate) enum ErrorSource {
     Presentation,
     Slide(usize),
+}
+
+#[derive(Debug)]
+struct RenderErrorOperation {
+    message: String,
+    source: ErrorSource,
+}
+
+impl AsRenderOperations for RenderErrorOperation {
+    fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
+        let heading_text = match self.source {
+            ErrorSource::Presentation => "Error loading presentation".to_string(),
+            ErrorSource::Slide(slide) => {
+                format!("Error in slide {slide}")
+            }
+        };
+        let heading = vec![Text::new(heading_text, TextStyle::default().bold()), Text::from(": ")];
+        let total_lines = self.message.lines().count();
+        let starting_row = (dimensions.rows / 2).saturating_sub(total_lines as u16 / 2 + 3);
+        let alignment = Alignment::Left { margin: Margin::Percent(25) };
+
+        let mut operations = vec![
+            RenderOperation::SetColors(Colors {
+                foreground: Some(Color::new(255, 0, 0)),
+                background: Some(Color::new(0, 0, 0)),
+            }),
+            RenderOperation::ClearScreen,
+            RenderOperation::JumpToRow { index: starting_row },
+            RenderOperation::RenderText { line: WeightedLine::from(heading), alignment },
+            RenderOperation::RenderLineBreak,
+            RenderOperation::RenderLineBreak,
+        ];
+        for line in self.message.lines() {
+            let error = vec![Text::from(line)];
+            let op = RenderOperation::RenderText { line: WeightedLine::from(error), alignment };
+            operations.extend([op, RenderOperation::RenderLineBreak]);
+        }
+        operations
+    }
 }
