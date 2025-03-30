@@ -1,15 +1,16 @@
-use crate::terminal::image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError};
-use crossterm::{
-    QueueableCommand,
-    cursor::{MoveRight, MoveToColumn},
-    style::{Color, Stylize},
+use crate::{
+    markdown::text_style::{Color, Colors, TextStyle},
+    terminal::{
+        image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError},
+        printer::{TerminalCommand, TerminalIo},
+    },
 };
 use image::{DynamicImage, GenericImageView, Pixel, Rgba, imageops::FilterType};
 use itertools::Itertools;
 use std::{fs, ops::Deref};
 
-const TOP_CHAR: char = '▀';
-const BOTTOM_CHAR: char = '▄';
+const TOP_CHAR: &str = "▀";
+const BOTTOM_CHAR: &str = "▄";
 
 pub(crate) struct AsciiImage(DynamicImage);
 
@@ -74,9 +75,9 @@ impl PrintImage for AsciiPrinter {
         Ok(AsciiImage(image))
     }
 
-    fn print<W>(&self, image: &Self::Image, options: &PrintOptions, writer: &mut W) -> Result<(), PrintImageError>
+    fn print<T>(&self, image: &Self::Image, options: &PrintOptions, terminal: &mut T) -> Result<(), PrintImageError>
     where
-        W: std::io::Write,
+        T: TerminalIo,
     {
         // The strategy here is taken from viuer: use half vertical ascii blocks in combination
         // with foreground/background colors to fit 2 vertical pixels per cell. That is, cell (x, y)
@@ -88,7 +89,7 @@ impl PrintImage for AsciiPrinter {
         // Iterate pixel rows in pairs to be able to merge both pixels in a single iteration.
         // Note that may not have a second row if there's an odd number of them.
         for mut rows in &image.rows().chunks(2) {
-            writer.queue(MoveToColumn(options.cursor_position.column))?;
+            terminal.execute(&TerminalCommand::MoveToColumn(options.cursor_position.column))?;
 
             let top_row = rows.next().unwrap();
             let mut bottom_row = rows.next();
@@ -101,36 +102,25 @@ impl PrintImage for AsciiPrinter {
                 let background = default_background;
                 let top = Self::pixel_color(top_pixel, background);
                 let bottom = bottom_pixel.and_then(|c| Self::pixel_color(c, background));
-                match (top, bottom) {
-                    (Some(top), Some(bottom)) => {
-                        write!(writer, "{}", TOP_CHAR.with(top).on(bottom))?;
-                    }
-                    (Some(top), None) => {
-                        write!(writer, "{}", TOP_CHAR.with(top).maybe_on(default_background))?;
-                    }
-                    (None, Some(bottom)) => {
-                        write!(writer, "{}", BOTTOM_CHAR.with(bottom).maybe_on(default_background))?;
-                    }
-                    (None, None) => {
-                        writer.queue(MoveRight(1))?;
-                    }
+                let command = match (top, bottom) {
+                    (Some(top), Some(bottom)) => TerminalCommand::PrintText {
+                        content: TOP_CHAR,
+                        style: TextStyle::default().fg_color(top).bg_color(bottom),
+                    },
+                    (Some(top), None) => TerminalCommand::PrintText {
+                        content: TOP_CHAR,
+                        style: TextStyle::colored(Colors { foreground: Some(top), background: default_background }),
+                    },
+                    (None, Some(bottom)) => TerminalCommand::PrintText {
+                        content: BOTTOM_CHAR,
+                        style: TextStyle::colored(Colors { foreground: Some(bottom), background: default_background }),
+                    },
+                    (None, None) => TerminalCommand::MoveRight(1),
                 };
+                terminal.execute(&command)?;
             }
-            writeln!(writer)?;
+            terminal.execute(&TerminalCommand::MoveDown(1))?;
         }
         Ok(())
-    }
-}
-
-trait StylizeExt: Stylize {
-    fn maybe_on(self, color: Option<Color>) -> Self::Styled;
-}
-
-impl<T: Stylize> StylizeExt for T {
-    fn maybe_on(self, color: Option<Color>) -> Self::Styled {
-        match color {
-            Some(background) => self.on(background),
-            None => self.stylize(),
-        }
     }
 }

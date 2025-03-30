@@ -458,6 +458,7 @@ mod tests {
         MoveToRow(u16),
         MoveToColumn(u16),
         MoveDown(u16),
+        MoveRight(u16),
         MoveToNextLine,
         PrintText(String),
         ClearScreen,
@@ -493,6 +494,10 @@ mod tests {
 
         fn move_down(&mut self, amount: u16) -> std::io::Result<()> {
             self.push(Instruction::MoveDown(amount))
+        }
+
+        fn move_right(&mut self, amount: u16) -> std::io::Result<()> {
+            self.push(Instruction::MoveRight(amount))
         }
 
         fn move_to_next_line(&mut self) -> std::io::Result<()> {
@@ -545,6 +550,7 @@ mod tests {
                 MoveToRow(row) => self.move_to_row(*row)?,
                 MoveToColumn(column) => self.move_to_column(*column)?,
                 MoveDown(amount) => self.move_down(*amount)?,
+                MoveRight(amount) => self.move_right(*amount)?,
                 MoveToNextLine => self.move_to_next_line()?,
                 PrintText { content, style } => self.print_text(content, style)?,
                 ClearScreen => self.clear_screen()?,

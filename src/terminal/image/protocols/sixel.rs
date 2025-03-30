@@ -1,15 +1,24 @@
-use crate::terminal::image::printer::{
-    CreatePrinterError, ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError,
+use crate::terminal::{
+    image::printer::{
+        CreatePrinterError, ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError,
+    },
+    printer::{TerminalCommand, TerminalIo},
 };
-use image::{DynamicImage, GenericImageView, imageops::FilterType};
+use image::{DynamicImage, GenericImageView, RgbaImage, imageops::FilterType};
 use sixel_rs::{
     encoder::{Encoder, QuickFrameBuilder},
     optflags::EncodePolicy,
     sys::PixelFormat,
 };
-use std::{fs, io};
+use std::fs;
 
 pub(crate) struct SixelImage(DynamicImage);
+
+impl SixelImage {
+    pub(crate) fn as_rgba8(&self) -> RgbaImage {
+        self.0.to_rgba8()
+    }
+}
 
 impl ImageProperties for SixelImage {
     fn dimensions(&self) -> (u32, u32) {
@@ -39,12 +48,12 @@ impl PrintImage for SixelPrinter {
         Ok(SixelImage(image))
     }
 
-    fn print<W>(&self, image: &Self::Image, options: &PrintOptions, writer: &mut W) -> Result<(), PrintImageError>
+    fn print<T>(&self, image: &Self::Image, options: &PrintOptions, terminal: &mut T) -> Result<(), PrintImageError>
     where
-        W: io::Write,
+        T: TerminalIo,
     {
         // We're already positioned in the right place but we may not have flushed that yet.
-        writer.flush()?;
+        terminal.execute(&TerminalCommand::Flush)?;
 
         let encoder = Encoder::new().map_err(|e| PrintImageError::other(format!("creating sixel encoder: {e:?}")))?;
         encoder

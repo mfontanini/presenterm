@@ -22,6 +22,7 @@ pub(crate) enum TerminalCommand<'a> {
     MoveToRow(u16),
     MoveToColumn(u16),
     MoveDown(u16),
+    MoveRight(u16),
     MoveToNextLine,
     PrintText { content: &'a str, style: TextStyle },
     ClearScreen,
@@ -92,6 +93,11 @@ impl<I: TerminalWrite> Terminal<I> {
         Ok(())
     }
 
+    fn move_right(&mut self, amount: u16) -> io::Result<()> {
+        self.writer.queue(cursor::MoveRight(amount))?;
+        Ok(())
+    }
+
     fn move_to_next_line(&mut self) -> io::Result<()> {
         let amount = self.current_row_height;
         self.writer.queue(cursor::MoveToNextLine(amount))?;
@@ -134,7 +140,8 @@ impl<I: TerminalWrite> Terminal<I> {
 
     fn print_image(&mut self, image: &Image, options: &PrintOptions) -> Result<(), PrintImageError> {
         self.move_to_column(options.cursor_position.column)?;
-        self.image_printer.print(&image.image, options, &mut self.writer)?;
+        let image_printer = self.image_printer.clone();
+        image_printer.print(&image.image, options, self)?;
         self.cursor_row += options.rows;
         Ok(())
     }
@@ -158,6 +165,7 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
             MoveToRow(row) => self.move_to_row(*row)?,
             MoveToColumn(column) => self.move_to_column(*column)?,
             MoveDown(amount) => self.move_down(*amount)?,
+            MoveRight(amount) => self.move_right(*amount)?,
             MoveToNextLine => self.move_to_next_line()?,
             PrintText { content, style } => self.print_text(content, style)?,
             ClearScreen => self.clear_screen()?,

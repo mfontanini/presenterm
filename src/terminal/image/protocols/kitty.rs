@@ -1,14 +1,16 @@
 use crate::{
-    markdown::text_style::Color,
-    terminal::image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError},
+    markdown::text_style::{Color, TextStyle},
+    terminal::{
+        image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError},
+        printer::{TerminalCommand, TerminalIo},
+    },
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
-use crossterm::{QueueableCommand, cursor::MoveToColumn, style::SetForegroundColor};
 use image::{AnimationDecoder, Delay, DynamicImage, EncodableLayout, ImageReader, RgbaImage, codecs::gif::GifDecoder};
 use std::{
     fmt,
     fs::{self, File},
-    io::{self, BufReader, Write},
+    io::{self, BufReader},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU32, Ordering},
 };
@@ -69,6 +71,25 @@ impl RawResource {
 pub(crate) struct KittyImage {
     dimensions: (u32, u32),
     resource: GenericResource<KittyBuffer>,
+}
+
+impl KittyImage {
+    pub(crate) fn as_rgba8(&self) -> RgbaImage {
+        let first_frame = match &self.resource {
+            GenericResource::Image(buffer) => buffer,
+            GenericResource::Gif(gif_frames) => &gif_frames[0].buffer,
+        };
+        let buffer = match first_frame {
+            KittyBuffer::Filesystem(path) => {
+                let Ok(contents) = fs::read(path) else {
+                    return RgbaImage::default();
+                };
+                contents
+            }
+            KittyBuffer::Memory(buffer) => buffer.clone(),
+        };
+        RgbaImage::from_raw(self.dimensions.0, self.dimensions.1, buffer).unwrap_or_default()
+    }
 }
 
 impl ImageProperties for KittyImage {
@@ -147,15 +168,15 @@ impl KittyPrinter {
         fastrand::u32(1..u32::MAX)
     }
 
-    fn print_image<W>(
+    fn print_image<T>(
         &self,
         dimensions: (u32, u32),
         buffer: &KittyBuffer,
-        writer: &mut W,
+        terminal: &mut T,
         print_options: &PrintOptions,
     ) -> Result<(), PrintImageError>
     where
-        W: io::Write,
+        T: TerminalIo,
     {
         let mut options = vec![
             ControlOption::Format(ImageFormat::Rgba),
@@ -174,25 +195,25 @@ impl KittyPrinter {
         }
 
         match &buffer {
-            KittyBuffer::Filesystem(path) => self.print_local(options, path, writer)?,
-            KittyBuffer::Memory(buffer) => self.print_remote(options, buffer, writer, false)?,
+            KittyBuffer::Filesystem(path) => self.print_local(options, path, terminal)?,
+            KittyBuffer::Memory(buffer) => self.print_remote(options, buffer, terminal, false)?,
         };
         if self.tmux {
-            self.print_unicode_placeholders(writer, print_options, image_id)?;
+            self.print_unicode_placeholders(terminal, print_options, image_id)?;
         }
 
         Ok(())
     }
 
-    fn print_gif<W>(
+    fn print_gif<T>(
         &self,
         dimensions: (u32, u32),
         frames: &[GifFrame<KittyBuffer>],
-        writer: &mut W,
+        terminal: &mut T,
         print_options: &PrintOptions,
     ) -> Result<(), PrintImageError>
     where
-        W: io::Write,
+        T: TerminalIo,
     {
         let image_id = Self::generate_image_id();
         for (frame_id, frame) in frames.iter().enumerate() {
@@ -222,8 +243,8 @@ impl KittyPrinter {
 
             let is_frame = frame_id > 0;
             match &frame.buffer {
-                KittyBuffer::Filesystem(path) => self.print_local(options, path, writer)?,
-                KittyBuffer::Memory(buffer) => self.print_remote(options, buffer, writer, is_frame)?,
+                KittyBuffer::Filesystem(path) => self.print_local(options, path, terminal)?,
+                KittyBuffer::Memory(buffer) => self.print_remote(options, buffer, terminal, is_frame)?,
             };
 
             if frame_id == 0 {
@@ -233,8 +254,8 @@ impl KittyPrinter {
                     ControlOption::FrameId(1),
                     ControlOption::Loops(1),
                 ];
-                let command = self.make_command(options, "");
-                write!(writer, "{command}")?;
+                let command = self.make_command(options, "").to_string();
+                terminal.execute(&TerminalCommand::PrintText { content: &command, style: Default::default() })?;
             } else if frame_id == 1 {
                 let options = &[
                     ControlOption::Action(Action::Animate),
@@ -242,12 +263,12 @@ impl KittyPrinter {
                     ControlOption::FrameId(1),
                     ControlOption::AnimationState(2),
                 ];
-                let command = self.make_command(options, "");
-                write!(writer, "{command}")?;
+                let command = self.make_command(options, "").to_string();
+                terminal.execute(&TerminalCommand::PrintText { content: &command, style: Default::default() })?;
             }
         }
         if self.tmux {
-            self.print_unicode_placeholders(writer, print_options, image_id)?;
+            self.print_unicode_placeholders(terminal, print_options, image_id)?;
         }
         let options = &[
             ControlOption::Action(Action::Animate),
@@ -257,8 +278,8 @@ impl KittyPrinter {
             ControlOption::Loops(1),
             ControlOption::Quiet(2),
         ];
-        let command = self.make_command(options, "");
-        write!(writer, "{command}")?;
+        let command = self.make_command(options, "").to_string();
+        terminal.execute(&TerminalCommand::PrintText { content: &command, style: Default::default() })?;
         Ok(())
     }
 
@@ -266,14 +287,14 @@ impl KittyPrinter {
         ControlCommand { options, payload, tmux: self.tmux }
     }
 
-    fn print_local<W>(
+    fn print_local<T>(
         &self,
         mut options: Vec<ControlOption>,
         path: &Path,
-        writer: &mut W,
+        terminal: &mut T,
     ) -> Result<(), PrintImageError>
     where
-        W: io::Write,
+        T: TerminalIo,
     {
         let Some(path) = path.to_str() else {
             return Err(PrintImageError::other("path is not valid utf8"));
@@ -281,20 +302,20 @@ impl KittyPrinter {
         let encoded_path = STANDARD.encode(path);
         options.push(ControlOption::Medium(TransmissionMedium::LocalFile));
 
-        let command = self.make_command(&options, &encoded_path);
-        write!(writer, "{command}")?;
+        let command = self.make_command(&options, &encoded_path).to_string();
+        terminal.execute(&TerminalCommand::PrintText { content: &command, style: Default::default() })?;
         Ok(())
     }
 
-    fn print_remote<W>(
+    fn print_remote<T>(
         &self,
         mut options: Vec<ControlOption>,
         frame: &[u8],
-        writer: &mut W,
+        terminal: &mut T,
         is_frame: bool,
     ) -> Result<(), PrintImageError>
     where
-        W: io::Write,
+        T: TerminalIo,
     {
         options.push(ControlOption::Medium(TransmissionMedium::Direct));
 
@@ -310,8 +331,8 @@ impl KittyPrinter {
             options.push(ControlOption::MoreData(more));
 
             let payload = &payload[start..end];
-            let command = self.make_command(&options, payload);
-            write!(writer, "{command}")?;
+            let command = self.make_command(&options, payload).to_string();
+            terminal.execute(&TerminalCommand::PrintText { content: &command, style: Default::default() })?;
 
             options.clear();
             if is_frame {
@@ -321,14 +342,17 @@ impl KittyPrinter {
         Ok(())
     }
 
-    fn print_unicode_placeholders<W: Write>(
+    fn print_unicode_placeholders<T>(
         &self,
-        writer: &mut W,
+        terminal: &mut T,
         options: &PrintOptions,
         image_id: u32,
-    ) -> Result<(), PrintImageError> {
+    ) -> Result<(), PrintImageError>
+    where
+        T: TerminalIo,
+    {
         let color = Color::new((image_id >> 16) as u8, (image_id >> 8) as u8, image_id as u8);
-        writer.queue(SetForegroundColor(color.into()))?;
+        let style = TextStyle::default().fg_color(color);
         if options.rows.max(options.columns) >= DIACRITICS.len() as u16 {
             return Err(PrintImageError::other("image is too large to fit in tmux"));
         }
@@ -338,12 +362,13 @@ impl KittyPrinter {
             let row_diacritic = char::from_u32(DIACRITICS[row as usize]).unwrap();
             for column in 0..options.columns {
                 let column_diacritic = char::from_u32(DIACRITICS[column as usize]).unwrap();
-                write!(writer, "{IMAGE_PLACEHOLDER}{row_diacritic}{column_diacritic}{last_byte}")?;
+                let content = format!("{IMAGE_PLACEHOLDER}{row_diacritic}{column_diacritic}{last_byte}");
+                terminal.execute(&TerminalCommand::PrintText { content: &content, style })?;
             }
             if row != options.rows - 1 {
-                writeln!(writer)?;
+                terminal.execute(&TerminalCommand::MoveToNextLine)?;
             }
-            writer.queue(MoveToColumn(options.cursor_position.column))?;
+            terminal.execute(&TerminalCommand::MoveToColumn(options.cursor_position.column))?;
         }
         Ok(())
     }
@@ -388,15 +413,13 @@ impl PrintImage for KittyPrinter {
         Ok(resource)
     }
 
-    fn print<W: std::io::Write>(
-        &self,
-        image: &Self::Image,
-        options: &PrintOptions,
-        writer: &mut W,
-    ) -> Result<(), PrintImageError> {
+    fn print<T>(&self, image: &Self::Image, options: &PrintOptions, terminal: &mut T) -> Result<(), PrintImageError>
+    where
+        T: TerminalIo,
+    {
         match &image.resource {
-            GenericResource::Image(resource) => self.print_image(image.dimensions, resource, writer, options)?,
-            GenericResource::Gif(frames) => self.print_gif(image.dimensions, frames, writer, options)?,
+            GenericResource::Image(resource) => self.print_image(image.dimensions, resource, terminal, options)?,
+            GenericResource::Gif(frames) => self.print_gif(image.dimensions, frames, terminal, options)?,
         };
         Ok(())
     }

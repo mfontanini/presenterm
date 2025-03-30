@@ -9,7 +9,10 @@ use super::{
 use crate::{
     markdown::text_style::{Color, PaletteColorError},
     render::properties::CursorPosition,
-    terminal::GraphicsMode,
+    terminal::{
+        GraphicsMode,
+        printer::{TerminalError, TerminalIo},
+    },
 };
 use image::{DynamicImage, ImageError};
 use std::{
@@ -28,9 +31,9 @@ pub(crate) trait PrintImage {
     /// Load and register an image from the given path.
     fn register_from_path<P: AsRef<Path>>(&self, path: P) -> Result<Self::Image, RegisterImageError>;
 
-    fn print<W>(&self, image: &Self::Image, options: &PrintOptions, writer: &mut W) -> Result<(), PrintImageError>
+    fn print<T>(&self, image: &Self::Image, options: &PrintOptions, terminal: &mut T) -> Result<(), PrintImageError>
     where
-        W: io::Write;
+        T: TerminalIo;
 }
 
 pub(crate) trait ImageProperties {
@@ -143,17 +146,17 @@ impl PrintImage for ImagePrinter {
         Ok(image)
     }
 
-    fn print<W>(&self, image: &Self::Image, options: &PrintOptions, writer: &mut W) -> Result<(), PrintImageError>
+    fn print<T>(&self, image: &Self::Image, options: &PrintOptions, terminal: &mut T) -> Result<(), PrintImageError>
     where
-        W: io::Write,
+        T: TerminalIo,
     {
         match (self, image) {
-            (Self::Kitty(printer), TerminalImage::Kitty(image)) => printer.print(image, options, writer),
-            (Self::Iterm(printer), TerminalImage::Iterm(image)) => printer.print(image, options, writer),
-            (Self::Ascii(printer), TerminalImage::Ascii(image)) => printer.print(image, options, writer),
+            (Self::Kitty(printer), TerminalImage::Kitty(image)) => printer.print(image, options, terminal),
+            (Self::Iterm(printer), TerminalImage::Iterm(image)) => printer.print(image, options, terminal),
+            (Self::Ascii(printer), TerminalImage::Ascii(image)) => printer.print(image, options, terminal),
             (Self::Null, _) => Ok(()),
             #[cfg(feature = "sixel")]
-            (Self::Sixel(printer), TerminalImage::Sixel(image)) => printer.print(image, options, writer),
+            (Self::Sixel(printer), TerminalImage::Sixel(image)) => printer.print(image, options, terminal),
             _ => Err(PrintImageError::Unsupported),
         }
     }
@@ -214,6 +217,15 @@ pub(crate) enum PrintImageError {
 impl From<PaletteColorError> for PrintImageError {
     fn from(e: PaletteColorError) -> Self {
         Self::Other(e.to_string().into())
+    }
+}
+
+impl From<TerminalError> for PrintImageError {
+    fn from(e: TerminalError) -> Self {
+        match e {
+            TerminalError::Io(e) => Self::Io(e),
+            TerminalError::Image(e) => e,
+        }
     }
 }
 
