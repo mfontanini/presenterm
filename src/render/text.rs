@@ -5,7 +5,7 @@ use crate::{
         text_style::{Color, Colors, TextStyle},
     },
     render::{RenderError, RenderResult, layout::Positioning},
-    terminal::printer::{TerminalCommand, TerminalIo, TextProperties},
+    terminal::printer::{TerminalCommand, TerminalIo},
 };
 
 /// Draws text on the screen.
@@ -21,7 +21,6 @@ pub(crate) struct TextDrawer<'a> {
     draw_block: bool,
     block_color: Option<Color>,
     repeat_prefix: bool,
-    properties: TextProperties,
 }
 
 impl<'a> TextDrawer<'a> {
@@ -56,7 +55,6 @@ impl<'a> TextDrawer<'a> {
                 draw_block: false,
                 block_color: None,
                 repeat_prefix: false,
-                properties: TextProperties { height: line.font_size() },
             })
         }
     }
@@ -81,17 +79,18 @@ impl<'a> TextDrawer<'a> {
     {
         let mut line_length: u16 = 0;
         terminal.execute(&TerminalCommand::MoveToColumn(self.positioning.start_column))?;
+        let font_size = self.line.font_size();
 
         // Print the prefix at the beginning of the line.
         if self.prefix_width > 0 {
             let Text { content, style } = self.prefix.text();
-            terminal.execute(&TerminalCommand::PrintText { content, style: *style, properties: self.properties })?;
+            terminal.execute(&TerminalCommand::PrintText { content, style: *style })?;
         }
         for (line_index, line) in self.line.split(self.positioning.max_line_length as usize).enumerate() {
             if line_index > 0 {
                 // Complete the current line's block to the right before moving down.
                 self.print_block_background(line_length, terminal)?;
-                terminal.execute(&TerminalCommand::MoveDown(self.properties.height as u16))?;
+                terminal.execute(&TerminalCommand::MoveDown(font_size as u16))?;
                 terminal.execute(&TerminalCommand::MoveToColumn(self.positioning.start_column))?;
                 line_length = 0;
 
@@ -99,22 +98,14 @@ impl<'a> TextDrawer<'a> {
                 if self.prefix_width > 0 {
                     if self.repeat_prefix {
                         let Text { content, style } = self.prefix.text();
-                        terminal.execute(&TerminalCommand::PrintText {
-                            content,
-                            style: *style,
-                            properties: self.properties,
-                        })?;
+                        terminal.execute(&TerminalCommand::PrintText { content, style: *style })?;
                     } else {
                         if let Some(color) = self.block_color {
                             terminal.execute(&TerminalCommand::SetBackgroundColor(color))?;
                         }
-                        let text = " ".repeat(self.prefix_width as usize / self.properties.height as usize);
-                        let style = TextStyle::default().size(self.properties.height);
-                        terminal.execute(&TerminalCommand::PrintText {
-                            content: &text,
-                            style,
-                            properties: self.properties,
-                        })?;
+                        let text = " ".repeat(self.prefix_width as usize / font_size as usize);
+                        let style = TextStyle::default().size(font_size);
+                        terminal.execute(&TerminalCommand::PrintText { content: &text, style })?;
                     }
                 }
             }
@@ -122,7 +113,7 @@ impl<'a> TextDrawer<'a> {
                 line_length = line_length.saturating_add(chunk.width() as u16);
 
                 let (text, style) = chunk.into_parts();
-                terminal.execute(&TerminalCommand::PrintText { content: text, style, properties: self.properties })?;
+                terminal.execute(&TerminalCommand::PrintText { content: text, style })?;
 
                 // Crossterm resets colors if any attributes are set so let's just re-apply colors
                 // if the format has anything on it at all.
@@ -143,12 +134,13 @@ impl<'a> TextDrawer<'a> {
             let remaining =
                 self.positioning.max_line_length.saturating_sub(line_length).saturating_add(self.right_padding_length);
             if remaining > 0 {
+                let font_size = self.line.font_size();
                 if let Some(color) = self.block_color {
                     terminal.execute(&TerminalCommand::SetBackgroundColor(color))?;
                 }
-                let text = " ".repeat(remaining as usize / self.properties.height as usize);
-                let style = TextStyle::default().size(self.properties.height);
-                terminal.execute(&TerminalCommand::PrintText { content: &text, style, properties: self.properties })?;
+                let text = " ".repeat(remaining as usize / font_size as usize);
+                let style = TextStyle::default().size(font_size);
+                terminal.execute(&TerminalCommand::PrintText { content: &text, style })?;
             }
         }
         Ok(())
@@ -189,7 +181,7 @@ mod tests {
             self.push(Instruction::MoveDown(amount))
         }
 
-        fn print_text(&mut self, content: &str, style: &TextStyle, _properties: &TextProperties) -> io::Result<()> {
+        fn print_text(&mut self, content: &str, style: &TextStyle) -> io::Result<()> {
             let content = content.to_string();
             if content.is_empty() {
                 return Ok(());
@@ -225,7 +217,7 @@ mod tests {
                 }
                 MoveToColumn(column) => self.move_to_column(*column)?,
                 MoveDown(amount) => self.move_down(*amount)?,
-                PrintText { content, style, properties } => self.print_text(content, style, properties)?,
+                PrintText { content, style } => self.print_text(content, style)?,
                 ClearScreen => self.clear_screen()?,
                 SetColors(colors) => self.set_colors(*colors)?,
                 SetBackgroundColor(color) => self.set_background_color(*color)?,

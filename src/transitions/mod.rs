@@ -1,9 +1,8 @@
-use std::fmt::Debug;
-
 use crate::{
     markdown::{elements::Line, text_style::Color},
-    terminal::printer::{TerminalCommand, TextProperties},
+    terminal::printer::TerminalCommand,
 };
+use std::fmt::Debug;
 use unicode_width::UnicodeWidthStr;
 
 pub(crate) mod slide_horizontal;
@@ -83,11 +82,7 @@ impl AnimationFrame for LinesFrame {
                     commands.push(MoveToColumn(column as u16));
                     is_in_column = true;
                 }
-                commands.push(PrintText {
-                    content: text,
-                    style: chunk.style,
-                    properties: TextProperties { height: chunk.style.size },
-                });
+                commands.push(PrintText { content: text, style: chunk.style });
                 column += text.width();
                 if white_after > 0 {
                     column += white_after;
@@ -120,16 +115,16 @@ mod tests {
             ClearScreen,
             MoveToRow(0),
             MoveToColumn(2),
-            PrintText { content: "hi", style: Default::default(), properties: TextProperties { height: 1 } },
+            PrintText { content: "hi", style: Default::default() },
             MoveToColumn(6),
-            PrintText { content: "bye", style: Default::default(), properties: TextProperties { height: 1 } },
-            PrintText { content: "s", style: Default::default(), properties: TextProperties { height: 1 } },
+            PrintText { content: "bye", style: Default::default() },
+            PrintText { content: "s", style: Default::default() },
             MoveToRow(1),
             MoveToColumn(0),
-            PrintText { content: "hello", style: Default::default(), properties: TextProperties { height: 1 } },
+            PrintText { content: "hello", style: Default::default() },
             MoveToColumn(6),
-            PrintText { content: "wor", style: Default::default(), properties: TextProperties { height: 1 } },
-            PrintText { content: "s", style: Default::default(), properties: TextProperties { height: 1 } },
+            PrintText { content: "wor", style: Default::default() },
+            PrintText { content: "s", style: Default::default() },
         ];
         assert_eq!(commands, expected);
     }
