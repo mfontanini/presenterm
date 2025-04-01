@@ -1,12 +1,32 @@
 use crate::render::properties::{CursorPosition, WindowSize};
 
+pub(crate) trait ScaleImage {
+    /// Scale an image to a specific size.
+    fn scale_image(
+        &self,
+        scale_size: &WindowSize,
+        window_dimensions: &WindowSize,
+        image_width: u32,
+        image_height: u32,
+        position: &CursorPosition,
+    ) -> TerminalRect;
+
+    /// Shrink an image so it fits the dimensions of the layout it's being displayed in.
+    fn fit_image_to_rect(
+        &self,
+        dimensions: &WindowSize,
+        image_width: u32,
+        image_height: u32,
+        position: &CursorPosition,
+    ) -> TerminalRect;
+}
+
 pub(crate) struct ImageScaler {
     horizontal_margin: f64,
 }
 
-impl ImageScaler {
-    /// Scale an image to a specific size.
-    pub(crate) fn scale_image(
+impl ScaleImage for ImageScaler {
+    fn scale_image(
         &self,
         scale_size: &WindowSize,
         window_dimensions: &WindowSize,
@@ -23,8 +43,7 @@ impl ImageScaler {
         self.fit_image_to_rect(window_dimensions, image_width as u32, image_height as u32, position)
     }
 
-    /// Shrink an image so it fits the dimensions of the layout it's being displayed in.
-    pub(crate) fn fit_image_to_rect(
+    fn fit_image_to_rect(
         &self,
         dimensions: &WindowSize,
         image_width: u32,

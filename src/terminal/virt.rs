@@ -129,6 +129,11 @@ impl VirtualTerminal {
         Ok(())
     }
 
+    fn move_left(&mut self, amount: u16) -> io::Result<()> {
+        self.column = self.column.saturating_sub(amount);
+        Ok(())
+    }
+
     fn move_to_next_line(&mut self) -> io::Result<()> {
         let amount = self.current_row_height();
         self.row += amount;
@@ -179,7 +184,7 @@ impl VirtualTerminal {
     fn print_image(&mut self, image: &Image, options: &PrintOptions) -> Result<(), PrintImageError> {
         match &self.image_behavior {
             ImageBehavior::Store => {
-                let key = (options.cursor_position.row, options.cursor_position.column);
+                let key = (self.row, self.column);
                 let image = PrintedImage { image: image.clone(), width_columns: options.columns };
                 self.images.insert(key, image);
             }
@@ -217,6 +222,7 @@ impl TerminalIo for VirtualTerminal {
             MoveToColumn(column) => self.move_to_column(*column)?,
             MoveDown(amount) => self.move_down(*amount)?,
             MoveRight(amount) => self.move_right(*amount)?,
+            MoveLeft(amount) => self.move_left(*amount)?,
             MoveToNextLine => self.move_to_next_line()?,
             PrintText { content, style } => self.print_text(content, style)?,
             ClearScreen => self.clear_screen()?,

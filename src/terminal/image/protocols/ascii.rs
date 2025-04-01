@@ -89,8 +89,6 @@ impl PrintImage for AsciiPrinter {
         // Iterate pixel rows in pairs to be able to merge both pixels in a single iteration.
         // Note that may not have a second row if there's an odd number of them.
         for mut rows in &image.rows().chunks(2) {
-            terminal.execute(&TerminalCommand::MoveToColumn(options.cursor_position.column))?;
-
             let top_row = rows.next().unwrap();
             let mut bottom_row = rows.next();
             for top_pixel in top_row {
@@ -120,6 +118,7 @@ impl PrintImage for AsciiPrinter {
                 terminal.execute(&command)?;
             }
             terminal.execute(&TerminalCommand::MoveDown(1))?;
+            terminal.execute(&TerminalCommand::MoveLeft(options.columns))?;
         }
         Ok(())
     }

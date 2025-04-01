@@ -93,13 +93,22 @@ pub struct DefaultsConfig {
     pub validate_overflows: ValidateOverflows,
 
     /// A max width in columns that the presentation must always be capped to.
-    #[serde(default = "default_max_columns")]
+    #[serde(default = "default_u16_max")]
     pub max_columns: u16,
 
     /// The alignment the presentation should have if `max_columns` is set and the terminal is
     /// larger than that.
     #[serde(default)]
     pub max_columns_alignment: MaxColumnsAlignment,
+
+    /// A max height in rows that the presentation must always be capped to.
+    #[serde(default = "default_u16_max")]
+    pub max_rows: u16,
+
+    /// The alignment the presentation should have if `max_rows` is set and the terminal is
+    /// larger than that.
+    #[serde(default)]
+    pub max_rows_alignment: MaxRowsAlignment,
 
     /// The configuration for lists when incremental lists are enabled.
     #[serde(default)]
@@ -113,8 +122,10 @@ impl Default for DefaultsConfig {
             terminal_font_size: default_terminal_font_size(),
             image_protocol: Default::default(),
             validate_overflows: Default::default(),
-            max_columns: default_max_columns(),
+            max_columns: default_u16_max(),
             max_columns_alignment: Default::default(),
+            max_rows: default_u16_max(),
+            max_rows_alignment: Default::default(),
             incremental_lists: Default::default(),
         }
     }
@@ -150,6 +161,21 @@ pub enum MaxColumnsAlignment {
 
     /// Align the presentation to the right.
     Right,
+}
+
+/// The alignment to use when `defaults.max_rows` is set.
+#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MaxRowsAlignment {
+    /// Align the presentation to the top.
+    Top,
+
+    /// Align the presentation on the center.
+    #[default]
+    Center,
+
+    /// Align the presentation to the bottom.
+    Bottom,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
@@ -277,7 +303,7 @@ pub(crate) fn default_mermaid_scale() -> u32 {
     2
 }
 
-pub(crate) fn default_max_columns() -> u16 {
+pub(crate) fn default_u16_max() -> u16 {
     u16::MAX
 }
 

@@ -8,7 +8,6 @@ use super::{
 };
 use crate::{
     markdown::text_style::{Color, PaletteColorError},
-    render::properties::CursorPosition,
     terminal::{
         GraphicsMode,
         printer::{TerminalError, TerminalIo},
@@ -40,11 +39,10 @@ pub(crate) trait ImageProperties {
     fn dimensions(&self) -> (u32, u32);
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PrintOptions {
     pub(crate) columns: u16,
     pub(crate) rows: u16,
-    pub(crate) cursor_position: CursorPosition,
     pub(crate) z_index: i32,
     pub(crate) background_color: Option<Color>,
     // Width/height in pixels.

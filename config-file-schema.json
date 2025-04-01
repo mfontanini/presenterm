@@ -79,6 +79,21 @@
             }
           ]
         },
+        "max_rows": {
+          "description": "A max height in rows that the presentation must always be capped to.",
+          "default": 65535,
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "max_rows_alignment": {
+          "description": "The alignment the presentation should have if `max_rows` is set and the terminal is larger than that.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/MaxRowsAlignment"
+            }
+          ]
+        },
         "terminal_font_size": {
           "description": "Override the terminal font size when in windows or when using sixel.",
           "default": 16,
@@ -382,6 +397,32 @@
           "type": "string",
           "enum": [
             "right"
+          ]
+        }
+      ]
+    },
+    "MaxRowsAlignment": {
+      "description": "The alignment to use when `defaults.max_rows` is set.",
+      "oneOf": [
+        {
+          "description": "Align the presentation to the top.",
+          "type": "string",
+          "enum": [
+            "top"
+          ]
+        },
+        {
+          "description": "Align the presentation on the center.",
+          "type": "string",
+          "enum": [
+            "center"
+          ]
+        },
+        {
+          "description": "Align the presentation to the bottom.",
+          "type": "string",
+          "enum": [
+            "bottom"
           ]
         }
       ]

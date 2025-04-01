@@ -1,6 +1,6 @@
 use super::{RenderError, RenderResult, layout::Layout, properties::CursorPosition, text::TextDrawer};
 use crate::{
-    config::MaxColumnsAlignment,
+    config::{MaxColumnsAlignment, MaxRowsAlignment},
     markdown::{text::WeightedLine, text_style::Colors},
     render::{
         layout::Positioning,
@@ -14,7 +14,7 @@ use crate::{
         image::{
             Image,
             printer::{ImageProperties, PrintOptions},
-            scale::{ImageScaler, TerminalRect},
+            scale::{ImageScaler, ScaleImage},
         },
         printer::{TerminalCommand, TerminalIo},
     },
@@ -25,21 +25,34 @@ use std::mem;
 const MINIMUM_LINE_LENGTH: u16 = 10;
 
 #[derive(Clone, Debug)]
-pub(crate) struct RenderEngineOptions {
-    pub(crate) validate_overflows: bool,
+pub(crate) struct MaxSize {
     pub(crate) max_columns: u16,
     pub(crate) max_columns_alignment: MaxColumnsAlignment,
+    pub(crate) max_rows: u16,
+    pub(crate) max_rows_alignment: MaxRowsAlignment,
+}
+
+impl Default for MaxSize {
+    fn default() -> Self {
+        Self {
+            max_columns: u16::MAX,
+            max_columns_alignment: Default::default(),
+            max_rows: u16::MAX,
+            max_rows_alignment: Default::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RenderEngineOptions {
+    pub(crate) validate_overflows: bool,
+    pub(crate) max_size: MaxSize,
     pub(crate) column_layout_margin: u16,
 }
 
 impl Default for RenderEngineOptions {
     fn default() -> Self {
-        Self {
-            validate_overflows: false,
-            max_columns: u16::MAX,
-            max_columns_alignment: Default::default(),
-            column_layout_margin: 4,
-        }
+        Self { validate_overflows: false, max_size: Default::default(), column_layout_margin: 4 }
     }
 }
 
@@ -53,6 +66,7 @@ where
     max_modified_row: u16,
     layout: LayoutState,
     options: RenderEngineOptions,
+    image_scaler: Box<dyn ScaleImage>,
 }
 
 impl<'a, T> RenderEngine<'a, T>
@@ -70,27 +84,41 @@ where
             max_modified_row,
             layout: Default::default(),
             options,
+            image_scaler: Box::<ImageScaler>::default(),
         }
     }
 
-    fn starting_rect(window_dimensions: WindowSize, options: &RenderEngineOptions) -> WindowRect {
-        let start_row = 0;
-        if window_dimensions.columns > options.max_columns {
-            let extra_width = window_dimensions.columns - options.max_columns;
-            let dimensions = window_dimensions.shrink_columns(extra_width);
-            let start_column = match options.max_columns_alignment {
+    fn starting_rect(mut dimensions: WindowSize, options: &RenderEngineOptions) -> WindowRect {
+        let mut start_row = 0;
+        let mut start_column = 0;
+        if dimensions.columns > options.max_size.max_columns {
+            let extra_width = dimensions.columns - options.max_size.max_columns;
+            dimensions = dimensions.shrink_columns(extra_width);
+            start_column = match options.max_size.max_columns_alignment {
                 MaxColumnsAlignment::Left => 0,
                 MaxColumnsAlignment::Center => extra_width / 2,
                 MaxColumnsAlignment::Right => extra_width,
             };
-            WindowRect { dimensions, start_column, start_row }
-        } else {
-            WindowRect { dimensions: window_dimensions, start_column: 0, start_row }
         }
+        if dimensions.rows > options.max_size.max_rows {
+            let extra_height = dimensions.rows - options.max_size.max_rows;
+            dimensions = dimensions.shrink_rows(extra_height);
+            start_row = match options.max_size.max_rows_alignment {
+                MaxRowsAlignment::Top => 0,
+                MaxRowsAlignment::Center => extra_height / 2,
+                MaxRowsAlignment::Bottom => extra_height,
+            };
+        }
+        WindowRect { dimensions, start_column, start_row }
     }
 
     pub(crate) fn render<'b>(mut self, operations: impl Iterator<Item = &'b RenderOperation>) -> RenderResult {
+        let current_rect = self.current_rect().clone();
         self.terminal.execute(&TerminalCommand::BeginUpdate)?;
+        if current_rect.start_row != 0 || current_rect.start_column != 0 {
+            self.terminal
+                .execute(&TerminalCommand::MoveTo { column: current_rect.start_column, row: current_rect.start_row })?;
+        }
         for operation in operations {
             self.render_one(operation)?;
         }
@@ -139,8 +167,9 @@ where
     }
 
     fn clear_screen(&mut self) -> RenderResult {
+        let current = self.current_rect().clone();
         self.terminal.execute(&TerminalCommand::ClearScreen)?;
-        self.terminal.execute(&TerminalCommand::MoveTo { column: 0, row: 0 })?;
+        self.terminal.execute(&TerminalCommand::MoveTo { column: current.start_column, row: current.start_row })?;
         self.max_modified_row = 0;
         Ok(())
     }
@@ -151,7 +180,7 @@ where
         let margin = horizontal_margin.as_characters(current.dimensions.columns);
         let new_rect = current.shrink_horizontal(margin).shrink_bottom(*bottom).shrink_top(*top);
         if new_rect.start_row != self.terminal.cursor_row() {
-            self.jump_to_row(new_rect.start_row)?;
+            self.terminal.execute(&TerminalCommand::MoveToRow(new_rect.start_row))?;
         }
         self.window_rects.push(new_rect);
         Ok(())
@@ -176,7 +205,9 @@ where
     }
 
     fn jump_to_vertical_center(&mut self) -> RenderResult {
-        let center_row = self.current_dimensions().rows / 2;
+        let current = self.current_rect();
+        let center_row = current.dimensions.rows / 2;
+        let center_row = center_row.saturating_add(current.start_row);
         self.terminal.execute(&TerminalCommand::MoveToRow(center_row))?;
         Ok(())
     }
@@ -189,7 +220,9 @@ where
     }
 
     fn jump_to_bottom(&mut self, index: u16) -> RenderResult {
-        let target_row = self.current_dimensions().rows.saturating_sub(index).saturating_sub(1);
+        let current = self.current_rect();
+        let target_row = current.dimensions.rows.saturating_sub(index).saturating_sub(1);
+        let target_row = target_row.saturating_add(current.start_row);
         self.terminal.execute(&TerminalCommand::MoveToRow(target_row))?;
         Ok(())
     }
@@ -218,38 +251,36 @@ where
     }
 
     fn render_image(&mut self, image: &Image, properties: &ImageRenderProperties) -> RenderResult {
-        let rect = self.current_rect();
-        let starting_cursor = CursorPosition { row: self.terminal.cursor_row(), column: rect.start_column };
+        let rect = self.current_rect().clone();
+        let starting_row = self.terminal.cursor_row();
+        let starting_cursor =
+            CursorPosition { row: starting_row.saturating_sub(rect.start_row), column: rect.start_column };
 
         let (width, height) = image.dimensions();
-        let (cursor, columns, rows) = match properties.size {
+        let (columns, rows) = match properties.size {
             ImageSize::ShrinkIfNeeded => {
                 let image_scale =
-                    ImageScaler::default().fit_image_to_rect(&rect.dimensions, width, height, &starting_cursor);
-                let cursor = match properties.center {
-                    true => Self::center_cursor(&image_scale, &rect.dimensions, &starting_cursor),
-                    false => starting_cursor.clone(),
-                };
-                (cursor, image_scale.columns, image_scale.rows)
+                    self.image_scaler.fit_image_to_rect(&rect.dimensions, width, height, &starting_cursor);
+                (image_scale.columns, image_scale.rows)
             }
-            ImageSize::Specific(columns, rows) => (starting_cursor.clone(), columns, rows),
+            ImageSize::Specific(columns, rows) => (columns, rows),
             ImageSize::WidthScaled { ratio } => {
                 let extra_columns = (rect.dimensions.columns as f64 * (1.0 - ratio)).ceil() as u16;
                 let dimensions = rect.dimensions.shrink_columns(extra_columns);
                 let image_scale =
-                    ImageScaler::default().scale_image(&dimensions, &rect.dimensions, width, height, &starting_cursor);
-                let cursor = match properties.center {
-                    true => Self::center_cursor(&image_scale, &rect.dimensions, &starting_cursor),
-                    false => starting_cursor.clone(),
-                };
-                (cursor, image_scale.columns, image_scale.rows)
+                    self.image_scaler.scale_image(&dimensions, &rect.dimensions, width, height, &starting_cursor);
+                (image_scale.columns, image_scale.rows)
             }
         };
+        let cursor = match properties.center {
+            true => Self::center_cursor(columns, &rect.dimensions, &starting_cursor),
+            false => starting_cursor.clone(),
+        };
+        self.terminal.execute(&TerminalCommand::MoveToColumn(cursor.column))?;
 
         let options = PrintOptions {
             columns,
             rows,
-            cursor_position: cursor,
             z_index: properties.z_index,
             column_width: rect.dimensions.pixels_per_column() as u16,
             row_height: rect.dimensions.pixels_per_row() as u16,
@@ -257,16 +288,15 @@ where
         };
         self.terminal.execute(&TerminalCommand::PrintImage { image: image.clone(), options })?;
         if properties.restore_cursor {
-            self.terminal
-                .execute(&TerminalCommand::MoveTo { column: starting_cursor.column, row: starting_cursor.row })?;
+            self.terminal.execute(&TerminalCommand::MoveTo { column: starting_cursor.column, row: starting_row })?;
         } else {
-            self.terminal.execute(&TerminalCommand::MoveToRow(starting_cursor.row + rows))?;
+            self.terminal.execute(&TerminalCommand::MoveToRow(starting_row + rows))?;
         }
         self.apply_colors()
     }
 
-    fn center_cursor(rect: &TerminalRect, window: &WindowSize, cursor: &CursorPosition) -> CursorPosition {
-        let start_column = window.columns / 2 - (rect.columns / 2);
+    fn center_cursor(columns: u16, window: &WindowSize, cursor: &CursorPosition) -> CursorPosition {
+        let start_column = window.columns / 2 - (columns / 2);
         let start_column = start_column + cursor.column;
         CursorPosition { row: cursor.row, column: start_column }
     }
@@ -353,7 +383,10 @@ where
         let start_column = current_rect.start_column + (unit_width * column_units_before as f64) as u16;
         let start_row = columns[column_index].current_row;
         let new_column_count = (total_column_units - columns[column_index].width) * unit_width as u16;
-        let new_size = current_rect.dimensions.shrink_columns(new_column_count);
+        let new_size = current_rect
+            .dimensions
+            .shrink_columns(new_column_count)
+            .shrink_rows(start_row.saturating_sub(current_rect.start_row));
         let mut dimensions = WindowRect { dimensions: new_size, start_column, start_row };
         // Shrink every column's right edge except for last
         if column_index < columns.len() - 1 {
@@ -431,8 +464,9 @@ impl WindowRect {
     }
 
     fn shrink_top(&self, rows: u16) -> Self {
+        let dimensions = self.dimensions.shrink_rows(rows);
         let start_row = self.start_row.saturating_add(rows);
-        Self { dimensions: self.dimensions.clone(), start_column: self.start_column, start_row }
+        Self { dimensions, start_column: self.start_column, start_row }
     }
 
     fn shrink_bottom(&self, rows: u16) -> Self {
@@ -446,9 +480,18 @@ mod tests {
     use super::*;
     use crate::{
         markdown::text_style::{Color, TextStyle},
-        terminal::printer::TerminalError,
+        terminal::{
+            image::{
+                ImageSource,
+                printer::{PrintImageError, TerminalImage},
+                scale::TerminalRect,
+            },
+            printer::TerminalError,
+        },
         theme::Margin,
     };
+    use ::image::{ColorType, DynamicImage};
+    use rstest::rstest;
     use std::io;
     use unicode_width::UnicodeWidthStr;
 
@@ -459,11 +502,12 @@ mod tests {
         MoveToColumn(u16),
         MoveDown(u16),
         MoveRight(u16),
+        MoveLeft(u16),
         MoveToNextLine,
         PrintText(String),
         ClearScreen,
         SetBackgroundColor(Color),
-        PrintImage(Image),
+        PrintImage(PrintOptions),
     }
 
     #[derive(Default)]
@@ -478,29 +522,33 @@ mod tests {
             Ok(())
         }
 
-        fn move_to(&mut self, column: u16, row: u16) -> std::io::Result<()> {
+        fn move_to(&mut self, column: u16, row: u16) -> io::Result<()> {
             self.cursor_row = row;
             self.push(Instruction::MoveTo(column, row))
         }
 
-        fn move_to_row(&mut self, row: u16) -> std::io::Result<()> {
+        fn move_to_row(&mut self, row: u16) -> io::Result<()> {
             self.cursor_row = row;
             self.push(Instruction::MoveToRow(row))
         }
 
-        fn move_to_column(&mut self, column: u16) -> std::io::Result<()> {
+        fn move_to_column(&mut self, column: u16) -> io::Result<()> {
             self.push(Instruction::MoveToColumn(column))
         }
 
-        fn move_down(&mut self, amount: u16) -> std::io::Result<()> {
+        fn move_down(&mut self, amount: u16) -> io::Result<()> {
             self.push(Instruction::MoveDown(amount))
         }
 
-        fn move_right(&mut self, amount: u16) -> std::io::Result<()> {
+        fn move_right(&mut self, amount: u16) -> io::Result<()> {
             self.push(Instruction::MoveRight(amount))
         }
 
-        fn move_to_next_line(&mut self) -> std::io::Result<()> {
+        fn move_left(&mut self, amount: u16) -> io::Result<()> {
+            self.push(Instruction::MoveLeft(amount))
+        }
+
+        fn move_to_next_line(&mut self) -> io::Result<()> {
             self.push(Instruction::MoveToNextLine)
         }
 
@@ -513,29 +561,25 @@ mod tests {
             self.push(Instruction::PrintText(content))
         }
 
-        fn clear_screen(&mut self) -> std::io::Result<()> {
+        fn clear_screen(&mut self) -> io::Result<()> {
             self.cursor_row = 0;
             self.push(Instruction::ClearScreen)
         }
 
-        fn set_colors(&mut self, _colors: Colors) -> std::io::Result<()> {
+        fn set_colors(&mut self, _colors: Colors) -> io::Result<()> {
             Ok(())
         }
 
-        fn set_background_color(&mut self, color: Color) -> std::io::Result<()> {
+        fn set_background_color(&mut self, color: Color) -> io::Result<()> {
             self.push(Instruction::SetBackgroundColor(color))
         }
 
-        fn flush(&mut self) -> std::io::Result<()> {
+        fn flush(&mut self) -> io::Result<()> {
             Ok(())
         }
 
-        fn print_image(
-            &mut self,
-            image: &Image,
-            _options: &PrintOptions,
-        ) -> Result<(), crate::terminal::image::printer::PrintImageError> {
-            let _ = self.push(Instruction::PrintImage(image.clone()));
+        fn print_image(&mut self, _image: &Image, options: &PrintOptions) -> Result<(), PrintImageError> {
+            let _ = self.push(Instruction::PrintImage(options.clone()));
             Ok(())
         }
     }
@@ -551,6 +595,7 @@ mod tests {
                 MoveToColumn(column) => self.move_to_column(*column)?,
                 MoveDown(amount) => self.move_down(*amount)?,
                 MoveRight(amount) => self.move_right(*amount)?,
+                MoveLeft(amount) => self.move_left(*amount)?,
                 MoveToNextLine => self.move_to_next_line()?,
                 PrintText { content, style } => self.print_text(content, style)?,
                 ClearScreen => self.clear_screen()?,
@@ -567,18 +612,53 @@ mod tests {
         }
     }
 
-    fn render(operations: &[RenderOperation]) -> Vec<Instruction> {
+    struct DummyImageScaler;
+
+    impl ScaleImage for DummyImageScaler {
+        fn scale_image(
+            &self,
+            _scale_size: &WindowSize,
+            _window_dimensions: &WindowSize,
+            image_width: u32,
+            image_height: u32,
+            _position: &CursorPosition,
+        ) -> TerminalRect {
+            TerminalRect { rows: image_width as u16, columns: image_height as u16 }
+        }
+
+        fn fit_image_to_rect(
+            &self,
+            _dimensions: &WindowSize,
+            image_width: u32,
+            image_height: u32,
+            _position: &CursorPosition,
+        ) -> TerminalRect {
+            TerminalRect { rows: image_width as u16, columns: image_height as u16 }
+        }
+    }
+
+    fn do_render(max_size: MaxSize, operations: &[RenderOperation]) -> Vec<Instruction> {
         let mut buf = TerminalBuf::default();
         let dimensions = WindowSize { rows: 100, columns: 100, height: 200, width: 200 };
-        let options = RenderEngineOptions {
-            validate_overflows: false,
-            max_columns: u16::MAX,
-            max_columns_alignment: Default::default(),
-            column_layout_margin: 0,
-        };
-        let engine = RenderEngine::new(&mut buf, dimensions, options);
+        let options = RenderEngineOptions { validate_overflows: false, max_size, column_layout_margin: 0 };
+        let mut engine = RenderEngine::new(&mut buf, dimensions, options);
+        engine.image_scaler = Box::new(DummyImageScaler);
         engine.render(operations.iter()).expect("render failed");
         buf.instructions
+    }
+
+    fn render(operations: &[RenderOperation]) -> Vec<Instruction> {
+        do_render(Default::default(), operations)
+    }
+
+    fn render_with_max_size(operations: &[RenderOperation]) -> Vec<Instruction> {
+        let max_size = MaxSize {
+            max_rows: 10,
+            max_rows_alignment: MaxRowsAlignment::Center,
+            max_columns: 20,
+            max_columns_alignment: MaxColumnsAlignment::Center,
+        };
+        do_render(max_size, operations)
     }
 
     #[test]
@@ -685,6 +765,122 @@ mod tests {
             Instruction::MoveToRow(89),
             Instruction::MoveToColumn(1),
             Instruction::PrintText("C".into()),
+        ];
+        assert_eq!(ops, expected);
+    }
+
+    #[test]
+    fn margin_with_max_size() {
+        let ops = render_with_max_size(&[
+            RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 2, bottom: 1 }),
+            RenderOperation::RenderText { line: "B".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::JumpToBottomRow { index: 0 },
+            RenderOperation::RenderText { line: "C".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+        ]);
+        let expected = [
+            // centered 20x10
+            Instruction::MoveTo(40, 45),
+            Instruction::MoveToColumn(40),
+            Instruction::PrintText("A".into()),
+            // jump 2 down because of top margin
+            Instruction::MoveToRow(47),
+            // jump 1 right because of horizontal margin
+            Instruction::MoveToColumn(41),
+            Instruction::PrintText("B".into()),
+            // rows go from 47 to 53 (7 total)
+            Instruction::MoveToRow(53),
+            Instruction::MoveToColumn(41),
+            Instruction::PrintText("C".into()),
+        ];
+        assert_eq!(ops, expected);
+    }
+
+    // print the same 2x2 image with all size configs, they should all yield the same
+    #[rstest]
+    #[case::shrink(ImageSize::ShrinkIfNeeded)]
+    #[case::specific(ImageSize::Specific(2, 2))]
+    #[case::width_scaled(ImageSize::WidthScaled { ratio: 1.0 })]
+    fn image(#[case] size: ImageSize) {
+        let image = DynamicImage::new(2, 2, ColorType::Rgba8);
+        let image = Image::new(TerminalImage::Ascii(image.into()), ImageSource::Generated);
+        let properties =
+            ImageRenderProperties { z_index: 0, size, restore_cursor: false, background_color: None, center: false };
+        let ops = render_with_max_size(&[RenderOperation::RenderImage(image, properties)]);
+        let expected = [
+            // centered 20x10, the image is 2x2 so we stand one away from center
+            Instruction::MoveTo(40, 45),
+            Instruction::MoveToColumn(40),
+            Instruction::PrintImage(PrintOptions {
+                columns: 2,
+                rows: 2,
+                z_index: 0,
+                background_color: None,
+                column_width: 2,
+                row_height: 2,
+            }),
+            // place cursor after the image
+            Instruction::MoveToRow(47),
+        ];
+        assert_eq!(ops, expected);
+    }
+
+    // same as the above but center it
+    #[rstest]
+    #[case::shrink(ImageSize::ShrinkIfNeeded)]
+    #[case::specific(ImageSize::Specific(2, 2))]
+    #[case::width_scaled(ImageSize::WidthScaled { ratio: 1.0 })]
+    fn centered_image(#[case] size: ImageSize) {
+        let image = DynamicImage::new(2, 2, ColorType::Rgba8);
+        let image = Image::new(TerminalImage::Ascii(image.into()), ImageSource::Generated);
+        let properties =
+            ImageRenderProperties { z_index: 0, size, restore_cursor: false, background_color: None, center: true };
+        let ops = render_with_max_size(&[RenderOperation::RenderImage(image, properties)]);
+        let expected = [
+            // centered 20x10, the image is 2x2 so we stand one away from center
+            Instruction::MoveTo(40, 45),
+            Instruction::MoveToColumn(49),
+            Instruction::PrintImage(PrintOptions {
+                columns: 2,
+                rows: 2,
+                z_index: 0,
+                background_color: None,
+                column_width: 2,
+                row_height: 2,
+            }),
+            // place cursor after the image
+            Instruction::MoveToRow(47),
+        ];
+        assert_eq!(ops, expected);
+    }
+
+    // same as the above but center it
+    #[rstest]
+    fn restore_cursor_after_image() {
+        let image = DynamicImage::new(2, 2, ColorType::Rgba8);
+        let image = Image::new(TerminalImage::Ascii(image.into()), ImageSource::Generated);
+        let properties = ImageRenderProperties {
+            z_index: 0,
+            size: ImageSize::ShrinkIfNeeded,
+            restore_cursor: true,
+            background_color: None,
+            center: true,
+        };
+        let ops = render_with_max_size(&[RenderOperation::RenderImage(image, properties)]);
+        let expected = [
+            // centered 20x10, the image is 2x2 so we stand one away from center
+            Instruction::MoveTo(40, 45),
+            Instruction::MoveToColumn(49),
+            Instruction::PrintImage(PrintOptions {
+                columns: 2,
+                rows: 2,
+                z_index: 0,
+                background_color: None,
+                column_width: 2,
+                row_height: 2,
+            }),
+            // place cursor after the image
+            Instruction::MoveTo(40, 45),
         ];
         assert_eq!(ops, expected);
     }

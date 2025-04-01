@@ -366,9 +366,9 @@ impl KittyPrinter {
                 terminal.execute(&TerminalCommand::PrintText { content: &content, style })?;
             }
             if row != options.rows - 1 {
-                terminal.execute(&TerminalCommand::MoveToNextLine)?;
+                terminal.execute(&TerminalCommand::MoveDown(1))?;
             }
-            terminal.execute(&TerminalCommand::MoveToColumn(options.cursor_position.column))?;
+            terminal.execute(&TerminalCommand::MoveLeft(options.columns))?;
         }
         Ok(())
     }

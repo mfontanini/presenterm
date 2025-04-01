@@ -4,7 +4,7 @@ use crate::{
         listener::{Command, CommandListener},
         speaker_notes::{SpeakerNotesEvent, SpeakerNotesEventPublisher},
     },
-    config::{KeyBindingsConfig, MaxColumnsAlignment, SlideTransitionConfig, SlideTransitionStyleConfig},
+    config::{KeyBindingsConfig, SlideTransitionConfig, SlideTransitionStyleConfig},
     markdown::parse::{MarkdownParser, ParseError},
     presentation::{
         Presentation, Slide,
@@ -13,7 +13,7 @@ use crate::{
     },
     render::{
         ErrorSource, RenderError, RenderResult, TerminalDrawer, TerminalDrawerOptions,
-        engine::{RenderEngine, RenderEngineOptions},
+        engine::{MaxSize, RenderEngine, RenderEngineOptions},
         operation::RenderAsyncState,
         properties::WindowSize,
         validate::OverflowValidator,
@@ -47,8 +47,7 @@ pub struct PresenterOptions {
     pub font_size_fallback: u8,
     pub bindings: KeyBindingsConfig,
     pub validate_overflows: bool,
-    pub max_columns: u16,
-    pub max_columns_alignment: MaxColumnsAlignment,
+    pub max_size: MaxSize,
     pub transition: Option<SlideTransitionConfig>,
 }
 
@@ -111,8 +110,7 @@ impl<'a> Presenter<'a> {
 
         let drawer_options = TerminalDrawerOptions {
             font_size_fallback: self.options.font_size_fallback,
-            max_columns: self.options.max_columns,
-            max_columns_alignment: self.options.max_columns_alignment,
+            max_size: self.options.max_size.clone(),
         };
         let mut drawer = TerminalDrawer::new(self.image_printer.clone(), drawer_options)?;
         loop {
