@@ -377,7 +377,16 @@ impl<'a> PresentationBuilder<'a> {
                 new_theme = Some(theme);
             }
             if let Some(theme_path) = &metadata.path {
-                let theme = self.resources.theme(theme_path)?;
+                let mut theme = self.resources.theme(theme_path)?;
+                if let Some(name) = &theme.extends {
+                    let base = self
+                        .themes
+                        .presentation
+                        .load_by_name(name)
+                        .ok_or_else(|| BuildError::InvalidMetadata(format!("extended theme {name} not found")))?;
+                    theme = merge_struct::merge(&theme, &base)
+                        .map_err(|e| BuildError::InvalidMetadata(format!("invalid theme: {e}")))?;
+                }
                 new_theme = Some(theme);
             }
         }
@@ -385,8 +394,9 @@ impl<'a> PresentationBuilder<'a> {
             if overrides.extends.is_some() {
                 return Err(BuildError::InvalidMetadata("theme overrides can't use 'extends'".into()));
             }
+            let base = new_theme.as_ref().unwrap_or(self.default_raw_theme);
             // This shouldn't fail as the models are already correct.
-            let theme = merge_struct::merge(self.default_raw_theme, overrides)
+            let theme = merge_struct::merge(base, overrides)
                 .map_err(|e| BuildError::InvalidMetadata(format!("invalid theme: {e}")))?;
             new_theme = Some(theme);
         }
