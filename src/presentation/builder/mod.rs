@@ -1366,7 +1366,8 @@ mod test {
         options: PresentationBuilderOptions,
     ) -> Result<Presentation, BuildError> {
         let theme = raw::PresentationTheme::default();
-        let resources = Resources::new("/tmp", "/tmp", Default::default());
+        let tmp_dir = std::env::temp_dir();
+        let resources = Resources::new(&tmp_dir, &tmp_dir, Default::default());
         let mut third_party = ThirdPartyRender::default();
         let code_executor = Rc::new(SnippetExecutor::default());
         let themes = Themes::default();
