@@ -8,31 +8,33 @@ use crate::{
 pub(crate) struct SlideHorizontalAnimation {
     grid: TerminalGrid,
     dimensions: WindowSize,
+    direction: TransitionDirection,
 }
 
 impl SlideHorizontalAnimation {
-    pub(crate) fn new(left: TerminalGrid, right: TerminalGrid, dimensions: WindowSize) -> Self {
-        assert!(left.rows.len() == right.rows.len(), "different row count");
-        assert!(left.rows[0].len() == right.rows[0].len(), "different column count");
-        assert!(left.background_color == right.background_color, "different background color");
-
+    pub(crate) fn new(
+        left: TerminalGrid,
+        right: TerminalGrid,
+        dimensions: WindowSize,
+        direction: TransitionDirection,
+    ) -> Self {
         let mut rows = Vec::new();
         for (mut row, right) in left.rows.into_iter().zip(right.rows) {
             row.extend(right);
             rows.push(row);
         }
         let grid = TerminalGrid { rows, background_color: left.background_color, images: Default::default() };
-        Self { grid, dimensions }
+        Self { grid, dimensions, direction }
     }
 }
 
 impl AnimateTransition for SlideHorizontalAnimation {
     type Frame = LinesFrame;
 
-    fn build_frame(&self, frame: usize, direction: TransitionDirection) -> Self::Frame {
+    fn build_frame(&self, frame: usize, _previous_frame: usize) -> Self::Frame {
         let total = self.total_frames();
         let frame = frame.min(total);
-        let index = match direction {
+        let index = match &self.direction {
             TransitionDirection::Next => frame,
             TransitionDirection::Previous => total.saturating_sub(frame),
         };
@@ -95,8 +97,8 @@ mod tests {
         let left = build_grid(&["AB", "CD"]);
         let right = build_grid(&["EF", "GH"]);
         let dimensions = WindowSize { rows: 2, columns: 2, height: 0, width: 0 };
-        let transition = SlideHorizontalAnimation::new(left, right, dimensions);
-        let lines: Vec<_> = transition.build_frame(frame, direction).lines.into_iter().map(as_text).collect();
+        let transition = SlideHorizontalAnimation::new(left, right, dimensions, direction);
+        let lines: Vec<_> = transition.build_frame(frame, 0).lines.into_iter().map(as_text).collect();
         assert_eq!(lines, expected);
     }
 }

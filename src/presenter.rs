@@ -26,7 +26,10 @@ use crate::{
     },
     theme::{ProcessingThemeError, raw::PresentationTheme},
     third_party::ThirdPartyRender,
-    transitions::{AnimateTransition, AnimationFrame, TransitionDirection, slide_horizontal::SlideHorizontalAnimation},
+    transitions::{
+        AnimateTransition, AnimationFrame, LinesFrame, TransitionDirection, fade::FadeAnimation,
+        slide_horizontal::SlideHorizontalAnimation,
+    },
 };
 use std::{
     collections::HashSet,
@@ -419,7 +422,7 @@ impl<'a> Presenter<'a> {
     }
 
     fn next_slide(&mut self, drawer: &mut TerminalDrawer) -> RenderResult {
-        let Some(transition) = &self.options.transition else {
+        let Some(config) = self.options.transition.clone() else {
             return Ok(());
         };
         let options = drawer.render_engine_options();
@@ -430,18 +433,11 @@ impl<'a> Presenter<'a> {
         presentation.jump_next();
         let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
         let direction = TransitionDirection::Next;
-        match transition.animation {
-            SlideTransitionStyleConfig::SlideHorizontal => self.animate(
-                drawer,
-                SlideHorizontalAnimation::new(left, right, dimensions),
-                transition.clone(),
-                direction,
-            ),
-        }
+        self.animate_transition(drawer, left, right, direction, dimensions, config)
     }
 
     fn previous_slide(&mut self, drawer: &mut TerminalDrawer) -> RenderResult {
-        let Some(transition) = &self.options.transition else {
+        let Some(config) = self.options.transition.clone() else {
             return Ok(());
         };
         let options = drawer.render_engine_options();
@@ -452,22 +448,41 @@ impl<'a> Presenter<'a> {
         presentation.jump_previous();
         let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
         let direction = TransitionDirection::Previous;
-        match transition.animation {
-            SlideTransitionStyleConfig::SlideHorizontal => self.animate(
+        self.animate_transition(drawer, left, right, direction, dimensions, config)
+    }
+
+    fn animate_transition(
+        &mut self,
+        drawer: &mut TerminalDrawer,
+        left: TerminalGrid,
+        right: TerminalGrid,
+        direction: TransitionDirection,
+        dimensions: WindowSize,
+        config: SlideTransitionConfig,
+    ) -> RenderResult {
+        let first = match &direction {
+            TransitionDirection::Next => left.clone(),
+            TransitionDirection::Previous => right.clone(),
+        };
+        match &config.animation {
+            SlideTransitionStyleConfig::SlideHorizontal => self.run_animation(
                 drawer,
-                SlideHorizontalAnimation::new(left, right, dimensions),
-                transition.clone(),
-                direction,
+                first,
+                SlideHorizontalAnimation::new(left, right, dimensions, direction),
+                config,
             ),
+            SlideTransitionStyleConfig::Fade => {
+                self.run_animation(drawer, first, FadeAnimation::new(left, right, direction), config)
+            }
         }
     }
 
-    fn animate<T>(
+    fn run_animation<T>(
         &mut self,
         drawer: &mut TerminalDrawer,
+        first: TerminalGrid,
         animation: T,
         config: SlideTransitionConfig,
-        direction: TransitionDirection,
     ) -> RenderResult
     where
         T: AnimateTransition,
@@ -476,26 +491,34 @@ impl<'a> Presenter<'a> {
         let frames: usize = config.frames;
         let total_frames = animation.total_frames();
         let step = total_time / (frames as u32 * 2);
+        let mut last_frame_index = 0;
         let mut frame_index = 1;
+        // Render the first frame as text to have images as ascii
+        Self::render_frame(&LinesFrame::from(&first).build_commands(), drawer)?;
         while frame_index < total_frames {
             let start = Instant::now();
-            let frame = animation.build_frame(frame_index, direction.clone());
-            // let frame = animation.build_frame(13, direction.clone());
+            let frame = animation.build_frame(frame_index, last_frame_index);
             let commands = frame.build_commands();
-            drawer.terminal.execute(&TerminalCommand::BeginUpdate)?;
-            for command in commands {
-                drawer.terminal.execute(&command)?;
-            }
-            drawer.terminal.execute(&TerminalCommand::EndUpdate)?;
-            drawer.terminal.execute(&TerminalCommand::Flush)?;
+            Self::render_frame(&commands, drawer)?;
 
             let elapsed = start.elapsed();
             let sleep_needed = step.saturating_sub(elapsed);
             if sleep_needed.as_millis() > 0 {
                 std::thread::sleep(step);
             }
+            last_frame_index = frame_index;
             frame_index += total_frames.div_ceil(frames);
         }
+        Ok(())
+    }
+
+    fn render_frame(commands: &[TerminalCommand<'_>], drawer: &mut TerminalDrawer) -> RenderResult {
+        drawer.terminal.execute(&TerminalCommand::BeginUpdate)?;
+        for command in commands {
+            drawer.terminal.execute(command)?;
+        }
+        drawer.terminal.execute(&TerminalCommand::EndUpdate)?;
+        drawer.terminal.execute(&TerminalCommand::Flush)?;
         Ok(())
     }
 

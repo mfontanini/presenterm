@@ -43,7 +43,9 @@ impl HtmlSlide {
             let mut finalized_row = "<div class=\"content-line\"><pre>".to_string();
             let mut current_style = row.first().map(|c| c.style).unwrap_or_default();
             let mut current_string = String::new();
-            for (x, c) in row.into_iter().enumerate() {
+            let mut x = 0;
+            while x < row.len() {
+                let c = row[x];
                 if c.style != current_style {
                     finalized_row.push_str(&Self::finalize_string(&current_string, &current_style));
                     current_string = String::new();
@@ -63,6 +65,7 @@ impl HtmlSlide {
                     );
                     current_string.push_str(&image_tag);
                 }
+                x += c.style.size as usize;
             }
             if !current_string.is_empty() {
                 finalized_row.push_str(&Self::finalize_string(&current_string, &current_style));

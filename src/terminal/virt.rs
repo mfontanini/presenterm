@@ -17,7 +17,7 @@ use crate::{
 use image::DynamicImage;
 use std::{collections::HashMap, io, ops::Deref};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PrintedImage {
     pub(crate) image: Image,
     pub(crate) width_columns: u16,
@@ -50,7 +50,7 @@ impl Iterator for TerminalRowIterator<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct TerminalGrid {
     pub(crate) rows: Vec<Vec<StyledChar>>,
     pub(crate) background_color: Option<Color>,
@@ -150,7 +150,7 @@ impl VirtualTerminal {
             };
             cell.character = c;
             cell.style = style;
-            self.column += 1;
+            self.column += style.size as u16;
         }
         let height = self.current_row_height().max(style.size as u16);
         self.set_current_row_height(height);
@@ -250,6 +250,19 @@ pub(crate) enum ImageBehavior {
 pub(crate) struct StyledChar {
     pub(crate) character: char,
     pub(crate) style: TextStyle,
+}
+
+impl StyledChar {
+    #[cfg(test)]
+    pub(crate) fn new(character: char, style: TextStyle) -> Self {
+        Self { character, style }
+    }
+}
+
+impl From<char> for StyledChar {
+    fn from(character: char) -> Self {
+        Self { character, style: Default::default() }
+    }
 }
 
 impl Default for StyledChar {

@@ -543,6 +543,22 @@
             }
           },
           "additionalProperties": false
+        },
+        {
+          "description": "Fade the new slide into the previous one.",
+          "type": "object",
+          "required": [
+            "style"
+          ],
+          "properties": {
+            "style": {
+              "type": "string",
+              "enum": [
+                "fade"
+              ]
+            }
+          },
+          "additionalProperties": false
         }
       ]
     },

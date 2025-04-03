@@ -534,6 +534,9 @@ pub struct SlideTransitionConfig {
 pub enum SlideTransitionStyleConfig {
     /// Slide horizontally.
     SlideHorizontal,
+
+    /// Fade the new slide into the previous one.
+    Fade,
 }
 
 fn make_keybindings<const N: usize>(raw_bindings: [&str; N]) -> Vec<KeyBinding> {
