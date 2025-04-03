@@ -125,7 +125,6 @@ alert:
 typst:
   colors:
     foreground: "f0f0f0"
-    background: "292e42"
 
 footer:
   style: template
