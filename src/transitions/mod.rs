@@ -1,10 +1,14 @@
 use crate::{
     markdown::{elements::Line, text_style::Color},
-    terminal::printer::TerminalCommand,
+    terminal::{
+        printer::TerminalCommand,
+        virt::{TerminalGrid, TerminalRowIterator},
+    },
 };
 use std::fmt::Debug;
 use unicode_width::UnicodeWidthStr;
 
+pub(crate) mod fade;
 pub(crate) mod slide_horizontal;
 
 #[derive(Clone, Debug)]
@@ -16,7 +20,7 @@ pub(crate) enum TransitionDirection {
 pub(crate) trait AnimateTransition {
     type Frame: AnimationFrame + Debug;
 
-    fn build_frame(&self, frame: usize, direction: TransitionDirection) -> Self::Frame;
+    fn build_frame(&self, frame: usize, previous_frame: usize) -> Self::Frame;
     fn total_frames(&self) -> usize;
 }
 
@@ -44,6 +48,17 @@ impl LinesFrame {
             trimmed_after += 1;
         }
         (text, trimmed_before, trimmed_after)
+    }
+}
+
+impl From<&TerminalGrid> for LinesFrame {
+    fn from(grid: &TerminalGrid) -> Self {
+        let mut lines = Vec::new();
+        for row in &grid.rows {
+            let line = TerminalRowIterator::new(row).collect();
+            lines.push(Line(line));
+        }
+        Self { lines, background_color: grid.background_color }
     }
 }
 
