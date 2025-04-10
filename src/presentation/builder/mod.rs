@@ -659,9 +659,11 @@ impl<'a> PresentationBuilder<'a> {
             other => panic!("unexpected heading level {other}"),
         };
         if let Some(prefix) = &style.prefix {
-            let mut prefix = prefix.clone();
-            prefix.push(' ');
-            text.0.insert(0, Text::from(prefix));
+            if !prefix.is_empty() {
+                let mut prefix = prefix.clone();
+                prefix.push(' ');
+                text.0.insert(0, Text::from(prefix));
+            }
         }
         text.apply_style(&style.style);
 
@@ -1453,6 +1455,25 @@ mod test {
     fn extract_slide_text_lines(slide: Slide) -> Vec<String> {
         let operations: Vec<_> = slide.into_operations().into_iter().filter(is_visible).collect();
         extract_text_lines(&operations)
+    }
+
+    #[test]
+    fn empty_heading_prefix() {
+        let frontmatter = r#"
+theme:
+  override:
+    headings:
+      h1:
+        prefix: ""
+"#;
+        let elements = vec![
+            MarkdownElement::FrontMatter(frontmatter.into()),
+            MarkdownElement::Heading { text: "hi".into(), level: 1 },
+        ];
+        let slides = build_presentation(elements).into_slides();
+        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        let expected_lines = &["hi"];
+        assert_eq!(lines, expected_lines);
     }
 
     #[test]
