@@ -52,6 +52,16 @@ Visit the [documentation][docs-introduction] to get started.
 
 See the [introduction page][docs-introduction] to learn more.
 
+# Presenterm in Action
+
+Here are some talks and demos that feature _presenterm_:
+
+- [Bringing Terminal Aesthetics to the Web With Rust][bringing-terminal-aesthetics] by [Orhun Parmaksız][orhun-github]
+- [7 Rust Terminal Tools That You Should Use][rust-terminal-tools] by [Orhun Parmaksız][orhun-github]
+- [Renaissance of Terminal User Interfaces with Rust][renaissance-tui] by [Orhun Parmaksız][orhun-github]
+
+Gave a talk using _presenterm_? We would love to feature it here! Open a PR or issue to get it added.
+
 <!-- links -->
 
 [docs-introduction]: https://mfontanini.github.io/presenterm/
@@ -75,5 +85,7 @@ See the [introduction page][docs-introduction] to learn more.
 [docs-speaker-notes]: https://mfontanini.github.io/presenterm/features/speaker-notes.html
 [bat]: https://github.com/sharkdp/bat
 [syntect]: https://github.com/trishume/syntect
-
-
+[bringing-terminal-aesthetics]: https://www.youtube.com/watch?v=iepbyYrF_YQ
+[rust-terminal-tools]: https://www.youtube.com/watch?v=ATiKwUiqnAU
+[renaissance-tui]: https://www.youtube.com/watch?v=hWG51Mc1DlM
+[orhun-github]: https://github.com/orhun
