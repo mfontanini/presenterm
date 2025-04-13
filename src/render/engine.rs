@@ -240,6 +240,8 @@ where
         let positioning = layout.compute(dimensions, text.width() as u16);
         let prefix = "".into();
         let text_drawer = TextDrawer::new(&prefix, 0, text, positioning, &self.colors, MINIMUM_LINE_LENGTH)?;
+        let center_newlines = matches!(alignment, Alignment::Center { .. });
+        let text_drawer = text_drawer.center_newlines(center_newlines);
         text_drawer.draw(self.terminal)?;
         // Restore colors
         self.apply_colors()

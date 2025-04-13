@@ -21,6 +21,7 @@ pub(crate) struct TextDrawer<'a> {
     draw_block: bool,
     block_color: Option<Color>,
     repeat_prefix: bool,
+    center_newlines: bool,
 }
 
 impl<'a> TextDrawer<'a> {
@@ -55,6 +56,7 @@ impl<'a> TextDrawer<'a> {
                 draw_block: false,
                 block_color: None,
                 repeat_prefix: false,
+                center_newlines: false,
             })
         }
     }
@@ -67,6 +69,11 @@ impl<'a> TextDrawer<'a> {
 
     pub(crate) fn repeat_prefix_on_wrap(mut self, value: bool) -> Self {
         self.repeat_prefix = value;
+        self
+    }
+
+    pub(crate) fn center_newlines(mut self, value: bool) -> Self {
+        self.center_newlines = value;
         self
     }
 
@@ -91,7 +98,15 @@ impl<'a> TextDrawer<'a> {
                 // Complete the current line's block to the right before moving down.
                 self.print_block_background(line_length, terminal)?;
                 terminal.execute(&TerminalCommand::MoveDown(font_size as u16))?;
-                terminal.execute(&TerminalCommand::MoveToColumn(self.positioning.start_column))?;
+                let start_column = match self.center_newlines {
+                    true => {
+                        let line_width = line.iter().map(|l| l.width()).sum::<usize>() as u16;
+                        let extra_space = self.positioning.max_line_length.saturating_sub(line_width);
+                        self.positioning.start_column + extra_space / 2
+                    }
+                    false => self.positioning.start_column,
+                };
+                terminal.execute(&TerminalCommand::MoveToColumn(start_column))?;
                 line_length = 0;
 
                 // Complete the new line in this block to the left where the prefix would be.
@@ -243,6 +258,7 @@ mod tests {
         positioning: Positioning,
         right_padding_length: u16,
         repeat_prefix_on_wrap: bool,
+        center_newlines: bool,
     }
 
     impl TestDrawer {
@@ -266,12 +282,18 @@ mod tests {
             self
         }
 
+        fn center_newlines(mut self) -> Self {
+            self.center_newlines = true;
+            self
+        }
+
         fn draw<L: Into<WeightedLine>>(self, line: L) -> Vec<Instruction> {
             let line = line.into();
             let colors = Default::default();
             let drawer = TextDrawer::new(&self.prefix, self.right_padding_length, &line, self.positioning, &colors, 0)
                 .expect("failed to create drawer")
-                .repeat_prefix_on_wrap(self.repeat_prefix_on_wrap);
+                .repeat_prefix_on_wrap(self.repeat_prefix_on_wrap)
+                .center_newlines(self.center_newlines);
             let mut buf = TerminalBuf::default();
             drawer.draw(&mut buf).expect("drawing failed");
             buf.instructions
@@ -285,6 +307,7 @@ mod tests {
                 positioning: Positioning { max_line_length: 100, start_column: 0 },
                 right_padding_length: 0,
                 repeat_prefix_on_wrap: false,
+                center_newlines: false,
             }
         }
     }
@@ -335,6 +358,20 @@ mod tests {
             Instruction::MoveToColumn(1),
             Instruction::PrintText { content: "P".into(), font_size: 2 },
             Instruction::PrintText { content: "AA".into(), font_size: 2 },
+        ];
+        assert_eq!(instructions, expected);
+    }
+
+    #[test]
+    fn center_newlines() {
+        let text = WeightedLine::from(vec![Text::from("hello world foo")]);
+        let instructions = TestDrawer::default().center_newlines().max_line_length(11).draw(text);
+        let expected = &[
+            Instruction::MoveToColumn(0),
+            Instruction::PrintText { content: "hello world".into(), font_size: 1 },
+            Instruction::MoveDown(1),
+            Instruction::MoveToColumn(4),
+            Instruction::PrintText { content: "foo".into(), font_size: 1 },
         ];
         assert_eq!(instructions, expected);
     }
