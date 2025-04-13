@@ -133,6 +133,10 @@ impl Resources {
         inner.image_registry.clear();
         inner.themes.clear();
     }
+
+    pub(crate) fn image_registry(&self) -> ImageRegistry {
+        self.inner.borrow().image_registry.clone()
+    }
 }
 
 /// Watches for file changes.

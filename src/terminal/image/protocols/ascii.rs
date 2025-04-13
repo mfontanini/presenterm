@@ -7,12 +7,13 @@ use crate::{
 };
 use image::{DynamicImage, GenericImageView, Pixel, Rgba, imageops::FilterType};
 use itertools::Itertools;
-use std::{fs, ops::Deref};
+use std::{fs, ops::Deref, sync::Arc};
 
 const TOP_CHAR: &str = "▀";
 const BOTTOM_CHAR: &str = "▄";
 
-pub(crate) struct AsciiImage(DynamicImage);
+#[derive(Clone)]
+pub(crate) struct AsciiImage(Arc<DynamicImage>);
 
 impl ImageProperties for AsciiImage {
     fn dimensions(&self) -> (u32, u32) {
@@ -23,7 +24,7 @@ impl ImageProperties for AsciiImage {
 impl From<DynamicImage> for AsciiImage {
     fn from(image: DynamicImage) -> Self {
         let image = image.into_rgba8();
-        Self(image.into())
+        Self(Arc::new(image.into()))
     }
 }
 
@@ -73,7 +74,7 @@ impl PrintImage for AsciiPrinter {
                 image::load_from_memory(&contents)?
             }
         };
-        Ok(AsciiImage(image))
+        Ok(AsciiImage(image.into()))
     }
 
     fn print<T>(&self, image: &Self::Image, options: &PrintOptions, terminal: &mut T) -> Result<(), PrintImageError>

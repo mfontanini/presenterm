@@ -18,6 +18,7 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     fmt, io,
+    ops::Deref,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -150,11 +151,12 @@ impl PrintImage for ImagePrinter {
 pub(crate) struct ImageRegistry {
     printer: Arc<ImagePrinter>,
     images: Arc<Mutex<HashMap<PathBuf, Image>>>,
+    ascii_images: Arc<Mutex<HashMap<PathBuf, AsciiImage>>>,
 }
 
 impl ImageRegistry {
     pub fn new(printer: Arc<ImagePrinter>) -> Self {
-        Self { printer, images: Default::default() }
+        Self { printer, images: Default::default(), ascii_images: Default::default() }
     }
 }
 
@@ -188,13 +190,40 @@ impl ImageRegistry {
         let resource = self.printer.register(spec)?;
         let image = Image::new(resource, source);
         if let Some(key) = cache_key {
-            images.insert(key, image.clone());
+            images.insert(key.clone(), image.clone());
+            drop(images);
+            if let TerminalImage::Ascii(image) = image.image.as_ref() {
+                self.ascii_images.lock().unwrap().insert(key, image.clone());
+            }
         }
         Ok(image)
     }
 
     pub(crate) fn clear(&self) {
         self.images.lock().unwrap().clear();
+        self.ascii_images.lock().unwrap().clear();
+    }
+
+    pub(crate) fn as_ascii(&self, image: &Image) -> AsciiImage {
+        if let ImageSource::Filesystem(path) = &image.source {
+            if let Some(image) = self.ascii_images.lock().unwrap().get(path) {
+                return image.clone();
+            }
+            if let Some(TerminalImage::Ascii(image)) = self.images.lock().unwrap().get(path).map(|i| i.image.as_ref()) {
+                return image.clone();
+            }
+        }
+        let ascii_image = match image.image.deref() {
+            TerminalImage::Ascii(image) => image.clone(),
+            TerminalImage::Kitty(image) => DynamicImage::from(image.as_rgba8()).into(),
+            TerminalImage::Iterm(image) => DynamicImage::from(image.as_rgba8()).into(),
+            #[cfg(feature = "sixel")]
+            TerminalImage::Sixel(image) => DynamicImage::from(image.as_rgba8()).into(),
+        };
+        if let ImageSource::Filesystem(path) = &image.source {
+            self.ascii_images.lock().unwrap().insert(path.clone(), ascii_image.clone());
+        }
+        ascii_image
     }
 }
 
