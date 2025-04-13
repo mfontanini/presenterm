@@ -22,7 +22,7 @@ use crate::{
     resource::Resources,
     terminal::image::{
         Image,
-        printer::{ImageRegistry, RegisterImageError},
+        printer::{ImageRegistry, ImageSpec, RegisterImageError},
     },
     theme::{
         Alignment, AuthorPositioning, ElementType, PresentationTheme, ProcessingThemeError, ThemeOptions,
@@ -246,7 +246,7 @@ impl<'a> PresentationBuilder<'a> {
         };
         let mut image = DynamicImage::new_rgba8(1, 1);
         image.as_mut_rgba8().unwrap().get_pixel_mut(0, 0).0 = rgba;
-        let image = self.image_registry.register_image(image)?;
+        let image = self.image_registry.register(ImageSpec::Generated(image))?;
         Ok(image)
     }
 

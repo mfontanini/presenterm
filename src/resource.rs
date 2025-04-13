@@ -1,7 +1,7 @@
 use crate::{
     terminal::image::{
         Image,
-        printer::{ImageRegistry, RegisterImageError},
+        printer::{ImageRegistry, ImageSpec, RegisterImageError},
     },
     theme::{raw::PresentationTheme, registry::LoadThemeError},
 };
@@ -79,7 +79,7 @@ impl Resources {
             return Ok(image.clone());
         }
 
-        let image = inner.image_registry.register_resource(path.clone())?;
+        let image = inner.image_registry.register(ImageSpec::Filesystem(path.clone()))?;
         inner.images.insert(path, image.clone());
         Ok(image)
     }
@@ -97,7 +97,7 @@ impl Resources {
             return Ok(image.clone());
         }
 
-        let image = inner.image_registry.register_resource(path.clone())?;
+        let image = inner.image_registry.register(ImageSpec::Filesystem(path.clone()))?;
         inner.theme_images.insert(path, image.clone());
         Ok(image)
     }

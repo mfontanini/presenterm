@@ -43,7 +43,8 @@ vte = "0.15"
 rstest = { version = "0.25", default-features = false }
 
 [features]
-default = []
+# TODO
+default = ["sixel"]
 sixel = ["sixel-rs"]
 
 [profile.dev]

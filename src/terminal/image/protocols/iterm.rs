@@ -1,10 +1,10 @@
 use crate::terminal::{
-    image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError},
+    image::printer::{ImageProperties, ImageSpec, PrintImage, PrintImageError, PrintOptions, RegisterImageError},
     printer::{TerminalCommand, TerminalIo},
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use image::{GenericImageView, ImageEncoder, RgbaImage, codecs::png::PngEncoder};
-use std::{fs, path::Path};
+use std::fs;
 
 pub(crate) struct ItermImage {
     dimensions: (u32, u32),
@@ -38,18 +38,21 @@ pub struct ItermPrinter;
 impl PrintImage for ItermPrinter {
     type Image = ItermImage;
 
-    fn register(&self, image: image::DynamicImage) -> Result<Self::Image, RegisterImageError> {
-        let dimensions = image.dimensions();
-        let mut contents = Vec::new();
-        let encoder = PngEncoder::new(&mut contents);
-        encoder.write_image(image.as_bytes(), dimensions.0, dimensions.1, image.color().into())?;
-        Ok(ItermImage::new(contents, dimensions))
-    }
-
-    fn register_from_path<P: AsRef<Path>>(&self, path: P) -> Result<Self::Image, RegisterImageError> {
-        let contents = fs::read(path)?;
-        let image = image::load_from_memory(&contents)?;
-        Ok(ItermImage::new(contents, image.dimensions()))
+    fn register(&self, spec: ImageSpec) -> Result<Self::Image, RegisterImageError> {
+        match spec {
+            ImageSpec::Generated(image) => {
+                let dimensions = image.dimensions();
+                let mut contents = Vec::new();
+                let encoder = PngEncoder::new(&mut contents);
+                encoder.write_image(image.as_bytes(), dimensions.0, dimensions.1, image.color().into())?;
+                Ok(ItermImage::new(contents, dimensions))
+            }
+            ImageSpec::Filesystem(path) => {
+                let contents = fs::read(path)?;
+                let image = image::load_from_memory(&contents)?;
+                Ok(ItermImage::new(contents, image.dimensions()))
+            }
+        }
     }
 
     fn print<T>(&self, image: &Self::Image, options: &PrintOptions, terminal: &mut T) -> Result<(), PrintImageError>
