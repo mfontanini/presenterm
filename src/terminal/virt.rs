@@ -1,21 +1,20 @@
 use super::{
     image::{
         Image,
-        printer::{PrintImage, PrintImageError, PrintOptions, TerminalImage},
+        printer::{PrintImage, PrintImageError, PrintOptions},
         protocols::ascii::AsciiPrinter,
     },
     printer::{TerminalError, TerminalIo},
 };
 use crate::{
-    WindowSize,
+    ImageRegistry, WindowSize,
     markdown::{
         elements::Text,
         text_style::{Color, Colors, TextStyle},
     },
     terminal::printer::TerminalCommand,
 };
-use image::DynamicImage;
-use std::{collections::HashMap, io, ops::Deref};
+use std::{collections::HashMap, io};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PrintedImage {
@@ -188,24 +187,10 @@ impl VirtualTerminal {
                 let image = PrintedImage { image: image.clone(), width_columns: options.columns };
                 self.images.insert(key, image);
             }
-            ImageBehavior::PrintAscii => {
+            ImageBehavior::PrintAscii(registry) => {
+                let image = registry.as_ascii(image);
                 let image_printer = AsciiPrinter;
-                match image.image.deref() {
-                    TerminalImage::Kitty(image) => {
-                        let image = DynamicImage::from(image.as_rgba8());
-                        image_printer.print(&image.into(), options, self)
-                    }
-                    TerminalImage::Iterm(image) => {
-                        let image = DynamicImage::from(image.as_rgba8());
-                        image_printer.print(&image.into(), options, self)
-                    }
-                    TerminalImage::Ascii(image) => image_printer.print(image, options, self),
-                    #[cfg(feature = "sixel")]
-                    TerminalImage::Sixel(image) => {
-                        let image = DynamicImage::from(image.as_rgba8());
-                        image_printer.print(&image.into(), options, self)
-                    }
-                }?;
+                image_printer.print(&image, options, self)?
             }
         };
         Ok(())
@@ -243,7 +228,7 @@ impl TerminalIo for VirtualTerminal {
 pub(crate) enum ImageBehavior {
     #[default]
     Store,
-    PrintAscii,
+    PrintAscii(ImageRegistry),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

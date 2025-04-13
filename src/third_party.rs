@@ -12,7 +12,10 @@ use crate::{
         },
         properties::WindowSize,
     },
-    terminal::image::{Image, printer::RegisterImageError},
+    terminal::image::{
+        Image,
+        printer::{ImageSpec, RegisterImageError},
+    },
     theme::{Alignment, MermaidStyle, PresentationTheme, TypstStyle, raw::RawColor},
     tools::{ExecutionError, ThirdPartyTools},
 };
@@ -269,7 +272,7 @@ impl Worker {
     fn load_image(&self, snippet: ImageSnippet, path: &Path) -> Result<Image, ThirdPartyRenderError> {
         let contents = fs::read(path)?;
         let image = image::load_from_memory(&contents)?;
-        let image = self.state.lock().unwrap().image_registry.register_image(image)?;
+        let image = self.state.lock().unwrap().image_registry.register(ImageSpec::Generated(image))?;
         self.state.lock().unwrap().cache.insert(snippet, image.clone());
         Ok(image)
     }

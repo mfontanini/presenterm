@@ -1,12 +1,12 @@
 use crate::{
     markdown::text_style::{Color, TextStyle},
     terminal::{
-        image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError},
+        image::printer::{ImageProperties, ImageSpec, PrintImage, PrintImageError, PrintOptions, RegisterImageError},
         printer::{TerminalCommand, TerminalIo},
     },
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
-use image::{AnimationDecoder, Delay, DynamicImage, EncodableLayout, ImageReader, RgbaImage, codecs::gif::GifDecoder};
+use image::{AnimationDecoder, Delay, EncodableLayout, ImageReader, RgbaImage, codecs::gif::GifDecoder};
 use std::{
     fmt,
     fs::{self, File},
@@ -395,20 +395,14 @@ impl KittyPrinter {
 impl PrintImage for KittyPrinter {
     type Image = KittyImage;
 
-    fn register(&self, image: DynamicImage) -> Result<Self::Image, RegisterImageError> {
-        let resource = RawResource::Image(image.into_rgba8());
-        let resource = match &self.mode {
-            KittyMode::Local => self.persist_resource(resource)?,
-            KittyMode::Remote => resource.into_memory_resource(),
+    fn register(&self, spec: ImageSpec) -> Result<Self::Image, RegisterImageError> {
+        let image = match spec {
+            ImageSpec::Generated(image) => RawResource::Image(image.into_rgba8()),
+            ImageSpec::Filesystem(path) => Self::load_raw_resource(&path)?,
         };
-        Ok(resource)
-    }
-
-    fn register_from_path<P: AsRef<Path>>(&self, path: P) -> Result<Self::Image, RegisterImageError> {
-        let resource = Self::load_raw_resource(path.as_ref())?;
         let resource = match &self.mode {
-            KittyMode::Local => self.persist_resource(resource)?,
-            KittyMode::Remote => resource.into_memory_resource(),
+            KittyMode::Local => self.persist_resource(image)?,
+            KittyMode::Remote => image.into_memory_resource(),
         };
         Ok(resource)
     }

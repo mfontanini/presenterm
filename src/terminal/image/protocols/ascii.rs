@@ -1,29 +1,38 @@
 use crate::{
     markdown::text_style::{Color, Colors, TextStyle},
     terminal::{
-        image::printer::{ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError},
+        image::printer::{ImageProperties, ImageSpec, PrintImage, PrintImageError, PrintOptions, RegisterImageError},
         printer::{TerminalCommand, TerminalIo},
     },
 };
-use image::{DynamicImage, GenericImageView, Pixel, Rgba, imageops::FilterType};
+use image::{DynamicImage, GenericImageView, Pixel, Rgba, RgbaImage, imageops::FilterType};
 use itertools::Itertools;
-use std::{fs, ops::Deref};
+use std::{
+    collections::HashMap,
+    fs,
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
 
 const TOP_CHAR: &str = "▀";
 const BOTTOM_CHAR: &str = "▄";
 
-pub(crate) struct AsciiImage(DynamicImage);
+#[derive(Clone)]
+pub(crate) struct AsciiImage {
+    image: Arc<DynamicImage>,
+    cached_sizes: Arc<Mutex<HashMap<(u16, u16), RgbaImage>>>,
+}
 
 impl ImageProperties for AsciiImage {
     fn dimensions(&self) -> (u32, u32) {
-        self.0.dimensions()
+        self.image.dimensions()
     }
 }
 
 impl From<DynamicImage> for AsciiImage {
     fn from(image: DynamicImage) -> Self {
         let image = image.into_rgba8();
-        Self(image.into())
+        Self { image: Arc::new(image.into()), cached_sizes: Default::default() }
     }
 }
 
@@ -31,7 +40,7 @@ impl Deref for AsciiImage {
     type Target = DynamicImage;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.image
     }
 }
 
@@ -65,25 +74,37 @@ impl AsciiPrinter {
 impl PrintImage for AsciiPrinter {
     type Image = AsciiImage;
 
-    fn register(&self, image: image::DynamicImage) -> Result<Self::Image, RegisterImageError> {
-        Ok(AsciiImage(image))
-    }
-
-    fn register_from_path<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Self::Image, RegisterImageError> {
-        let contents = fs::read(path)?;
-        let image = image::load_from_memory(&contents)?;
-        Ok(AsciiImage(image))
+    fn register(&self, spec: ImageSpec) -> Result<Self::Image, RegisterImageError> {
+        let image = match spec {
+            ImageSpec::Generated(image) => image,
+            ImageSpec::Filesystem(path) => {
+                let contents = fs::read(path)?;
+                image::load_from_memory(&contents)?
+            }
+        };
+        Ok(AsciiImage::from(image))
     }
 
     fn print<T>(&self, image: &Self::Image, options: &PrintOptions, terminal: &mut T) -> Result<(), PrintImageError>
     where
         T: TerminalIo,
     {
+        let columns = options.columns;
+        let rows = options.rows * 2;
+        let mut cached_sizes = image.cached_sizes.lock().unwrap();
+        // lookup on cache/resize the image and store it in cache
+        let cache_key = (columns, rows);
+        let image = match cached_sizes.get(&cache_key) {
+            Some(image) => image,
+            None => {
+                let image = image.image.resize_exact(columns as u32, rows as u32, FilterType::Triangle);
+                cached_sizes.insert(cache_key, image.into_rgba8());
+                cached_sizes.get(&cache_key).unwrap()
+            }
+        };
         // The strategy here is taken from viuer: use half vertical ascii blocks in combination
         // with foreground/background colors to fit 2 vertical pixels per cell. That is, cell (x, y)
         // will contain the pixels at (x, y) and (x, y + 1) combined.
-        let image = image.0.resize_exact(options.columns as u32, 2 * options.rows as u32, FilterType::Triangle);
-        let image = image.into_rgba8();
         let default_background = options.background_color.map(Color::from);
 
         // Iterate pixel rows in pairs to be able to merge both pixels in a single iteration.

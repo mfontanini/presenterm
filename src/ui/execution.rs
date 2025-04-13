@@ -17,7 +17,10 @@ use crate::{
     },
     terminal::{
         ansi::AnsiSplitter,
-        image::{Image, printer::ImageRegistry},
+        image::{
+            Image,
+            printer::{ImageRegistry, ImageSpec},
+        },
         should_hide_cursor,
     },
     theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle, Margin},
@@ -404,7 +407,7 @@ impl RunImageSnippet {
                 return Err(e.to_string());
             }
         };
-        self.image_registry.register_image(image).map_err(|e| e.to_string())
+        self.image_registry.register(ImageSpec::Generated(image)).map_err(|e| e.to_string())
     }
 }
 

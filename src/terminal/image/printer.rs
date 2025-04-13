@@ -16,19 +16,18 @@ use crate::{
 use image::{DynamicImage, ImageError};
 use std::{
     borrow::Cow,
+    collections::HashMap,
     fmt, io,
-    path::{Path, PathBuf},
-    sync::Arc,
+    ops::Deref,
+    path::PathBuf,
+    sync::{Arc, Mutex},
 };
 
 pub(crate) trait PrintImage {
     type Image: ImageProperties;
 
     /// Register an image.
-    fn register(&self, image: DynamicImage) -> Result<Self::Image, RegisterImageError>;
-
-    /// Load and register an image from the given path.
-    fn register_from_path<P: AsRef<Path>>(&self, path: P) -> Result<Self::Image, RegisterImageError>;
+    fn register(&self, spec: ImageSpec) -> Result<Self::Image, RegisterImageError>;
 
     fn print<T>(&self, image: &Self::Image, options: &PrintOptions, terminal: &mut T) -> Result<(), PrintImageError>
     where
@@ -120,26 +119,14 @@ impl ImagePrinter {
 impl PrintImage for ImagePrinter {
     type Image = TerminalImage;
 
-    fn register(&self, image: DynamicImage) -> Result<Self::Image, RegisterImageError> {
+    fn register(&self, spec: ImageSpec) -> Result<Self::Image, RegisterImageError> {
         let image = match self {
-            Self::Kitty(printer) => TerminalImage::Kitty(printer.register(image)?),
-            Self::Iterm(printer) => TerminalImage::Iterm(printer.register(image)?),
-            Self::Ascii(printer) => TerminalImage::Ascii(printer.register(image)?),
+            Self::Kitty(printer) => TerminalImage::Kitty(printer.register(spec)?),
+            Self::Iterm(printer) => TerminalImage::Iterm(printer.register(spec)?),
+            Self::Ascii(printer) => TerminalImage::Ascii(printer.register(spec)?),
             Self::Null => return Err(RegisterImageError::Unsupported),
             #[cfg(feature = "sixel")]
-            Self::Sixel(printer) => TerminalImage::Sixel(printer.register(image)?),
-        };
-        Ok(image)
-    }
-
-    fn register_from_path<P: AsRef<Path>>(&self, path: P) -> Result<Self::Image, RegisterImageError> {
-        let image = match self {
-            Self::Kitty(printer) => TerminalImage::Kitty(printer.register_from_path(path)?),
-            Self::Iterm(printer) => TerminalImage::Iterm(printer.register_from_path(path)?),
-            Self::Ascii(printer) => TerminalImage::Ascii(printer.register_from_path(path)?),
-            Self::Null => return Err(RegisterImageError::Unsupported),
-            #[cfg(feature = "sixel")]
-            Self::Sixel(printer) => TerminalImage::Sixel(printer.register_from_path(path)?),
+            Self::Sixel(printer) => TerminalImage::Sixel(printer.register(spec)?),
         };
         Ok(image)
     }
@@ -161,11 +148,21 @@ impl PrintImage for ImagePrinter {
 }
 
 #[derive(Clone, Default)]
-pub(crate) struct ImageRegistry(pub Arc<ImagePrinter>);
+pub(crate) struct ImageRegistry {
+    printer: Arc<ImagePrinter>,
+    images: Arc<Mutex<HashMap<PathBuf, Image>>>,
+    ascii_images: Arc<Mutex<HashMap<PathBuf, AsciiImage>>>,
+}
+
+impl ImageRegistry {
+    pub fn new(printer: Arc<ImagePrinter>) -> Self {
+        Self { printer, images: Default::default(), ascii_images: Default::default() }
+    }
+}
 
 impl fmt::Debug for ImageRegistry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let inner = match self.0.as_ref() {
+        let inner = match self.printer.as_ref() {
             ImagePrinter::Kitty(_) => "Kitty",
             ImagePrinter::Iterm(_) => "Iterm",
             ImagePrinter::Ascii(_) => "Ascii",
@@ -178,17 +175,61 @@ impl fmt::Debug for ImageRegistry {
 }
 
 impl ImageRegistry {
-    pub(crate) fn register_image(&self, image: DynamicImage) -> Result<Image, RegisterImageError> {
-        let resource = self.0.register(image)?;
-        let image = Image::new(resource, ImageSource::Generated);
+    pub(crate) fn register(&self, spec: ImageSpec) -> Result<Image, RegisterImageError> {
+        let mut images = self.images.lock().unwrap();
+        let (source, cache_key) = match &spec {
+            ImageSpec::Generated(_) => (ImageSource::Generated, None),
+            ImageSpec::Filesystem(path) => {
+                // Return if already cached
+                if let Some(image) = images.get(path) {
+                    return Ok(image.clone());
+                }
+                (ImageSource::Filesystem(path.clone()), Some(path.clone()))
+            }
+        };
+        let resource = self.printer.register(spec)?;
+        let image = Image::new(resource, source);
+        if let Some(key) = cache_key {
+            images.insert(key.clone(), image.clone());
+            drop(images);
+            if let TerminalImage::Ascii(image) = image.image.as_ref() {
+                self.ascii_images.lock().unwrap().insert(key, image.clone());
+            }
+        }
         Ok(image)
     }
 
-    pub(crate) fn register_resource(&self, path: PathBuf) -> Result<Image, RegisterImageError> {
-        let resource = self.0.register_from_path(&path)?;
-        let image = Image::new(resource, ImageSource::Filesystem(path));
-        Ok(image)
+    pub(crate) fn clear(&self) {
+        self.images.lock().unwrap().clear();
+        self.ascii_images.lock().unwrap().clear();
     }
+
+    pub(crate) fn as_ascii(&self, image: &Image) -> AsciiImage {
+        if let ImageSource::Filesystem(path) = &image.source {
+            if let Some(image) = self.ascii_images.lock().unwrap().get(path) {
+                return image.clone();
+            }
+            if let Some(TerminalImage::Ascii(image)) = self.images.lock().unwrap().get(path).map(|i| i.image.as_ref()) {
+                return image.clone();
+            }
+        }
+        let ascii_image = match image.image.deref() {
+            TerminalImage::Ascii(image) => image.clone(),
+            TerminalImage::Kitty(image) => DynamicImage::from(image.as_rgba8()).into(),
+            TerminalImage::Iterm(image) => DynamicImage::from(image.as_rgba8()).into(),
+            #[cfg(feature = "sixel")]
+            TerminalImage::Sixel(image) => DynamicImage::from(image.as_rgba8()).into(),
+        };
+        if let ImageSource::Filesystem(path) = &image.source {
+            self.ascii_images.lock().unwrap().insert(path.clone(), ascii_image.clone());
+        }
+        ascii_image
+    }
+}
+
+pub(crate) enum ImageSpec {
+    Generated(DynamicImage),
+    Filesystem(PathBuf),
 }
 
 #[derive(Debug, thiserror::Error)]

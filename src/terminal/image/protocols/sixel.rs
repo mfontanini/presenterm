@@ -1,6 +1,6 @@
 use crate::terminal::{
     image::printer::{
-        CreatePrinterError, ImageProperties, PrintImage, PrintImageError, PrintOptions, RegisterImageError,
+        CreatePrinterError, ImageProperties, ImageSpec, PrintImage, PrintImageError, PrintOptions, RegisterImageError,
     },
     printer::{TerminalCommand, TerminalIo},
 };
@@ -38,14 +38,15 @@ impl SixelPrinter {
 impl PrintImage for SixelPrinter {
     type Image = SixelImage;
 
-    fn register(&self, image: image::DynamicImage) -> Result<Self::Image, RegisterImageError> {
-        Ok(SixelImage(image))
-    }
-
-    fn register_from_path<P: AsRef<std::path::Path>>(&self, path: P) -> Result<Self::Image, RegisterImageError> {
-        let contents = fs::read(path)?;
-        let image = image::load_from_memory(&contents)?;
-        Ok(SixelImage(image))
+    fn register(&self, spec: ImageSpec) -> Result<Self::Image, RegisterImageError> {
+        match spec {
+            ImageSpec::Generated(image) => Ok(SixelImage(image)),
+            ImageSpec::Filesystem(path) => {
+                let contents = fs::read(path)?;
+                let image = image::load_from_memory(&contents)?;
+                Ok(SixelImage(image))
+            }
+        }
     }
 
     fn print<T>(&self, image: &Self::Image, options: &PrintOptions, terminal: &mut T) -> Result<(), PrintImageError>

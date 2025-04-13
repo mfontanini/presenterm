@@ -382,7 +382,7 @@ impl<'a> Presenter<'a> {
             &mut self.third_party,
             self.code_executor.clone(),
             &self.themes,
-            ImageRegistry(self.image_printer.clone()),
+            ImageRegistry::new(self.image_printer.clone()),
             self.options.bindings.clone(),
             self.options.builder_options.clone(),
         )?
@@ -425,13 +425,14 @@ impl<'a> Presenter<'a> {
         let Some(config) = self.options.transition.clone() else {
             return Ok(());
         };
+        let registry = self.resources.image_registry();
         let options = drawer.render_engine_options();
         let presentation = self.state.presentation_mut();
         let dimensions = WindowSize::current(self.options.font_size_fallback)?;
         presentation.jump_previous();
-        let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
+        let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options, registry.clone())?;
         presentation.jump_next();
-        let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
+        let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options, registry)?;
         let direction = TransitionDirection::Next;
         self.animate_transition(drawer, left, right, direction, dimensions, config)
     }
@@ -440,13 +441,14 @@ impl<'a> Presenter<'a> {
         let Some(config) = self.options.transition.clone() else {
             return Ok(());
         };
+        let registry = self.resources.image_registry();
         let options = drawer.render_engine_options();
         let presentation = self.state.presentation_mut();
         let dimensions = WindowSize::current(self.options.font_size_fallback)?;
         presentation.jump_next();
-        let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
+        let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options, registry.clone())?;
         presentation.jump_previous();
-        let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
+        let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options, registry)?;
         let direction = TransitionDirection::Previous;
         self.animate_transition(drawer, left, right, direction, dimensions, config)
     }
@@ -526,8 +528,9 @@ impl<'a> Presenter<'a> {
         slide: &Slide,
         dimensions: WindowSize,
         options: &RenderEngineOptions,
+        registry: ImageRegistry,
     ) -> Result<TerminalGrid, RenderError> {
-        let mut term = VirtualTerminal::new(dimensions.clone(), ImageBehavior::PrintAscii);
+        let mut term = VirtualTerminal::new(dimensions.clone(), ImageBehavior::PrintAscii(registry));
         let engine = RenderEngine::new(&mut term, dimensions.clone(), options.clone());
         engine.render(slide.iter_visible_operations())?;
         Ok(term.into_contents())
