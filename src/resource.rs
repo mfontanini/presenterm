@@ -24,8 +24,6 @@ const LOOP_INTERVAL: Duration = Duration::from_millis(250);
 
 #[derive(Debug)]
 struct ResourcesInner {
-    images: HashMap<PathBuf, Image>,
-    theme_images: HashMap<PathBuf, Image>,
     themes: HashMap<PathBuf, PresentationTheme>,
     external_snippets: HashMap<PathBuf, String>,
     base_path: PathBuf,
@@ -56,8 +54,6 @@ impl Resources {
         let inner = ResourcesInner {
             base_path: base_path.into(),
             themes_path: themes_path.into(),
-            images: Default::default(),
-            theme_images: Default::default(),
             themes: Default::default(),
             external_snippets: Default::default(),
             image_registry,
@@ -73,14 +69,9 @@ impl Resources {
 
     /// Get the image at the given path.
     pub(crate) fn image<P: AsRef<Path>>(&self, path: P) -> Result<Image, RegisterImageError> {
-        let mut inner = self.inner.borrow_mut();
+        let inner = self.inner.borrow();
         let path = inner.base_path.join(path);
-        if let Some(image) = inner.images.get(&path) {
-            return Ok(image.clone());
-        }
-
         let image = inner.image_registry.register(ImageSpec::Filesystem(path.clone()))?;
-        inner.images.insert(path, image.clone());
         Ok(image)
     }
 
@@ -91,14 +82,9 @@ impl Resources {
             _ => (),
         };
 
-        let mut inner = self.inner.borrow_mut();
+        let inner = self.inner.borrow();
         let path = inner.themes_path.join(path);
-        if let Some(image) = inner.theme_images.get(&path) {
-            return Ok(image.clone());
-        }
-
         let image = inner.image_registry.register(ImageSpec::Filesystem(path.clone()))?;
-        inner.theme_images.insert(path, image.clone());
         Ok(image)
     }
 
@@ -144,7 +130,7 @@ impl Resources {
     /// Clears all resources.
     pub(crate) fn clear(&self) {
         let mut inner = self.inner.borrow_mut();
-        inner.images.clear();
+        inner.image_registry.clear();
         inner.themes.clear();
     }
 }

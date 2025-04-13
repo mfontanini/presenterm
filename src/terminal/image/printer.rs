@@ -14,7 +14,13 @@ use crate::{
     },
 };
 use image::{DynamicImage, ImageError};
-use std::{borrow::Cow, fmt, io, path::PathBuf, sync::Arc};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    fmt, io,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 pub(crate) trait PrintImage {
     type Image: ImageProperties;
@@ -141,11 +147,20 @@ impl PrintImage for ImagePrinter {
 }
 
 #[derive(Clone, Default)]
-pub(crate) struct ImageRegistry(pub Arc<ImagePrinter>);
+pub(crate) struct ImageRegistry {
+    printer: Arc<ImagePrinter>,
+    images: Arc<Mutex<HashMap<PathBuf, Image>>>,
+}
+
+impl ImageRegistry {
+    pub fn new(printer: Arc<ImagePrinter>) -> Self {
+        Self { printer, images: Default::default() }
+    }
+}
 
 impl fmt::Debug for ImageRegistry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let inner = match self.0.as_ref() {
+        let inner = match self.printer.as_ref() {
             ImagePrinter::Kitty(_) => "Kitty",
             ImagePrinter::Iterm(_) => "Iterm",
             ImagePrinter::Ascii(_) => "Ascii",
@@ -159,13 +174,27 @@ impl fmt::Debug for ImageRegistry {
 
 impl ImageRegistry {
     pub(crate) fn register(&self, spec: ImageSpec) -> Result<Image, RegisterImageError> {
-        let source = match &spec {
-            ImageSpec::Generated(_) => ImageSource::Generated,
-            ImageSpec::Filesystem(path) => ImageSource::Filesystem(path.clone()),
+        let mut images = self.images.lock().unwrap();
+        let (source, cache_key) = match &spec {
+            ImageSpec::Generated(_) => (ImageSource::Generated, None),
+            ImageSpec::Filesystem(path) => {
+                // Return if already cached
+                if let Some(image) = images.get(path) {
+                    return Ok(image.clone());
+                }
+                (ImageSource::Filesystem(path.clone()), Some(path.clone()))
+            }
         };
-        let resource = self.0.register(spec)?;
+        let resource = self.printer.register(spec)?;
         let image = Image::new(resource, source);
+        if let Some(key) = cache_key {
+            images.insert(key, image.clone());
+        }
         Ok(image)
+    }
+
+    pub(crate) fn clear(&self) {
+        self.images.lock().unwrap().clear();
     }
 }
 

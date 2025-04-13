@@ -382,7 +382,7 @@ impl<'a> Presenter<'a> {
             &mut self.third_party,
             self.code_executor.clone(),
             &self.themes,
-            ImageRegistry(self.image_printer.clone()),
+            ImageRegistry::new(self.image_printer.clone()),
             self.options.bindings.clone(),
             self.options.builder_options.clone(),
         )?

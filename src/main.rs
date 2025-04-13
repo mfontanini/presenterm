@@ -230,7 +230,7 @@ impl CoreComponents {
         }
         let graphics_mode = Self::select_graphics_mode(cli, &config);
         let printer = Arc::new(ImagePrinter::new(graphics_mode.clone())?);
-        let registry = ImageRegistry(printer.clone());
+        let registry = ImageRegistry::new(printer.clone());
         let resources = Resources::new(
             resources_path.clone(),
             themes_path.unwrap_or_else(|| resources_path.clone()),
