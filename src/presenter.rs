@@ -13,6 +13,7 @@ use crate::{
     },
     render::{
         ErrorSource, RenderError, RenderResult, TerminalDrawer, TerminalDrawerOptions,
+        ascii_scaler::AsciiScaler,
         engine::{MaxSize, RenderEngine, RenderEngineOptions},
         operation::RenderAsyncState,
         properties::WindowSize,
@@ -109,7 +110,7 @@ impl<'a> Presenter<'a> {
             self.resources.watch_presentation_file(path.to_path_buf());
         }
         self.state = PresenterState::Presenting(Presentation::from(vec![]));
-        self.try_reload(path, true);
+        self.try_reload(path, true)?;
 
         let drawer_options = TerminalDrawerOptions {
             font_size_fallback: self.options.font_size_fallback,
@@ -148,10 +149,11 @@ impl<'a> Presenter<'a> {
                         break;
                     }
                     CommandSideEffect::Reload => {
-                        self.try_reload(path, false);
+                        self.try_reload(path, false)?;
                         break;
                     }
                     CommandSideEffect::Redraw => {
+                        self.try_scale_transition_images()?;
                         break;
                     }
                     CommandSideEffect::NextSlide => {
@@ -326,9 +328,9 @@ impl<'a> Presenter<'a> {
         if needs_redraw { CommandSideEffect::Redraw } else { CommandSideEffect::None }
     }
 
-    fn try_reload(&mut self, path: &Path, force: bool) {
+    fn try_reload(&mut self, path: &Path, force: bool) -> RenderResult {
         if matches!(self.options.mode, PresentMode::Presentation) && !force {
-            return;
+            return Ok(());
         }
         self.slides_with_pending_async_renders.clear();
         self.resources.clear_watches();
@@ -344,12 +346,25 @@ impl<'a> Presenter<'a> {
                 }
                 self.slides_with_pending_async_renders = presentation.slides_with_async_renders().into_iter().collect();
                 self.state = self.validate_overflows(presentation);
+                self.try_scale_transition_images()?;
             }
             Err(e) => {
                 let presentation = mem::take(&mut self.state).into_presentation();
                 self.state = PresenterState::failure(e, presentation, ErrorSource::Presentation, FailureMode::Other);
             }
         };
+        Ok(())
+    }
+
+    fn try_scale_transition_images(&self) -> RenderResult {
+        if self.options.transition.is_none() {
+            return Ok(());
+        }
+        let options = RenderEngineOptions { max_size: self.options.max_size.clone(), ..Default::default() };
+        let scaler = AsciiScaler::new(options, self.resources.image_registry());
+        let dimensions = WindowSize::current(self.options.font_size_fallback)?;
+        scaler.process(self.state.presentation(), &dimensions)?;
+        Ok(())
     }
 
     fn is_displaying_other_error(&self) -> bool {
