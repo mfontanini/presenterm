@@ -23,6 +23,18 @@ pub(crate) struct AsciiImage {
     cached_sizes: Arc<Mutex<HashMap<(u16, u16), RgbaImage>>>,
 }
 
+impl AsciiImage {
+    pub(crate) fn cache_scaling(&self, columns: u16, rows: u16) {
+        let mut cached_sizes = self.cached_sizes.lock().unwrap();
+        // lookup on cache/resize the image and store it in cache
+        let cache_key = (columns, rows);
+        if cached_sizes.get(&cache_key).is_none() {
+            let image = self.image.resize_exact(columns as u32, rows as u32, FilterType::Triangle);
+            cached_sizes.insert(cache_key, image.into_rgba8());
+        }
+    }
+}
+
 impl ImageProperties for AsciiImage {
     fn dimensions(&self) -> (u32, u32) {
         self.image.dimensions()
@@ -91,20 +103,14 @@ impl PrintImage for AsciiPrinter {
     {
         let columns = options.columns;
         let rows = options.rows * 2;
-        let mut cached_sizes = image.cached_sizes.lock().unwrap();
+        // Scale it first
+        image.cache_scaling(columns, rows);
+
         // lookup on cache/resize the image and store it in cache
         let cache_key = (columns, rows);
-        let image = match cached_sizes.get(&cache_key) {
-            Some(image) => image,
-            None => {
-                let image = image.image.resize_exact(columns as u32, rows as u32, FilterType::Triangle);
-                cached_sizes.insert(cache_key, image.into_rgba8());
-                cached_sizes.get(&cache_key).unwrap()
-            }
-        };
-        // The strategy here is taken from viuer: use half vertical ascii blocks in combination
-        // with foreground/background colors to fit 2 vertical pixels per cell. That is, cell (x, y)
-        // will contain the pixels at (x, y) and (x, y + 1) combined.
+        let cached_sizes = image.cached_sizes.lock().unwrap();
+        let image = cached_sizes.get(&cache_key).expect("scaled image no longer there");
+
         let default_background = options.background_color.map(Color::from);
 
         // Iterate pixel rows in pairs to be able to merge both pixels in a single iteration.

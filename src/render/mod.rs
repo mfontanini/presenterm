@@ -1,3 +1,4 @@
+pub(crate) mod ascii_scaler;
 pub(crate) mod engine;
 pub(crate) mod layout;
 pub(crate) mod operation;
