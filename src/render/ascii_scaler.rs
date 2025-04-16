@@ -3,10 +3,10 @@ use super::{
     engine::{RenderEngine, RenderEngineOptions},
 };
 use crate::{
-    ImageRegistry, WindowSize,
+    WindowSize,
     presentation::Presentation,
     terminal::{
-        image::{Image, ImageSource},
+        image::Image,
         printer::{TerminalCommand, TerminalError, TerminalIo},
     },
 };
@@ -15,12 +15,11 @@ use unicode_width::UnicodeWidthStr;
 
 pub(crate) struct AsciiScaler {
     options: RenderEngineOptions,
-    registry: ImageRegistry,
 }
 
 impl AsciiScaler {
-    pub(crate) fn new(options: RenderEngineOptions, registry: ImageRegistry) -> Self {
-        Self { options, registry }
+    pub(crate) fn new(options: RenderEngineOptions) -> Self {
+        Self { options }
     }
 
     pub(crate) fn process(self, presentation: &Presentation, dimensions: &WindowSize) -> Result<(), RenderError> {
@@ -29,13 +28,13 @@ impl AsciiScaler {
             let engine = RenderEngine::new(&mut collector, dimensions.clone(), self.options.clone());
             engine.render(slide.iter_operations())?;
         }
-        thread::spawn(move || Self::scale(collector.images, self.registry));
+        thread::spawn(move || Self::scale(collector.images));
         Ok(())
     }
 
-    fn scale(images: Vec<ScalableImage>, registry: ImageRegistry) {
+    fn scale(images: Vec<ScalableImage>) {
         for image in images {
-            let ascii_image = registry.as_ascii(&image.image);
+            let ascii_image = image.image.to_ascii();
             ascii_image.cache_scaling(image.columns, image.rows);
         }
     }
@@ -84,11 +83,8 @@ impl TerminalIo for ImageCollector {
             }
             PrintImage { image, options } => {
                 // we can only really cache filesystem images for now
-                if matches!(image.source, ImageSource::Filesystem(_)) {
-                    let image =
-                        ScalableImage { image: image.clone(), rows: options.rows * 2, columns: options.columns };
-                    self.images.push(image);
-                }
+                let image = ScalableImage { image: image.clone(), rows: options.rows * 2, columns: options.columns };
+                self.images.push(image);
             }
             ClearScreen => {
                 self.current_column = 0;

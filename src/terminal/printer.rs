@@ -146,7 +146,7 @@ impl<I: TerminalWrite> Terminal<I> {
 
     fn print_image(&mut self, image: &Image, options: &PrintOptions) -> Result<(), PrintImageError> {
         let image_printer = self.image_printer.clone();
-        image_printer.print(&image.image, options, self)?;
+        image_printer.print(image.image(), options, self)?;
         self.cursor_row += options.rows;
         Ok(())
     }

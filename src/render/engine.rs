@@ -258,7 +258,7 @@ where
         let starting_cursor =
             CursorPosition { row: starting_row.saturating_sub(rect.start_row), column: rect.start_column };
 
-        let (width, height) = image.dimensions();
+        let (width, height) = image.image().dimensions();
         let (columns, rows) = match properties.size {
             ImageSize::ShrinkIfNeeded => {
                 let image_scale =

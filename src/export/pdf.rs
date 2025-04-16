@@ -97,13 +97,14 @@ impl ContentManager {
             ImageSource::Filesystem(path) => Ok(path),
             ImageSource::Generated => {
                 let mut buffer = Vec::new();
-                let dimensions = image.dimensions();
-                let TerminalImage::Ascii(resource) = image.image.as_ref() else { panic!("not in ascii mode") };
+                let dimensions = image.image().dimensions();
+                let TerminalImage::Ascii(image) = image.image() else { panic!("not in ascii mode") };
+                let image = image.image();
                 PngEncoder::new(&mut buffer).write_image(
-                    resource.as_bytes(),
+                    image.as_bytes(),
                     dimensions.0,
                     dimensions.1,
-                    resource.color().into(),
+                    image.color().into(),
                 )?;
                 let name = format!("img-{}.png", self.image_count);
                 let path = self.output_directory.path().join(name);
