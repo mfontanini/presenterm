@@ -474,7 +474,7 @@ pub(crate) enum FooterStyle {
     Template {
         left: Option<FooterContent>,
         center: Option<FooterContent>,
-        right: Option<FooterTemplate>,
+        right: Option<FooterContent>,
         style: TextStyle,
         height: u16,
     },
@@ -496,7 +496,7 @@ impl FooterStyle {
             raw::FooterStyle::Template { left, center, right, colors, height } => {
                 let left = left.as_ref().map(|t| FooterContent::new(t, resources)).transpose()?;
                 let center = center.as_ref().map(|t| FooterContent::new(t, resources)).transpose()?;
-                let right = right.clone();
+                let right = right.as_ref().map(|t| FooterContent::new(t, resources)).transpose()?;
                 let style = TextStyle::colored(colors.resolve(palette)?);
                 let height = height.unwrap_or(DEFAULT_FOOTER_HEIGHT);
                 Ok(Self::Template { left, center, right, style, height })

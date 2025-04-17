@@ -9,7 +9,9 @@ use crate::{
     },
     presentation::PresentationState,
     render::{
-        operation::{AsRenderOperations, ImageRenderProperties, ImageSize, MarginProperties, RenderOperation},
+        operation::{
+            AsRenderOperations, ImagePosition, ImageRenderProperties, ImageSize, MarginProperties, RenderOperation,
+        },
         properties::WindowSize,
     },
     terminal::image::Image,
@@ -307,7 +309,7 @@ impl AsRenderOperations for CenterModalContent {
                 size: ImageSize::Specific(self.content_width, content_height),
                 restore_cursor: true,
                 background_color: None,
-                center: true,
+                position: ImagePosition::Center,
             };
             operations.push(RenderOperation::RenderImage(image.clone(), properties));
         }

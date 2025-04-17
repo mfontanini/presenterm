@@ -5,7 +5,7 @@ use crate::{
         text_style::{TextStyle, UndefinedPaletteColorError},
     },
     render::{
-        operation::{AsRenderOperations, ImageRenderProperties, MarginProperties, RenderOperation},
+        operation::{AsRenderOperations, ImagePosition, ImageRenderProperties, MarginProperties, RenderOperation},
         properties::WindowSize,
     },
     terminal::image::Image,
@@ -53,14 +53,8 @@ impl FooterGenerator {
         ]);
     }
 
-    fn push_image(
-        &self,
-        image: &Image,
-        alignment: Alignment,
-        dimensions: &WindowSize,
-        operations: &mut Vec<RenderOperation>,
-    ) {
-        let mut properties = ImageRenderProperties { center: false, ..Default::default() };
+    fn push_image(&self, image: &Image, alignment: Alignment, operations: &mut Vec<RenderOperation>) {
+        let mut properties = ImageRenderProperties::default();
 
         operations.push(RenderOperation::ApplyMargin(MarginProperties {
             horizontal: Margin::Fixed(0),
@@ -70,11 +64,12 @@ impl FooterGenerator {
         match alignment {
             Alignment::Left { .. } => {
                 operations.push(RenderOperation::JumpToColumn { index: 0 });
+                properties.position = ImagePosition::Cursor;
             }
             Alignment::Right { .. } => {
-                operations.push(RenderOperation::JumpToColumn { index: dimensions.columns.saturating_sub(1) });
+                properties.position = ImagePosition::Right;
             }
-            Alignment::Center { .. } => properties.center = true,
+            Alignment::Center { .. } => properties.position = ImagePosition::Center,
         };
         operations.extend([
             // Start printing the image at the top of the footer rect
@@ -101,22 +96,19 @@ impl AsRenderOperations for FooterGenerator {
                 let alignments = [
                     Alignment::Left { margin: Default::default() },
                     Alignment::Center { minimum_size: 0, minimum_margin: Default::default() },
+                    Alignment::Right { margin: Default::default() },
                 ];
-                for (content, alignment) in [left, center].iter().zip(alignments) {
+                for (content, alignment) in [left, center, right].iter().zip(alignments) {
                     if let Some(content) = content {
                         match content {
                             RenderedFooterContent::Line(line) => {
                                 Self::render_line(line, alignment, *height, &mut operations);
                             }
                             RenderedFooterContent::Image(image) => {
-                                self.push_image(image, alignment, dimensions, &mut operations);
+                                self.push_image(image, alignment, &mut operations);
                             }
                         };
                     }
-                }
-                // We don't support images on the right so treat this differently
-                if let Some(line) = right {
-                    Self::render_line(line, Alignment::Right { margin: Default::default() }, *height, &mut operations);
                 }
                 operations.push(RenderOperation::PopMargin);
                 operations
@@ -146,7 +138,7 @@ enum RenderedFooterStyle {
     Template {
         left: Option<RenderedFooterContent>,
         center: Option<RenderedFooterContent>,
-        right: Option<FooterLine>,
+        right: Option<RenderedFooterContent>,
         height: u16,
     },
     ProgressBar {
@@ -166,7 +158,7 @@ impl RenderedFooterStyle {
             FooterStyle::Template { left, center, right, style, height } => {
                 let left = left.map(|c| RenderedFooterContent::new(c, &style, vars, palette)).transpose()?;
                 let center = center.map(|c| RenderedFooterContent::new(c, &style, vars, palette)).transpose()?;
-                let right = right.map(|c| FooterLine::new(c, &style, vars, palette)).transpose()?;
+                let right = right.map(|c| RenderedFooterContent::new(c, &style, vars, palette)).transpose()?;
                 Ok(Self::Template { left, center, right, height })
             }
             FooterStyle::ProgressBar { character, style } => Ok(Self::ProgressBar { character, style }),
