@@ -156,12 +156,12 @@ impl<'a> Presenter<'a> {
                         self.try_scale_transition_images()?;
                         break;
                     }
-                    CommandSideEffect::NextSlide => {
-                        self.next_slide(&mut drawer)?;
+                    CommandSideEffect::AnimateNextSlide => {
+                        self.animate_next_slide(&mut drawer)?;
                         break;
                     }
-                    CommandSideEffect::PreviousSlide => {
-                        self.previous_slide(&mut drawer)?;
+                    CommandSideEffect::AnimatePreviousSlide => {
+                        self.animate_previous_slide(&mut drawer)?;
                         break;
                     }
                     CommandSideEffect::None => (),
@@ -203,15 +203,19 @@ impl<'a> Presenter<'a> {
             return Ok(false);
         }
         let current_index = self.state.presentation().current_slide_index();
-        if self.slides_with_pending_async_renders.contains(&current_index) {
-            let state = self.state.presentation_mut().poll_slide_async_renders();
+        self.poll_slide_async_renders(current_index)
+    }
+
+    fn poll_slide_async_renders(&mut self, slide: usize) -> Result<bool, RenderError> {
+        if self.slides_with_pending_async_renders.contains(&slide) {
+            let state = self.state.presentation_mut().poll_slide_async_renders(slide);
             match state {
                 RenderAsyncState::NotStarted | RenderAsyncState::Rendering { modified: false } => (),
                 RenderAsyncState::Rendering { modified: true } => {
                     return Ok(true);
                 }
                 RenderAsyncState::Rendered | RenderAsyncState::JustFinishedRendering => {
-                    self.slides_with_pending_async_renders.remove(&current_index);
+                    self.slides_with_pending_async_renders.remove(&slide);
                     return Ok(true);
                 }
             };
@@ -279,7 +283,7 @@ impl<'a> Presenter<'a> {
                 if !presentation.jump_next() {
                     false
                 } else if presentation.current_slide_index() != current_slide {
-                    return CommandSideEffect::NextSlide;
+                    return CommandSideEffect::AnimateNextSlide;
                 } else {
                     true
                 }
@@ -290,7 +294,7 @@ impl<'a> Presenter<'a> {
                 if !presentation.jump_previous() {
                     false
                 } else if presentation.current_slide_index() != current_slide {
-                    return CommandSideEffect::PreviousSlide;
+                    return CommandSideEffect::AnimatePreviousSlide;
                 } else {
                     true
                 }
@@ -361,7 +365,7 @@ impl<'a> Presenter<'a> {
             return Ok(());
         }
         let options = RenderEngineOptions { max_size: self.options.max_size.clone(), ..Default::default() };
-        let scaler = AsciiScaler::new(options, self.resources.image_registry());
+        let scaler = AsciiScaler::new(options);
         let dimensions = WindowSize::current(self.options.font_size_fallback)?;
         scaler.process(self.state.presentation(), &dimensions)?;
         Ok(())
@@ -436,34 +440,40 @@ impl<'a> Presenter<'a> {
         }
     }
 
-    fn next_slide(&mut self, drawer: &mut TerminalDrawer) -> RenderResult {
+    fn animate_next_slide(&mut self, drawer: &mut TerminalDrawer) -> RenderResult {
         let Some(config) = self.options.transition.clone() else {
             return Ok(());
         };
-        let registry = self.resources.image_registry();
+        self.poll_and_scale_images()?;
+
         let options = drawer.render_engine_options();
         let presentation = self.state.presentation_mut();
         let dimensions = WindowSize::current(self.options.font_size_fallback)?;
         presentation.jump_previous();
-        let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options, registry.clone())?;
+        let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
         presentation.jump_next();
-        let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options, registry)?;
+        let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
         let direction = TransitionDirection::Next;
         self.animate_transition(drawer, left, right, direction, dimensions, config)
     }
 
-    fn previous_slide(&mut self, drawer: &mut TerminalDrawer) -> RenderResult {
+    fn animate_previous_slide(&mut self, drawer: &mut TerminalDrawer) -> RenderResult {
         let Some(config) = self.options.transition.clone() else {
             return Ok(());
         };
-        let registry = self.resources.image_registry();
+        self.poll_and_scale_images()?;
+
         let options = drawer.render_engine_options();
         let presentation = self.state.presentation_mut();
         let dimensions = WindowSize::current(self.options.font_size_fallback)?;
         presentation.jump_next();
-        let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options, registry.clone())?;
+
+        // Re-borrow to avoid calling fns above while mutably borrowing
+        let presentation = self.state.presentation_mut();
+
+        let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
         presentation.jump_previous();
-        let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options, registry)?;
+        let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
         let direction = TransitionDirection::Previous;
         self.animate_transition(drawer, left, right, direction, dimensions, config)
     }
@@ -543,12 +553,22 @@ impl<'a> Presenter<'a> {
         slide: &Slide,
         dimensions: WindowSize,
         options: &RenderEngineOptions,
-        registry: ImageRegistry,
     ) -> Result<TerminalGrid, RenderError> {
-        let mut term = VirtualTerminal::new(dimensions.clone(), ImageBehavior::PrintAscii(registry));
+        let mut term = VirtualTerminal::new(dimensions.clone(), ImageBehavior::PrintAscii);
         let engine = RenderEngine::new(&mut term, dimensions.clone(), options.clone());
         engine.render(slide.iter_visible_operations())?;
         Ok(term.into_contents())
+    }
+
+    fn poll_and_scale_images(&mut self) -> RenderResult {
+        let mut needs_scaling = false;
+        for index in 0..self.state.presentation().iter_slides().count() {
+            needs_scaling = self.poll_slide_async_renders(index)? || needs_scaling;
+        }
+        if needs_scaling {
+            self.try_scale_transition_images()?;
+        }
+        Ok(())
     }
 }
 
@@ -557,8 +577,8 @@ enum CommandSideEffect {
     Suspend,
     Redraw,
     Reload,
-    NextSlide,
-    PreviousSlide,
+    AnimateNextSlide,
+    AnimatePreviousSlide,
     None,
 }
 

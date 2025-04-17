@@ -10,49 +10,49 @@ use itertools::Itertools;
 use std::{
     collections::HashMap,
     fs,
-    ops::Deref,
     sync::{Arc, Mutex},
 };
 
 const TOP_CHAR: &str = "▀";
 const BOTTOM_CHAR: &str = "▄";
 
+struct Inner {
+    image: DynamicImage,
+    cached_sizes: Mutex<HashMap<(u16, u16), RgbaImage>>,
+}
+
 #[derive(Clone)]
 pub(crate) struct AsciiImage {
-    image: Arc<DynamicImage>,
-    cached_sizes: Arc<Mutex<HashMap<(u16, u16), RgbaImage>>>,
+    inner: Arc<Inner>,
 }
 
 impl AsciiImage {
     pub(crate) fn cache_scaling(&self, columns: u16, rows: u16) {
-        let mut cached_sizes = self.cached_sizes.lock().unwrap();
+        let mut cached_sizes = self.inner.cached_sizes.lock().unwrap();
         // lookup on cache/resize the image and store it in cache
         let cache_key = (columns, rows);
         if cached_sizes.get(&cache_key).is_none() {
-            let image = self.image.resize_exact(columns as u32, rows as u32, FilterType::Triangle);
+            let image = self.inner.image.resize_exact(columns as u32, rows as u32, FilterType::Triangle);
             cached_sizes.insert(cache_key, image.into_rgba8());
         }
+    }
+
+    pub(crate) fn image(&self) -> &DynamicImage {
+        &self.inner.image
     }
 }
 
 impl ImageProperties for AsciiImage {
     fn dimensions(&self) -> (u32, u32) {
-        self.image.dimensions()
+        self.inner.image.dimensions()
     }
 }
 
 impl From<DynamicImage> for AsciiImage {
     fn from(image: DynamicImage) -> Self {
         let image = image.into_rgba8();
-        Self { image: Arc::new(image.into()), cached_sizes: Default::default() }
-    }
-}
-
-impl Deref for AsciiImage {
-    type Target = DynamicImage;
-
-    fn deref(&self) -> &Self::Target {
-        &self.image
+        let inner = Inner { image: image.into(), cached_sizes: Default::default() };
+        Self { inner: Arc::new(inner) }
     }
 }
 
@@ -108,7 +108,7 @@ impl PrintImage for AsciiPrinter {
 
         // lookup on cache/resize the image and store it in cache
         let cache_key = (columns, rows);
-        let cached_sizes = image.cached_sizes.lock().unwrap();
+        let cached_sizes = image.inner.cached_sizes.lock().unwrap();
         let image = cached_sizes.get(&cache_key).expect("scaled image no longer there");
 
         let default_background = options.background_color.map(Color::from);

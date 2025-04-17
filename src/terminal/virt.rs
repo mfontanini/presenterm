@@ -7,7 +7,7 @@ use super::{
     printer::{TerminalError, TerminalIo},
 };
 use crate::{
-    ImageRegistry, WindowSize,
+    WindowSize,
     markdown::{
         elements::Text,
         text_style::{Color, Colors, TextStyle},
@@ -187,8 +187,8 @@ impl VirtualTerminal {
                 let image = PrintedImage { image: image.clone(), width_columns: options.columns };
                 self.images.insert(key, image);
             }
-            ImageBehavior::PrintAscii(registry) => {
-                let image = registry.as_ascii(image);
+            ImageBehavior::PrintAscii => {
+                let image = image.to_ascii();
                 let image_printer = AsciiPrinter;
                 image_printer.print(&image, options, self)?
             }
@@ -228,7 +228,7 @@ impl TerminalIo for VirtualTerminal {
 pub(crate) enum ImageBehavior {
     #[default]
     Store,
-    PrintAscii(ImageRegistry),
+    PrintAscii,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

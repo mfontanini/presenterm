@@ -173,8 +173,8 @@ impl Presentation {
     }
 
     /// Poll every async render operation in the current slide and check whether they're completed.
-    pub(crate) fn poll_slide_async_renders(&mut self) -> RenderAsyncState {
-        let slide = self.current_slide_mut();
+    pub(crate) fn poll_slide_async_renders(&mut self, slide: usize) -> RenderAsyncState {
+        let slide = &mut self.slides[slide];
         let mut slide_state = RenderAsyncState::Rendered;
         for operation in slide.iter_operations_mut() {
             if let RenderOperation::RenderAsync(operation) = operation {
