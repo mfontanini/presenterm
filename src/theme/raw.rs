@@ -412,7 +412,7 @@ pub(super) enum FooterStyle {
         center: Option<FooterContent>,
 
         /// The content to be put on the right.
-        right: Option<FooterTemplate>,
+        right: Option<FooterContent>,
 
         /// The colors to be used.
         #[serde(default)]

@@ -1,4 +1,6 @@
-use super::{RenderError, RenderResult, layout::Layout, properties::CursorPosition, text::TextDrawer};
+use super::{
+    RenderError, RenderResult, layout::Layout, operation::ImagePosition, properties::CursorPosition, text::TextDrawer,
+};
 use crate::{
     config::{MaxColumnsAlignment, MaxRowsAlignment},
     markdown::{text::WeightedLine, text_style::Colors},
@@ -274,9 +276,10 @@ where
                 (image_scale.columns, image_scale.rows)
             }
         };
-        let cursor = match properties.center {
-            true => Self::center_cursor(columns, &rect.dimensions, &starting_cursor),
-            false => starting_cursor.clone(),
+        let cursor = match &properties.position {
+            ImagePosition::Cursor => starting_cursor.clone(),
+            ImagePosition::Center => Self::center_cursor(columns, &rect.dimensions, &starting_cursor),
+            ImagePosition::Right => Self::align_cursor_right(columns, &rect.dimensions, &starting_cursor),
         };
         self.terminal.execute(&TerminalCommand::MoveToColumn(cursor.column))?;
 
@@ -300,6 +303,11 @@ where
     fn center_cursor(columns: u16, window: &WindowSize, cursor: &CursorPosition) -> CursorPosition {
         let start_column = window.columns / 2 - (columns / 2);
         let start_column = start_column + cursor.column;
+        CursorPosition { row: cursor.row, column: start_column }
+    }
+
+    fn align_cursor_right(columns: u16, window: &WindowSize, cursor: &CursorPosition) -> CursorPosition {
+        let start_column = window.columns.saturating_sub(columns).saturating_add(cursor.column);
         CursorPosition { row: cursor.row, column: start_column }
     }
 
@@ -806,8 +814,13 @@ mod tests {
     fn image(#[case] size: ImageSize) {
         let image = DynamicImage::new(2, 2, ColorType::Rgba8);
         let image = Image::new(TerminalImage::Ascii(image.into()), ImageSource::Generated);
-        let properties =
-            ImageRenderProperties { z_index: 0, size, restore_cursor: false, background_color: None, center: false };
+        let properties = ImageRenderProperties {
+            z_index: 0,
+            size,
+            restore_cursor: false,
+            background_color: None,
+            position: ImagePosition::Cursor,
+        };
         let ops = render_with_max_size(&[RenderOperation::RenderImage(image, properties)]);
         let expected = [
             // centered 20x10, the image is 2x2 so we stand one away from center
@@ -835,13 +848,52 @@ mod tests {
     fn centered_image(#[case] size: ImageSize) {
         let image = DynamicImage::new(2, 2, ColorType::Rgba8);
         let image = Image::new(TerminalImage::Ascii(image.into()), ImageSource::Generated);
-        let properties =
-            ImageRenderProperties { z_index: 0, size, restore_cursor: false, background_color: None, center: true };
+        let properties = ImageRenderProperties {
+            z_index: 0,
+            size,
+            restore_cursor: false,
+            background_color: None,
+            position: ImagePosition::Center,
+        };
         let ops = render_with_max_size(&[RenderOperation::RenderImage(image, properties)]);
         let expected = [
             // centered 20x10, the image is 2x2 so we stand one away from center
             Instruction::MoveTo(40, 45),
             Instruction::MoveToColumn(49),
+            Instruction::PrintImage(PrintOptions {
+                columns: 2,
+                rows: 2,
+                z_index: 0,
+                background_color: None,
+                column_width: 2,
+                row_height: 2,
+            }),
+            // place cursor after the image
+            Instruction::MoveToRow(47),
+        ];
+        assert_eq!(ops, expected);
+    }
+
+    // same as the above but use right alignment
+    #[rstest]
+    #[case::shrink(ImageSize::ShrinkIfNeeded)]
+    #[case::specific(ImageSize::Specific(2, 2))]
+    #[case::width_scaled(ImageSize::WidthScaled { ratio: 1.0 })]
+    fn right_aligned_image(#[case] size: ImageSize) {
+        let image = DynamicImage::new(2, 2, ColorType::Rgba8);
+        let image = Image::new(TerminalImage::Ascii(image.into()), ImageSource::Generated);
+        let properties = ImageRenderProperties {
+            z_index: 0,
+            size,
+            restore_cursor: false,
+            background_color: None,
+            position: ImagePosition::Right,
+        };
+        let ops = render_with_max_size(&[RenderOperation::RenderImage(image, properties)]);
+        let expected = [
+            // right aligned 20x10, the image is 2x2 so we stand one away from the right
+            Instruction::MoveTo(40, 45),
+            Instruction::MoveToColumn(58),
             Instruction::PrintImage(PrintOptions {
                 columns: 2,
                 rows: 2,
@@ -866,7 +918,7 @@ mod tests {
             size: ImageSize::ShrinkIfNeeded,
             restore_cursor: true,
             background_color: None,
-            center: true,
+            position: ImagePosition::Center,
         };
         let ops = render_with_max_size(&[RenderOperation::RenderImage(image, properties)]);
         let expected = [

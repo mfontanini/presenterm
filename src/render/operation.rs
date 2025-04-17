@@ -101,7 +101,7 @@ pub(crate) struct ImageRenderProperties {
     pub(crate) size: ImageSize,
     pub(crate) restore_cursor: bool,
     pub(crate) background_color: Option<Color>,
-    pub(crate) center: bool,
+    pub(crate) position: ImagePosition,
 }
 
 impl Default for ImageRenderProperties {
@@ -111,9 +111,16 @@ impl Default for ImageRenderProperties {
             size: Default::default(),
             restore_cursor: false,
             background_color: None,
-            center: true,
+            position: ImagePosition::Cursor,
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum ImagePosition {
+    Cursor,
+    Center,
+    Right,
 }
 
 /// The size used when printing an image.
