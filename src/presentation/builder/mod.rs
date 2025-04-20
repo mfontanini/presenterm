@@ -40,7 +40,7 @@ use comrak::{Arena, nodes::AlertType};
 use image::DynamicImage;
 use serde::Deserialize;
 use snippet::{SnippetOperations, SnippetProcessor, SnippetProcessorState};
-use std::{collections::HashSet, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr};
+use std::{collections::HashSet, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr, sync::Arc};
 use unicode_width::UnicodeWidthStr;
 
 mod snippet;
@@ -125,7 +125,7 @@ pub(crate) struct PresentationBuilder<'a> {
     chunk_mutators: Vec<Box<dyn ChunkMutator>>,
     slide_builders: Vec<SlideBuilder>,
     highlighter: SnippetHighlighter,
-    code_executor: Rc<SnippetExecutor>,
+    code_executor: Arc<SnippetExecutor>,
     theme: PresentationTheme,
     default_raw_theme: &'a raw::PresentationTheme,
     resources: Resources,
@@ -148,7 +148,7 @@ impl<'a> PresentationBuilder<'a> {
         default_raw_theme: &'a raw::PresentationTheme,
         resources: Resources,
         third_party: &'a mut ThirdPartyRender,
-        code_executor: Rc<SnippetExecutor>,
+        code_executor: Arc<SnippetExecutor>,
         themes: &'a Themes,
         image_registry: ImageRegistry,
         bindings_config: KeyBindingsConfig,
@@ -934,11 +934,9 @@ impl<'a> PresentationBuilder<'a> {
             image_registry: &self.image_registry,
             snippet_executor: self.code_executor.clone(),
             theme: &self.theme,
-            presentation_state: &self.presentation_state,
             third_party: self.third_party,
             highlighter: &self.highlighter,
             options: &self.options,
-            slide_number: self.slide_builders.len() + 1,
             font_size: self.slide_font_size(),
         };
         let processor = SnippetProcessor::new(state);
@@ -1174,6 +1172,7 @@ pub enum BuildError {
     InvalidFooter(#[from] InvalidFooterTemplateError),
 }
 
+#[derive(Debug)]
 enum ExecutionMode {
     AlongSnippet,
     ReplaceSnippet,
@@ -1371,7 +1370,7 @@ mod test {
         let tmp_dir = std::env::temp_dir();
         let resources = Resources::new(&tmp_dir, &tmp_dir, Default::default());
         let mut third_party = ThirdPartyRender::default();
-        let code_executor = Rc::new(SnippetExecutor::default());
+        let code_executor = Arc::new(SnippetExecutor::default());
         let themes = Themes::default();
         let bindings = KeyBindingsConfig::default();
         let builder = PresentationBuilder::new(

@@ -120,7 +120,7 @@ mod test {
         },
         presentation::{Slide, SlideBuilder},
         render::{
-            operation::{AsRenderOperations, BlockLine, RenderAsync, RenderAsyncState},
+            operation::{AsRenderOperations, BlockLine, Pollable, RenderAsync, ToggleState},
             properties::WindowSize,
         },
         theme::{Alignment, Margin},
@@ -138,12 +138,9 @@ mod test {
     }
 
     impl RenderAsync for Dynamic {
-        fn start_render(&self) -> bool {
-            false
-        }
-
-        fn poll_state(&self) -> RenderAsyncState {
-            RenderAsyncState::Rendered
+        fn pollable(&self) -> Box<dyn Pollable> {
+            // Use some random one, we don't care
+            Box::new(ToggleState::new(Default::default()))
         }
     }
 

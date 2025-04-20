@@ -10,31 +10,29 @@ use crate::{
         },
     },
     markdown::elements::SourcePosition,
-    presentation::{ChunkMutator, PresentationState},
+    presentation::ChunkMutator,
     render::{
-        operation::{AsRenderOperations, RenderAsync, RenderOperation},
+        operation::{AsRenderOperations, RenderAsyncStartPolicy, RenderOperation},
         properties::WindowSize,
     },
     resource::Resources,
     theme::{CodeBlockStyle, PresentationTheme},
     third_party::{ThirdPartyRender, ThirdPartyRenderRequest},
     ui::execution::{
-        DisplaySeparator, RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation,
-        SnippetExecutionDisabledOperation,
+        RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation, SnippetExecutionDisabledOperation,
+        disabled::ExecutionType, snippet::DisplaySeparator,
     },
 };
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 pub(crate) struct SnippetProcessorState<'a> {
     pub(crate) resources: &'a Resources,
     pub(crate) image_registry: &'a ImageRegistry,
-    pub(crate) snippet_executor: Rc<SnippetExecutor>,
+    pub(crate) snippet_executor: Arc<SnippetExecutor>,
     pub(crate) theme: &'a PresentationTheme,
-    pub(crate) presentation_state: &'a PresentationState,
     pub(crate) third_party: &'a ThirdPartyRender,
     pub(crate) highlighter: &'a SnippetHighlighter,
     pub(crate) options: &'a PresentationBuilderOptions,
-    pub(crate) slide_number: usize,
     pub(crate) font_size: u8,
 }
 
@@ -43,13 +41,11 @@ pub(crate) struct SnippetProcessor<'a> {
     mutators: Vec<Box<dyn ChunkMutator>>,
     resources: &'a Resources,
     image_registry: &'a ImageRegistry,
-    snippet_executor: Rc<SnippetExecutor>,
+    snippet_executor: Arc<SnippetExecutor>,
     theme: &'a PresentationTheme,
-    presentation_state: &'a PresentationState,
     third_party: &'a ThirdPartyRender,
     highlighter: &'a SnippetHighlighter,
     options: &'a PresentationBuilderOptions,
-    slide_number: usize,
     font_size: u8,
 }
 
@@ -60,11 +56,9 @@ impl<'a> SnippetProcessor<'a> {
             image_registry,
             snippet_executor,
             theme,
-            presentation_state,
             third_party,
             highlighter,
             options,
-            slide_number,
             font_size,
         } = state;
         Self {
@@ -74,11 +68,9 @@ impl<'a> SnippetProcessor<'a> {
             image_registry,
             snippet_executor,
             theme,
-            presentation_state,
             third_party,
             highlighter,
             options,
-            slide_number,
             font_size,
         }
     }
@@ -128,11 +120,12 @@ impl<'a> SnippetProcessor<'a> {
         match snippet.attributes.execution {
             SnippetExec::None => Ok(()),
             SnippetExec::Exec | SnippetExec::AcquireTerminal if !execution_allowed => {
-                let auto_start = match snippet.attributes.representation {
-                    SnippetRepr::Image | SnippetRepr::ExecReplace => true,
-                    SnippetRepr::Render | SnippetRepr::Snippet => false,
+                let exec_type = match snippet.attributes.representation {
+                    SnippetRepr::Image => ExecutionType::Image,
+                    SnippetRepr::ExecReplace => ExecutionType::ExecReplace,
+                    SnippetRepr::Render | SnippetRepr::Snippet => ExecutionType::Execute,
                 };
-                self.push_execution_disabled_operation(auto_start);
+                self.push_execution_disabled_operation(exec_type);
                 Ok(())
             }
             SnippetExec::Exec => self.push_code_execution(snippet, block_length, ExecutionMode::AlongSnippet),
@@ -184,7 +177,6 @@ impl<'a> SnippetProcessor<'a> {
 
     fn push_rendered_code(&mut self, code: Snippet, source_position: SourcePosition) -> BuildResult {
         let Snippet { contents, language, attributes } = code;
-        let error_holder = self.presentation_state.async_error_holder();
         let request = match language {
             SnippetLanguage::Typst => ThirdPartyRenderRequest::Typst(contents, self.theme.typst.clone()),
             SnippetLanguage::Latex => ThirdPartyRenderRequest::Latex(contents, self.theme.typst.clone()),
@@ -196,8 +188,7 @@ impl<'a> SnippetProcessor<'a> {
                 })?;
             }
         };
-        let operation =
-            self.third_party.render(request, self.theme, error_holder, self.slide_number, attributes.width)?;
+        let operation = self.third_party.render(request, self.theme, attributes.width)?;
         self.operations.push(operation);
         Ok(())
     }
@@ -251,14 +242,17 @@ impl<'a> SnippetProcessor<'a> {
         style
     }
 
-    fn push_execution_disabled_operation(&mut self, auto_start: bool) {
+    fn push_execution_disabled_operation(&mut self, exec_type: ExecutionType) {
+        let policy = match exec_type {
+            ExecutionType::ExecReplace | ExecutionType::Image => RenderAsyncStartPolicy::Automatic,
+            ExecutionType::Execute => RenderAsyncStartPolicy::OnDemand,
+        };
         let operation = SnippetExecutionDisabledOperation::new(
             self.theme.execution_output.status.failure_style,
             self.theme.code.alignment,
+            policy,
+            exec_type,
         );
-        if auto_start {
-            operation.start_render();
-        }
         self.operations.push(RenderOperation::RenderAsync(Rc::new(operation)));
     }
 
@@ -272,8 +266,6 @@ impl<'a> SnippetProcessor<'a> {
             self.image_registry.clone(),
             self.theme.execution_output.status.clone(),
         );
-        operation.start_render();
-
         let operation = RenderOperation::RenderAsync(Rc::new(operation));
         self.operations.push(operation);
         Ok(())
@@ -310,6 +302,10 @@ impl<'a> SnippetProcessor<'a> {
         if snippet.attributes.no_background {
             execution_output_style.style.colors.background = None;
         }
+        let policy = match mode {
+            ExecutionMode::AlongSnippet => RenderAsyncStartPolicy::OnDemand,
+            ExecutionMode::ReplaceSnippet => RenderAsyncStartPolicy::Automatic,
+        };
         let operation = RunSnippetOperation::new(
             snippet,
             self.snippet_executor.clone(),
@@ -319,10 +315,8 @@ impl<'a> SnippetProcessor<'a> {
             separator,
             alignment,
             self.font_size,
+            policy,
         );
-        if matches!(mode, ExecutionMode::ReplaceSnippet) {
-            operation.start_render();
-        }
         let operation = RenderOperation::RenderAsync(Rc::new(operation));
         self.operations.push(operation);
         Ok(())

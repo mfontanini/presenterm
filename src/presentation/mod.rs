@@ -1,11 +1,7 @@
-use crate::{
-    config::OptionsConfig,
-    render::operation::{RenderAsyncState, RenderOperation},
-};
+use crate::{config::OptionsConfig, render::operation::RenderOperation};
 use serde::Deserialize;
 use std::{
     cell::RefCell,
-    collections::HashSet,
     fmt::Debug,
     ops::Deref,
     rc::Rc,
@@ -14,6 +10,7 @@ use std::{
 
 pub(crate) mod builder;
 pub(crate) mod diff;
+pub(crate) mod poller;
 
 #[derive(Debug)]
 pub(crate) struct Modals {
@@ -143,61 +140,7 @@ impl Presentation {
         self.current_slide().current_chunk_index()
     }
 
-    /// Trigger async render operations in this slide.
-    pub(crate) fn trigger_slide_async_renders(&mut self) -> bool {
-        let slide = self.current_slide_mut();
-        let mut any_rendered = false;
-        for operation in slide.iter_visible_operations_mut() {
-            if let RenderOperation::RenderAsync(operation) = operation {
-                let is_rendered = operation.start_render();
-                any_rendered = any_rendered || is_rendered;
-            }
-        }
-        any_rendered
-    }
-
-    // Get all slides that contain async render operations.
-    pub(crate) fn slides_with_async_renders(&self) -> HashSet<usize> {
-        let mut indexes = HashSet::new();
-        for (index, slide) in self.slides.iter().enumerate() {
-            for operation in slide.iter_operations() {
-                if let RenderOperation::RenderAsync(operation) = operation {
-                    if matches!(operation.poll_state(), RenderAsyncState::Rendering { .. }) {
-                        indexes.insert(index);
-                        break;
-                    }
-                }
-            }
-        }
-        indexes
-    }
-
-    /// Poll every async render operation in the current slide and check whether they're completed.
-    pub(crate) fn poll_slide_async_renders(&mut self, slide: usize) -> RenderAsyncState {
-        let slide = &mut self.slides[slide];
-        let mut slide_state = RenderAsyncState::Rendered;
-        for operation in slide.iter_operations_mut() {
-            if let RenderOperation::RenderAsync(operation) = operation {
-                let state = operation.poll_state();
-                slide_state = match (&slide_state, &state) {
-                    // If one finished rendering and another one still is rendering, claim that we
-                    // are still rendering and there's modifications.
-                    (RenderAsyncState::JustFinishedRendering, RenderAsyncState::Rendering { .. })
-                    | (RenderAsyncState::Rendering { .. }, RenderAsyncState::JustFinishedRendering) => {
-                        RenderAsyncState::Rendering { modified: true }
-                    }
-                    // Render + modified overrides anything, rendering overrides only "rendered".
-                    (_, RenderAsyncState::Rendering { modified: true })
-                    | (RenderAsyncState::Rendered, RenderAsyncState::Rendering { .. })
-                    | (_, RenderAsyncState::JustFinishedRendering) => state,
-                    _ => slide_state,
-                };
-            }
-        }
-        slide_state
-    }
-
-    fn current_slide_mut(&mut self) -> &mut Slide {
+    pub(crate) fn current_slide_mut(&mut self) -> &mut Slide {
         let index = self.current_slide_index();
         &mut self.slides[index]
     }

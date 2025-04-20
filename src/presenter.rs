@@ -10,12 +10,13 @@ use crate::{
         Presentation, Slide,
         builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
         diff::PresentationDiffer,
+        poller::{PollableEffect, Poller, PollerCommand},
     },
     render::{
         ErrorSource, RenderError, RenderResult, TerminalDrawer, TerminalDrawerOptions,
         ascii_scaler::AsciiScaler,
         engine::{MaxSize, RenderEngine, RenderEngineOptions},
-        operation::RenderAsyncState,
+        operation::{Pollable, RenderAsyncStartPolicy, RenderOperation},
         properties::WindowSize,
         validate::OverflowValidator,
     },
@@ -33,14 +34,12 @@ use crate::{
     },
 };
 use std::{
-    collections::HashSet,
     fmt::Display,
     fs,
     io::{self},
     mem,
     ops::Deref,
     path::Path,
-    rc::Rc,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -64,13 +63,13 @@ pub struct Presenter<'a> {
     parser: MarkdownParser<'a>,
     resources: Resources,
     third_party: ThirdPartyRender,
-    code_executor: Rc<SnippetExecutor>,
+    code_executor: Arc<SnippetExecutor>,
     state: PresenterState,
-    slides_with_pending_async_renders: HashSet<usize>,
     image_printer: Arc<ImagePrinter>,
     themes: Themes,
     options: PresenterOptions,
     speaker_notes_event_publisher: Option<SpeakerNotesEventPublisher>,
+    poller: Poller,
 }
 
 impl<'a> Presenter<'a> {
@@ -82,7 +81,7 @@ impl<'a> Presenter<'a> {
         parser: MarkdownParser<'a>,
         resources: Resources,
         third_party: ThirdPartyRender,
-        code_executor: Rc<SnippetExecutor>,
+        code_executor: Arc<SnippetExecutor>,
         themes: Themes,
         image_printer: Arc<ImagePrinter>,
         options: PresenterOptions,
@@ -96,11 +95,11 @@ impl<'a> Presenter<'a> {
             third_party,
             code_executor,
             state: PresenterState::Empty,
-            slides_with_pending_async_renders: HashSet::new(),
             image_printer,
             themes,
             options,
             speaker_notes_event_publisher,
+            poller: Poller::launch(),
         }
     }
 
@@ -119,11 +118,10 @@ impl<'a> Presenter<'a> {
         let mut drawer = TerminalDrawer::new(self.image_printer.clone(), drawer_options)?;
         loop {
             // Poll async renders once before we draw just in case.
-            self.poll_async_renders()?;
             self.render(&mut drawer)?;
 
             loop {
-                if self.poll_async_renders()? {
+                if self.process_poller_effects()? {
                     self.render(&mut drawer)?;
                 }
 
@@ -173,6 +171,36 @@ impl<'a> Presenter<'a> {
         }
     }
 
+    fn process_poller_effects(&mut self) -> Result<bool, PresentationError> {
+        let current_slide = match &self.state {
+            PresenterState::Presenting(presentation)
+            | PresenterState::SlideIndex(presentation)
+            | PresenterState::KeyBindings(presentation)
+            | PresenterState::Failure { presentation, .. } => presentation.current_slide_index(),
+            PresenterState::Empty => usize::MAX,
+        };
+        let mut refreshed = false;
+        let mut needs_render = false;
+        while let Some(effect) = self.poller.next_effect() {
+            match effect {
+                PollableEffect::RefreshSlide(index) => {
+                    needs_render = needs_render || index == current_slide;
+                    refreshed = true;
+                }
+                PollableEffect::DisplayError { slide, error } => {
+                    let presentation = mem::take(&mut self.state).into_presentation();
+                    self.state =
+                        PresenterState::failure(error, presentation, ErrorSource::Slide(slide + 1), FailureMode::Other);
+                    needs_render = true;
+                }
+            }
+        }
+        if refreshed {
+            self.try_scale_transition_images()?;
+        }
+        Ok(needs_render)
+    }
+
     fn publish_event(&self, event: SpeakerNotesEvent) -> io::Result<()> {
         if let Some(publisher) = &self.speaker_notes_event_publisher {
             publisher.send(event)?;
@@ -196,31 +224,6 @@ impl<'a> Presenter<'a> {
             }
             None => false,
         }
-    }
-
-    fn poll_async_renders(&mut self) -> Result<bool, RenderError> {
-        if matches!(self.state, PresenterState::Failure { .. }) {
-            return Ok(false);
-        }
-        let current_index = self.state.presentation().current_slide_index();
-        self.poll_slide_async_renders(current_index)
-    }
-
-    fn poll_slide_async_renders(&mut self, slide: usize) -> Result<bool, RenderError> {
-        if self.slides_with_pending_async_renders.contains(&slide) {
-            let state = self.state.presentation_mut().poll_slide_async_renders(slide);
-            match state {
-                RenderAsyncState::NotStarted | RenderAsyncState::Rendering { modified: false } => (),
-                RenderAsyncState::Rendering { modified: true } => {
-                    return Ok(true);
-                }
-                RenderAsyncState::Rendered | RenderAsyncState::JustFinishedRendering => {
-                    self.slides_with_pending_async_renders.remove(&slide);
-                    return Ok(true);
-                }
-            };
-        }
-        Ok(false)
     }
 
     fn render(&mut self, drawer: &mut TerminalDrawer) -> RenderResult {
@@ -304,8 +307,11 @@ impl<'a> Presenter<'a> {
             Command::LastSlide => presentation.jump_last_slide(),
             Command::GoToSlide(number) => presentation.go_to_slide(number.saturating_sub(1) as usize),
             Command::RenderAsyncOperations => {
-                if presentation.trigger_slide_async_renders() {
-                    self.slides_with_pending_async_renders.insert(self.state.presentation().current_slide_index());
+                let pollables = Self::trigger_slide_async_renders(presentation);
+                if !pollables.is_empty() {
+                    for pollable in pollables {
+                        self.poller.send(PollerCommand::Poll { pollable, slide: presentation.current_slide_index() });
+                    }
                     return CommandSideEffect::Redraw;
                 } else {
                     return CommandSideEffect::None;
@@ -336,7 +342,7 @@ impl<'a> Presenter<'a> {
         if matches!(self.options.mode, PresentMode::Presentation) && !force {
             return Ok(());
         }
-        self.slides_with_pending_async_renders.clear();
+        self.poller.send(PollerCommand::Reset);
         self.resources.clear_watches();
         match self.load_presentation(path) {
             Ok(mut presentation) => {
@@ -348,7 +354,7 @@ impl<'a> Presenter<'a> {
                     presentation.go_to_slide(current.current_slide_index());
                     presentation.jump_chunk(current.current_chunk());
                 }
-                self.slides_with_pending_async_renders = presentation.slides_with_async_renders().into_iter().collect();
+                self.start_automatic_async_renders(&mut presentation);
                 self.state = self.validate_overflows(presentation);
                 self.try_scale_transition_images()?;
             }
@@ -369,6 +375,19 @@ impl<'a> Presenter<'a> {
         let dimensions = WindowSize::current(self.options.font_size_fallback)?;
         scaler.process(self.state.presentation(), &dimensions)?;
         Ok(())
+    }
+
+    fn trigger_slide_async_renders(presentation: &mut Presentation) -> Vec<Box<dyn Pollable>> {
+        let slide = presentation.current_slide_mut();
+        let mut pollables = Vec::new();
+        for operation in slide.iter_visible_operations_mut() {
+            if let RenderOperation::RenderAsync(operation) = operation {
+                if let RenderAsyncStartPolicy::OnDemand = operation.start_policy() {
+                    pollables.push(operation.pollable());
+                }
+            }
+        }
+        pollables
     }
 
     fn is_displaying_other_error(&self) -> bool {
@@ -444,7 +463,6 @@ impl<'a> Presenter<'a> {
         let Some(config) = self.options.transition.clone() else {
             return Ok(());
         };
-        self.poll_and_scale_images()?;
 
         let options = drawer.render_engine_options();
         let presentation = self.state.presentation_mut();
@@ -461,7 +479,6 @@ impl<'a> Presenter<'a> {
         let Some(config) = self.options.transition.clone() else {
             return Ok(());
         };
-        self.poll_and_scale_images()?;
 
         let options = drawer.render_engine_options();
         let presentation = self.state.presentation_mut();
@@ -560,15 +577,17 @@ impl<'a> Presenter<'a> {
         Ok(term.into_contents())
     }
 
-    fn poll_and_scale_images(&mut self) -> RenderResult {
-        let mut needs_scaling = false;
-        for index in 0..self.state.presentation().iter_slides().count() {
-            needs_scaling = self.poll_slide_async_renders(index)? || needs_scaling;
+    fn start_automatic_async_renders(&self, presentation: &mut Presentation) {
+        for (index, slide) in presentation.iter_slides_mut().enumerate() {
+            for operation in slide.iter_operations_mut() {
+                if let RenderOperation::RenderAsync(operation) = operation {
+                    if let RenderAsyncStartPolicy::Automatic = operation.start_policy() {
+                        let pollable = operation.pollable();
+                        self.poller.send(PollerCommand::Poll { pollable, slide: index });
+                    }
+                }
+            }
         }
-        if needs_scaling {
-            self.try_scale_transition_images()?;
-        }
-        Ok(())
     }
 }
 

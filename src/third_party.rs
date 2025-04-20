@@ -5,10 +5,10 @@ use crate::{
         elements::{Line, Percent, Text},
         text_style::{Color, TextStyle},
     },
-    presentation::{AsyncPresentationError, AsyncPresentationErrorHolder},
     render::{
         operation::{
-            AsRenderOperations, ImageRenderProperties, ImageSize, RenderAsync, RenderAsyncState, RenderOperation,
+            AsRenderOperations, ImageRenderProperties, ImageSize, Pollable, PollableState, RenderAsync,
+            RenderAsyncStartPolicy, RenderOperation,
         },
         properties::WindowSize,
     },
@@ -53,12 +53,10 @@ impl ThirdPartyRender {
         &self,
         request: ThirdPartyRenderRequest,
         theme: &PresentationTheme,
-        error_holder: AsyncPresentationErrorHolder,
-        slide: usize,
         width: Option<Percent>,
     ) -> Result<RenderOperation, ThirdPartyRenderError> {
         let result = self.render_pool.render(request);
-        let operation = Rc::new(RenderThirdParty::new(result, theme.default_style.style, error_holder, slide, width));
+        let operation = Rc::new(RenderThirdParty::new(result, theme.default_style.style, width));
         Ok(RenderOperation::RenderAsync(operation))
     }
 }
@@ -311,54 +309,32 @@ struct ImageSnippet {
 
 #[derive(Debug)]
 pub(crate) struct RenderThirdParty {
-    contents: Arc<Mutex<Option<Image>>>,
+    contents: Arc<Mutex<Option<Output>>>,
     pending_result: Arc<Mutex<RenderResult>>,
     default_style: TextStyle,
-    error_holder: AsyncPresentationErrorHolder,
-    slide: usize,
     width: Option<Percent>,
 }
 
 impl RenderThirdParty {
-    fn new(
-        pending_result: Arc<Mutex<RenderResult>>,
-        default_style: TextStyle,
-        error_holder: AsyncPresentationErrorHolder,
-        slide: usize,
-        width: Option<Percent>,
-    ) -> Self {
-        Self { contents: Default::default(), pending_result, default_style, error_holder, slide, width }
+    fn new(pending_result: Arc<Mutex<RenderResult>>, default_style: TextStyle, width: Option<Percent>) -> Self {
+        Self { contents: Default::default(), pending_result, default_style, width }
     }
 }
 
 impl RenderAsync for RenderThirdParty {
-    fn start_render(&self) -> bool {
-        false
+    fn pollable(&self) -> Box<dyn Pollable> {
+        Box::new(OperationPollable { contents: self.contents.clone(), pending_result: self.pending_result.clone() })
     }
 
-    fn poll_state(&self) -> RenderAsyncState {
-        let mut contents = self.contents.lock().unwrap();
-        if contents.is_some() {
-            return RenderAsyncState::Rendered;
-        }
-        match mem::take(&mut *self.pending_result.lock().unwrap()) {
-            RenderResult::Success(image) => {
-                *contents = Some(image);
-                RenderAsyncState::JustFinishedRendering
-            }
-            RenderResult::Failure(error) => {
-                *self.error_holder.lock().unwrap() = Some(AsyncPresentationError { slide: self.slide, error });
-                RenderAsyncState::JustFinishedRendering
-            }
-            RenderResult::Pending => RenderAsyncState::Rendering { modified: false },
-        }
+    fn start_policy(&self) -> RenderAsyncStartPolicy {
+        RenderAsyncStartPolicy::Automatic
     }
 }
 
 impl AsRenderOperations for RenderThirdParty {
     fn as_render_operations(&self, _: &WindowSize) -> Vec<RenderOperation> {
         match &*self.contents.lock().unwrap() {
-            Some(image) => {
+            Some(Output::Image(image)) => {
                 let size = match &self.width {
                     Some(percent) => ImageSize::WidthScaled { ratio: percent.as_ratio() },
                     None => Default::default(),
@@ -371,6 +347,7 @@ impl AsRenderOperations for RenderThirdParty {
 
                 vec![RenderOperation::RenderImage(image.clone(), properties)]
             }
+            Some(Output::Error) => Vec::new(),
             None => {
                 let text = Line::from(Text::new("Loading...", TextStyle::default().bold()));
                 vec![RenderOperation::RenderText {
@@ -378,6 +355,38 @@ impl AsRenderOperations for RenderThirdParty {
                     alignment: Alignment::Center { minimum_margin: Default::default(), minimum_size: 0 },
                 }]
             }
+        }
+    }
+}
+
+#[derive(Debug)]
+enum Output {
+    Image(Image),
+    Error,
+}
+
+#[derive(Clone)]
+struct OperationPollable {
+    contents: Arc<Mutex<Option<Output>>>,
+    pending_result: Arc<Mutex<RenderResult>>,
+}
+
+impl Pollable for OperationPollable {
+    fn poll(&mut self) -> PollableState {
+        let mut contents = self.contents.lock().unwrap();
+        if contents.is_some() {
+            return PollableState::Done;
+        }
+        match mem::take(&mut *self.pending_result.lock().unwrap()) {
+            RenderResult::Success(image) => {
+                *contents = Some(Output::Image(image));
+                PollableState::Done
+            }
+            RenderResult::Failure(error) => {
+                *contents = Some(Output::Error);
+                PollableState::Failed { error }
+            }
+            RenderResult::Pending => PollableState::Unmodified,
         }
     }
 }
