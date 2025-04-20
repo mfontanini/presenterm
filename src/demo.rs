@@ -14,7 +14,7 @@ use crate::{
     terminal::emulator::TerminalEmulator,
     theme::raw::PresentationTheme,
 };
-use std::{io, rc::Rc};
+use std::{io, sync::Arc};
 
 const PRESENTATION: &str = r#"
 # Header 1
@@ -109,7 +109,7 @@ impl ThemesDemo {
             theme_options: ThemeOptions { font_size_supported: TerminalEmulator::capabilities().font_size },
             ..Default::default()
         };
-        let executer = Rc::new(SnippetExecutor::default());
+        let executer = Arc::new(SnippetExecutor::default());
         let bindings_config = Default::default();
         let builder = PresentationBuilder::new(
             theme,

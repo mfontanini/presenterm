@@ -5,12 +5,13 @@ use crate::{
     export::pdf::PdfRender,
     markdown::{parse::ParseError, text_style::Color},
     presentation::{
-        Presentation, Slide,
+        Presentation,
         builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
+        poller::{Poller, PollerCommand},
     },
     render::{
         RenderError,
-        operation::{AsRenderOperations, RenderAsyncState, RenderOperation},
+        operation::{AsRenderOperations, PollableState, RenderOperation},
         properties::WindowSize,
     },
     theme::{ProcessingThemeError, raw::PresentationTheme},
@@ -28,8 +29,7 @@ use std::{
     fs, io,
     path::{Path, PathBuf},
     rc::Rc,
-    thread::sleep,
-    time::Duration,
+    sync::Arc,
 };
 use tempfile::TempDir;
 
@@ -63,7 +63,7 @@ pub struct Exporter<'a> {
     default_theme: &'a PresentationTheme,
     resources: Resources,
     third_party: ThirdPartyRender,
-    code_executor: Rc<SnippetExecutor>,
+    code_executor: Arc<SnippetExecutor>,
     themes: Themes,
     dimensions: WindowSize,
     options: PresentationBuilderOptions,
@@ -77,7 +77,7 @@ impl<'a> Exporter<'a> {
         default_theme: &'a PresentationTheme,
         resources: Resources,
         third_party: ThirdPartyRender,
-        code_executor: Rc<SnippetExecutor>,
+        code_executor: Arc<SnippetExecutor>,
         themes: Themes,
         mut options: PresentationBuilderOptions,
         mut dimensions: WindowSize,
@@ -129,9 +129,7 @@ impl<'a> Exporter<'a> {
 
         let mut render = PdfRender::new(self.dimensions, output_directory);
         Self::log("waiting for images to be generated and code to be executed, if any...")?;
-        for slide in presentation.iter_slides_mut() {
-            Self::render_async_images(slide);
-        }
+        Self::render_async_images(&mut presentation);
         for (index, slide) in presentation.into_slides().into_iter().enumerate() {
             let index = index + 1;
             Self::log(&format!("processing slide {index}..."))?;
@@ -154,24 +152,33 @@ impl<'a> Exporter<'a> {
         Ok(())
     }
 
-    fn render_async_images(slide: &mut Slide) {
-        for op in slide.iter_operations_mut() {
-            if let RenderOperation::RenderAsync(inner) = op {
-                loop {
-                    match inner.poll_state() {
-                        RenderAsyncState::Rendering { .. } => {
-                            sleep(Duration::from_millis(200));
-                            continue;
-                        }
-                        RenderAsyncState::Rendered | RenderAsyncState::JustFinishedRendering => break,
-                        RenderAsyncState::NotStarted => inner.start_render(),
-                    };
+    fn render_async_images(presentation: &mut Presentation) {
+        let poller = Poller::launch();
+        let mut pollables = Vec::new();
+        for (index, slide) in presentation.iter_slides().enumerate() {
+            for op in slide.iter_operations() {
+                if let RenderOperation::RenderAsync(inner) = op {
+                    // Send a pollable to the poller and keep one for ourselves.
+                    poller.send(PollerCommand::Poll { pollable: inner.pollable(), slide: index });
+                    pollables.push(inner.pollable())
                 }
-                let window_size = WindowSize { rows: 0, columns: 0, width: 0, height: 0 };
-                let new_operations = inner.as_render_operations(&window_size);
-                // Replace this operation with a new operation that contains the replaced image
-                // and any other unmodified operations.
-                *op = RenderOperation::RenderDynamic(Rc::new(RenderMany(new_operations)));
+            }
+        }
+
+        // Poll until they're all done
+        for mut pollable in pollables {
+            while let PollableState::Unmodified | PollableState::Modified = pollable.poll() {}
+        }
+
+        // Replace render asyncs with new operations that contains the replaced image
+        // and any other unmodified operations.
+        for slide in presentation.iter_slides_mut() {
+            for op in slide.iter_operations_mut() {
+                if let RenderOperation::RenderAsync(inner) = op {
+                    let window_size = WindowSize { rows: 0, columns: 0, width: 0, height: 0 };
+                    let new_operations = inner.as_render_operations(&window_size);
+                    *op = RenderOperation::RenderDynamic(Rc::new(RenderMany(new_operations)));
+                }
             }
         }
     }

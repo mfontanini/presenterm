@@ -36,7 +36,7 @@ impl CommandListener {
                 return Ok(Some(command));
             }
         }
-        match self.keyboard.poll_next_command(Duration::from_millis(250))? {
+        match self.keyboard.poll_next_command(Duration::from_millis(100))? {
             Some(command) => Ok(Some(command)),
             None => Ok(None),
         }

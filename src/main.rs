@@ -31,7 +31,6 @@ use std::{
     env::{self, current_dir},
     io,
     path::{Path, PathBuf},
-    rc::Rc,
     sync::Arc,
 };
 use terminal::emulator::TerminalEmulator;
@@ -192,7 +191,7 @@ impl Customizations {
 
 struct CoreComponents {
     third_party: ThirdPartyRender,
-    code_executor: Rc<SnippetExecutor>,
+    code_executor: Arc<SnippetExecutor>,
     resources: Resources,
     printer: Arc<ImagePrinter>,
     builder_options: PresentationBuilderOptions,
@@ -242,7 +241,7 @@ impl CoreComponents {
             threads: config.snippet.render.threads,
         };
         let third_party = ThirdPartyRender::new(third_party_config, registry, &resources_path);
-        let code_executor = Rc::new(code_executor);
+        let code_executor = Arc::new(code_executor);
         Ok(Self {
             third_party,
             code_executor,

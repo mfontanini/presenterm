@@ -7,7 +7,11 @@ use crate::{
     terminal::image::Image,
     theme::{Alignment, Margin},
 };
-use std::{fmt::Debug, rc::Rc};
+use std::{
+    fmt::Debug,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 const DEFAULT_IMAGE_Z_INDEX: i32 = -2;
 
@@ -111,7 +115,7 @@ impl Default for ImageRenderProperties {
             size: Default::default(),
             restore_cursor: false,
             background_color: None,
-            position: ImagePosition::Cursor,
+            position: ImagePosition::Center,
         }
     }
 }
@@ -160,24 +164,57 @@ pub(crate) trait AsRenderOperations: Debug + 'static {
 
 /// An operation that can be rendered asynchronously.
 pub(crate) trait RenderAsync: AsRenderOperations {
-    /// Start the render for this operation.
+    /// Create a pollable for this render async.
     ///
-    /// Should return true if the invocation triggered the rendering (aka if rendering wasn't
-    /// already started before).
-    fn start_render(&self) -> bool;
+    /// The pollable will be used to poll this by a separate thread, so all state that will
+    /// be loaded asynchronously should be shared between this operation and any pollables
+    /// generated from it.
+    fn pollable(&self) -> Box<dyn Pollable>;
 
-    /// Update the internal state and return the updated state.
-    fn poll_state(&self) -> RenderAsyncState;
+    /// Get the start policy for this render.
+    fn start_policy(&self) -> RenderAsyncStartPolicy {
+        RenderAsyncStartPolicy::OnDemand
+    }
 }
 
-/// The state of a [RenderAsync].
-#[derive(Clone, Debug, Default)]
-pub(crate) enum RenderAsyncState {
-    #[default]
-    NotStarted,
-    Rendering {
-        modified: bool,
-    },
-    Rendered,
-    JustFinishedRendering,
+/// The start policy for an async render.
+#[derive(Copy, Clone, Debug)]
+pub(crate) enum RenderAsyncStartPolicy {
+    /// Start automatically.
+    Automatic,
+
+    /// Start on demand.
+    OnDemand,
+}
+
+/// A pollable that can be used to pull and update the state of an operation asynchronously.
+pub(crate) trait Pollable: Send + 'static {
+    /// Update the internal state and return the updated state.
+    fn poll(&mut self) -> PollableState;
+}
+
+/// The state of a [Pollable].
+#[derive(Clone, Debug)]
+pub(crate) enum PollableState {
+    Unmodified,
+    Modified,
+    Done,
+    Failed { error: String },
+}
+
+pub(crate) struct ToggleState {
+    toggled: Arc<Mutex<bool>>,
+}
+
+impl ToggleState {
+    pub(crate) fn new(toggled: Arc<Mutex<bool>>) -> Self {
+        Self { toggled }
+    }
+}
+
+impl Pollable for ToggleState {
+    fn poll(&mut self) -> PollableState {
+        *self.toggled.lock().unwrap() = true;
+        PollableState::Done
+    }
 }
