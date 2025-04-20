@@ -282,6 +282,7 @@ impl CoreComponents {
             theme_options: ThemeOptions { font_size_supported: TerminalEmulator::capabilities().font_size },
             pause_before_incremental_lists: config.defaults.incremental_lists.pause_before.unwrap_or(true),
             pause_after_incremental_lists: config.defaults.incremental_lists.pause_after.unwrap_or(true),
+            pause_create_new_slide: false,
         }
     }
 
@@ -415,6 +416,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             themes,
             builder_options,
             dimensions,
+            config.export.pauses,
         );
         let output_directory = match cli.export_temporary_path {
             Some(path) => OutputDirectory::external(path),

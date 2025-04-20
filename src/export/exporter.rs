@@ -1,7 +1,7 @@
 use crate::{
     MarkdownParser, Resources,
     code::execute::SnippetExecutor,
-    config::KeyBindingsConfig,
+    config::{KeyBindingsConfig, PauseExportPolicy},
     export::pdf::PdfRender,
     markdown::{parse::ParseError, text_style::Color},
     presentation::{
@@ -81,10 +81,15 @@ impl<'a> Exporter<'a> {
         themes: Themes,
         mut options: PresentationBuilderOptions,
         mut dimensions: WindowSize,
+        pause_policy: PauseExportPolicy,
     ) -> Self {
         // We don't want dynamically highlighted code blocks.
         options.allow_mutations = false;
         options.theme_options.font_size_supported = true;
+        options.pause_create_new_slide = match pause_policy {
+            PauseExportPolicy::Ignore => false,
+            PauseExportPolicy::NewSlide => true,
+        };
 
         // Make sure we have a 1:2 aspect ratio.
         let width = (0.5 * dimensions.columns as f64) / (dimensions.rows as f64 / dimensions.height as f64);
@@ -130,6 +135,7 @@ impl<'a> Exporter<'a> {
         let mut render = PdfRender::new(self.dimensions, output_directory);
         Self::log("waiting for images to be generated and code to be executed, if any...")?;
         Self::render_async_images(&mut presentation);
+
         for (index, slide) in presentation.into_slides().into_iter().enumerate() {
             let index = index + 1;
             Self::log(&format!("processing slide {index}..."))?;

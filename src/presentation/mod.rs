@@ -298,7 +298,7 @@ impl Slide {
         self.current_chunk().reset_mutations();
     }
 
-    fn show_all_chunks(&mut self) {
+    pub(crate) fn show_all_chunks(&mut self) {
         self.visible_chunks = self.chunks.len();
         for chunk in &self.chunks {
             chunk.apply_all_mutations();

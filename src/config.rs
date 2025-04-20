@@ -497,6 +497,22 @@ impl Default for SpeakerNotesConfig {
 pub struct ExportConfig {
     /// The dimensions to use for presentation exports.
     pub dimensions: Option<ExportDimensionsConfig>,
+
+    /// Whether pauses should create new slides.
+    #[serde(default)]
+    pub pauses: PauseExportPolicy,
+}
+
+/// The policy for pauses when exporting.
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum PauseExportPolicy {
+    /// Whether to ignore pauses.
+    #[default]
+    Ignore,
+
+    /// Create a new slide when a pause is found.
+    NewSlide,
 }
 
 /// The dimensions to use for presentation exports.

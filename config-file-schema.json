@@ -133,6 +133,14 @@
               "type": "null"
             }
           ]
+        },
+        "pauses": {
+          "description": "Whether pauses should create new slides.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PauseExportPolicy"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -494,6 +502,25 @@
         }
       },
       "additionalProperties": false
+    },
+    "PauseExportPolicy": {
+      "description": "The policy for pauses when exporting.",
+      "oneOf": [
+        {
+          "description": "Whether to ignore pauses.",
+          "type": "string",
+          "enum": [
+            "ignore"
+          ]
+        },
+        {
+          "description": "Create a new slide when a pause is found.",
+          "type": "string",
+          "enum": [
+            "new_slide"
+          ]
+        }
+      ]
     },
     "SlideTransitionConfig": {
       "type": "object",
