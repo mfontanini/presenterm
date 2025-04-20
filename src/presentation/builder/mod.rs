@@ -71,6 +71,7 @@ pub struct PresentationBuilderOptions {
     pub theme_options: ThemeOptions,
     pub pause_before_incremental_lists: bool,
     pub pause_after_incremental_lists: bool,
+    pub pause_create_new_slide: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -111,6 +112,7 @@ impl Default for PresentationBuilderOptions {
             theme_options: ThemeOptions { font_size_supported: false },
             pause_before_incremental_lists: true,
             pause_after_incremental_lists: true,
+            pause_create_new_slide: false,
         }
     }
 }
@@ -608,6 +610,12 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_pause(&mut self) {
+        if self.options.pause_create_new_slide {
+            let operations = self.chunk_operations.clone();
+            self.terminate_slide();
+            self.chunk_operations = operations;
+            return;
+        }
         self.slide_state.last_chunk_ended_in_list = matches!(self.slide_state.last_element, LastElement::List { .. });
 
         let chunk_operations = mem::take(&mut self.chunk_operations);
@@ -1734,6 +1742,18 @@ theme:
         let options = PresentationBuilderOptions { pause_after_incremental_lists: false, ..Default::default() };
         let slides = build_presentation_with_options(elements, options).into_slides();
         assert_eq!(slides[0].iter_chunks().count(), 1);
+    }
+
+    #[test]
+    fn pause_new_slide() {
+        let elements = vec![
+            MarkdownElement::Paragraph(vec![Line::from("hi")]),
+            MarkdownElement::Comment { comment: "pause".into(), source_position: Default::default() },
+            MarkdownElement::Paragraph(vec![Line::from("bye")]),
+        ];
+        let options = PresentationBuilderOptions { pause_create_new_slide: true, ..Default::default() };
+        let slides = build_presentation_with_options(elements, options).into_slides();
+        assert_eq!(slides.len(), 2);
     }
 
     #[test]
