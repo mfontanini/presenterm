@@ -30,6 +30,7 @@ Code highlighting is supported for the following languages:
 | java       |         ✓         |
 | javascript |         ✓         |
 | json       |                   |
+| julia      |                   |
 | kotlin     |         ✓         |
 | latex      |                   |
 | lua        |         ✓         |
