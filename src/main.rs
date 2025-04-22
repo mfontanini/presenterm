@@ -52,6 +52,7 @@ mod third_party;
 mod tools;
 mod transitions;
 mod ui;
+mod utils;
 
 const DEFAULT_THEME: &str = "dark";
 const DEFAULT_EXPORT_PIXELS_PER_COLUMN: u16 = 20;

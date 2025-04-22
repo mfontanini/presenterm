@@ -16,7 +16,6 @@ use crate::{
     theme::{Alignment, CodeBlockStyle},
 };
 use serde::Deserialize;
-use serde_with::DeserializeFromStr;
 use std::{cell::RefCell, convert::Infallible, fmt::Write, ops::Range, path::PathBuf, rc::Rc, str::FromStr};
 use strum::{EnumDiscriminants, EnumIter};
 use unicode_width::UnicodeWidthStr;
@@ -439,7 +438,7 @@ impl Snippet {
 }
 
 /// The language of a code snippet.
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, DeserializeFromStr)]
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum SnippetLanguage {
     Ada,
@@ -508,6 +507,8 @@ pub enum SnippetLanguage {
     Zig,
     Zsh,
 }
+
+crate::utils::impl_deserialize_from_str!(SnippetLanguage);
 
 impl FromStr for SnippetLanguage {
     type Err = Infallible;

@@ -1,7 +1,6 @@
 use super::listener::{Command, CommandDiscriminants};
 use crate::config::KeyBindingsConfig;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, poll, read};
-use serde_with::DeserializeFromStr;
 use std::{fmt, io, iter, mem, str::FromStr, time::Duration};
 
 /// A keyboard command listener.
@@ -161,9 +160,11 @@ enum BindingMatch {
     None,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, DeserializeFromStr)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct KeyBinding(#[cfg_attr(feature = "json-schema", schemars(with = "String"))] Vec<KeyMatcher>);
+
+crate::utils::impl_deserialize_from_str!(KeyBinding);
 
 impl KeyBinding {
     fn match_events(&self, mut events: &[KeyEvent]) -> BindingMatch {
