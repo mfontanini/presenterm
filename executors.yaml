@@ -42,6 +42,11 @@ js:
   commands:
     - ["node", "$pwd/snippet.js"]
   hidden_line_prefix: "/// "
+julia:
+  filename: snippet.jl
+  commands:
+    - ["julia", "$pwd/snippet.jl"]
+  hidden_line_prefix: "/// "
 kotlin:
   filename: snippet.kts
   commands:
