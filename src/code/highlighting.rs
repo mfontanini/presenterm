@@ -131,6 +131,7 @@ impl SnippetHighlighter {
             Java => "java",
             JavaScript => "js",
             Json => "json",
+            Julia => "jl",
             Kotlin => "kt",
             Latex => "tex",
             Lua => "lua",
