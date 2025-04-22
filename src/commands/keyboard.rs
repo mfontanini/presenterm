@@ -1,7 +1,6 @@
 use super::listener::{Command, CommandDiscriminants};
 use crate::config::KeyBindingsConfig;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, poll, read};
-use schemars::JsonSchema;
 use serde_with::DeserializeFromStr;
 use std::{fmt, io, iter, mem, str::FromStr, time::Duration};
 
@@ -162,8 +161,9 @@ enum BindingMatch {
     None,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, DeserializeFromStr, JsonSchema)]
-pub struct KeyBinding(#[schemars(with = "String")] Vec<KeyMatcher>);
+#[derive(Clone, Debug, PartialEq, Eq, DeserializeFromStr)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub struct KeyBinding(#[cfg_attr(feature = "json-schema", schemars(with = "String"))] Vec<KeyMatcher>);
 
 impl KeyBinding {
     fn match_events(&self, mut events: &[KeyEvent]) -> BindingMatch {

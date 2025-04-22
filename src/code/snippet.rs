@@ -15,7 +15,6 @@ use crate::{
     },
     theme::{Alignment, CodeBlockStyle},
 };
-use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_with::DeserializeFromStr;
 use std::{cell::RefCell, convert::Infallible, fmt::Write, ops::Range, path::PathBuf, rc::Rc, str::FromStr};
@@ -440,7 +439,8 @@ impl Snippet {
 }
 
 /// The language of a code snippet.
-#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, DeserializeFromStr, JsonSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, EnumIter, PartialOrd, Ord, DeserializeFromStr)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum SnippetLanguage {
     Ada,
     Asp,

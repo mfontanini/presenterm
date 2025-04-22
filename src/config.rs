@@ -7,7 +7,6 @@ use crate::{
     },
 };
 use clap::ValueEnum;
-use schemars::JsonSchema;
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -16,7 +15,8 @@ use std::{
     path::Path,
 };
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     /// The default configuration for the presentation.
@@ -73,7 +73,8 @@ pub enum ConfigLoadError {
     Invalid(#[from] serde_yaml::Error),
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DefaultsConfig {
     /// The theme to use by default in every presentation unless overridden.
@@ -81,7 +82,7 @@ pub struct DefaultsConfig {
 
     /// Override the terminal font size when in windows or when using sixel.
     #[serde(default = "default_terminal_font_size")]
-    #[validate(range(min = 1))]
+    #[cfg_attr(feature = "json-schema", validate(range(min = 1)))]
     pub terminal_font_size: u8,
 
     /// The image protocol to use.
@@ -132,7 +133,8 @@ impl Default for DefaultsConfig {
 }
 
 /// The configuration for lists when incremental lists are enabled.
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct IncrementalListsConfig {
     /// Whether to pause before a list begins.
@@ -149,7 +151,8 @@ fn default_terminal_font_size() -> u8 {
 }
 
 /// The alignment to use when `defaults.max_columns` is set.
-#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MaxColumnsAlignment {
     /// Align the presentation to the left.
@@ -164,7 +167,8 @@ pub enum MaxColumnsAlignment {
 }
 
 /// The alignment to use when `defaults.max_rows` is set.
-#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum MaxRowsAlignment {
     /// Align the presentation to the top.
@@ -178,7 +182,8 @@ pub enum MaxRowsAlignment {
     Bottom,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ValidateOverflows {
     #[default]
@@ -188,7 +193,8 @@ pub enum ValidateOverflows {
     WhenDeveloping,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct OptionsConfig {
     /// Whether slides are automatically terminated when a slide title is found.
@@ -214,7 +220,8 @@ pub struct OptionsConfig {
     pub auto_render_languages: Vec<SnippetLanguage>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SnippetConfig {
     /// The properties for snippet execution.
@@ -230,7 +237,8 @@ pub struct SnippetConfig {
     pub render: SnippetRenderConfig,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SnippetExecConfig {
     /// Whether to enable snippet execution.
@@ -241,7 +249,8 @@ pub struct SnippetExecConfig {
     pub custom: BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SnippetExecReplaceConfig {
     /// Whether to enable snippet replace-executions, which automatically run code snippets without
@@ -249,7 +258,8 @@ pub struct SnippetExecReplaceConfig {
     pub enable: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SnippetRenderConfig {
     /// The number of threads to use when rendering.
@@ -267,7 +277,8 @@ pub(crate) fn default_snippet_render_threads() -> usize {
     2
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct TypstConfig {
     /// The pixels per inch when rendering latex/typst formulas.
@@ -285,7 +296,8 @@ pub(crate) fn default_typst_ppi() -> u32 {
     300
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MermaidConfig {
     /// The scaling parameter to be used in the mermaid CLI.
@@ -308,7 +320,8 @@ pub(crate) fn default_u16_max() -> u16 {
 }
 
 /// The snippet execution configuration for a specific programming language.
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct LanguageSnippetExecutionConfig {
     /// The filename to use for the snippet input file.
     pub filename: String,
@@ -324,7 +337,8 @@ pub struct LanguageSnippetExecutionConfig {
     pub hidden_line_prefix: Option<String>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, ValueEnum, JsonSchema)]
+#[derive(Clone, Debug, Default, Deserialize, ValueEnum)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "kebab-case")]
 pub enum ImageProtocol {
     /// Automatically detect the best image protocol to use.
@@ -378,7 +392,8 @@ impl TryFrom<&ImageProtocol> for GraphicsMode {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct KeyBindingsConfig {
     /// The keys that cause the presentation to move forwards.
@@ -465,7 +480,8 @@ impl Default for KeyBindingsConfig {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SpeakerNotesConfig {
     /// The address in which to listen for speaker note events.
@@ -492,7 +508,8 @@ impl Default for SpeakerNotesConfig {
 }
 
 /// The export configuration.
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ExportConfig {
     /// The dimensions to use for presentation exports.
@@ -504,7 +521,8 @@ pub struct ExportConfig {
 }
 
 /// The policy for pauses when exporting.
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields, rename_all = "snake_case")]
 pub enum PauseExportPolicy {
     /// Whether to ignore pauses.
@@ -516,7 +534,8 @@ pub enum PauseExportPolicy {
 }
 
 /// The dimensions to use for presentation exports.
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct ExportDimensionsConfig {
     /// The number of rows.
@@ -527,9 +546,9 @@ pub struct ExportDimensionsConfig {
 }
 
 // The slide transition configuration.
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[serde(tag = "style")]
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[serde(tag = "style", deny_unknown_fields)]
 pub struct SlideTransitionConfig {
     /// The amount of time to take to perform the transition.
     #[serde(default = "default_transition_duration_millis")]
@@ -544,9 +563,9 @@ pub struct SlideTransitionConfig {
 }
 
 // The slide transition style configuration.
-#[derive(Clone, Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-#[serde(tag = "style", rename_all = "snake_case")]
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[serde(tag = "style", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SlideTransitionStyleConfig {
     /// Slide horizontally.
     SlideHorizontal,
