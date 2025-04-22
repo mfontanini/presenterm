@@ -69,19 +69,10 @@ impl AnimateTransition for SlideHorizontalAnimation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::terminal::virt::StyledChar;
     use rstest::rstest;
 
     fn as_text(line: Line) -> String {
         line.0.into_iter().map(|l| l.content).collect()
-    }
-
-    fn build_grid(rows: &[&str]) -> TerminalGrid {
-        let rows = rows
-            .iter()
-            .map(|r| r.chars().map(|c| StyledChar { character: c, style: Default::default() }).collect())
-            .collect();
-        TerminalGrid { rows, background_color: None, images: Default::default() }
     }
 
     #[rstest]
@@ -94,6 +85,8 @@ mod tests {
     #[case::previous_frame2(2, TransitionDirection::Previous, &["AB", "CD"])]
     #[case::previous_way_past(100, TransitionDirection::Previous, &["AB", "CD"])]
     fn build_frame(#[case] frame: usize, #[case] direction: TransitionDirection, #[case] expected: &[&str]) {
+        use crate::transitions::utils::build_grid;
+
         let left = build_grid(&["AB", "CD"]);
         let right = build_grid(&["EF", "GH"]);
         let dimensions = WindowSize { rows: 2, columns: 2, height: 0, width: 0 };

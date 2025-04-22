@@ -8,6 +8,7 @@ use crate::{
 use std::fmt::Debug;
 use unicode_width::UnicodeWidthStr;
 
+pub(crate) mod collapse_horizontal;
 pub(crate) mod fade;
 pub(crate) mod slide_horizontal;
 
@@ -106,6 +107,19 @@ impl AnimationFrame for LinesFrame {
             }
         }
         commands
+    }
+}
+
+#[cfg(test)]
+mod utils {
+    use crate::terminal::virt::{StyledChar, TerminalGrid};
+
+    pub(crate) fn build_grid(rows: &[&str]) -> TerminalGrid {
+        let rows = rows
+            .iter()
+            .map(|r| r.chars().map(|c| StyledChar { character: c, style: Default::default() }).collect())
+            .collect();
+        TerminalGrid { rows, background_color: None, images: Default::default() }
     }
 }
 

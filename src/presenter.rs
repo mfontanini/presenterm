@@ -29,7 +29,8 @@ use crate::{
     theme::{ProcessingThemeError, raw::PresentationTheme},
     third_party::ThirdPartyRender,
     transitions::{
-        AnimateTransition, AnimationFrame, LinesFrame, TransitionDirection, fade::FadeAnimation,
+        AnimateTransition, AnimationFrame, LinesFrame, TransitionDirection,
+        collapse_horizontal::CollapseHorizontalAnimation, fade::FadeAnimation,
         slide_horizontal::SlideHorizontalAnimation,
     },
 };
@@ -517,6 +518,9 @@ impl<'a> Presenter<'a> {
             ),
             SlideTransitionStyleConfig::Fade => {
                 self.run_animation(drawer, first, FadeAnimation::new(left, right, direction), config)
+            }
+            SlideTransitionStyleConfig::CollapseHorizontal => {
+                self.run_animation(drawer, first, CollapseHorizontalAnimation::new(left, right, direction), config)
             }
         }
     }
