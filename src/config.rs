@@ -553,6 +553,9 @@ pub enum SlideTransitionStyleConfig {
 
     /// Fade the new slide into the previous one.
     Fade,
+
+    /// Collapse the current slide into the center of the screen.
+    CollapseHorizontal,
 }
 
 fn make_keybindings<const N: usize>(raw_bindings: [&str; N]) -> Vec<KeyBinding> {

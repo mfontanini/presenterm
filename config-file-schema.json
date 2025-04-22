@@ -586,6 +586,22 @@
             }
           },
           "additionalProperties": false
+        },
+        {
+          "description": "Collapse the current slide into the center of the screen.",
+          "type": "object",
+          "required": [
+            "style"
+          ],
+          "properties": {
+            "style": {
+              "type": "string",
+              "enum": [
+                "collapse_horizontal"
+              ]
+            }
+          },
+          "additionalProperties": false
         }
       ]
     },
