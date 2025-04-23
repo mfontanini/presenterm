@@ -2,7 +2,6 @@ use super::registry::LoadThemeError;
 use crate::markdown::text_style::{Color, Colors, UndefinedPaletteColorError};
 use hex::{FromHex, FromHexError};
 use serde::{Deserialize, Serialize, de::Visitor};
-use serde_with::{DeserializeFromStr, SerializeDisplay};
 use std::{
     collections::BTreeMap,
     fmt, fs,
@@ -508,8 +507,11 @@ impl<'de> Deserialize<'de> for FooterContent {
     }
 }
 
-#[derive(Clone, Debug, SerializeDisplay, DeserializeFromStr)]
+#[derive(Clone, Debug)]
 pub(crate) struct FooterTemplate(pub(crate) Vec<FooterTemplateChunk>);
+
+crate::utils::impl_deserialize_from_str!(FooterTemplate);
+crate::utils::impl_serialize_from_display!(FooterTemplate);
 
 impl FromStr for FooterTemplate {
     type Err = ParseFooterTemplateError;
@@ -801,13 +803,16 @@ pub(super) struct ColorPalette {
     pub(super) classes: BTreeMap<String, RawColors>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, SerializeDisplay, DeserializeFromStr)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum RawColor {
     Color(Color),
     Palette(String),
     ForegroundClass(String),
     BackgroundClass(String),
 }
+
+crate::utils::impl_deserialize_from_str!(RawColor);
+crate::utils::impl_serialize_from_display!(RawColor);
 
 impl RawColor {
     fn new_palette(name: &str) -> Result<Self, ParseColorError> {

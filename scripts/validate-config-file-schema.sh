@@ -1,10 +1,12 @@
 #!/bin/bash
 
+set -euo pipefail
+
 script_dir=$(dirname "$0")
 root_dir="${script_dir}/../"
 
 current_schema=$(mktemp)
-cargo run -q -- --generate-config-file-schema >"$current_schema"
+cargo run --features json-schema -q -- --generate-config-file-schema >"$current_schema"
 
 diff=$(diff --color=always -u "${root_dir}/config-file-schema.json" "$current_schema")
 if [ $? -ne 0 ]; then

@@ -52,6 +52,7 @@ mod third_party;
 mod tools;
 mod transitions;
 mod ui;
+mod utils;
 
 const DEFAULT_THEME: &str = "dark";
 const DEFAULT_EXPORT_PIXELS_PER_COLUMN: u16 = 20;
@@ -80,6 +81,7 @@ struct Cli {
 
     /// Generate a JSON schema for the configuration file.
     #[clap(long)]
+    #[cfg(feature = "json-schema")]
     generate_config_file_schema: bool,
 
     /// Use presentation mode.
@@ -348,11 +350,13 @@ fn overflow_validation_enabled(mode: &PresentMode, config: &ValidateOverflows) -
 }
 
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(feature = "json-schema")]
     if cli.generate_config_file_schema {
         let schema = schemars::schema_for!(Config);
         serde_json::to_writer_pretty(io::stdout(), &schema).map_err(|e| format!("failed to write schema: {e}"))?;
         return Ok(());
-    } else if cli.acknowledgements {
+    }
+    if cli.acknowledgements {
         let acknowledgements = include_bytes!("../bat/acknowledgements.txt");
         println!("{}", String::from_utf8_lossy(acknowledgements));
         return Ok(());
