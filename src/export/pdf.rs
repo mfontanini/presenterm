@@ -124,17 +124,29 @@ impl ContentManager {
     }
 }
 
-pub(crate) struct PdfRender {
+pub(crate) enum Renderer {
+    Pdf,
+    Html,
+}
+
+pub(crate) struct ExportRenderer {
     content_manager: ContentManager,
+    output_type: Renderer,
     dimensions: WindowSize,
     html_body: String,
     background_color: Option<String>,
 }
 
-impl PdfRender {
-    pub(crate) fn new(dimensions: WindowSize, output_directory: OutputDirectory) -> Self {
+impl ExportRenderer {
+    pub(crate) fn new(dimensions: WindowSize, output_directory: OutputDirectory, output_type: Renderer) -> Self {
         let image_manager = ContentManager::new(output_directory);
-        Self { content_manager: image_manager, dimensions, html_body: "".to_string(), background_color: None }
+        Self {
+            content_manager: image_manager,
+            dimensions,
+            html_body: "".to_string(),
+            background_color: None,
+            output_type,
+        }
     }
 
     pub(crate) fn process_slide(&mut self, slide: Slide) -> Result<(), ExportError> {
@@ -154,24 +166,9 @@ impl PdfRender {
         Ok(())
     }
 
-    pub(crate) fn generate(self, pdf_path: &Path) -> Result<(), ExportError> {
+    pub(crate) fn generate(self, output_path: &Path) -> Result<(), ExportError> {
         let html_body = &self.html_body;
         let script = include_str!("script.js");
-        let html = format!(
-            r#"
-<html>
-<head>
-<link rel="stylesheet" href="styles.css">
-</head>
-<body>
-{html_body}
-<script>
-{script}
-</script>
-
-</body>
-</html>"#
-        );
         let width = (self.dimensions.columns as f64 * FONT_SIZE as f64 * FONT_SIZE_WIDTH).ceil();
         let height = self.dimensions.rows * LINE_HEIGHT;
         let background_color = self.background_color.unwrap_or_else(|| "black".into());
@@ -220,19 +217,42 @@ impl PdfRender {
             width: {width}px;
         }}"
         );
+        let html = format!(
+            r#"
+<html>
+<head>
+<style>
+{css}
+</style>
+</head>
+<body>
+{html_body}
+<script>
+{script}
+</script>
+
+</body>
+</html>"#
+        );
 
         let html_path = self.content_manager.persist_file("index.html", html.as_bytes())?;
-        let css_path = self.content_manager.persist_file("styles.css", css.as_bytes())?;
-        ThirdPartyTools::weasyprint(&[
-            "-s",
-            css_path.to_string_lossy().as_ref(),
-            "--presentational-hints",
-            "-e",
-            "utf8",
-            html_path.to_string_lossy().as_ref(),
-            pdf_path.to_string_lossy().as_ref(),
-        ])
-        .run()?;
+
+        match self.output_type {
+            Renderer::Pdf => {
+                ThirdPartyTools::weasyprint(&[
+                    "--presentational-hints",
+                    "-e",
+                    "utf8",
+                    html_path.to_string_lossy().as_ref(),
+                    output_path.to_string_lossy().as_ref(),
+                ])
+                .run()?;
+            }
+            Renderer::Html => {
+                fs::write(output_path, html.as_bytes())?;
+            }
+        }
+
         Ok(())
     }
 }

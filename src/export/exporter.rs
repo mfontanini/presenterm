@@ -2,7 +2,7 @@ use crate::{
     MarkdownParser, Resources,
     code::execute::SnippetExecutor,
     config::{KeyBindingsConfig, PauseExportPolicy},
-    export::pdf::PdfRender,
+    export::pdf::{ExportRenderer, Renderer},
     markdown::{parse::ParseError, text_style::Color},
     presentation::{
         Presentation,
@@ -98,24 +98,12 @@ impl<'a> Exporter<'a> {
         Self { parser, default_theme, resources, third_party, code_executor, themes, options, dimensions }
     }
 
-    /// Export the given presentation into PDF.
-    ///
-    /// This uses a separate `presenterm-export` tool.
-    pub fn export_pdf(
-        mut self,
+    fn build_renderer(
+        &mut self,
         presentation_path: &Path,
         output_directory: OutputDirectory,
-        output_path: Option<&Path>,
-    ) -> Result<(), ExportError> {
-        println!(
-            "exporting using rows={}, columns={}, width={}, height={}",
-            self.dimensions.rows, self.dimensions.columns, self.dimensions.width, self.dimensions.height
-        );
-
-        println!("checking for weasyprint...");
-        Self::validate_weasyprint_exists()?;
-        Self::log("weasyprint installation found")?;
-
+        renderer: Renderer,
+    ) -> Result<ExportRenderer, ExportError> {
         let content = fs::read_to_string(presentation_path).map_err(ExportError::ReadPresentation)?;
         let elements = self.parser.parse(&content)?;
 
@@ -132,7 +120,7 @@ impl<'a> Exporter<'a> {
         .build(elements)?;
         Self::validate_theme_colors(&presentation)?;
 
-        let mut render = PdfRender::new(self.dimensions, output_directory);
+        let mut render = ExportRenderer::new(self.dimensions.clone(), output_directory, renderer);
         Self::log("waiting for images to be generated and code to be executed, if any...")?;
         Self::render_async_images(&mut presentation);
 
@@ -143,16 +131,68 @@ impl<'a> Exporter<'a> {
         }
         Self::log("invoking weasyprint...")?;
 
+        Ok(render)
+    }
+
+    /// Export the given presentation into PDF.
+    pub fn export_pdf(
+        mut self,
+        presentation_path: &Path,
+        output_directory: OutputDirectory,
+        output_path: Option<&Path>,
+    ) -> Result<(), ExportError> {
+        println!(
+            "exporting using rows={}, columns={}, width={}, height={}",
+            self.dimensions.rows, self.dimensions.columns, self.dimensions.width, self.dimensions.height
+        );
+
+        println!("checking for weasyprint...");
+        Self::validate_weasyprint_exists()?;
+        Self::log("weasyprint installation found")?;
+
+        let render = self.build_renderer(presentation_path, output_directory, Renderer::Pdf)?;
+
         let pdf_path = match output_path {
             Some(path) => path.to_path_buf(),
             None => presentation_path.with_extension("pdf"),
         };
+
         render.generate(&pdf_path)?;
 
         execute!(
             io::stdout(),
             PrintStyledContent(
                 format!("output file is at {}\n", pdf_path.display()).stylize().with(Color::Green.into())
+            )
+        )?;
+        Ok(())
+    }
+
+    /// Export the given presentation into HTML.
+    pub fn export_html(
+        mut self,
+        presentation_path: &Path,
+        output_directory: OutputDirectory,
+        output_path: Option<&Path>,
+    ) -> Result<(), ExportError> {
+        println!(
+            "exporting using rows={}, columns={}, width={}, height={}",
+            self.dimensions.rows, self.dimensions.columns, self.dimensions.width, self.dimensions.height
+        );
+
+        let render = self.build_renderer(presentation_path, output_directory, Renderer::Html)?;
+
+        let output_path = match output_path {
+            Some(path) => path.to_path_buf(),
+            None => presentation_path.with_extension("html"),
+        };
+
+        render.generate(&output_path)?;
+
+        execute!(
+            io::stdout(),
+            PrintStyledContent(
+                format!("output file is at {}\n", output_path.display()).stylize().with(Color::Green.into())
             )
         )?;
         Ok(())
