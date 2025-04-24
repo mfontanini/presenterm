@@ -40,7 +40,12 @@ impl HtmlSlide {
     fn new(grid: TerminalGrid, content_manager: &mut ContentManager) -> Result<Self, ExportError> {
         let mut rows = Vec::new();
         for (y, row) in grid.rows.into_iter().enumerate() {
-            let mut finalized_row = "<div class=\"content-line\"><pre>".to_string();
+            let mut finalized_row = if y == 0 {
+                "<div class=\"content-line force-page-break\"><pre>"
+            } else {
+                "<div class=\"content-line\"><pre>"
+            }
+            .to_string();
             let mut current_style = row.first().map(|c| c.style).unwrap_or_default();
             let mut current_string = String::new();
             let mut x = 0;
@@ -154,12 +159,20 @@ impl PdfRender {
 
     pub(crate) fn generate(self, pdf_path: &Path) -> Result<(), ExportError> {
         let html_body = &self.html_body;
+        let script = include_str!("script.js");
         let html = format!(
-            r#"<html>
+            r#"
+<html>
 <head>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-{html_body}</body>
+{html_body}
+<script>
+{script}
+</script>
+
+</body>
 </html>"#
         );
         let width = (self.dimensions.columns as f64 * FONT_SIZE as f64 * FONT_SIZE_WIDTH).ceil();
@@ -167,6 +180,9 @@ impl PdfRender {
         let background_color = self.background_color.unwrap_or_else(|| "black".into());
         let css = format!(
             r"
+        .force-page-break {{
+            page-break-before: always
+        }}
         pre {{
             margin: 0;
             padding: 0;
@@ -189,6 +205,10 @@ impl PdfRender {
             height: {LINE_HEIGHT}px;
             margin: 0px;
             width: {width}px;
+        }}
+
+        .hidden {{
+            display: none;
         }}
 
         @page {{
