@@ -659,6 +659,8 @@ pub(crate) enum Highlight {
 pub(crate) struct ExternalFile {
     pub(crate) path: PathBuf,
     pub(crate) language: SnippetLanguage,
+    pub(crate) start_line: Option<usize>,
+    pub(crate) end_line: Option<usize>,
 }
 
 #[cfg(test)]

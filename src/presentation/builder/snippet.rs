@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use super::{BuildError, BuildResult, ExecutionMode, PresentationBuilderOptions};
 use crate::{
     ImageRegistry,
@@ -171,8 +173,18 @@ impl<'a> SnippetProcessor<'a> {
             error: format!("failed to load {path_display}: {e}"),
         })?;
         code.language = file.language;
-        code.contents = contents;
+        code.contents = Self::filter_lines(contents, file.start_line, file.end_line);
         Ok(code)
+    }
+
+    fn filter_lines(code: String, start: Option<usize>, end: Option<usize>) -> String {
+        let start = start.map(|s| s.saturating_sub(1));
+        match (start, end) {
+            (None, None) => code,
+            (None, Some(end)) => code.lines().take(end).join("\n"),
+            (Some(start), None) => code.lines().skip(start).join("\n"),
+            (Some(start), Some(end)) => code.lines().skip(start).take(end.saturating_sub(start)).join("\n"),
+        }
     }
 
     fn push_rendered_code(&mut self, code: Snippet, source_position: SourcePosition) -> BuildResult {
@@ -342,5 +354,30 @@ impl AsRenderOperations for Differ {
 
     fn diffable_content(&self) -> Option<&str> {
         Some(&self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::no_filters(None, None, &["a", "b", "c", "d", "e"])]
+    #[case::start_from_first(Some(1), None, &["a", "b", "c", "d", "e"])]
+    #[case::start_from_second(Some(2), None, &["b", "c", "d", "e"])]
+    #[case::start_from_end(Some(5), None, &["e"])]
+    #[case::start_from_past_end(Some(6), None, &[])]
+    #[case::end_last(None, Some(5), &["a", "b", "c", "d", "e"])]
+    #[case::end_one_before_last(None, Some(4), &["a", "b", "c", "d"])]
+    #[case::end_at_first(None, Some(1), &["a"])]
+    #[case::end_at_zero(None, Some(0), &[])]
+    #[case::start_and_end(Some(2), Some(3), &["b", "c"])]
+    #[case::crossed(Some(2), Some(1), &[])]
+    fn filter_lines(#[case] start: Option<usize>, #[case] end: Option<usize>, #[case] expected: &[&str]) {
+        let code = ["a", "b", "c", "d", "e"].join("\n");
+        let output = SnippetProcessor::filter_lines(code, start, end);
+        let expected = expected.join("\n");
+        assert_eq!(output, expected);
     }
 }
