@@ -39,13 +39,9 @@ struct HtmlSlide {
 impl HtmlSlide {
     fn new(grid: TerminalGrid, content_manager: &mut ContentManager) -> Result<Self, ExportError> {
         let mut rows = Vec::new();
+        rows.push(String::from("<div class=\"container\">"));
         for (y, row) in grid.rows.into_iter().enumerate() {
-            let mut finalized_row = if y == 0 {
-                "<div class=\"content-line force-page-break\"><pre>"
-            } else {
-                "<div class=\"content-line\"><pre>"
-            }
-            .to_string();
+            let mut finalized_row = "<div class=\"content-line\"><pre>".to_string();
             let mut current_style = row.first().map(|c| c.style).unwrap_or_default();
             let mut current_string = String::new();
             let mut x = 0;
@@ -78,6 +74,7 @@ impl HtmlSlide {
             finalized_row.push_str("</pre></div>");
             rows.push(finalized_row);
         }
+        rows.push(String::from("</div>"));
 
         Ok(HtmlSlide { rows, background_color: grid.background_color.as_ref().map(color_to_html) })
     }
@@ -180,9 +177,6 @@ impl PdfRender {
         let background_color = self.background_color.unwrap_or_else(|| "black".into());
         let css = format!(
             r"
-        .force-page-break {{
-            page-break-before: always
-        }}
         pre {{
             margin: 0;
             padding: 0;
@@ -196,8 +190,17 @@ impl PdfRender {
             margin: 0;
             font-size: {FONT_SIZE}px;
             line-height: {LINE_HEIGHT}px;
+            width: 100vw;
+            overflow: hidden;
+            transform-origin: top center;
             background-color: {background_color};
-            width: {width}px;
+        }}
+
+        .container {{
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }}
 
         .content-line {{

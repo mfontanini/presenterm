@@ -1,23 +1,22 @@
 document.addEventListener('DOMContentLoaded', function() {
   const allLines = document.querySelectorAll('body > div');
-  const pageBreakMarkers = document.querySelectorAll('.force-page-break');
+  const pageBreakMarkers = document.querySelectorAll('.container');
   let currentPageIndex = 0;
 
+
   function showCurrentPage() {
-    const startIndexOfCurrentPage = Array.from(allLines).indexOf(pageBreakMarkers[currentPageIndex]);
-    let endIndexOfCurrentPage = allLines.length; 
-
-    if (currentPageIndex < pageBreakMarkers.length - 1) {
-      endIndexOfCurrentPage = Array.from(allLines).indexOf(pageBreakMarkers[currentPageIndex + 1]);
-    }
-
-    allLines.forEach((line, index) => {
-      if (startIndexOfCurrentPage <= index && index < endIndexOfCurrentPage) {
-        line.classList.remove('hidden'); 
-      } else {
-        line.classList.add('hidden');
-      }
+    allLines.forEach((line) => {
+      line.classList.add('hidden');
     });
+
+    allLines[currentPageIndex].classList.remove('hidden');
+  }
+
+
+  function scaler() {
+    var w = document.documentElement.clientWidth;
+    let scaledAmount= w/829;
+    document.querySelector("body").style.transform = `scale(${scaledAmount})`;
   }
 
   function handleKeyPress(event) {
@@ -35,7 +34,9 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   document.addEventListener('keydown', handleKeyPress);
+  window.addEventListener("resize", scaler);
 
+  scaler();
   showCurrentPage();
 });
 
