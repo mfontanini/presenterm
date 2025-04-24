@@ -217,6 +217,17 @@ impl ExportRenderer {
             width: {width}px;
         }}"
         );
+        let html_script = match self.output_type {
+            Renderer::Pdf => String::new(),
+            Renderer::Html => {
+                format!(
+                    "
+<script>
+{script}
+</script>"
+                )
+            }
+        };
         let html = format!(
             r#"
 <html>
@@ -227,10 +238,7 @@ impl ExportRenderer {
 </head>
 <body>
 {html_body}
-<script>
-{script}
-</script>
-
+{html_script}
 </body>
 </html>"#
         );
