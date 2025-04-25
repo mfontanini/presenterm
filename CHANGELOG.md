@@ -10,8 +10,8 @@
   * Add fade slide transition ([#534](https://github.com/mfontanini/presenterm/issues/534)).
   * Add slide horizontally slide transition animation ([#528](https://github.com/mfontanini/presenterm/issues/528)).
   * Add `collapse_horizontal` slide transition ([#560](https://github.com/mfontanini/presenterm/issues/560)).
-* Add `--output` option to specify the path where the output file is written to during an export ([#526](https://github.com/mfontanini/presenterm/issues/526)).
-* Allow specifying [start/end lines](https://mfontanini.github.io/presenterm/features/code/highlighting.html#including-external-code-snippets) in file snippet type ([#565](https://github.com/mfontanini/presenterm/issues/565)) - thanks @marianozunino.
+* Add `--output` option to specify the path where the output file is written to during an export ([#526](https://github.com/mfontanini/presenterm/issues/526)) - thanks @marianozunino.
+* Allow specifying [start/end lines](https://mfontanini.github.io/presenterm/features/code/highlighting.html#including-external-code-snippets) in file snippet type ([#565](https://github.com/mfontanini/presenterm/issues/565)).
 * Allow letting [pauses become new slides](https://mfontanini.github.io/presenterm/configuration/settings.html#pause-behavior) when exporting ([#557](https://github.com/mfontanini/presenterm/issues/557)).
 * Allow [using images on right in footer](https://mfontanini.github.io/presenterm/features/themes/definition.html#footer-images) ([#554](https://github.com/mfontanini/presenterm/issues/554)).
 * Add [`max_rows` configuration](https://mfontanini.github.io/presenterm/configuration/settings.html#maximum-presentation-height) to cap vertical size ([#531](https://github.com/mfontanini/presenterm/issues/531)).
