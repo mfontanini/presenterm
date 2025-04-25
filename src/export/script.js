@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function scaler() {
     var w = document.documentElement.clientWidth;
-    let scaledAmount= w/829;
+    let scaledAmount= w/originalWidth;
     document.querySelector("body").style.transform = `scale(${scaledAmount})`;
   }
 

@@ -2,7 +2,7 @@ use crate::{
     MarkdownParser, Resources,
     code::execute::SnippetExecutor,
     config::{KeyBindingsConfig, PauseExportPolicy},
-    export::output::{ExportRenderer, OutputType},
+    export::output::{ExportRenderer, OutputFormat},
     markdown::{parse::ParseError, text_style::Color},
     presentation::{
         Presentation,
@@ -102,7 +102,7 @@ impl<'a> Exporter<'a> {
         &mut self,
         presentation_path: &Path,
         output_directory: OutputDirectory,
-        renderer: OutputType,
+        renderer: OutputFormat,
     ) -> Result<ExportRenderer, ExportError> {
         let content = fs::read_to_string(presentation_path).map_err(ExportError::ReadPresentation)?;
         let elements = self.parser.parse(&content)?;
@@ -150,7 +150,7 @@ impl<'a> Exporter<'a> {
         Self::validate_weasyprint_exists()?;
         Self::log("weasyprint installation found")?;
 
-        let render = self.build_renderer(presentation_path, output_directory, OutputType::Pdf)?;
+        let render = self.build_renderer(presentation_path, output_directory, OutputFormat::Pdf)?;
 
         let pdf_path = match output_path {
             Some(path) => path.to_path_buf(),
@@ -180,7 +180,7 @@ impl<'a> Exporter<'a> {
             self.dimensions.rows, self.dimensions.columns, self.dimensions.width, self.dimensions.height
         );
 
-        let render = self.build_renderer(presentation_path, output_directory, OutputType::Html)?;
+        let render = self.build_renderer(presentation_path, output_directory, OutputFormat::Html)?;
 
         let output_path = match output_path {
             Some(path) => path.to_path_buf(),

@@ -124,21 +124,21 @@ impl ContentManager {
     }
 }
 
-pub(crate) enum OutputType {
+pub(crate) enum OutputFormat {
     Pdf,
     Html,
 }
 
 pub(crate) struct ExportRenderer {
     content_manager: ContentManager,
-    output_type: OutputType,
+    output_type: OutputFormat,
     dimensions: WindowSize,
     html_body: String,
     background_color: Option<String>,
 }
 
 impl ExportRenderer {
-    pub(crate) fn new(dimensions: WindowSize, output_directory: OutputDirectory, output_type: OutputType) -> Self {
+    pub(crate) fn new(dimensions: WindowSize, output_directory: OutputDirectory, output_type: OutputFormat) -> Self {
         let image_manager = ContentManager::new(output_directory);
         Self {
             content_manager: image_manager,
@@ -218,11 +218,12 @@ impl ExportRenderer {
         }}"
         );
         let html_script = match self.output_type {
-            OutputType::Pdf => String::new(),
-            OutputType::Html => {
+            OutputFormat::Pdf => String::new(),
+            OutputFormat::Html => {
                 format!(
                     "
 <script>
+let originalWidth = {width};
 {script}
 </script>"
                 )
@@ -246,7 +247,7 @@ impl ExportRenderer {
         let html_path = self.content_manager.persist_file("index.html", html.as_bytes())?;
 
         match self.output_type {
-            OutputType::Pdf => {
+            OutputFormat::Pdf => {
                 ThirdPartyTools::weasyprint(&[
                     "--presentational-hints",
                     "-e",
@@ -256,7 +257,7 @@ impl ExportRenderer {
                 ])
                 .run()?;
             }
-            OutputType::Html => {
+            OutputFormat::Html => {
                 fs::write(output_path, html.as_bytes())?;
             }
         }

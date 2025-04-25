@@ -72,7 +72,7 @@ struct Cli {
     export_pdf: bool,
 
     /// Export the presentation as a HTML rather than displaying it.
-    #[clap(short, long, group = "export")]
+    #[clap(long, group = "export")]
     export_html: bool,
 
     /// The path in which to store temporary files used when exporting.
