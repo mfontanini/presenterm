@@ -173,8 +173,8 @@ impl ExportRenderer {
         let height = self.dimensions.rows * LINE_HEIGHT;
         let background_color = self.background_color.unwrap_or_else(|| "black".into());
         let css_container_width = match self.output_format {
-            OutputFormat::Pdf => &format!("{width}px"),
-            OutputFormat::Html => "100vw",
+            OutputFormat::Pdf => format!("{width}px"),
+            OutputFormat::Html => "100vw".to_string(),
         };
         let css = format!(
             r"
