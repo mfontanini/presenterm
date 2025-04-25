@@ -30,6 +30,7 @@ Code highlighting is supported for the following languages:
 | java       |         ✓         |
 | javascript |         ✓         |
 | json       |                   |
+| julia      |         ✓         |
 | kotlin     |         ✓         |
 | latex      |                   |
 | lua        |         ✓         |
@@ -137,6 +138,18 @@ The `file` snippet type can be used to specify an external code snippet that wil
 ```file +exec +line_numbers
 path: snippet.rs
 language: rust
+```
+~~~
+
+If you'd like to include only a subset of the file, you can use the optional fields `start_line` and `end_line`:
+
+~~~markdown
+```file +exec +line_numbers
+path: snippet.rs
+language: rust
+# Only shot lines 5-10
+start_line: 5
+end_line: 10
 ```
 ~~~
 

@@ -163,7 +163,7 @@ using another brace. e.g. `{{potato}} farms` will be displayed as `{potato} farm
 
 #### Footer images
 
-Besides text, images can also be used in the left and center positions. This can be done by specifying an `image` key 
+Besides text, images can also be used in the left/center/right positions. This can be done by specifying an `image` key 
 under each of those attributes:
 
 ```yaml
@@ -173,7 +173,8 @@ footer:
     image: potato.png
   center:
     image: banana.png
-  right: "{current_slide} / {total_slides}"
+  right:
+    image: apple.png
   # The height of the footer to adjust image sizes
   height: 5
 ```

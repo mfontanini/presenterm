@@ -1,3 +1,51 @@
+# v0.13.0 - 2025-04-25
+
+## Breaking changes
+
+* The CLI parameter to generate the JSON schema for the config file (`--generate-config-file-schema`) is now hidden behind a `json-schema` feature flag. The JSON schema file for the latest version is already publicly available  at `https://github.com/mfontanini/presenterm/blob/${VERSION}/config-file-schema.json`, so anyone can use it without having to generate it by hand. This allows cutting down the number of dependencies in this project quite a bit ([#563](https://github.com/mfontanini/presenterm/issues/563)).
+
+## New features
+
+* Support for [slide transitions](https://mfontanini.github.io/presenterm/features/slide-transitons.html) is now available ([#530](https://github.com/mfontanini/presenterm/issues/530)):
+  * Add fade slide transition ([#534](https://github.com/mfontanini/presenterm/issues/534)).
+  * Add slide horizontally slide transition animation ([#528](https://github.com/mfontanini/presenterm/issues/528)).
+  * Add `collapse_horizontal` slide transition ([#560](https://github.com/mfontanini/presenterm/issues/560)).
+* Add `--output` option to specify the path where the output file is written to during an export ([#526](https://github.com/mfontanini/presenterm/issues/526)).
+* Allow specifying [start/end lines](https://mfontanini.github.io/presenterm/features/code/highlighting.html#including-external-code-snippets) in file snippet type ([#565](https://github.com/mfontanini/presenterm/issues/565)) - thanks @marianozunino.
+* Allow letting [pauses become new slides](https://mfontanini.github.io/presenterm/configuration/settings.html#pause-behavior) when exporting ([#557](https://github.com/mfontanini/presenterm/issues/557)).
+* Allow [using images on right in footer](https://mfontanini.github.io/presenterm/features/themes/definition.html#footer-images) ([#554](https://github.com/mfontanini/presenterm/issues/554)).
+* Add [`max_rows` configuration](https://mfontanini.github.io/presenterm/configuration/settings.html#maximum-presentation-height) to cap vertical size ([#531](https://github.com/mfontanini/presenterm/issues/531)).
+* Add julia language highlighting and execution support ([#561](https://github.com/mfontanini/presenterm/issues/561)).
+
+## Fixes
+
+* Center overflow lines when using centered text ([#546](https://github.com/mfontanini/presenterm/issues/546)).
+* Don't add extra space before heading if prefix in theme is empty ([#542](https://github.com/mfontanini/presenterm/issues/542)).
+* Use no typst background in terminal-* built in themes ([#535](https://github.com/mfontanini/presenterm/issues/535)).
+* Use `std::env::temp_dir` in the `external_snippet` test ([#533](https://github.com/mfontanini/presenterm/issues/533)) - thanks @Medovi.
+* Respect `extends` in a theme set via `path` in front matter ([#532](https://github.com/mfontanini/presenterm/issues/532)).
+
+## Misc
+
+* Refactor async renders (e.g. mermaid/typst/latex `+render` blocks, `+exec` blocks, etc) to work truly asynchronously. This causes the output to be polled faster, and causes jumping to a slide that contains an async render to take a likely negligible (but maybe noticeable) amount of time to be jumped to. This was needed for slide transitions to work seemlessly ([#556](https://github.com/mfontanini/presenterm/issues/556)).
+* Get rid of `textproperties` ([#529](https://github.com/mfontanini/presenterm/issues/529)).
+* Add links to presentations using presenterm ([#544](https://github.com/mfontanini/presenterm/issues/544)) - thanks @orhun.
+
+## Performance improvements
+
+* A few performance improvements had to be done for slide transitions to work seemlessly:
+  * Pre-scale ASCII images when transitions are enabled ([#550](https://github.com/mfontanini/presenterm/issues/550)).
+  * Pre-scale generated images ([#553](https://github.com/mfontanini/presenterm/issues/553)).
+  * Cache resized ASCII images ([#547](https://github.com/mfontanini/presenterm/issues/547)).
+
+## ❤️ Sponsors
+
+Thanks to the following users who supported _presenterm_ via a [github sponsorship](https://github.com/sponsors/mfontanini) in this release:
+
+* [@0atman](https://github.com/0atman)
+* [@orhun](https://github.com/orhun)
+* [@fipoac](https://github.com/fipoac)
+
 # v0.12.0 - 2025-03-24
 
 ## Breaking changes
@@ -41,7 +89,7 @@
 
 It is now possible to sponsor this project via [github sponsors](https://github.com/sponsors/mfontanini).
 
-Thanks to @0atman for being the first project sponsor!
+Thanks to [@0atman](https://github.com/0atman) for being the first project sponsor!
 
 # v0.11.0 - 2025-03-08
 

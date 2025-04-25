@@ -16,6 +16,7 @@
     - [Themes](./features/themes/introduction.md)
         - [Definition](./features/themes/definition.md)
     - [PDF export](./features/pdf-export.md)
+    - [Slide transitions](./features/slide-transitions.md)
     - [Speaker notes](./features/speaker-notes.md)
 - [Configuration](./configuration/introduction.md)
     - [Options](./configuration/options.md)

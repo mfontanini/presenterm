@@ -61,11 +61,23 @@ defaults:
 If you would like your presentation to be left or right aligned instead of centered when the terminal is too wide, you 
 can use the `max_columns_alignment` key:
 
-
 ```yaml
 defaults:
   max_columns: 100
+  # Valid values: left, center, right
   max_columns_alignment: left
+```
+
+## Maximum presentation height
+
+The `max_rows` and `max_rows_alignment` properties are analogous to `max_columns*` to allow capping the maximum number 
+of rows:
+
+```yaml
+defaults:
+  max_rows: 100
+  # Valid values: top, center, bottom
+  max_rows_alignment: left
 ```
 
 ## Incremental lists behavior
@@ -81,6 +93,27 @@ defaults:
     pause_after: true
 ```
 
+# Slide transitions
+
+Slide transitions allow animating your presentation every time you move from a slide to the next/previous one. The 
+configuration for slide transitions is the following:
+
+```yaml
+transition:
+  # how long the transition should last.
+  duration_millis: 750
+
+  # how many frames should be rendered during the transition
+  frames: 45
+
+  # the animation to use
+  animation:
+    style: <style_name>
+```
+
+See the [slide transitions page](../features/slide-transitions.md) for more information on which animation styles are 
+supported.
+
 # Key bindings
 
 Key bindings that _presenterm_ uses can be manually configured in the config file via the `bindings` key. The following 
@@ -93,6 +126,16 @@ bindings:
 
   # the keys that cause the presentation to move backwards.
   previous: ["h", "k", "<left>", "<page_up>", "<up>"]
+
+  # the keys that cause the presentation to move "fast" to the next slide. this will ignore:
+  #
+  # * Pauses.
+  # * Dynamic code highlights.
+  # * Slide transitions, if enabled.
+  next_fast: ["n"]
+
+  # same as `next_fast` but jumps fast to the previous slide.
+  previous_fast: ["p"]
 
   # the key binding to jump to the first slide.
   first_slide: ["gg"]
@@ -129,6 +172,8 @@ You can choose to override any of them. Keep in mind these are overrides so if f
 default won't apply anymore and only what you've defined will be used.
 
 # Snippet configurations
+
+The configurations that affect code snippets in presentations.
 
 ## Snippet execution
 
@@ -232,15 +277,29 @@ speaker_notes:
   always_publish: true
 ```
 
+# Presentation exports
+
+The configurations that affect PDF exports.
+
 ## PDF export size
 
 The size of exported PDFs can be configured via the `export.dimensions` key:
 
 ```yaml
 export:
-    dimensions:
-        columns: 80
-        rows: 30
+  dimensions:
+    columns: 80
+    rows: 30
 ```
 
 See [the PDF export page](../features/pdf-export.md) for more information.
+
+## Pause behavior
+
+By default pauses will be ignored in generated PDF files. If instead you'd like every pause to generate a new page in 
+the export, set the `export.pauses` attribute:
+
+```yaml
+export:
+  pauses: new_slide
+```
