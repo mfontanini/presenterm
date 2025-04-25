@@ -6,7 +6,7 @@
 
 ## New features
 
-* Support for [slide transitions](https://mfontanini.github.io/presenterm/features/slide-transitons.html) is now available ([#530](https://github.com/mfontanini/presenterm/issues/530)):
+* Support for [slide transitions](https://mfontanini.github.io/presenterm/features/slide-transitions.html) is now available ([#530](https://github.com/mfontanini/presenterm/issues/530)):
   * Add fade slide transition ([#534](https://github.com/mfontanini/presenterm/issues/534)).
   * Add slide horizontally slide transition animation ([#528](https://github.com/mfontanini/presenterm/issues/528)).
   * Add `collapse_horizontal` slide transition ([#560](https://github.com/mfontanini/presenterm/issues/560)).
