@@ -131,7 +131,7 @@ pub(crate) enum OutputFormat {
 
 pub(crate) struct ExportRenderer {
     content_manager: ContentManager,
-    output_type: OutputFormat,
+    output_format: OutputFormat,
     dimensions: WindowSize,
     html_body: String,
     background_color: Option<String>,
@@ -145,7 +145,7 @@ impl ExportRenderer {
             dimensions,
             html_body: "".to_string(),
             background_color: None,
-            output_type,
+            output_format: output_type,
         }
     }
 
@@ -172,6 +172,10 @@ impl ExportRenderer {
         let width = (self.dimensions.columns as f64 * FONT_SIZE as f64 * FONT_SIZE_WIDTH).ceil();
         let height = self.dimensions.rows * LINE_HEIGHT;
         let background_color = self.background_color.unwrap_or_else(|| "black".into());
+        let css_container_width = match self.output_format {
+            OutputFormat::Pdf => &format!("{width}px"),
+            OutputFormat::Html => "100vw",
+        };
         let css = format!(
             r"
         pre {{
@@ -187,7 +191,7 @@ impl ExportRenderer {
             margin: 0;
             font-size: {FONT_SIZE}px;
             line-height: {LINE_HEIGHT}px;
-            width: 100vw;
+            width: {css_container_width};
             overflow: hidden;
             transform-origin: top center;
             background-color: {background_color};
@@ -217,7 +221,7 @@ impl ExportRenderer {
             width: {width}px;
         }}"
         );
-        let html_script = match self.output_type {
+        let html_script = match self.output_format {
             OutputFormat::Pdf => String::new(),
             OutputFormat::Html => {
                 format!(
@@ -246,7 +250,7 @@ let originalWidth = {width};
 
         let html_path = self.content_manager.persist_file("index.html", html.as_bytes())?;
 
-        match self.output_type {
+        match self.output_format {
             OutputFormat::Pdf => {
                 ThirdPartyTools::weasyprint(&[
                     "--presentational-hints",
