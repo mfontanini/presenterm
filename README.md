@@ -45,6 +45,7 @@ Visit the [documentation][docs-introduction] to get started.
 * [Slide titles][docs-slide-titles].
 * [Snippet execution][docs-code-execute] for various programming languages.
 * [Export presentations to PDF][docs-pdf-export].
+* [Slide transitions][docs-slide-transitions].
 * [Pause][docs-pauses] portions of your slides.
 * [Custom key bindings][docs-key-bindings].
 * [Automatically reload your presentation][docs-hot-reload] every time it changes for a fast development loop.
@@ -52,7 +53,7 @@ Visit the [documentation][docs-introduction] to get started.
 
 See the [introduction page][docs-introduction] to learn more.
 
-# Presenterm in Action
+# Presenterm in action
 
 Here are some talks and demos that feature _presenterm_:
 
@@ -76,6 +77,7 @@ Gave a talk using _presenterm_? We would love to feature it here! Open a PR or i
 [docs-code-highlight]: https://mfontanini.github.io/presenterm/features/code/highlighting.html
 [docs-code-execute]: https://mfontanini.github.io/presenterm/features/code/execution.html
 [docs-selective-highlight]: https://mfontanini.github.io/presenterm/features/code/highlighting.html#selective-highlighting
+[docs-slide-transitions]: https://mfontanini.github.io/presenterm/features/slide-transitons.html
 [docs-layout]: https://mfontanini.github.io/presenterm/features/layout.html
 [docs-mermaid]: https://mfontanini.github.io/presenterm/features/code/mermaid.html
 [docs-latex]: https://mfontanini.github.io/presenterm/features/code/latex.html

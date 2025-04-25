@@ -2,7 +2,7 @@
 
 ## Breaking changes
 
-* The CLI parameter to generate the JSON schema for the config file (`--generate-config-file-schema`) is now hidden behind a `json-schema` feature flag. The JSON schema file for the latest version is already publicly available  at `https://github.com/mfontanini/presenterm/blob/${VERSION}/config-file-schema.json` already, so anyone can use it without having to generate it by hand. This allows cutting down the number of dependencies in this project quite a bit ([#563](https://github.com/mfontanini/presenterm/issues/563)).
+* The CLI parameter to generate the JSON schema for the config file (`--generate-config-file-schema`) is now hidden behind a `json-schema` feature flag. The JSON schema file for the latest version is already publicly available  at `https://github.com/mfontanini/presenterm/blob/${VERSION}/config-file-schema.json`, so anyone can use it without having to generate it by hand. This allows cutting down the number of dependencies in this project quite a bit ([#563](https://github.com/mfontanini/presenterm/issues/563)).
 
 ## New features
 
