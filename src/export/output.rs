@@ -176,6 +176,10 @@ impl ExportRenderer {
             OutputFormat::Pdf => format!("{width}px"),
             OutputFormat::Html => "100vw".to_string(),
         };
+        let css_container_height = match self.output_format {
+            OutputFormat::Pdf => format!("{height}px"),
+            OutputFormat::Html => "100vh".to_string(),
+        };
         let css = format!(
             r"
         pre {{
@@ -192,6 +196,7 @@ impl ExportRenderer {
             font-size: {FONT_SIZE}px;
             line-height: {LINE_HEIGHT}px;
             width: {css_container_width};
+            height: {css_container_height};
             overflow: hidden;
             transform-origin: top center;
             background-color: {background_color};
@@ -199,6 +204,7 @@ impl ExportRenderer {
 
         .container {{
             width: 100%;
+            height: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -228,6 +234,7 @@ impl ExportRenderer {
                     "
 <script>
 let originalWidth = {width};
+let originalHeight = {height};
 {script}
 </script>"
                 )

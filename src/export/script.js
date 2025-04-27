@@ -15,7 +15,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function scaler() {
     var w = document.documentElement.clientWidth;
-    let scaledAmount= w/originalWidth;
+    var h = document.documentElement.clientHeight;
+    let widthScaledAmount= w/originalWidth;
+    let heightScaledAmount= h/originalHeight;
+    let scaledAmount = Math.min(widthScaledAmount, heightScaledAmount);
     document.querySelector("body").style.transform = `scale(${scaledAmount})`;
   }
 
