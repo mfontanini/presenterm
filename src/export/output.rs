@@ -240,26 +240,37 @@ let originalHeight = {height};
                 )
             }
         };
-        let html = format!(
-            r#"
-<html>
+        let style = match self.output_format {
+            OutputFormat::Pdf => String::new(),
+            OutputFormat::Html => format!(
+                "
 <head>
 <style>
 {css}
 </style>
 </head>
+                "
+            ),
+        };
+        let html = format!(
+            r"
+<html>
+{style}
 <body>
 {html_body}
 {html_script}
 </body>
-</html>"#
+</html>"
         );
 
         let html_path = self.content_manager.persist_file("index.html", html.as_bytes())?;
+        let css_path = self.content_manager.persist_file("styles.css", css.as_bytes())?;
 
         match self.output_format {
             OutputFormat::Pdf => {
                 ThirdPartyTools::weasyprint(&[
+                    "-s",
+                    css_path.to_string_lossy().as_ref(),
                     "--presentational-hints",
                     "-e",
                     "utf8",
