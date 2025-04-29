@@ -172,14 +172,6 @@ impl ExportRenderer {
         let width = (self.dimensions.columns as f64 * FONT_SIZE as f64 * FONT_SIZE_WIDTH).ceil();
         let height = self.dimensions.rows * LINE_HEIGHT;
         let background_color = self.background_color.unwrap_or_else(|| "black".into());
-        let css_container_width = match self.output_format {
-            OutputFormat::Pdf => format!("{width}px"),
-            OutputFormat::Html => "100vw".to_string(),
-        };
-        let css_container_height = match self.output_format {
-            OutputFormat::Pdf => format!("{height}px"),
-            OutputFormat::Html => "100vh".to_string(),
-        };
         let css = format!(
             r"
         pre {{
@@ -195,10 +187,9 @@ impl ExportRenderer {
             margin: 0;
             font-size: {FONT_SIZE}px;
             line-height: {LINE_HEIGHT}px;
-            width: {css_container_width};
-            height: {css_container_height};
-            overflow: hidden;
-            transform-origin: top center;
+            width: {width}px;
+            height: {height}px;
+            transform-origin: top left;
             background-color: {background_color};
         }}
 
