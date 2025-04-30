@@ -1,5 +1,3 @@
-use itertools::Itertools;
-
 use super::{BuildError, BuildResult, ExecutionMode, PresentationBuilderOptions};
 use crate::{
     ImageRegistry,
@@ -18,13 +16,14 @@ use crate::{
         properties::WindowSize,
     },
     resource::Resources,
-    theme::{CodeBlockStyle, PresentationTheme},
+    theme::{Alignment, CodeBlockStyle, PresentationTheme},
     third_party::{ThirdPartyRender, ThirdPartyRenderRequest},
     ui::execution::{
         RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation, SnippetExecutionDisabledOperation,
         disabled::ExecutionType, snippet::DisplaySeparator,
     },
 };
+use itertools::Itertools;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 pub(crate) struct SnippetProcessorState<'a> {
@@ -308,7 +307,15 @@ impl<'a> SnippetProcessor<'a> {
             ExecutionMode::AlongSnippet => DisplaySeparator::On,
             ExecutionMode::ReplaceSnippet => DisplaySeparator::Off,
         };
-        let alignment = self.code_style(&snippet).alignment;
+        let default_alignment = self.code_style(&snippet).alignment;
+        // If we're replacing the snippet output and we have center alignment, use center alignment but
+        // without any margins and minimum sizes so we truly center the output.
+        let alignment = match (&mode, default_alignment) {
+            (ExecutionMode::ReplaceSnippet, Alignment::Center { .. }) => {
+                Alignment::Center { minimum_margin: Default::default(), minimum_size: 0 }
+            }
+            (_, alignment) => alignment,
+        };
         let default_colors = self.theme.default_style.style.colors;
         let mut execution_output_style = self.theme.execution_output.clone();
         if snippet.attributes.no_background {
