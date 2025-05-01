@@ -172,6 +172,18 @@ impl ExportRenderer {
         let width = (self.dimensions.columns as f64 * FONT_SIZE as f64 * FONT_SIZE_WIDTH).ceil();
         let height = self.dimensions.rows * LINE_HEIGHT;
         let background_color = self.background_color.unwrap_or_else(|| "black".into());
+        let container = match self.output_format {
+            OutputFormat::Pdf => String::from("display: contents;"),
+            OutputFormat::Html => String::from(
+                "
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                ",
+            ),
+        };
         let css = format!(
             r"
         pre {{
@@ -194,11 +206,7 @@ impl ExportRenderer {
         }}
 
         .container {{
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            {container}
         }}
 
         .content-line {{
