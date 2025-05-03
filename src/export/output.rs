@@ -39,6 +39,7 @@ struct HtmlSlide {
 impl HtmlSlide {
     fn new(grid: TerminalGrid, content_manager: &mut ContentManager) -> Result<Self, ExportError> {
         let mut rows = Vec::new();
+        rows.push(String::from("<div class=\"container\">"));
         for (y, row) in grid.rows.into_iter().enumerate() {
             let mut finalized_row = "<div class=\"content-line\"><pre>".to_string();
             let mut current_style = row.first().map(|c| c.style).unwrap_or_default();
@@ -73,6 +74,7 @@ impl HtmlSlide {
             finalized_row.push_str("</pre></div>");
             rows.push(finalized_row);
         }
+        rows.push(String::from("</div>"));
 
         Ok(HtmlSlide { rows, background_color: grid.background_color.as_ref().map(color_to_html) })
     }
@@ -122,17 +124,29 @@ impl ContentManager {
     }
 }
 
-pub(crate) struct PdfRender {
+pub(crate) enum OutputFormat {
+    Pdf,
+    Html,
+}
+
+pub(crate) struct ExportRenderer {
     content_manager: ContentManager,
+    output_format: OutputFormat,
     dimensions: WindowSize,
     html_body: String,
     background_color: Option<String>,
 }
 
-impl PdfRender {
-    pub(crate) fn new(dimensions: WindowSize, output_directory: OutputDirectory) -> Self {
+impl ExportRenderer {
+    pub(crate) fn new(dimensions: WindowSize, output_directory: OutputDirectory, output_type: OutputFormat) -> Self {
         let image_manager = ContentManager::new(output_directory);
-        Self { content_manager: image_manager, dimensions, html_body: "".to_string(), background_color: None }
+        Self {
+            content_manager: image_manager,
+            dimensions,
+            html_body: "".to_string(),
+            background_color: None,
+            output_format: output_type,
+        }
     }
 
     pub(crate) fn process_slide(&mut self, slide: Slide) -> Result<(), ExportError> {
@@ -152,19 +166,24 @@ impl PdfRender {
         Ok(())
     }
 
-    pub(crate) fn generate(self, pdf_path: &Path) -> Result<(), ExportError> {
+    pub(crate) fn generate(self, output_path: &Path) -> Result<(), ExportError> {
         let html_body = &self.html_body;
-        let html = format!(
-            r#"<html>
-<head>
-</head>
-<body>
-{html_body}</body>
-</html>"#
-        );
+        let script = include_str!("script.js");
         let width = (self.dimensions.columns as f64 * FONT_SIZE as f64 * FONT_SIZE_WIDTH).ceil();
         let height = self.dimensions.rows * LINE_HEIGHT;
         let background_color = self.background_color.unwrap_or_else(|| "black".into());
+        let container = match self.output_format {
+            OutputFormat::Pdf => String::from("display: contents;"),
+            OutputFormat::Html => String::from(
+                "
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                ",
+            ),
+        };
         let css = format!(
             r"
         pre {{
@@ -180,8 +199,14 @@ impl PdfRender {
             margin: 0;
             font-size: {FONT_SIZE}px;
             line-height: {LINE_HEIGHT}px;
-            background-color: {background_color};
             width: {width}px;
+            height: {height}px;
+            transform-origin: top left;
+            background-color: {background_color};
+        }}
+
+        .container {{
+            {container}
         }}
 
         .content-line {{
@@ -191,25 +216,73 @@ impl PdfRender {
             width: {width}px;
         }}
 
+        .hidden {{
+            display: none;
+        }}
+
         @page {{
             margin: 0;
             height: {height}px;
             width: {width}px;
         }}"
         );
+        let html_script = match self.output_format {
+            OutputFormat::Pdf => String::new(),
+            OutputFormat::Html => {
+                format!(
+                    "
+<script>
+let originalWidth = {width};
+let originalHeight = {height};
+{script}
+</script>"
+                )
+            }
+        };
+        let style = match self.output_format {
+            OutputFormat::Pdf => String::new(),
+            OutputFormat::Html => format!(
+                "
+<head>
+<style>
+{css}
+</style>
+</head>
+                "
+            ),
+        };
+        let html = format!(
+            r"
+<html>
+{style}
+<body>
+{html_body}
+{html_script}
+</body>
+</html>"
+        );
 
         let html_path = self.content_manager.persist_file("index.html", html.as_bytes())?;
         let css_path = self.content_manager.persist_file("styles.css", css.as_bytes())?;
-        ThirdPartyTools::weasyprint(&[
-            "-s",
-            css_path.to_string_lossy().as_ref(),
-            "--presentational-hints",
-            "-e",
-            "utf8",
-            html_path.to_string_lossy().as_ref(),
-            pdf_path.to_string_lossy().as_ref(),
-        ])
-        .run()?;
+
+        match self.output_format {
+            OutputFormat::Pdf => {
+                ThirdPartyTools::weasyprint(&[
+                    "-s",
+                    css_path.to_string_lossy().as_ref(),
+                    "--presentational-hints",
+                    "-e",
+                    "utf8",
+                    html_path.to_string_lossy().as_ref(),
+                    output_path.to_string_lossy().as_ref(),
+                ])
+                .run()?;
+            }
+            OutputFormat::Html => {
+                fs::write(output_path, html.as_bytes())?;
+            }
+        }
+
         Ok(())
     }
 }

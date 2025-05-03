@@ -68,15 +68,19 @@ struct Cli {
     path: Option<PathBuf>,
 
     /// Export the presentation as a PDF rather than displaying it.
-    #[clap(short, long)]
+    #[clap(short, long, group = "export")]
     export_pdf: bool,
 
+    /// Export the presentation as a HTML rather than displaying it.
+    #[clap(long, group = "export")]
+    export_html: bool,
+
     /// The path in which to store temporary files used when exporting.
-    #[clap(long, requires = "export_pdf")]
+    #[clap(long, requires = "export")]
     export_temporary_path: Option<PathBuf>,
 
     /// The output path for the exported PDF.
-    #[clap(short = 'o', long = "output", requires = "export_pdf")]
+    #[clap(short = 'o', long = "output", requires = "export")]
     export_output: Option<PathBuf>,
 
     /// Generate a JSON schema for the configuration file.
@@ -401,7 +405,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let parser = MarkdownParser::new(&arena);
     let validate_overflows =
         overflow_validation_enabled(&present_mode, &config.defaults.validate_overflows) || cli.validate_overflows;
-    if cli.export_pdf {
+    if cli.export_pdf || cli.export_html {
         let dimensions = match config.export.dimensions {
             Some(dimensions) => WindowSize {
                 rows: dimensions.rows,
@@ -426,7 +430,11 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             Some(path) => OutputDirectory::external(path),
             None => OutputDirectory::temporary(),
         }?;
-        exporter.export_pdf(&path, output_directory, cli.export_output.as_deref())?;
+        if cli.export_pdf {
+            exporter.export_pdf(&path, output_directory, cli.export_output.as_deref())?;
+        } else {
+            exporter.export_html(&path, output_directory, cli.export_output.as_deref())?;
+        }
     } else {
         let SpeakerNotesComponents { events_listener, events_publisher } =
             SpeakerNotesComponents::new(&cli, &config, &path)?;
