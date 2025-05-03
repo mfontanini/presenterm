@@ -293,8 +293,8 @@ impl CoreComponents {
     }
 
     fn select_graphics_mode(cli: &Cli, config: &Config) -> GraphicsMode {
-        if cli.export_pdf {
-            GraphicsMode::AsciiBlocks
+        if cli.export_pdf | cli.export_html {
+            GraphicsMode::Raw
         } else {
             let protocol = cli.image_protocol.as_ref().unwrap_or(&config.defaults.image_protocol);
             match GraphicsMode::try_from(protocol) {

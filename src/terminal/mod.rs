@@ -15,6 +15,7 @@ pub enum GraphicsMode {
         inside_tmux: bool,
     },
     AsciiBlocks,
+    Raw,
     #[cfg(feature = "sixel")]
     Sixel,
 }

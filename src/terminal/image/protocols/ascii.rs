@@ -36,10 +36,6 @@ impl AsciiImage {
             cached_sizes.insert(cache_key, image.into_rgba8());
         }
     }
-
-    pub(crate) fn image(&self) -> &DynamicImage {
-        &self.inner.image
-    }
 }
 
 impl ImageProperties for AsciiImage {
