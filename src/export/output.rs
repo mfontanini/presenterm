@@ -8,15 +8,11 @@ use crate::{
     presentation::Slide,
     render::{engine::RenderEngine, properties::WindowSize},
     terminal::{
-        image::{
-            Image, ImageSource,
-            printer::{ImageProperties, TerminalImage},
-        },
+        image::printer::TerminalImage,
         virt::{TerminalGrid, VirtualTerminal},
     },
     tools::ThirdPartyTools,
 };
-use image::{ImageEncoder, codecs::png::PngEncoder};
 use std::{
     fs, io,
     path::{Path, PathBuf},
@@ -37,7 +33,7 @@ struct HtmlSlide {
 }
 
 impl HtmlSlide {
-    fn new(grid: TerminalGrid, content_manager: &mut ContentManager) -> Result<Self, ExportError> {
+    fn new(grid: TerminalGrid) -> Result<Self, ExportError> {
         let mut rows = Vec::new();
         rows.push(String::from("<div class=\"container\">"));
         for (y, row) in grid.rows.into_iter().enumerate() {
@@ -58,11 +54,11 @@ impl HtmlSlide {
                     other => current_string.push(other),
                 }
                 if let Some(image) = grid.images.get(&(y as u16, x as u16)) {
-                    let image_path = content_manager.persist_image(&image.image)?;
-                    let image_path_str = image_path.display();
+                    let TerminalImage::Raw(raw_image) = image.image.image() else { panic!("not in raw image mode") };
+                    let image_contents = raw_image.to_inline_html();
                     let width_pixels = (image.width_columns as f64 * FONT_SIZE as f64 * FONT_SIZE_WIDTH).ceil();
                     let image_tag = format!(
-                        "<img width=\"{width_pixels}\" src=\"file://{image_path_str}\" style=\"position: absolute\" />"
+                        "<img width=\"{width_pixels}\" src=\"{image_contents}\" style=\"position: absolute\" />"
                     );
                     current_string.push_str(&image_tag);
                 }
@@ -86,35 +82,11 @@ impl HtmlSlide {
 
 pub(crate) struct ContentManager {
     output_directory: OutputDirectory,
-    image_count: usize,
 }
 
 impl ContentManager {
     pub(crate) fn new(output_directory: OutputDirectory) -> Self {
-        Self { output_directory, image_count: 0 }
-    }
-
-    fn persist_image(&mut self, image: &Image) -> Result<PathBuf, ExportError> {
-        match image.source.clone() {
-            ImageSource::Filesystem(path) => Ok(path),
-            ImageSource::Generated => {
-                let mut buffer = Vec::new();
-                let dimensions = image.image().dimensions();
-                let TerminalImage::Ascii(image) = image.image() else { panic!("not in ascii mode") };
-                let image = image.image();
-                PngEncoder::new(&mut buffer).write_image(
-                    image.as_bytes(),
-                    dimensions.0,
-                    dimensions.1,
-                    image.color().into(),
-                )?;
-                let name = format!("img-{}.png", self.image_count);
-                let path = self.output_directory.path().join(name);
-                fs::write(&path, buffer)?;
-                self.image_count += 1;
-                Ok(path)
-            }
-        }
+        Self { output_directory }
     }
 
     fn persist_file(&self, name: &str, data: &[u8]) -> io::Result<PathBuf> {
@@ -155,7 +127,7 @@ impl ExportRenderer {
         engine.render(slide.iter_operations())?;
 
         let grid = terminal.into_contents();
-        let slide = HtmlSlide::new(grid, &mut self.content_manager)?;
+        let slide = HtmlSlide::new(grid)?;
         if self.background_color.is_none() {
             self.background_color.clone_from(&slide.background_color);
         }
