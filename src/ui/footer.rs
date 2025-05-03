@@ -178,10 +178,9 @@ impl FooterLine {
         palette: &ColorPalette,
     ) -> Result<Self, InvalidFooterTemplateError> {
         use FooterTemplateChunk::*;
-        let mut line = Line::default();
         let FooterVariables { current_slide, total_slides, author, title, sub_title, event, location, date } = vars;
         let arena = Arena::default();
-        let parser = MarkdownParser::new(&arena);
+        let mut reassembled = String::new();
         for chunk in template.0 {
             let raw_text = match chunk {
                 CurrentSlide => Cow::Owned(current_slide.to_string()),
@@ -199,20 +198,22 @@ impl FooterLine {
             if raw_text.lines().count() != 1 {
                 return Err(InvalidFooterTemplateError::NoNewlines);
             }
-            let starting_length = raw_text.len();
-            let raw_text = raw_text.trim_start();
-            let left_whitespace = starting_length - raw_text.len();
-            let raw_text = raw_text.trim_end();
-            let right_whitespace = starting_length - raw_text.len() - left_whitespace;
-            let inlines = parser.parse_inlines(raw_text)?;
-            let mut contents = inlines.resolve(palette)?;
-            if left_whitespace != 0 {
-                contents.0.insert(0, " ".repeat(left_whitespace).into());
-            }
-            if right_whitespace != 0 {
-                contents.0.push(" ".repeat(right_whitespace).into());
-            }
-            line.0.extend(contents.0);
+            reassembled.push_str(&raw_text);
+        }
+        // Inline parsing loses leading/trailing whitespaces so re-add them ourselves
+        let starting_length = reassembled.len();
+        let raw_text = reassembled.trim_start();
+        let left_whitespace = starting_length - raw_text.len();
+        let raw_text = raw_text.trim_end();
+        let right_whitespace = starting_length - raw_text.len() - left_whitespace;
+        let parser = MarkdownParser::new(&arena);
+        let inlines = parser.parse_inlines(&reassembled)?;
+        let mut line = inlines.resolve(palette)?;
+        if left_whitespace != 0 {
+            line.0.insert(0, " ".repeat(left_whitespace).into());
+        }
+        if right_whitespace != 0 {
+            line.0.push(" ".repeat(right_whitespace).into());
         }
         line.apply_style(style);
         Ok(Self(line))
@@ -319,5 +320,26 @@ mod tests {
     fn render_invalid(#[case] chunk: FooterTemplateChunk) {
         let template = FooterTemplate(vec![chunk]);
         FooterLine::new(template, &Default::default(), &VARIABLES, &PALETTE).expect_err("render succeeded");
+    }
+
+    #[test]
+    fn interleaved_spans() {
+        let chunks = vec![
+            FooterTemplateChunk::Literal("<span style=\"color: palette:red\">".into()),
+            FooterTemplateChunk::CurrentSlide,
+            FooterTemplateChunk::Literal(" / ".into()),
+            FooterTemplateChunk::TotalSlides,
+            FooterTemplateChunk::Literal("</span>".into()),
+            FooterTemplateChunk::Literal("<span style=\"color: green\">".into()),
+            FooterTemplateChunk::Title,
+            FooterTemplateChunk::Literal("</span>".into()),
+        ];
+        let template = FooterTemplate(chunks);
+        let line = FooterLine::new(template, &Default::default(), &VARIABLES, &PALETTE).expect("render failed");
+        let expected = &[
+            Text::new("1 / 5", TextStyle::default().fg_color(Color::new(255, 0, 0))),
+            Text::new("hi", TextStyle::default().fg_color(Color::Green)),
+        ];
+        assert_eq!(line.0.0, expected);
     }
 }
