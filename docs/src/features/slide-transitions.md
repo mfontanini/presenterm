@@ -1,7 +1,7 @@
 # Slide transitions
 
 Slide transitions allow animating your presentation every time you move from a slide to the next/previous one. See the 
-[configuration page](../configuration/settings.md) to learn how to configure transitions.
+[configuration page](../configuration/settings.md#slide-transitions) to learn how to configure transitions.
 
 The following animations are supported:
 
