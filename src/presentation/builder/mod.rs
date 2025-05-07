@@ -959,7 +959,10 @@ impl<'a> PresentationBuilder<'a> {
         let mutators = mem::take(&mut self.chunk_mutators);
 
         if !self.slide_state.skip_slide {
-            self.slide_chunks.push(SlideChunk::new(operations, mutators));
+            // Don't allow a last empty pause in slide since it adds nothing
+            if self.slide_chunks.is_empty() || !Self::is_chunk_empty(&operations) {
+                self.slide_chunks.push(SlideChunk::new(operations, mutators));
+            }
 
             let chunks = mem::take(&mut self.slide_chunks);
             let builder = SlideBuilder::default().chunks(chunks);
@@ -975,6 +978,18 @@ impl<'a> PresentationBuilder<'a> {
         self.push_slide_prelude();
         self.slide_state = Default::default();
         self.slide_state.last_element = LastElement::None;
+    }
+
+    fn is_chunk_empty(operations: &[RenderOperation]) -> bool {
+        if operations.is_empty() {
+            return true;
+        }
+        for operation in operations {
+            if !matches!(operation, RenderOperation::RenderLineBreak) {
+                return false;
+            }
+        }
+        true
     }
 
     fn generate_footer(&self) -> Result<Vec<RenderOperation>, BuildError> {
@@ -1721,6 +1736,7 @@ theme:
                 ListItem { depth: 1, contents: "two".into(), item_type: ListItemType::Unordered },
                 ListItem { depth: 0, contents: "three".into(), item_type: ListItemType::Unordered },
             ]),
+            MarkdownElement::Paragraph(vec!["hi".into()]),
         ];
         let slides = build_presentation_with_options(elements, options).into_slides();
         assert_eq!(slides[0].iter_chunks().count(), expected_chunks);
@@ -1754,6 +1770,20 @@ theme:
         let options = PresentationBuilderOptions { pause_create_new_slide: true, ..Default::default() };
         let slides = build_presentation_with_options(elements, options).into_slides();
         assert_eq!(slides.len(), 2);
+    }
+
+    #[test]
+    fn incremental_lists_end_of_slide() {
+        let elements = vec![
+            MarkdownElement::Comment { comment: "incremental_lists: true".into(), source_position: Default::default() },
+            MarkdownElement::List(vec![
+                ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 1, contents: "two".into(), item_type: ListItemType::Unordered },
+            ]),
+        ];
+        let slides = build_presentation(elements).into_slides();
+        // There shouldn't be an extra one at the end
+        assert_eq!(slides[0].iter_chunks().count(), 3);
     }
 
     #[test]
