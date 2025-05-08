@@ -425,6 +425,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             builder_options,
             dimensions,
             config.export.pauses,
+            config.export.snippets,
         );
         let output_directory = match cli.export_temporary_path {
             Some(path) => OutputDirectory::external(path),

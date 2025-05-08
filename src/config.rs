@@ -518,6 +518,10 @@ pub struct ExportConfig {
     /// Whether pauses should create new slides.
     #[serde(default)]
     pub pauses: PauseExportPolicy,
+
+    /// The policy for executable snippets when exporting.
+    #[serde(default)]
+    pub snippets: SnippetsExportPolicy,
 }
 
 /// The policy for pauses when exporting.
@@ -531,6 +535,19 @@ pub enum PauseExportPolicy {
 
     /// Create a new slide when a pause is found.
     NewSlide,
+}
+
+/// The policy for executable snippets when exporting.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub enum SnippetsExportPolicy {
+    /// Render all executable snippets in parallel.
+    #[default]
+    Parallel,
+
+    /// Render all executable snippets sequentially.
+    Sequential,
 }
 
 /// The dimensions to use for presentation exports.
