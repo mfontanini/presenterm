@@ -27,12 +27,20 @@ use std::{
 
 const MINIMUM_SEPARATOR_WIDTH: u16 = 32;
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
+enum State {
+    #[default]
+    Initial,
+    Running(ExecutionHandle),
+    Done,
+}
+
+#[derive(Debug, Default)]
 struct Inner {
     output_lines: Vec<WeightedLine>,
     max_line_length: u16,
     process_status: Option<ProcessStatus>,
-    started: bool,
+    state: State,
 }
 
 #[derive(Debug)]
@@ -66,7 +74,7 @@ impl RunSnippetOperation {
         let block_colors = style.style.colors;
         let status_colors = style.status.clone();
         let block_length = alignment.adjust_size(block_length);
-        let inner = Inner { output_lines: Vec::new(), max_line_length: 0, process_status: None, started: false };
+        let inner = Inner::default();
         Self {
             code,
             executor,
@@ -116,7 +124,7 @@ impl AsRenderOperations for RunSnippetOperation {
             }
             DisplaySeparator::Off => vec![],
         };
-        if !inner.started {
+        if let State::Initial = inner.state {
             return operations;
         }
         operations.push(RenderOperation::RenderLineBreak);
@@ -155,9 +163,8 @@ impl RenderAsync for RunSnippetOperation {
             inner: self.inner.clone(),
             executor: self.executor.clone(),
             code: self.code.clone(),
-            handle: None,
             last_length: 0,
-            starting_style: TextStyle::default().size(self.font_size),
+            style: TextStyle::default().size(self.font_size),
         })
     }
 
@@ -170,24 +177,21 @@ struct OperationPollable {
     inner: Arc<Mutex<Inner>>,
     executor: Arc<SnippetExecutor>,
     code: Snippet,
-    handle: Option<ExecutionHandle>,
     last_length: usize,
-    starting_style: TextStyle,
+    style: TextStyle,
 }
 
 impl OperationPollable {
-    fn try_start(&mut self) {
-        let mut inner = self.inner.lock().unwrap();
-        if inner.started {
+    fn try_start(&self, inner: &mut Inner) {
+        // Don't run twice.
+        if !matches!(inner.state, State::Initial) {
             return;
         }
-        inner.started = true;
-        match self.executor.execute_async(&self.code) {
-            Ok(handle) => {
-                self.handle = Some(handle);
-            }
+        inner.state = match self.executor.execute_async(&self.code) {
+            Ok(handle) => State::Running(handle),
             Err(e) => {
                 inner.output_lines = vec![WeightedLine::from(e.to_string())];
+                State::Done
             }
         }
     }
@@ -195,10 +199,13 @@ impl OperationPollable {
 
 impl Pollable for OperationPollable {
     fn poll(&mut self) -> PollableState {
-        self.try_start();
+        let mut inner = self.inner.lock().unwrap();
+        self.try_start(&mut inner);
 
         // At this point if we don't have a handle it's because we're done.
-        let Some(handle) = self.handle.as_mut() else { return PollableState::Done };
+        let State::Running(handle) = &mut inner.state else {
+            return PollableState::Done;
+        };
 
         // Pull data out of the process' output and drop the handle state.
         let mut state = handle.state.lock().unwrap();
@@ -217,27 +224,89 @@ impl Pollable for OperationPollable {
         drop(state);
 
         let mut max_line_length = 0;
-        let (lines, style) = AnsiSplitter::new(self.starting_style).split_lines(&lines);
+        let (lines, _) = AnsiSplitter::new(self.style).split_lines(&lines);
         for line in &lines {
             let width = u16::try_from(line.width()).unwrap_or(u16::MAX);
             max_line_length = max_line_length.max(width);
         }
 
-        let mut inner = self.inner.lock().unwrap();
         let is_finished = status.is_finished();
         inner.process_status = Some(status);
         inner.output_lines = lines;
         inner.max_line_length = inner.max_line_length.max(max_line_length);
         if is_finished {
-            self.handle.take();
+            inner.state = State::Done;
             PollableState::Done
         } else {
-            // Save the style so we continue with it next time
-            self.starting_style = style;
             match modified {
                 true => PollableState::Modified,
                 false => PollableState::Unmodified,
             }
         }
+    }
+}
+
+#[cfg(all(target_os = "linux", test))]
+mod tests {
+    use super::*;
+    use crate::{
+        code::snippet::{SnippetAttributes, SnippetExec, SnippetLanguage},
+        markdown::text_style::Color,
+    };
+
+    fn make_run_shell(code: &str) -> RunSnippetOperation {
+        let snippet = Snippet {
+            contents: code.into(),
+            language: SnippetLanguage::Bash,
+            attributes: SnippetAttributes { execution: SnippetExec::Exec, ..Default::default() },
+        };
+        let executor = Arc::new(SnippetExecutor::new(Default::default(), ".".into()).unwrap());
+        let default_colors = Default::default();
+        let style = ExecutionOutputBlockStyle::default();
+        let block_length = 0;
+        let separator = DisplaySeparator::On;
+        let alignment = Default::default();
+        let font_size = 1;
+        let policy = RenderAsyncStartPolicy::OnDemand;
+        RunSnippetOperation::new(
+            snippet,
+            executor,
+            default_colors,
+            style,
+            block_length,
+            separator,
+            alignment,
+            font_size,
+            policy,
+        )
+    }
+
+    #[test]
+    fn run_command() {
+        let operation = make_run_shell("echo -e '\\033[1;31mhi mom'");
+        let mut pollable = operation.pollable();
+        // Run until done
+        while let PollableState::Modified | PollableState::Unmodified = pollable.poll() {}
+
+        // Expect to see the output lines
+        let inner = operation.inner.lock().unwrap();
+        let line = Line::from(Text::new("hi mom", TextStyle::default().fg_color(Color::Red).bold()));
+        assert_eq!(inner.output_lines, vec![line.into()]);
+    }
+
+    #[test]
+    fn multiple_pollables() {
+        let operation = make_run_shell("echo -e '\\033[1;31mhi mom'");
+        let mut main_pollable = operation.pollable();
+        let mut pollable2 = operation.pollable();
+        // Run until done
+        while let PollableState::Modified | PollableState::Unmodified = main_pollable.poll() {}
+
+        // Polling a pollable created early should return `Done` immediately
+        assert_eq!(pollable2.poll(), PollableState::Done);
+
+        // A new pollable should claim `Done` immediately
+        let mut pollable3 = operation.pollable();
+        assert_eq!(pollable3.poll(), PollableState::Done);
     }
 }

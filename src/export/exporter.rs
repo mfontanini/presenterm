@@ -122,7 +122,7 @@ impl<'a> Exporter<'a> {
 
         let mut render = ExportRenderer::new(self.dimensions.clone(), output_directory, renderer);
         Self::log("waiting for images to be generated and code to be executed, if any...")?;
-        Self::render_async_images(&mut presentation);
+        Self::wait_render_asyncs(&mut presentation);
 
         for (index, slide) in presentation.into_slides().into_iter().enumerate() {
             let index = index + 1;
@@ -198,7 +198,7 @@ impl<'a> Exporter<'a> {
         Ok(())
     }
 
-    fn render_async_images(presentation: &mut Presentation) {
+    fn wait_render_asyncs(presentation: &mut Presentation) {
         let poller = Poller::launch();
         let mut pollables = Vec::new();
         for (index, slide) in presentation.iter_slides().enumerate() {

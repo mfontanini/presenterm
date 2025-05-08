@@ -194,7 +194,7 @@ pub(crate) trait Pollable: Send + 'static {
 }
 
 /// The state of a [Pollable].
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum PollableState {
     Unmodified,
     Modified,
