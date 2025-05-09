@@ -147,7 +147,7 @@ If you'd like to include only a subset of the file, you can use the optional fie
 ```file +exec +line_numbers
 path: snippet.rs
 language: rust
-# Only shot lines 5-10
+# Only show lines 5-10
 start_line: 5
 end_line: 10
 ```
