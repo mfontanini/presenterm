@@ -47,6 +47,11 @@ julia:
   commands:
     - ["julia", "$pwd/snippet.jl"]
   hidden_line_prefix: "/// "
+jsonnet:
+  filename: snippet.jsonnet
+  commands:
+    - ["jsonnet", "$pwd/snippet.jsonnet"]
+  hidden_line_prefix: "## "
 kotlin:
   filename: snippet.kts
   commands:
