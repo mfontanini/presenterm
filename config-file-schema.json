@@ -141,6 +141,14 @@
               "$ref": "#/definitions/PauseExportPolicy"
             }
           ]
+        },
+        "snippets": {
+          "description": "The policy for executable snippets when exporting.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/SnippetsExportPolicy"
+            }
+          ]
         }
       },
       "additionalProperties": false
@@ -766,6 +774,25 @@
         }
       },
       "additionalProperties": false
+    },
+    "SnippetsExportPolicy": {
+      "description": "The policy for executable snippets when exporting.",
+      "oneOf": [
+        {
+          "description": "Render all executable snippets in parallel.",
+          "type": "string",
+          "enum": [
+            "parallel"
+          ]
+        },
+        {
+          "description": "Render all executable snippets sequentially.",
+          "type": "string",
+          "enum": [
+            "sequential"
+          ]
+        }
+      ]
     },
     "SpeakerNotesConfig": {
       "type": "object",

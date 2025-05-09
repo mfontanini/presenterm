@@ -1,7 +1,7 @@
 use crate::{
     MarkdownParser, Resources,
     code::execute::SnippetExecutor,
-    config::{KeyBindingsConfig, PauseExportPolicy},
+    config::{KeyBindingsConfig, PauseExportPolicy, SnippetsExportPolicy},
     export::output::{ExportRenderer, OutputFormat},
     markdown::{parse::ParseError, text_style::Color},
     presentation::{
@@ -67,6 +67,7 @@ pub struct Exporter<'a> {
     themes: Themes,
     dimensions: WindowSize,
     options: PresentationBuilderOptions,
+    snippet_policy: SnippetsExportPolicy,
 }
 
 impl<'a> Exporter<'a> {
@@ -82,6 +83,7 @@ impl<'a> Exporter<'a> {
         mut options: PresentationBuilderOptions,
         mut dimensions: WindowSize,
         pause_policy: PauseExportPolicy,
+        snippet_policy: SnippetsExportPolicy,
     ) -> Self {
         // We don't want dynamically highlighted code blocks.
         options.allow_mutations = false;
@@ -95,7 +97,17 @@ impl<'a> Exporter<'a> {
         let width = (0.5 * dimensions.columns as f64) / (dimensions.rows as f64 / dimensions.height as f64);
         dimensions.width = width as u16;
 
-        Self { parser, default_theme, resources, third_party, code_executor, themes, options, dimensions }
+        Self {
+            parser,
+            default_theme,
+            resources,
+            third_party,
+            code_executor,
+            themes,
+            options,
+            dimensions,
+            snippet_policy,
+        }
     }
 
     fn build_renderer(
@@ -122,7 +134,10 @@ impl<'a> Exporter<'a> {
 
         let mut render = ExportRenderer::new(self.dimensions.clone(), output_directory, renderer);
         Self::log("waiting for images to be generated and code to be executed, if any...")?;
-        Self::wait_render_asyncs(&mut presentation);
+        match self.snippet_policy {
+            SnippetsExportPolicy::Parallel => Self::wait_async_renders_parallel(&mut presentation),
+            SnippetsExportPolicy::Sequential => Self::wait_async_renders_sequential(&mut presentation),
+        };
 
         for (index, slide) in presentation.into_slides().into_iter().enumerate() {
             let index = index + 1;
@@ -198,7 +213,7 @@ impl<'a> Exporter<'a> {
         Ok(())
     }
 
-    fn wait_render_asyncs(presentation: &mut Presentation) {
+    fn wait_async_renders_parallel(presentation: &mut Presentation) {
         let poller = Poller::launch();
         let mut pollables = Vec::new();
         for (index, slide) in presentation.iter_slides().enumerate() {
@@ -221,6 +236,27 @@ impl<'a> Exporter<'a> {
         for slide in presentation.iter_slides_mut() {
             for op in slide.iter_operations_mut() {
                 if let RenderOperation::RenderAsync(inner) = op {
+                    let window_size = WindowSize { rows: 0, columns: 0, width: 0, height: 0 };
+                    let new_operations = inner.as_render_operations(&window_size);
+                    *op = RenderOperation::RenderDynamic(Rc::new(RenderMany(new_operations)));
+                }
+            }
+        }
+    }
+
+    fn wait_async_renders_sequential(presentation: &mut Presentation) {
+        let poller = Poller::launch();
+        for (index, slide) in presentation.iter_slides_mut().enumerate() {
+            for op in slide.iter_operations_mut() {
+                if let RenderOperation::RenderAsync(inner) = op {
+                    // Send a pollable to the poller
+                    poller.send(PollerCommand::Poll { pollable: inner.pollable(), slide: index });
+
+                    // Poll until it's done
+                    let mut pollable = inner.pollable();
+                    while let PollableState::Unmodified | PollableState::Modified = pollable.poll() {}
+
+                    // Replace it with its contents
                     let window_size = WindowSize { rows: 0, columns: 0, width: 0, height: 0 };
                     let new_operations = inner.as_render_operations(&window_size);
                     *op = RenderOperation::RenderDynamic(Rc::new(RenderMany(new_operations)));
