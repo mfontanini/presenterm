@@ -60,6 +60,7 @@ Here are some talks and demos that feature _presenterm_:
 - [Bringing Terminal Aesthetics to the Web With Rust][bringing-terminal-aesthetics] by [Orhun Parmaksız][orhun-github]
 - [7 Rust Terminal Tools That You Should Use][rust-terminal-tools] by [Orhun Parmaksız][orhun-github]
 - [Renaissance of Terminal User Interfaces with Rust][renaissance-tui] by [Orhun Parmaksız][orhun-github]
+- [Using Nix on Apple Silicon and declarative development environments][NiXOS-and-Dev] by [pwnwriter][pwnwriter-github]
 
 Gave a talk using _presenterm_? We would love to feature it here! Open a PR or issue to get it added.
 
@@ -91,3 +92,5 @@ Gave a talk using _presenterm_? We would love to feature it here! Open a PR or i
 [rust-terminal-tools]: https://www.youtube.com/watch?v=ATiKwUiqnAU
 [renaissance-tui]: https://www.youtube.com/watch?v=hWG51Mc1DlM
 [orhun-github]: https://github.com/orhun
+[NiXOS-and-Dev]: https://github.com/pwnwriter/PTN11
+[pwnwriter-github]: https://github.com/pwnwriter
