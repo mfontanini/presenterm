@@ -574,14 +574,19 @@ pub(crate) struct PaddingRect {
 pub(crate) struct ExecutionOutputBlockStyle {
     pub(crate) style: TextStyle,
     pub(crate) status: ExecutionStatusBlockStyle,
+    pub(crate) padding: PaddingRect,
 }
 
 impl ExecutionOutputBlockStyle {
     fn new(raw: &raw::ExecutionOutputBlockStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
-        let raw::ExecutionOutputBlockStyle { colors, status } = raw;
+        let raw::ExecutionOutputBlockStyle { colors, status, padding } = raw;
         let colors = colors.resolve(palette)?;
         let style = TextStyle::colored(colors);
-        Ok(Self { style, status: ExecutionStatusBlockStyle::new(status, palette)? })
+        let padding = PaddingRect {
+            horizontal: padding.horizontal.unwrap_or_default(),
+            vertical: padding.vertical.unwrap_or_default(),
+        };
+        Ok(Self { style, status: ExecutionStatusBlockStyle::new(status, palette)?, padding })
     }
 }
 

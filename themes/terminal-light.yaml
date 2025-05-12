@@ -38,6 +38,9 @@ execution_output:
       foreground: dark_red
     not_started:
       foreground: dark_yellow
+  padding:
+    horizontal: 2
+    vertical: 1
 
 inline_code:
   colors:

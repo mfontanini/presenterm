@@ -38,6 +38,9 @@ execution_output:
       foreground: "d20f39"
     not_started:
       foreground: "df8e1d"
+  padding:
+    horizontal: 2
+    vertical: 1
 
 inline_code:
   colors:

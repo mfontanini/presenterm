@@ -646,6 +646,10 @@ pub(super) struct ExecutionOutputBlockStyle {
     /// The colors to be used for the text that represents the status of the execution block.
     #[serde(default)]
     pub(super) status: ExecutionStatusBlockStyle,
+
+    /// The padding.
+    #[serde(default)]
+    pub(super) padding: PaddingRect,
 }
 
 /// The style for the status of a code execution block.

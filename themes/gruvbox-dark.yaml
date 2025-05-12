@@ -38,6 +38,9 @@ execution_output:
       foreground: "fb4934"
     not_started:
       foreground: "fabd2f"
+  padding:
+    horizontal: 2
+    vertical: 1
 
 inline_code:
   colors:
