@@ -38,6 +38,9 @@ execution_output:
       foreground: palette:red
     not_started:
       foreground: palette:orange
+  padding:
+    horizontal: 2
+    vertical: 1
 
 inline_code:
   colors:

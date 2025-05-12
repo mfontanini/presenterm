@@ -16,11 +16,12 @@ use crate::{
         properties::WindowSize,
     },
     terminal::ansi::AnsiSplitter,
-    theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle},
+    theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle, PaddingRect},
     ui::separator::{RenderSeparator, SeparatorWidth},
 };
 use std::{
     io::BufRead,
+    iter,
     rc::Rc,
     sync::{Arc, Mutex},
 };
@@ -56,6 +57,7 @@ pub(crate) struct RunSnippetOperation {
     separator: DisplaySeparator,
     font_size: u8,
     policy: RenderAsyncStartPolicy,
+    padding: PaddingRect,
 }
 
 impl RunSnippetOperation {
@@ -70,6 +72,7 @@ impl RunSnippetOperation {
         alignment: Alignment,
         font_size: u8,
         policy: RenderAsyncStartPolicy,
+        padding: PaddingRect,
     ) -> Self {
         let block_colors = style.style.colors;
         let status_colors = style.status.clone();
@@ -87,6 +90,7 @@ impl RunSnippetOperation {
             separator,
             font_size,
             policy,
+            padding,
         }
     }
 }
@@ -140,12 +144,14 @@ impl AsRenderOperations for RunSnippetOperation {
         };
         let block_length =
             if has_margin { self.block_length.max(inner.max_line_length) } else { inner.max_line_length };
-        for line in &inner.output_lines {
+        let vertical_padding = iter::repeat(" ").take(self.padding.vertical as usize).map(WeightedLine::from);
+        let lines = vertical_padding.clone().chain(inner.output_lines.iter().cloned()).chain(vertical_padding);
+        for line in lines {
             operations.push(RenderOperation::RenderBlockLine(BlockLine {
-                prefix: "".into(),
-                right_padding_length: 0,
+                prefix: " ".repeat(self.padding.horizontal as usize).into(),
+                right_padding_length: self.padding.horizontal as u16,
                 repeat_prefix_on_wrap: false,
-                text: line.clone(),
+                text: line,
                 block_length,
                 alignment: self.alignment,
                 block_color: self.block_colors.background,
@@ -278,6 +284,7 @@ mod tests {
             alignment,
             font_size,
             policy,
+            Default::default(),
         )
     }
 

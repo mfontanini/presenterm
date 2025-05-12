@@ -335,6 +335,7 @@ impl<'a> SnippetProcessor<'a> {
             alignment,
             self.font_size,
             policy,
+            self.theme.execution_output.padding.clone(),
         );
         let operation = RenderOperation::RenderAsync(Rc::new(operation));
         self.operations.push(operation);
