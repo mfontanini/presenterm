@@ -234,7 +234,8 @@ mod tests {
                 | MoveTo { .. }
                 | MoveRight(_)
                 | MoveLeft(_)
-                | PrintImage { .. } => {
+                | PrintImage { .. }
+                | SetCursorBoundaries { .. } => {
                     unimplemented!()
                 }
                 MoveToColumn(column) => self.move_to_column(*column)?,

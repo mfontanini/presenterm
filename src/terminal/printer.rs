@@ -29,6 +29,7 @@ pub(crate) enum TerminalCommand<'a> {
     ClearScreen,
     SetColors(Colors),
     SetBackgroundColor(Color),
+    SetCursorBoundaries { rows: u16 },
     Flush,
     PrintImage { image: Image, options: PrintOptions },
 }
@@ -53,12 +54,13 @@ pub(crate) struct Terminal<I: TerminalWrite> {
     image_printer: Arc<ImagePrinter>,
     cursor_row: u16,
     current_row_height: u16,
+    rows: u16,
 }
 
 impl<I: TerminalWrite> Terminal<I> {
     pub(crate) fn new(mut writer: I, image_printer: Arc<ImagePrinter>) -> io::Result<Self> {
         writer.init()?;
-        Ok(Self { writer, image_printer, cursor_row: 0, current_row_height: 1 })
+        Ok(Self { writer, image_printer, cursor_row: 0, current_row_height: 1, rows: u16::MAX })
     }
 
     fn begin_update(&mut self) -> io::Result<()> {
@@ -113,6 +115,10 @@ impl<I: TerminalWrite> Terminal<I> {
     }
 
     fn print_text(&mut self, content: &str, style: &TextStyle) -> io::Result<()> {
+        // Don't print text if it overflows vertically.
+        if self.cursor_row.saturating_add(style.size as u16) > self.rows {
+            return Ok(());
+        }
         let content = style.apply(content);
         self.writer.queue(style::PrintStyledContent(content))?;
         self.current_row_height = self.current_row_height.max(style.size as u16);
@@ -137,6 +143,10 @@ impl<I: TerminalWrite> Terminal<I> {
         let color = color.into();
         self.writer.queue(style::SetBackgroundColor(color))?;
         Ok(())
+    }
+
+    fn set_cursor_boundaries(&mut self, rows: u16) {
+        self.rows = rows;
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -177,6 +187,7 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
             ClearScreen => self.clear_screen()?,
             SetColors(colors) => self.set_colors(*colors)?,
             SetBackgroundColor(color) => self.set_background_color(*color)?,
+            SetCursorBoundaries { rows } => self.set_cursor_boundaries(*rows),
             Flush => self.flush()?,
             PrintImage { image, options } => self.print_image(image, options)?,
         };
