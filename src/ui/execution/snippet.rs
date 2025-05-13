@@ -137,26 +137,28 @@ impl AsRenderOperations for RunSnippetOperation {
             operations.push(RenderOperation::SetColors(self.block_colors));
         }
 
-        let has_margin = match &self.alignment {
-            Alignment::Left { margin } => !margin.is_empty(),
-            Alignment::Right { margin } => !margin.is_empty(),
-            Alignment::Center { minimum_margin, minimum_size } => !minimum_margin.is_empty() || minimum_size != &0,
-        };
-        let block_length =
-            if has_margin { self.block_length.max(inner.max_line_length) } else { inner.max_line_length };
-        let vertical_padding = iter::repeat(" ").take(self.padding.vertical as usize).map(WeightedLine::from);
-        let lines = vertical_padding.clone().chain(inner.output_lines.iter().cloned()).chain(vertical_padding);
-        for line in lines {
-            operations.push(RenderOperation::RenderBlockLine(BlockLine {
-                prefix: " ".repeat(self.padding.horizontal as usize).into(),
-                right_padding_length: self.padding.horizontal as u16,
-                repeat_prefix_on_wrap: false,
-                text: line,
-                block_length,
-                alignment: self.alignment,
-                block_color: self.block_colors.background,
-            }));
-            operations.push(RenderOperation::RenderLineBreak);
+        if !inner.output_lines.is_empty() {
+            let has_margin = match &self.alignment {
+                Alignment::Left { margin } => !margin.is_empty(),
+                Alignment::Right { margin } => !margin.is_empty(),
+                Alignment::Center { minimum_margin, minimum_size } => !minimum_margin.is_empty() || minimum_size != &0,
+            };
+            let block_length =
+                if has_margin { self.block_length.max(inner.max_line_length) } else { inner.max_line_length };
+            let vertical_padding = iter::repeat(" ").take(self.padding.vertical as usize).map(WeightedLine::from);
+            let lines = vertical_padding.clone().chain(inner.output_lines.iter().cloned()).chain(vertical_padding);
+            for line in lines {
+                operations.push(RenderOperation::RenderBlockLine(BlockLine {
+                    prefix: " ".repeat(self.padding.horizontal as usize).into(),
+                    right_padding_length: self.padding.horizontal as u16,
+                    repeat_prefix_on_wrap: false,
+                    text: line,
+                    block_length,
+                    alignment: self.alignment,
+                    block_color: self.block_colors.background,
+                }));
+                operations.push(RenderOperation::RenderLineBreak);
+            }
         }
         operations.push(RenderOperation::SetColors(self.default_colors));
         operations
