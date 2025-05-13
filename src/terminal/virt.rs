@@ -213,6 +213,7 @@ impl TerminalIo for VirtualTerminal {
             ClearScreen => self.clear_screen()?,
             SetColors(colors) => self.set_colors(*colors)?,
             SetBackgroundColor(color) => self.set_background_color(*color)?,
+            SetCursorBoundaries { .. } => (),
             Flush => self.flush()?,
             PrintImage { image, options } => self.print_image(image, options)?,
         };

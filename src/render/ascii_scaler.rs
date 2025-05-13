@@ -91,7 +91,7 @@ impl TerminalIo for ImageCollector {
                 self.current_row = 0;
                 self.current_row_height = 1;
             }
-            BeginUpdate | EndUpdate | Flush | SetColors(_) | SetBackgroundColor(_) => (),
+            BeginUpdate | EndUpdate | Flush | SetColors(_) | SetBackgroundColor(_) | SetCursorBoundaries { .. } => (),
         };
         Ok(())
     }
