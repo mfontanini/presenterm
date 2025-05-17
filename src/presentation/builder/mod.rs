@@ -213,6 +213,11 @@ impl<'a> PresentationBuilder<'a> {
             self.terminate_slide();
         }
 
+        // Always have at least one empty slide
+        if self.slide_builders.is_empty() {
+            self.terminate_slide();
+        }
+
         let mut bindings_modal_builder = KeyBindingsModalBuilder::default();
         if self.options.print_modal_background {
             let background = self.build_modal_background()?;
@@ -957,14 +962,13 @@ impl<'a> PresentationBuilder<'a> {
     fn terminate_slide(&mut self) {
         let operations = mem::take(&mut self.chunk_operations);
         let mutators = mem::take(&mut self.chunk_mutators);
+        // Don't allow a last empty pause in slide since it adds nothing
+        if self.slide_chunks.is_empty() || !Self::is_chunk_empty(&operations) {
+            self.slide_chunks.push(SlideChunk::new(operations, mutators));
+        }
+        let chunks = mem::take(&mut self.slide_chunks);
 
         if !self.slide_state.skip_slide {
-            // Don't allow a last empty pause in slide since it adds nothing
-            if self.slide_chunks.is_empty() || !Self::is_chunk_empty(&operations) {
-                self.slide_chunks.push(SlideChunk::new(operations, mutators));
-            }
-
-            let chunks = mem::take(&mut self.slide_chunks);
             let builder = SlideBuilder::default().chunks(chunks);
             self.index_builder
                 .add_title(self.slide_state.title.take().unwrap_or_else(|| Text::from("<no title>").into()));
@@ -977,7 +981,6 @@ impl<'a> PresentationBuilder<'a> {
 
         self.push_slide_prelude();
         self.slide_state = Default::default();
-        self.slide_state.last_element = LastElement::None;
     }
 
     fn is_chunk_empty(operations: &[RenderOperation]) -> bool {
@@ -1791,10 +1794,44 @@ theme:
         let elements = vec![
             MarkdownElement::Paragraph(vec![Line::from("hi")]),
             MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
+            MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
+            MarkdownElement::Paragraph(vec![Line::from("bye")]),
         ];
-        let options = PresentationBuilderOptions { pause_after_incremental_lists: false, ..Default::default() };
-        let slides = build_presentation_with_options(elements, options).into_slides();
-        assert_eq!(slides.len(), 0);
+        let slides = build_presentation(elements).into_slides();
+        assert_eq!(slides.len(), 1);
+
+        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        assert_eq!(lines, &["bye"]);
+    }
+
+    #[test]
+    fn skip_all_slides() {
+        let elements = vec![
+            MarkdownElement::Paragraph(vec![Line::from("hi")]),
+            MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
+        ];
+        let slides = build_presentation(elements).into_slides();
+        assert_eq!(slides.len(), 1);
+
+        // We should still have one slide but it should be empty
+        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        assert_eq!(lines, Vec::<String>::new());
+    }
+
+    #[test]
+    fn skip_slide_pauses() {
+        let elements = vec![
+            MarkdownElement::Paragraph(vec![Line::from("hi")]),
+            MarkdownElement::Comment { comment: "pause".into(), source_position: Default::default() },
+            MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
+            MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
+            MarkdownElement::Paragraph(vec![Line::from("bye")]),
+        ];
+        let slides = build_presentation(elements).into_slides();
+        assert_eq!(slides.len(), 1);
+
+        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        assert_eq!(lines, &["bye"]);
     }
 
     #[test]
