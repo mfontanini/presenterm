@@ -15,7 +15,7 @@
         - [LaTeX and typst](./features/code/latex.md)
     - [Themes](./features/themes/introduction.md)
         - [Definition](./features/themes/definition.md)
-    - [PDF export](./features/pdf-export.md)
+    - [Exports](./features/exports.md)
     - [Slide transitions](./features/slide-transitions.md)
     - [Speaker notes](./features/speaker-notes.md)
 - [Configuration](./configuration/introduction.md)

@@ -279,11 +279,13 @@ speaker_notes:
 
 # Presentation exports
 
-The configurations that affect PDF exports.
+The configurations that affect PDF and HTML exports.
 
-## PDF export size
+## Export size
 
-The size of exported PDFs can be configured via the `export.dimensions` key:
+By default, the size of each page in the generated PDF and HTML files will depend on the size of your terminal. 
+
+If you would like to instead configure the dimensions by hand, set the `export.dimensions` key:
 
 ```yaml
 export:
@@ -291,8 +293,6 @@ export:
     columns: 80
     rows: 30
 ```
-
-See [the PDF export page](../features/pdf-export.md) for more information.
 
 ## Pause behavior
 
@@ -302,4 +302,14 @@ the export, set the `export.pauses` attribute:
 ```yaml
 export:
   pauses: new_slide
+```
+
+## Sequential snippet execution
+
+When generating exports, snippets are executed in parallel to make the process faster. If your snippets require being 
+executed sequentially, you can use the `export.snippets` parameter:
+
+```yaml
+export:
+  snippets: sequential
 ```
