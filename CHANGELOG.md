@@ -1,3 +1,38 @@
+# v0.14.0 - 2025-05-17
+
+## New features
+
+* Add support for [exporting presentations as HTML files](https://mfontanini.github.io/presenterm/features/exports.html#html) ([#566](https://github.com/mfontanini/presenterm/issues/566)) ([#595](https://github.com/mfontanini/presenterm/issues/595)) ([#575](https://github.com/mfontanini/presenterm/issues/575)) ([#599](https://github.com/mfontanini/presenterm/issues/599)) - thanks @JustSimplyKyle.
+* Snippet execution output now contains configurable padding and built-in themes default to the same padding as snippets (2 spaces horizontally, one line vertically) ([#592](https://github.com/mfontanini/presenterm/issues/592)) ([#593](https://github.com/mfontanini/presenterm/issues/593)).
+* Add highlighting and execution support for Jsonnet ([#585](https://github.com/mfontanini/presenterm/issues/585)) - thanks @imobachgs.
+* Allow [configuring snippets](https://mfontanini.github.io/presenterm/configuration/settings.html#sequential-snippet-execution) to be executed sequentially during exports ([#584](https://github.com/mfontanini/presenterm/issues/584)).
+
+## Fixes
+
+* Skip slides with pauses correctly ([#598](https://github.com/mfontanini/presenterm/issues/598)).
+* Avoid printing text if there's no vertical space for it, which otherwise looks bad particularly when using font size > 1 ([#594](https://github.com/mfontanini/presenterm/issues/594)).
+* Execute snippets only once during export ([#583](https://github.com/mfontanini/presenterm/issues/583)).
+* Don't add an extra pause after lists if there's nothing left ([#580](https://github.com/mfontanini/presenterm/issues/580)).
+* Allow interleaved spans and variables in footer ([#577](https://github.com/mfontanini/presenterm/issues/577)).
+* Truly center `+exec_replace` snippet output ([#572](https://github.com/mfontanini/presenterm/issues/572)).
+
+## Docs
+
+* Added link to public presentation using presenterm ([#589](https://github.com/mfontanini/presenterm/issues/589)) - thanks @pwnwriter.
+* Rename parameter name to the correct one in docs ([#570](https://github.com/mfontanini/presenterm/issues/570)) - thanks @DzuWe.
+* Fix typo in highlighting.md ([#586](https://github.com/mfontanini/presenterm/issues/586)) - thanks @0atman.
+
+## Chore
+
+* Bump dependencies ([#596](https://github.com/mfontanini/presenterm/issues/596)).
+
+## ❤️ Sponsors
+
+Thanks to the following users who supported _presenterm_ via a [github sponsorship](https://github.com/sponsors/mfontanini) in this release:
+
+* [@0atman](https://github.com/0atman)
+* [@orhun](https://github.com/orhun)
+
 # v0.13.0 - 2025-04-25
 
 ## Breaking changes

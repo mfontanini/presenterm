@@ -15,10 +15,13 @@ title = "presenterm documentation"
 git-repository-url = "https://github.com/mfontanini/presenterm"
 default-theme = "navy"
 
-# Redirects for broken links after 02/02/2025 restructuring.
 [output.html.redirect]
+# Redirects for broken links after 02/02/2025 restructuring.
 "/guides/basics.html" = "../features/introduction.html"
 "/guides/installation.html" = "../install.html"
 "/guides/code-highlight.html" = "../features/code/highlighting.html"
 "/guides/mermaid.html" = "../features/code/mermaid.html"
+
+# Redirects for HTML export changes on 05/17/2025.
+"/features/pdf-export.html" = "exports.html"
 

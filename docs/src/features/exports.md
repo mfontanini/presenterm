@@ -1,4 +1,8 @@
-# Exporting presentations in PDF format
+# Exporting presentations
+
+Presentations can be exported to PDF and HTML, to allow easily sharing the slide deck at the end of a presentation.
+
+## PDF
 
 Presentations can be converted into PDF by using [weasyprint](https://pypi.org/project/weasyprint/). Follow their 
 [installation instructions](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) since it may require you 
@@ -22,14 +26,20 @@ want the output file to be written to.
 > If you're using a separate virtual env to install _weasyprint_ just make sure you activate it before running 
 > _presenterm_ with the `--export-pdf` parameter.
 
-## PDF page size
+## HTML
 
-By default, the size of each page in the generated PDF will depend on the size of your terminal. 
+Similarly, using the `--export-html` parameter allows generating a single self contained HTML file that contains all 
+images and styles embedded in it. As opposed to PDF exports, this requires no extra dependencies:
 
-If you would like to instead configure the dimensions by hand, set the `export.dimensions` key in the configuration file 
-as described in the [settings page](../configuration/settings.md#pdf-export-size).
+```bash
+presenterm --export-html examples/demo.md
+```
 
-## Pause behavior
+The output file will be placed in `examples/demo.html` but this behavior can be configured via the `--output` flag just 
+like for PDF exports.
 
-See the [settings page](../configuration/settings.md#pause-behavior) to learn how to configure the behavior of pauses in 
-generated PDFs.
+# Configurable behavior
+
+See the [settings page](../configuration/settings.md#presentation-exports) to see all the configurable behavior around 
+presentation exports.
+

@@ -44,7 +44,7 @@ Visit the [documentation][docs-introduction] to get started.
 * [Introduction slide][docs-intro-slide] that displays the presentation title and your name.
 * [Slide titles][docs-slide-titles].
 * [Snippet execution][docs-code-execute] for various programming languages.
-* [Export presentations to PDF][docs-pdf-export].
+* [Export presentations to PDF and HTML][docs-exports].
 * [Slide transitions][docs-slide-transitions].
 * [Pause][docs-pauses] portions of your slides.
 * [Custom key bindings][docs-key-bindings].
@@ -82,7 +82,7 @@ Gave a talk using _presenterm_? We would love to feature it here! Open a PR or i
 [docs-layout]: https://mfontanini.github.io/presenterm/features/layout.html
 [docs-mermaid]: https://mfontanini.github.io/presenterm/features/code/mermaid.html
 [docs-latex]: https://mfontanini.github.io/presenterm/features/code/latex.html
-[docs-pdf-export]: https://mfontanini.github.io/presenterm/features/pdf-export.html
+[docs-exports]: https://mfontanini.github.io/presenterm/features/exports.html
 [docs-key-bindings]: https://mfontanini.github.io/presenterm/configuration/settings.html#key-bindings
 [docs-hot-reload]: https://mfontanini.github.io/presenterm/features/introduction.html#hot-reload
 [docs-speaker-notes]: https://mfontanini.github.io/presenterm/features/speaker-notes.html
