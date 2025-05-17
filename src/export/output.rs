@@ -216,6 +216,7 @@ let originalHeight = {height};
             OutputFormat::Html => format!(
                 "
 <head>
+<meta charset=\"UTF-8\">
 <style>
 {css}
 </style>
