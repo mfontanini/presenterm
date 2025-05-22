@@ -75,7 +75,7 @@ Currently, the following themes are supported:
   * `catppuccin-macchiato`
   * `catppuccin-mocha`
 * `dark`: A dark theme.
-* `gruvbox`: A theme inspired by the colors used in [gruvbox](https://github.com/morhetz/gruvbox).
+* `gruvbox-dark`: A theme inspired by the colors used in [gruvbox](https://github.com/morhetz/gruvbox).
 * `light`: A light theme.
 * `terminal-dark`: A theme that uses your terminals color and looks best if your terminal uses a dark color scheme. This 
 means if your terminal background is e.g. transparent, or uses an image, the presentation will inherit that.
