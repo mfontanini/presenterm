@@ -1,3 +1,4 @@
+use super::emulator::TerminalEmulator;
 use crate::{
     markdown::text_style::{Color, Colors, TextStyle},
     terminal::image::{
@@ -119,7 +120,8 @@ impl<I: TerminalWrite> Terminal<I> {
         if self.cursor_row.saturating_add(style.size as u16) > self.rows {
             return Ok(());
         }
-        let content = style.apply(content);
+        let capabilities = TerminalEmulator::capabilities();
+        let content = style.apply(content, &capabilities);
         self.writer.queue(style::PrintStyledContent(content))?;
         self.current_row_height = self.current_row_height.max(style.size as u16);
         Ok(())

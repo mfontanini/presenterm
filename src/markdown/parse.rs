@@ -34,6 +34,7 @@ impl Default for ParserOptions {
         options.extension.multiline_block_quotes = true;
         options.extension.alerts = true;
         options.extension.wikilinks_title_before_pipe = true;
+        options.extension.superscript = true;
         Self(options)
     }
 }
@@ -362,6 +363,7 @@ impl<'a> InlinesParser<'a> {
             NodeValue::Strong => self.process_children(node, style.bold())?,
             NodeValue::Emph => self.process_children(node, style.italics())?,
             NodeValue::Strikethrough => self.process_children(node, style.strikethrough())?,
+            NodeValue::Superscript => self.process_children(node, style.superscript())?,
             NodeValue::SoftBreak => {
                 match self.soft_break {
                     SoftBreak::Newline => {
@@ -653,7 +655,8 @@ boop
 
     #[test]
     fn paragraph() {
-        let parsed = parse_single("some **bold text**, _italics_, *italics*, **nested _italics_**, ~strikethrough~");
+        let parsed =
+            parse_single("some **bold text**, _italics_, *italics*, **nested _italics_**, ~strikethrough~, ^super^");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks = vec![
             Text::from("some "),
@@ -667,6 +670,8 @@ boop
             Text::new("italics", TextStyle::default().italics().bold()),
             Text::from(", "),
             Text::new("strikethrough", TextStyle::default().strikethrough()),
+            Text::from(", "),
+            Text::new("super", TextStyle::default().superscript()),
         ];
 
         let expected_elements = &[Line(expected_chunks)];

@@ -8,8 +8,9 @@ pub(crate) enum HtmlText {
 
 impl HtmlText {
     pub(crate) fn new(text: &str, style: &TextStyle, font_size: FontSize) -> Self {
+        let mut text = text.to_string();
         if style == &TextStyle::default() {
-            return Self::Plain(text.to_string());
+            return Self::Plain(text);
         }
         let mut css_styles = Vec::new();
         let mut text_decorations = Vec::new();
@@ -19,6 +20,7 @@ impl HtmlText {
                 TextAttribute::Italics => css_styles.push(Cow::Borrowed("font-style: italic")),
                 TextAttribute::Strikethrough => text_decorations.push(Cow::Borrowed("line-through")),
                 TextAttribute::Underlined => text_decorations.push(Cow::Borrowed("underline")),
+                TextAttribute::Superscript => text = format!("<sup>{text}</sup>"),
                 TextAttribute::ForegroundColor(color) => {
                     let color = color_to_html(&color);
                     css_styles.push(format!("color: {color}").into());
@@ -38,7 +40,7 @@ impl HtmlText {
             css_styles.push(format!("font-size: {font_size}").into());
         }
         let css_style = css_styles.join("; ");
-        Self::Styled { text: text.to_string(), style: css_style }
+        Self::Styled { text, style: css_style }
     }
 }
 
