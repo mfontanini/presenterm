@@ -1,5 +1,8 @@
-use crate::theme::{ColorPalette, raw::RawColor};
-use crossterm::style::{StyledContent, Stylize};
+use crate::{
+    terminal::capabilities::TerminalCapabilities,
+    theme::{ColorPalette, raw::RawColor},
+};
+use crossterm::style::{ContentStyle, StyledContent, Stylize};
 use hex::FromHexError;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
@@ -71,6 +74,11 @@ where
         self.italics().underlined()
     }
 
+    /// Indicate this is a superscript.
+    pub(crate) fn superscript(self) -> Self {
+        self.add_flag(TextFormatFlags::Superscript)
+    }
+
     /// Set the background color for this text style.
     pub(crate) fn bg_color<U: Into<C>>(mut self, color: U) -> Self {
         self.colors.background = Some(color.into());
@@ -120,20 +128,30 @@ where
 
 impl TextStyle<Color> {
     /// Apply this style to a piece of text.
-    pub(crate) fn apply<'a>(&self, text: &'a str) -> StyledContent<impl Display + Clone + 'a> {
-        let text = FontSizedStr { contents: text, font_size: self.size };
-        let mut styled = StyledContent::new(Default::default(), text);
+    pub(crate) fn apply<'a>(
+        &self,
+        text: &'a str,
+        capabilities: &TerminalCapabilities,
+    ) -> StyledContent<impl Display + Clone + 'a> {
+        let mut text = FontSizedStr { contents: text, font_size: FontSize::Scaled(self.size) };
+        let mut style = ContentStyle::default();
         for attr in self.iter_attributes() {
-            styled = match attr {
-                TextAttribute::Bold => styled.bold(),
-                TextAttribute::Italics => styled.italic(),
-                TextAttribute::Strikethrough => styled.crossed_out(),
-                TextAttribute::Underlined => styled.underlined(),
-                TextAttribute::ForegroundColor(color) => styled.with(color.into()),
-                TextAttribute::BackgroundColor(color) => styled.on(color.into()),
+            style = match attr {
+                TextAttribute::Bold => style.bold(),
+                TextAttribute::Italics => style.italic(),
+                TextAttribute::Strikethrough => style.crossed_out(),
+                TextAttribute::Underlined => style.underlined(),
+                TextAttribute::Superscript => {
+                    if capabilities.fractional_font_size {
+                        text.font_size = FontSize::Fractional { numerator: self.size, denominator: 2 }
+                    }
+                    style
+                }
+                TextAttribute::ForegroundColor(color) => style.with(color.into()),
+                TextAttribute::BackgroundColor(color) => style.on(color.into()),
             }
         }
-        styled
+        StyledContent::new(style, text)
     }
 
     pub(crate) fn into_raw(self) -> TextStyle<RawColor> {
@@ -186,7 +204,8 @@ impl Iterator for AttributeIterator {
                 Bold => Some(Italics),
                 Italics => Some(Strikethrough),
                 Code => Some(Strikethrough),
-                Strikethrough => Some(Underlined),
+                Strikethrough => Some(Superscript),
+                Superscript => Some(Underlined),
                 Underlined => None,
             };
             if self.flags & next_mask as u8 != 0 {
@@ -195,6 +214,7 @@ impl Iterator for AttributeIterator {
                     Italics => TextAttribute::Italics,
                     Code => panic!("code shouldn't reach here"),
                     Strikethrough => TextAttribute::Strikethrough,
+                    Superscript => TextAttribute::Superscript,
                     Underlined => TextAttribute::Underlined,
                 };
                 return Some(attr);
@@ -209,6 +229,7 @@ pub(crate) enum TextAttribute {
     Italics,
     Strikethrough,
     Underlined,
+    Superscript,
     ForegroundColor(Color),
     BackgroundColor(Color),
 }
@@ -216,17 +237,26 @@ pub(crate) enum TextAttribute {
 #[derive(Clone)]
 struct FontSizedStr<'a> {
     contents: &'a str,
-    font_size: u8,
+    font_size: FontSize,
 }
 
 impl fmt::Display for FontSizedStr<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let contents = &self.contents;
         match self.font_size {
-            0 | 1 => write!(f, "{contents}"),
-            size => write!(f, "\x1b]66;s={size};{contents}\x1b\\"),
+            FontSize::Scaled(0 | 1) => write!(f, "{contents}"),
+            FontSize::Scaled(size) => write!(f, "\x1b]66;s={size};{contents}\x1b\\"),
+            FontSize::Fractional { numerator, denominator } => {
+                write!(f, "\x1b]66;n={numerator}:d={denominator};{contents}\x1b\\")
+            }
         }
     }
+}
+
+#[derive(Clone)]
+enum FontSize {
+    Scaled(u8),
+    Fractional { numerator: u8, denominator: u8 },
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -236,6 +266,7 @@ enum TextFormatFlags {
     Code = 4,
     Strikethrough = 8,
     Underlined = 16,
+    Superscript = 32,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

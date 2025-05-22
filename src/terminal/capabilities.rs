@@ -26,6 +26,7 @@ pub(crate) struct TerminalCapabilities {
     pub(crate) sixel: bool,
     pub(crate) tmux: bool,
     pub(crate) font_size: bool,
+    pub(crate) fractional_font_size: bool,
 }
 
 impl TerminalCapabilities {
@@ -79,10 +80,19 @@ impl TerminalCapabilities {
         stdout.queue(terminal::EnterAlternateScreen)?;
         stdout.queue(cursor::MoveTo(0, 0))?;
         stdout.queue(Print("\x1b]66;s=2; \x1b\\"))?;
+        stdout.queue(Print("\x1b]66;n=1:d=2; \x1b\\"))?;
         stdout.flush()?;
-        let position = cursor::position()?;
-        if position.0 == 2 {
+        let position = cursor::position()?.0;
+        if position == 1 {
+            // If we only moved one, then only the fractional worked.
+            response.fractional_font_size = true;
+        } else if position == 2 {
+            // If we only moved 2 then the scaled font size one worked.
             response.font_size = true;
+        } else if position == 3 {
+            // 3 -> both worked.
+            response.font_size = true;
+            response.fractional_font_size = true;
         }
         stdout.queue(terminal::LeaveAlternateScreen)?;
         stdout.flush()?;
