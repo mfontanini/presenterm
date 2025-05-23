@@ -432,7 +432,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             None => OutputDirectory::temporary(),
         }?;
         if cli.export_pdf {
-            exporter.export_pdf(&path, output_directory, cli.export_output.as_deref())?;
+            exporter.export_pdf(&path, output_directory, cli.export_output.as_deref(), config.export.pdf)?;
         } else {
             exporter.export_html(&path, output_directory, cli.export_output.as_deref())?;
         }
