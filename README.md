@@ -78,7 +78,7 @@ Gave a talk using _presenterm_? We would love to feature it here! Open a PR or i
 [docs-code-highlight]: https://mfontanini.github.io/presenterm/features/code/highlighting.html
 [docs-code-execute]: https://mfontanini.github.io/presenterm/features/code/execution.html
 [docs-selective-highlight]: https://mfontanini.github.io/presenterm/features/code/highlighting.html#selective-highlighting
-[docs-slide-transitions]: https://mfontanini.github.io/presenterm/features/slide-transitons.html
+[docs-slide-transitions]: https://mfontanini.github.io/presenterm/features/slide-transitions.html
 [docs-layout]: https://mfontanini.github.io/presenterm/features/layout.html
 [docs-mermaid]: https://mfontanini.github.io/presenterm/features/code/mermaid.html
 [docs-latex]: https://mfontanini.github.io/presenterm/features/code/latex.html
