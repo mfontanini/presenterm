@@ -12,7 +12,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     fs, io,
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -522,6 +522,10 @@ pub struct ExportConfig {
     /// The policy for executable snippets when exporting.
     #[serde(default)]
     pub snippets: SnippetsExportPolicy,
+
+    /// The PDF specific export configs.
+    #[serde(default)]
+    pub pdf: PdfExportConfig,
 }
 
 /// The policy for pauses when exporting.
@@ -560,6 +564,33 @@ pub struct ExportDimensionsConfig {
 
     /// The number of columns.
     pub columns: u16,
+}
+
+/// The PDF export specific configs.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub struct PdfExportConfig {
+    /// The path to the font file to be used.
+    pub fonts: Option<ExportFontsConfig>,
+}
+
+/// The fonts used for exports.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+pub struct ExportFontsConfig {
+    /// The path to the font file to be used for the "normal" variable of this font.
+    pub normal: PathBuf,
+
+    /// The path to the font file to be used for the "bold" variable of this font.
+    pub bold: Option<PathBuf>,
+
+    /// The path to the font file to be used for the "italic" variable of this font.
+    pub italic: Option<PathBuf>,
+
+    /// The path to the font file to be used for the "bold+italic" variable of this font.
+    pub bold_italic: Option<PathBuf>,
 }
 
 // The slide transition configuration.

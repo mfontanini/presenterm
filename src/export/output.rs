@@ -3,6 +3,7 @@ use super::{
     html::{FontSize, color_to_html},
 };
 use crate::{
+    config::ExportFontsConfig,
     export::html::HtmlText,
     markdown::text_style::TextStyle,
     presentation::Slide,
@@ -17,6 +18,8 @@ use std::{
     fs, io,
     path::{Path, PathBuf},
 };
+
+const FONT_NAME: &str = "presenterm-font";
 
 // A magical multiplier that converts a font size in pixels to a font width.
 //
@@ -138,7 +141,7 @@ impl ExportRenderer {
         Ok(())
     }
 
-    pub(crate) fn generate(self, output_path: &Path) -> Result<(), ExportError> {
+    pub(crate) fn generate(self, output_path: &Path, fonts: &Option<ExportFontsConfig>) -> Result<(), ExportError> {
         let html_body = &self.html_body;
         let script = include_str!("script.js");
         let width = (self.dimensions.columns as f64 * FONT_SIZE as f64 * FONT_SIZE_WIDTH).ceil();
@@ -156,16 +159,20 @@ impl ExportRenderer {
                 ",
             ),
         };
+        let FontConfig { font_face, font_family } = fonts.as_ref().map(Self::font_configs).unwrap_or_default();
         let css = format!(
             r"
         pre {{
             margin: 0;
             padding: 0;
+            {font_family}
         }}
 
         span {{
             display: inline-block;
         }}
+
+        {font_face} 
 
         body {{
             margin: 0;
@@ -258,4 +265,38 @@ let originalHeight = {height};
 
         Ok(())
     }
+
+    fn font_configs(config: &ExportFontsConfig) -> FontConfig {
+        let mut font_face = Self::make_font_face(&config.normal, "normal", "normal");
+        if let Some(path) = &config.bold {
+            font_face.push_str(&Self::make_font_face(path, "bold", "normal"));
+        }
+        if let Some(path) = &config.italic {
+            font_face.push_str(&Self::make_font_face(path, "normal", "italic"));
+        }
+        if let Some(path) = &config.bold_italic {
+            font_face.push_str(&Self::make_font_face(path, "bold", "italic"));
+        }
+        let font_family = format!("font-family: {FONT_NAME}");
+        FontConfig { font_face, font_family }
+    }
+
+    fn make_font_face(path: &Path, weight: &str, style: &str) -> String {
+        let path = path.display();
+        format!(
+            r"
+    @font-face {{
+        font-family: {FONT_NAME};
+        src: url(file://{path});
+        font-weight: {weight};
+        font-style: {style};
+    }}"
+        )
+    }
+}
+
+#[derive(Default)]
+struct FontConfig {
+    font_face: String,
+    font_family: String,
 }

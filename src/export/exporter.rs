@@ -1,7 +1,7 @@
 use crate::{
     MarkdownParser, Resources,
     code::execute::SnippetExecutor,
-    config::{KeyBindingsConfig, PauseExportPolicy, SnippetsExportPolicy},
+    config::{KeyBindingsConfig, PauseExportPolicy, PdfExportConfig, SnippetsExportPolicy},
     export::output::{ExportRenderer, OutputFormat},
     markdown::{parse::ParseError, text_style::Color},
     presentation::{
@@ -155,6 +155,7 @@ impl<'a> Exporter<'a> {
         presentation_path: &Path,
         output_directory: OutputDirectory,
         output_path: Option<&Path>,
+        config: PdfExportConfig,
     ) -> Result<(), ExportError> {
         println!(
             "exporting using rows={}, columns={}, width={}, height={}",
@@ -172,7 +173,7 @@ impl<'a> Exporter<'a> {
             None => presentation_path.with_extension("pdf"),
         };
 
-        render.generate(&pdf_path)?;
+        render.generate(&pdf_path, &config.fonts)?;
 
         execute!(
             io::stdout(),
@@ -202,7 +203,7 @@ impl<'a> Exporter<'a> {
             None => presentation_path.with_extension("html"),
         };
 
-        render.generate(&output_path)?;
+        render.generate(&output_path, &None)?;
 
         execute!(
             io::stdout(),
