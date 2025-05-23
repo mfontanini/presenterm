@@ -774,6 +774,11 @@ impl<'a> PresentationBuilder<'a> {
             if piece.style.is_code() {
                 piece.style.colors = self.theme.inline_code.style.colors;
             }
+            if piece.style.is_bold() {
+                if let Some(colors) = self.theme.bold {
+                    piece.style.colors = colors;
+                }
+            }
             piece.style = piece.style.size(font_size);
         }
         let alignment = self.slide_state.alignment.unwrap_or_default();
@@ -923,6 +928,11 @@ impl<'a> PresentationBuilder<'a> {
         for chunk in &mut block.0 {
             if chunk.style.is_code() {
                 chunk.style.colors = self.theme.inline_code.style.colors;
+            }
+            if chunk.style.is_bold() {
+                if let Some(colors) = self.theme.bold {
+                    chunk.style.colors = colors;
+                }
             }
             if default_font_size > 1 {
                 chunk.style = chunk.style.size(default_font_size);
