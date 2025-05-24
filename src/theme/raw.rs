@@ -920,7 +920,7 @@ pub(crate) enum ParseColorError {
     #[error("invalid hex color: {0}")]
     Hex(#[from] FromHexError),
 
-    #[error("Hex color should only be 3 or 6 long, got hex string of length {0}.")]
+    #[error("hex color should only be 3 or 6 long, got hex string of length {0}")]
     InvalidHexLength(usize),
 
     #[error("palette color name is empty")]
