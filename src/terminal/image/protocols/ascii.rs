@@ -107,7 +107,7 @@ impl PrintImage for AsciiPrinter {
         let cached_sizes = image.inner.cached_sizes.lock().unwrap();
         let image = cached_sizes.get(&cache_key).expect("scaled image no longer there");
 
-        let default_background = options.background_color.map(Color::from);
+        let default_background = options.background_color;
 
         // Iterate pixel rows in pairs to be able to merge both pixels in a single iteration.
         // Note that may not have a second row if there's an odd number of them.

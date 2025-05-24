@@ -225,7 +225,7 @@ mod tests {
     )]
     fn parse_single(#[case] input: &str, #[case] expected: Line) {
         let splitter = AnsiSplitter::new(Default::default());
-        let (lines, _) = splitter.split_lines(&[input]);
+        let (lines, _) = splitter.split_lines([input]);
         assert_eq!(lines, vec![expected.into()]);
     }
 
@@ -268,7 +268,7 @@ mod tests {
             .fg_color(Color::Red)
             .bg_color(Color::Black);
         let splitter = AnsiSplitter::new(style);
-        let (lines, _) = splitter.split_lines(&[input]);
+        let (lines, _) = splitter.split_lines([input]);
         assert_eq!(lines, vec![expected.into()]);
     }
 }

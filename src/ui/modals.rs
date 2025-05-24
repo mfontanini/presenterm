@@ -17,7 +17,7 @@ use crate::{
     terminal::image::Image,
     theme::{Margin, PresentationTheme},
 };
-use std::{iter, rc::Rc};
+use std::rc::Rc;
 use unicode_width::UnicodeWidthStr;
 
 static MODAL_Z_INDEX: i32 = -1;
@@ -189,7 +189,7 @@ impl ModalBuilder {
         let padding = missing / 2;
         let mut output = " ".repeat(padding);
         output.push_str(&text);
-        output.extend(iter::repeat(' ').take(padding));
+        output.extend(std::iter::repeat_n(' ', padding));
         output
     }
 
