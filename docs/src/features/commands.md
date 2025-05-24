@@ -24,7 +24,7 @@ The font size can be changed by using the `font_size` command:
 This causes the remainder of the slide to use the font size specified. The font size can range from 1 to 7, 1 being the 
 default.
 
-> ![note]
+> [!note]
 > This is currently only supported in the [_kitty_](https://sw.kovidgoyal.net/kitty/) terminal and only as of version 
 > 0.40.0. See the notes on font sizes on the [introduction page](introduction.md#font-sizes) for more information on 
 > this.
