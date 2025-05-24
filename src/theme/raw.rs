@@ -874,7 +874,12 @@ impl FromStr for RawColor {
             other if other.starts_with("p:") => Self::new_palette(other.trim_start_matches("p:"))?,
             // Fallback to hex-encoded rgb
             _ => {
-                let values = <[u8; 3]>::from_hex(input)?;
+                let hex = match input.len() {
+                    6 => input.to_string(),
+                    3 => input.chars().flat_map(|c| [c, c]).collect::<String>(),
+                    len => return Err(ParseColorError::InvalidHexLength(len)),
+                };
+                let values = <[u8; 3]>::from_hex(hex)?;
                 Color::Rgb { r: values[0], g: values[1], b: values[2] }.into()
             }
         };
@@ -914,6 +919,9 @@ impl fmt::Display for RawColor {
 pub(crate) enum ParseColorError {
     #[error("invalid hex color: {0}")]
     Hex(#[from] FromHexError),
+
+    #[error("hex color should only be 3 or 6 long, got hex string of length {0}")]
+    InvalidHexLength(usize),
 
     #[error("palette color name is empty")]
     PaletteColorEmpty,
@@ -979,6 +987,9 @@ mod test {
     fn color_serde() {
         let color: RawColor = "beef42".parse().unwrap();
         assert_eq!(color.to_string(), "beef42");
+
+        let short_color: RawColor = "ded".parse().unwrap();
+        assert_eq!(short_color.to_string(), "ddeedd");
     }
 
     #[rstest]
