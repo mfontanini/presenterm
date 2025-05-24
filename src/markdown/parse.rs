@@ -1062,7 +1062,7 @@ mom
 > hi mom
 > bye **mom**
 ";
-        let MarkdownElement::Alert { lines, .. } = parse_single(input) else {
+        let MarkdownElement::Alert { lines, .. } = parse_single(&input) else {
             panic!("not an alert");
         };
         assert_eq!(lines.len(), 2);

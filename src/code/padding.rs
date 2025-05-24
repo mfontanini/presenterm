@@ -1,3 +1,5 @@
+use std::iter;
+
 pub(crate) struct NumberPadder {
     width: usize,
 }
@@ -13,7 +15,7 @@ impl NumberPadder {
         let number_padding = self.width - line_number_width;
 
         let mut output = String::with_capacity(self.width);
-        output.extend(std::iter::repeat_n(' ', number_padding));
+        output.extend(iter::repeat(' ').take(number_padding));
         output.push_str(&number.to_string());
         output
     }

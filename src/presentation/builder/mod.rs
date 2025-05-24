@@ -40,7 +40,7 @@ use comrak::{Arena, nodes::AlertType};
 use image::DynamicImage;
 use serde::Deserialize;
 use snippet::{SnippetOperations, SnippetProcessor, SnippetProcessorState};
-use std::{collections::HashSet, fmt::Display, mem, path::PathBuf, rc::Rc, str::FromStr, sync::Arc};
+use std::{collections::HashSet, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr, sync::Arc};
 use unicode_width::UnicodeWidthStr;
 
 mod snippet;
@@ -938,7 +938,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_line_breaks(&mut self, count: usize) {
-        self.chunk_operations.extend(std::iter::repeat_n(RenderOperation::RenderLineBreak, count));
+        self.chunk_operations.extend(iter::repeat(RenderOperation::RenderLineBreak).take(count));
     }
 
     fn push_code(&mut self, info: String, code: String, source_position: SourcePosition) -> BuildResult {
@@ -1025,7 +1025,7 @@ impl<'a> PresentationBuilder<'a> {
                     margin += 1;
                 }
             }
-            contents.extend(std::iter::repeat_n("─", *width + margin));
+            contents.extend(iter::repeat("─").take(*width + margin));
             separator.0.push(Text::from(contents));
         }
 
@@ -1439,7 +1439,7 @@ mod test {
             | JumpToBottomRow { .. }
             | InitColumnLayout { .. }
             | EnterColumn { .. }
-            | ExitLayout
+            | ExitLayout { .. }
             | ApplyMargin(_)
             | PopMargin => false,
             RenderText { .. }

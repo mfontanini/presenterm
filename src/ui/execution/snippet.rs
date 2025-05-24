@@ -21,6 +21,7 @@ use crate::{
 };
 use std::{
     io::BufRead,
+    iter,
     rc::Rc,
     sync::{Arc, Mutex},
 };
@@ -144,7 +145,7 @@ impl AsRenderOperations for RunSnippetOperation {
             };
             let block_length =
                 if has_margin { self.block_length.max(inner.max_line_length) } else { inner.max_line_length };
-            let vertical_padding = std::iter::repeat_n(" ", self.padding.vertical as usize).map(WeightedLine::from);
+            let vertical_padding = iter::repeat(" ").take(self.padding.vertical as usize).map(WeightedLine::from);
             let lines = vertical_padding.clone().chain(inner.output_lines.iter().cloned()).chain(vertical_padding);
             for line in lines {
                 operations.push(RenderOperation::RenderBlockLine(BlockLine {
