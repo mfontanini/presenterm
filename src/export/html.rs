@@ -110,7 +110,7 @@ mod test {
         let html_text = HtmlText::new("", &style, FontSize::Pixels(2));
         let style = match &html_text {
             HtmlText::Plain(_) => "",
-            HtmlText::Styled { style, .. } => &style,
+            HtmlText::Styled { style, .. } => style,
         };
         assert_eq!(style, expected_style);
     }
