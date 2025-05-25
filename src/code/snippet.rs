@@ -516,7 +516,7 @@ impl FromStr for SnippetLanguage {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use SnippetLanguage::*;
-        let language = match s {
+        let language = match s.to_lowercase().as_str() {
             "ada" => Ada,
             "asp" => Asp,
             "awk" => Awk,
