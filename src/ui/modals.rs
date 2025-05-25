@@ -189,7 +189,7 @@ impl ModalBuilder {
         let padding = missing / 2;
         let mut output = " ".repeat(padding);
         output.push_str(&text);
-        output.extend(iter::repeat(' ').take(padding));
+        output.extend(iter::repeat_n(' ', padding));
         output
     }
 

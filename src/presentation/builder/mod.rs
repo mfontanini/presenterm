@@ -938,7 +938,7 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_line_breaks(&mut self, count: usize) {
-        self.chunk_operations.extend(iter::repeat(RenderOperation::RenderLineBreak).take(count));
+        self.chunk_operations.extend(iter::repeat_n(RenderOperation::RenderLineBreak, count));
     }
 
     fn push_code(&mut self, info: String, code: String, source_position: SourcePosition) -> BuildResult {
@@ -1025,7 +1025,7 @@ impl<'a> PresentationBuilder<'a> {
                     margin += 1;
                 }
             }
-            contents.extend(iter::repeat("─").take(*width + margin));
+            contents.extend(iter::repeat_n("─", *width + margin));
             separator.0.push(Text::from(contents));
         }
 
@@ -1439,7 +1439,7 @@ mod test {
             | JumpToBottomRow { .. }
             | InitColumnLayout { .. }
             | EnterColumn { .. }
-            | ExitLayout { .. }
+            | ExitLayout
             | ApplyMargin(_)
             | PopMargin => false,
             RenderText { .. }
