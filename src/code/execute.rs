@@ -1,9 +1,9 @@
 //! Code execution.
 
-use super::snippet::{SnippetExec, SnippetRepr};
+use super::snippet::{SnippetExecutorSpec, SnippetRepr};
 use crate::{
     code::snippet::{Snippet, SnippetLanguage},
-    config::LanguageSnippetExecutionConfig,
+    config::{LanguageSnippetExecutionConfig, SnippetExecutorConfig},
 };
 use once_cell::sync::Lazy;
 use os_pipe::PipeReader;
@@ -36,95 +36,58 @@ impl SnippetExecutor {
         let mut executors = EXECUTORS.clone();
         executors.extend(custom_executors);
         for (language, config) in &executors {
-            if config.filename.is_empty() {
-                return Err(InvalidSnippetConfig(language.clone(), "filename is empty"));
-            }
-            if config.commands.is_empty() {
-                return Err(InvalidSnippetConfig(language.clone(), "no commands given"));
-            }
-            for command in &config.commands {
-                if command.is_empty() {
-                    return Err(InvalidSnippetConfig(language.clone(), "empty command given"));
-                }
+            Self::validate_executor_config(language, &config.executor)?;
+            for alternative in config.alternative.values() {
+                Self::validate_executor_config(language, alternative)?;
             }
         }
         Ok(Self { executors, cwd })
     }
 
-    pub(crate) fn is_execution_supported(&self, language: &SnippetLanguage) -> bool {
-        self.executors.contains_key(language)
-    }
-
-    /// Execute a piece of code asynchronously.
-    pub(crate) fn execute_async(&self, snippet: &Snippet) -> Result<ExecutionHandle, CodeExecuteError> {
-        let config = self.language_config(snippet)?;
-        let script_dir = Self::write_snippet(snippet, config)?;
-        let state: Arc<Mutex<ExecutionState>> = Default::default();
-        let output_type = match snippet.attributes.representation {
-            SnippetRepr::Image => OutputType::Binary,
-            _ => OutputType::Lines,
+    pub(crate) fn language_executor(
+        &self,
+        language: &SnippetLanguage,
+        spec: &SnippetExecutorSpec,
+    ) -> Result<LanguageSnippetExecutor, UnsupportedExecution> {
+        let language_config = self
+            .executors
+            .get(language)
+            .ok_or_else(|| UnsupportedExecution(language.clone(), "no executors found".into()))?;
+        let config = match spec {
+            SnippetExecutorSpec::Default => language_config.executor.clone(),
+            SnippetExecutorSpec::Alternative(name) => {
+                language_config.alternative.get(name).cloned().ok_or_else(|| {
+                    UnsupportedExecution(language.clone(), format!("alternative executor '{name}' is not defined"))
+                })?
+            }
         };
-        let reader_handle = CommandsRunner::spawn(
-            state.clone(),
-            script_dir,
-            config.commands.clone(),
-            config.environment.clone(),
-            self.cwd.to_path_buf(),
-            output_type,
-        );
-        let handle = ExecutionHandle { state, reader_handle };
-        Ok(handle)
-    }
-
-    /// Executes a piece of code synchronously.
-    pub(crate) fn execute_sync(&self, snippet: &Snippet) -> Result<(), CodeExecuteError> {
-        let config = self.language_config(snippet)?;
-        let script_dir = Self::write_snippet(snippet, config)?;
-        let script_dir_path = script_dir.path().to_string_lossy();
-        for mut commands in config.commands.clone() {
-            for command in &mut commands {
-                *command = command.replace("$pwd", &script_dir_path);
-            }
-            let (command, args) = commands.split_first().expect("no commands");
-            let child = process::Command::new(command)
-                .args(args)
-                .envs(&config.environment)
-                .current_dir(&self.cwd)
-                .stderr(Stdio::piped())
-                .spawn()
-                .map_err(|e| CodeExecuteError::SpawnProcess(command.clone(), e))?;
-
-            let output = child.wait_with_output().map_err(CodeExecuteError::Waiting)?;
-            if !output.status.success() {
-                let error = String::from_utf8_lossy(&output.stderr).to_string();
-                return Err(CodeExecuteError::Running(error));
-            }
-        }
-        Ok(())
+        Ok(LanguageSnippetExecutor {
+            hidden_line_prefix: language_config.hidden_line_prefix.clone(),
+            config,
+            cwd: self.cwd.clone(),
+        })
     }
 
     pub(crate) fn hidden_line_prefix(&self, language: &SnippetLanguage) -> Option<&str> {
         self.executors.get(language).and_then(|lang| lang.hidden_line_prefix.as_deref())
     }
 
-    fn language_config(&self, snippet: &Snippet) -> Result<&LanguageSnippetExecutionConfig, CodeExecuteError> {
-        let is_executable = !matches!(snippet.attributes.execution, SnippetExec::None);
-        let is_exec_replace = matches!(snippet.attributes.representation, SnippetRepr::ExecReplace);
-        if !is_executable && !is_exec_replace {
-            return Err(CodeExecuteError::NotExecutableCode);
+    fn validate_executor_config(
+        language: &SnippetLanguage,
+        executor: &SnippetExecutorConfig,
+    ) -> Result<(), InvalidSnippetConfig> {
+        if executor.filename.is_empty() {
+            return Err(InvalidSnippetConfig(language.clone(), "filename is empty"));
         }
-        self.executors.get(&snippet.language).ok_or(CodeExecuteError::UnsupportedExecution)
-    }
-
-    fn write_snippet(snippet: &Snippet, config: &LanguageSnippetExecutionConfig) -> Result<TempDir, CodeExecuteError> {
-        let hide_prefix = config.hidden_line_prefix.as_deref();
-        let code = snippet.executable_contents(hide_prefix);
-        let script_dir =
-            tempfile::Builder::default().prefix(".presenterm").tempdir().map_err(CodeExecuteError::TempDir)?;
-        let snippet_path = script_dir.path().join(&config.filename);
-        let mut snippet_file = File::create(snippet_path).map_err(CodeExecuteError::TempDir)?;
-        snippet_file.write_all(code.as_bytes()).map_err(CodeExecuteError::TempDir)?;
-        Ok(script_dir)
+        if executor.commands.is_empty() {
+            return Err(InvalidSnippetConfig(language.clone(), "no commands given"));
+        }
+        for command in &executor.commands {
+            if command.is_empty() {
+                return Err(InvalidSnippetConfig(language.clone(), "empty command given"));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -140,20 +103,85 @@ impl Debug for SnippetExecutor {
     }
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct LanguageSnippetExecutor {
+    hidden_line_prefix: Option<String>,
+    config: SnippetExecutorConfig,
+    cwd: PathBuf,
+}
+
+impl LanguageSnippetExecutor {
+    /// Execute a piece of code asynchronously.
+    pub(crate) fn execute_async(&self, snippet: &Snippet) -> Result<ExecutionHandle, CodeExecuteError> {
+        let script_dir = self.write_snippet(snippet)?;
+        let state: Arc<Mutex<ExecutionState>> = Default::default();
+        let output_type = match snippet.attributes.representation {
+            SnippetRepr::Image => OutputType::Binary,
+            _ => OutputType::Lines,
+        };
+        let reader_handle = CommandsRunner::spawn(
+            state.clone(),
+            script_dir,
+            self.config.commands.clone(),
+            self.config.environment.clone(),
+            self.cwd.clone(),
+            output_type,
+        );
+        let handle = ExecutionHandle { state, reader_handle };
+        Ok(handle)
+    }
+
+    /// Executes a piece of code synchronously.
+    pub(crate) fn execute_sync(&self, snippet: &Snippet) -> Result<(), CodeExecuteError> {
+        let script_dir = self.write_snippet(snippet)?;
+        let script_dir_path = script_dir.path().to_string_lossy();
+        for mut commands in self.config.commands.clone() {
+            for command in &mut commands {
+                *command = command.replace("$pwd", &script_dir_path);
+            }
+            let (command, args) = commands.split_first().expect("no commands");
+            let child = process::Command::new(command)
+                .args(args)
+                .envs(&self.config.environment)
+                .current_dir(&self.cwd)
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| CodeExecuteError::SpawnProcess(command.clone(), e))?;
+
+            let output = child.wait_with_output().map_err(CodeExecuteError::Waiting)?;
+            if !output.status.success() {
+                let error = String::from_utf8_lossy(&output.stderr).to_string();
+                return Err(CodeExecuteError::Running(error));
+            }
+        }
+        Ok(())
+    }
+
+    fn write_snippet(&self, snippet: &Snippet) -> Result<TempDir, CodeExecuteError> {
+        let hide_prefix = self.hidden_line_prefix.as_deref();
+        let code = snippet.executable_contents(hide_prefix);
+        let script_dir =
+            tempfile::Builder::default().prefix(".presenterm").tempdir().map_err(CodeExecuteError::TempDir)?;
+        let snippet_path = script_dir.path().join(&self.config.filename);
+        let mut snippet_file = File::create(snippet_path).map_err(CodeExecuteError::TempDir)?;
+        snippet_file.write_all(code.as_bytes()).map_err(CodeExecuteError::TempDir)?;
+        Ok(script_dir)
+    }
+}
+
 /// An invalid executor was found.
 #[derive(thiserror::Error, Debug)]
 #[error("invalid snippet execution for '{0:?}': {1}")]
 pub struct InvalidSnippetConfig(SnippetLanguage, &'static str);
 
+/// Execution for a language is unsupported.
+#[derive(thiserror::Error, Debug)]
+#[error("cannot execute code for '{0:?}': {1}")]
+pub struct UnsupportedExecution(SnippetLanguage, String);
+
 /// An error during the execution of some code.
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum CodeExecuteError {
-    #[error("code language doesn't support execution")]
-    UnsupportedExecution,
-
-    #[error("code is not marked for execution")]
-    NotExecutableCode,
-
     #[error("error creating temporary directory: {0}")]
     TempDir(io::Error),
 
@@ -318,7 +346,7 @@ impl ProcessStatus {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::code::snippet::SnippetAttributes;
+    use crate::code::snippet::{SnippetAttributes, SnippetExec};
 
     #[test]
     fn shell_code_execution() {
@@ -326,12 +354,13 @@ mod test {
 echo 'hello world'
 echo 'bye'"
             .into();
-        let code = Snippet {
+        let snippet = Snippet {
             contents,
             language: SnippetLanguage::Shell,
-            attributes: SnippetAttributes { execution: SnippetExec::Exec, ..Default::default() },
+            attributes: SnippetAttributes { execution: SnippetExec::Exec(Default::default()), ..Default::default() },
         };
-        let handle = SnippetExecutor::default().execute_async(&code).expect("execution failed");
+        let executor = SnippetExecutor::default().language_executor(&snippet.language, &Default::default()).unwrap();
+        let handle = executor.execute_async(&snippet).expect("execution failed");
         let state = loop {
             let state = handle.state.lock().unwrap();
             if state.status.is_finished() {
@@ -344,30 +373,19 @@ echo 'bye'"
     }
 
     #[test]
-    fn non_executable_code_cant_be_executed() {
-        let contents = String::new();
-        let code = Snippet {
-            contents,
-            language: SnippetLanguage::Shell,
-            attributes: SnippetAttributes { execution: SnippetExec::None, ..Default::default() },
-        };
-        let result = SnippetExecutor::default().execute_async(&code);
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn shell_code_execution_captures_stderr() {
         let contents = r"
 echo 'This message redirects to stderr' >&2
 echo 'hello world'
 "
         .into();
-        let code = Snippet {
+        let snippet = Snippet {
             contents,
             language: SnippetLanguage::Shell,
-            attributes: SnippetAttributes { execution: SnippetExec::Exec, ..Default::default() },
+            attributes: SnippetAttributes { execution: SnippetExec::Exec(Default::default()), ..Default::default() },
         };
-        let handle = SnippetExecutor::default().execute_async(&code).expect("execution failed");
+        let executor = SnippetExecutor::default().language_executor(&snippet.language, &Default::default()).unwrap();
+        let handle = executor.execute_async(&snippet).expect("execution failed");
         let state = loop {
             let state = handle.state.lock().unwrap();
             if state.status.is_finished() {
@@ -387,12 +405,13 @@ echo 'hello world'
 echo 'hello world'
 "
         .into();
-        let code = Snippet {
+        let snippet = Snippet {
             contents,
             language: SnippetLanguage::Shell,
-            attributes: SnippetAttributes { execution: SnippetExec::Exec, ..Default::default() },
+            attributes: SnippetAttributes { execution: SnippetExec::Exec(Default::default()), ..Default::default() },
         };
-        let handle = SnippetExecutor::default().execute_async(&code).expect("execution failed");
+        let executor = SnippetExecutor::default().language_executor(&snippet.language, &Default::default()).unwrap();
+        let handle = executor.execute_async(&snippet).expect("execution failed");
         let state = loop {
             let state = handle.state.lock().unwrap();
             if state.status.is_finished() {

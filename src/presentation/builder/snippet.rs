@@ -6,7 +6,8 @@ use crate::{
         highlighting::SnippetHighlighter,
         snippet::{
             ExternalFile, Highlight, HighlightContext, HighlightGroup, HighlightMutator, HighlightedLine, Snippet,
-            SnippetExec, SnippetLanguage, SnippetLine, SnippetParser, SnippetRepr, SnippetSplitter,
+            SnippetExec, SnippetExecutorSpec, SnippetLanguage, SnippetLine, SnippetParser, SnippetRepr,
+            SnippetSplitter,
         },
     },
     markdown::elements::SourcePosition,
@@ -111,16 +112,20 @@ impl<'a> SnippetProcessor<'a> {
             }
             SnippetRepr::ExecReplace => {
                 if execution_allowed {
-                    return self.push_code_execution(snippet, 0, ExecutionMode::ReplaceSnippet);
+                    // TODO: representation and execution should probably be merged
+                    let SnippetExec::Exec(spec) = snippet.attributes.execution.clone() else {
+                        panic!("not an exec snippet");
+                    };
+                    return self.push_code_execution(snippet, 0, ExecutionMode::ReplaceSnippet, &spec);
                 }
             }
             SnippetRepr::Snippet => (),
         };
 
         let block_length = self.push_code_lines(&snippet);
-        match snippet.attributes.execution {
+        match snippet.attributes.execution.clone() {
             SnippetExec::None => Ok(()),
-            SnippetExec::Exec | SnippetExec::AcquireTerminal if !execution_allowed => {
+            SnippetExec::Exec(_) | SnippetExec::AcquireTerminal(_) if !execution_allowed => {
                 let exec_type = match snippet.attributes.representation {
                     SnippetRepr::Image => ExecutionType::Image,
                     SnippetRepr::ExecReplace => ExecutionType::ExecReplace,
@@ -129,8 +134,10 @@ impl<'a> SnippetProcessor<'a> {
                 self.push_execution_disabled_operation(exec_type);
                 Ok(())
             }
-            SnippetExec::Exec => self.push_code_execution(snippet, block_length, ExecutionMode::AlongSnippet),
-            SnippetExec::AcquireTerminal => self.push_acquire_terminal_execution(snippet, block_length),
+            SnippetExec::Exec(spec) => {
+                self.push_code_execution(snippet, block_length, ExecutionMode::AlongSnippet, &spec)
+            }
+            SnippetExec::AcquireTerminal(spec) => self.push_acquire_terminal_execution(snippet, block_length, &spec),
         }
     }
 
@@ -268,12 +275,10 @@ impl<'a> SnippetProcessor<'a> {
     }
 
     fn push_code_as_image(&mut self, snippet: Snippet) -> BuildResult {
-        if !self.snippet_executor.is_execution_supported(&snippet.language) {
-            return Err(BuildError::UnsupportedExecution(snippet.language));
-        }
+        let executor = self.snippet_executor.language_executor(&snippet.language, &Default::default())?;
         let operation = RunImageSnippet::new(
             snippet,
-            self.snippet_executor.clone(),
+            executor,
             self.image_registry.clone(),
             self.theme.execution_output.status.clone(),
         );
@@ -282,14 +287,17 @@ impl<'a> SnippetProcessor<'a> {
         Ok(())
     }
 
-    fn push_acquire_terminal_execution(&mut self, snippet: Snippet, block_length: u16) -> BuildResult {
-        if !self.snippet_executor.is_execution_supported(&snippet.language) {
-            return Err(BuildError::UnsupportedExecution(snippet.language));
-        }
+    fn push_acquire_terminal_execution(
+        &mut self,
+        snippet: Snippet,
+        block_length: u16,
+        spec: &SnippetExecutorSpec,
+    ) -> BuildResult {
+        let executor = self.snippet_executor.language_executor(&snippet.language, spec)?;
         let block_length = self.theme.code.alignment.adjust_size(block_length);
         let operation = RunAcquireTerminalSnippet::new(
             snippet,
-            self.snippet_executor.clone(),
+            executor,
             self.theme.execution_output.status.clone(),
             block_length,
             self.font_size,
@@ -299,10 +307,14 @@ impl<'a> SnippetProcessor<'a> {
         Ok(())
     }
 
-    fn push_code_execution(&mut self, snippet: Snippet, block_length: u16, mode: ExecutionMode) -> BuildResult {
-        if !self.snippet_executor.is_execution_supported(&snippet.language) {
-            return Err(BuildError::UnsupportedExecution(snippet.language));
-        }
+    fn push_code_execution(
+        &mut self,
+        snippet: Snippet,
+        block_length: u16,
+        mode: ExecutionMode,
+        spec: &SnippetExecutorSpec,
+    ) -> BuildResult {
+        let executor = self.snippet_executor.language_executor(&snippet.language, spec)?;
         let separator = match mode {
             ExecutionMode::AlongSnippet => DisplaySeparator::On,
             ExecutionMode::ReplaceSnippet => DisplaySeparator::Off,
@@ -327,7 +339,7 @@ impl<'a> SnippetProcessor<'a> {
         };
         let operation = RunSnippetOperation::new(
             snippet,
-            self.snippet_executor.clone(),
+            executor,
             default_colors,
             execution_output_style,
             block_length,

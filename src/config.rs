@@ -242,6 +242,7 @@ pub struct SnippetConfig {
 #[serde(deny_unknown_fields)]
 pub struct SnippetExecConfig {
     /// Whether to enable snippet execution.
+    #[serde(default)]
     pub enable: bool,
 
     /// Custom snippet executors.
@@ -323,6 +324,21 @@ pub(crate) fn default_u16_max() -> u16 {
 #[derive(Clone, Debug, Deserialize)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub struct LanguageSnippetExecutionConfig {
+    #[serde(flatten)]
+    pub executor: SnippetExecutorConfig,
+
+    /// The prefix to use to hide lines visually but still execute them.
+    pub hidden_line_prefix: Option<String>,
+
+    /// Alternative executors for this language.
+    #[serde(default)]
+    pub alternative: HashMap<String, SnippetExecutorConfig>,
+}
+
+/// A snippet executor configuration.
+#[derive(Clone, Debug, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+pub struct SnippetExecutorConfig {
     /// The filename to use for the snippet input file.
     pub filename: String,
 
@@ -330,11 +346,8 @@ pub struct LanguageSnippetExecutionConfig {
     #[serde(default)]
     pub environment: HashMap<String, String>,
 
-    /// The commands to be run when executing snippets for this programming language.
+    /// The commands to be ran when executing snippets for this programming language.
     pub commands: Vec<Vec<String>>,
-
-    /// The prefix to use to hide lines visually but still execute them.
-    pub hidden_line_prefix: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, ValueEnum)]

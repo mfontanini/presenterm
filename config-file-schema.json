@@ -403,8 +403,15 @@
         "filename"
       ],
       "properties": {
+        "alternative": {
+          "description": "Alternative executors for this language.",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/SnippetExecutorConfig"
+          }
+        },
         "commands": {
-          "description": "The commands to be run when executing snippets for this programming language.",
+          "description": "The commands to be ran when executing snippets for this programming language.",
           "type": "array",
           "items": {
             "type": "array",
@@ -706,9 +713,6 @@
     },
     "SnippetExecConfig": {
       "type": "object",
-      "required": [
-        "enable"
-      ],
       "properties": {
         "custom": {
           "description": "Custom snippet executors.",
@@ -719,6 +723,7 @@
         },
         "enable": {
           "description": "Whether to enable snippet execution.",
+          "default": false,
           "type": "boolean"
         }
       },
@@ -736,6 +741,38 @@
         }
       },
       "additionalProperties": false
+    },
+    "SnippetExecutorConfig": {
+      "description": "A snippet executor configuration.",
+      "type": "object",
+      "required": [
+        "commands",
+        "filename"
+      ],
+      "properties": {
+        "commands": {
+          "description": "The commands to be ran when executing snippets for this programming language.",
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "environment": {
+          "description": "The environment variables to set before invoking every command.",
+          "default": {},
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "filename": {
+          "description": "The filename to use for the snippet input file.",
+          "type": "string"
+        }
+      }
     },
     "SnippetLanguage": {
       "description": "The language of a code snippet.",

@@ -1,6 +1,6 @@
 use crate::{
     code::{
-        execute::{ExecutionHandle, ProcessStatus, SnippetExecutor},
+        execute::{ExecutionHandle, LanguageSnippetExecutor, ProcessStatus},
         snippet::Snippet,
     },
     markdown::elements::Text,
@@ -27,7 +27,6 @@ use std::{
 #[derive(Debug)]
 pub(crate) struct RunImageSnippet {
     snippet: Snippet,
-    executor: Arc<SnippetExecutor>,
     state: Arc<Mutex<State>>,
     image_registry: ImageRegistry,
     colors: ExecutionStatusBlockStyle,
@@ -36,11 +35,12 @@ pub(crate) struct RunImageSnippet {
 impl RunImageSnippet {
     pub(crate) fn new(
         snippet: Snippet,
-        executor: Arc<SnippetExecutor>,
+        executor: LanguageSnippetExecutor,
         image_registry: ImageRegistry,
         colors: ExecutionStatusBlockStyle,
     ) -> Self {
-        Self { snippet, executor, image_registry, colors, state: Default::default() }
+        let state = Arc::new(Mutex::new(State::NotStarted(executor)));
+        Self { snippet, image_registry, colors, state }
     }
 }
 
@@ -48,7 +48,6 @@ impl RenderAsync for RunImageSnippet {
     fn pollable(&self) -> Box<dyn Pollable> {
         Box::new(OperationPollable {
             state: self.state.clone(),
-            executor: self.executor.clone(),
             snippet: self.snippet.clone(),
             image_registry: self.image_registry.clone(),
         })
@@ -63,7 +62,7 @@ impl AsRenderOperations for RunImageSnippet {
     fn as_render_operations(&self, _dimensions: &WindowSize) -> Vec<RenderOperation> {
         let state = self.state.lock().unwrap();
         match state.deref() {
-            State::NotStarted | State::Running(_) => vec![],
+            State::NotStarted(_) | State::Running(_) => vec![],
             State::Success(image) => {
                 vec![RenderOperation::RenderImage(image.clone(), ImageRenderProperties::default())]
             }
@@ -83,7 +82,6 @@ impl AsRenderOperations for RunImageSnippet {
 
 struct OperationPollable {
     state: Arc<Mutex<State>>,
-    executor: Arc<SnippetExecutor>,
     snippet: Snippet,
     image_registry: ImageRegistry,
 }
@@ -104,7 +102,7 @@ impl Pollable for OperationPollable {
     fn poll(&mut self) -> PollableState {
         let mut state = self.state.lock().unwrap();
         match state.deref() {
-            State::NotStarted => match self.executor.execute_async(&self.snippet) {
+            State::NotStarted(executor) => match executor.execute_async(&self.snippet) {
                 Ok(handle) => {
                     *state = State::Running(handle);
                     PollableState::Unmodified
@@ -149,10 +147,9 @@ impl Pollable for OperationPollable {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 enum State {
-    #[default]
-    NotStarted,
+    NotStarted(LanguageSnippetExecutor),
     Running(ExecutionHandle),
     Success(Image),
     Failure(Vec<String>),

@@ -1,6 +1,6 @@
 use crate::{
     code::{
-        execute::SnippetExecutor,
+        execute::{SnippetExecutor, UnsupportedExecution},
         highlighting::{HighlightThemeSet, SnippetHighlighter},
         snippet::SnippetLanguage,
     },
@@ -1179,8 +1179,8 @@ pub enum BuildError {
     #[error("third party render failed: {0}")]
     ThirdPartyRender(#[from] ThirdPartyRenderError),
 
-    #[error("language {0:?} does not support execution")]
-    UnsupportedExecution(SnippetLanguage),
+    #[error(transparent)]
+    UnsupportedExecution(#[from] UnsupportedExecution),
 
     #[error(transparent)]
     UndefinedPaletteColor(#[from] UndefinedPaletteColorError),
