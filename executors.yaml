@@ -98,6 +98,11 @@ rust:
     - ["rustc", "--crate-name", "presenterm_snippet", "$pwd/snippet.rs", "-o", "$pwd/snippet", "--color", "always"]
     - ["$pwd/snippet"]
   hidden_line_prefix: "# "
+  alternative:
+    rust-script:
+      filename: snippet.rs
+      commands:
+        - ["rust-script", "--debug", "$pwd/snippet.rs"]
 sh:
   filename: script.sh
   commands:

@@ -1,6 +1,6 @@
 use crate::{
     code::{
-        execute::{ExecutionHandle, ExecutionState, ProcessStatus, SnippetExecutor},
+        execute::{ExecutionHandle, ExecutionState, LanguageSnippetExecutor, ProcessStatus},
         snippet::Snippet,
     },
     markdown::{
@@ -47,7 +47,7 @@ struct Inner {
 #[derive(Debug)]
 pub(crate) struct RunSnippetOperation {
     code: Snippet,
-    executor: Arc<SnippetExecutor>,
+    executor: LanguageSnippetExecutor,
     default_colors: Colors,
     block_colors: Colors,
     style: ExecutionStatusBlockStyle,
@@ -64,7 +64,7 @@ impl RunSnippetOperation {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         code: Snippet,
-        executor: Arc<SnippetExecutor>,
+        executor: LanguageSnippetExecutor,
         default_colors: Colors,
         style: ExecutionOutputBlockStyle,
         block_length: u16,
@@ -183,7 +183,7 @@ impl RenderAsync for RunSnippetOperation {
 
 struct OperationPollable {
     inner: Arc<Mutex<Inner>>,
-    executor: Arc<SnippetExecutor>,
+    executor: LanguageSnippetExecutor,
     code: Snippet,
     last_length: usize,
     style: TextStyle,
@@ -258,7 +258,10 @@ impl Pollable for OperationPollable {
 mod tests {
     use super::*;
     use crate::{
-        code::snippet::{SnippetAttributes, SnippetExec, SnippetLanguage},
+        code::{
+            execute::SnippetExecutor,
+            snippet::{SnippetAttributes, SnippetExec, SnippetLanguage},
+        },
         markdown::text_style::Color,
     };
 
@@ -266,9 +269,9 @@ mod tests {
         let snippet = Snippet {
             contents: code.into(),
             language: SnippetLanguage::Bash,
-            attributes: SnippetAttributes { execution: SnippetExec::Exec, ..Default::default() },
+            attributes: SnippetAttributes { execution: SnippetExec::Exec(Default::default()), ..Default::default() },
         };
-        let executor = Arc::new(SnippetExecutor::new(Default::default(), ".".into()).unwrap());
+        let executor = SnippetExecutor::default().language_executor(&snippet.language, &Default::default()).unwrap();
         let default_colors = Default::default();
         let style = ExecutionOutputBlockStyle::default();
         let block_length = 0;

@@ -233,25 +233,25 @@ impl SnippetParser {
             }
             use SnippetAttribute::*;
             match attribute {
-                ExecReplace | Image | Render if attributes.representation != SnippetRepr::Snippet => {
+                ExecReplace(_) | Image | Render if attributes.representation != SnippetRepr::Snippet => {
                     return Err(SnippetBlockParseError::MultipleRepresentation);
                 }
                 LineNumbers => attributes.line_numbers = true,
-                Exec => {
-                    if attributes.execution != SnippetExec::AcquireTerminal {
-                        attributes.execution = SnippetExec::Exec;
+                Exec(spec) => {
+                    if !matches!(attributes.execution, SnippetExec::AcquireTerminal(_)) {
+                        attributes.execution = SnippetExec::Exec(spec);
                     }
                 }
-                ExecReplace => {
+                ExecReplace(spec) => {
                     attributes.representation = SnippetRepr::ExecReplace;
-                    attributes.execution = SnippetExec::Exec;
+                    attributes.execution = SnippetExec::Exec(spec);
                 }
                 Image => {
                     attributes.representation = SnippetRepr::Image;
-                    attributes.execution = SnippetExec::Exec;
+                    attributes.execution = SnippetExec::Exec(Default::default());
                 }
                 Render => attributes.representation = SnippetRepr::Render,
-                AcquireTerminal => attributes.execution = SnippetExec::AcquireTerminal,
+                AcquireTerminal(spec) => attributes.execution = SnippetExec::AcquireTerminal(spec),
                 NoBackground => attributes.no_background = true,
                 HighlightedLines(lines) => attributes.highlight_groups = lines,
                 Width(width) => attributes.width = Some(width),
@@ -272,18 +272,31 @@ impl SnippetParser {
                 let token = Self::next_identifier(&input[1..]);
                 let attribute = match token {
                     "line_numbers" => SnippetAttribute::LineNumbers,
-                    "exec" => SnippetAttribute::Exec,
-                    "exec_replace" => SnippetAttribute::ExecReplace,
+                    "exec" => SnippetAttribute::Exec(SnippetExecutorSpec::default()),
+                    "exec_replace" => SnippetAttribute::ExecReplace(SnippetExecutorSpec::default()),
                     "image" => SnippetAttribute::Image,
                     "render" => SnippetAttribute::Render,
                     "no_background" => SnippetAttribute::NoBackground,
-                    "acquire_terminal" => SnippetAttribute::AcquireTerminal,
-                    token if token.starts_with("width:") => {
-                        let value = input.split_once("+width:").unwrap().1;
-                        let (width, input) = Self::parse_width(value)?;
-                        return Ok((Some(SnippetAttribute::Width(width)), input));
+                    "acquire_terminal" => SnippetAttribute::AcquireTerminal(SnippetExecutorSpec::default()),
+                    other => {
+                        let (attribute, parameter) = other
+                            .split_once(':')
+                            .ok_or_else(|| SnippetBlockParseError::InvalidToken(Self::next_identifier(input).into()))?;
+                        match attribute {
+                            "exec" => SnippetAttribute::Exec(SnippetExecutorSpec::Alternative(parameter.to_string())),
+                            "exec_replace" => {
+                                SnippetAttribute::ExecReplace(SnippetExecutorSpec::Alternative(parameter.to_string()))
+                            }
+                            "acquire_terminal" => SnippetAttribute::AcquireTerminal(SnippetExecutorSpec::Alternative(
+                                parameter.to_string(),
+                            )),
+                            "width" => {
+                                let width = parameter.parse().map_err(SnippetBlockParseError::InvalidWidth)?;
+                                SnippetAttribute::Width(width)
+                            }
+                            _ => return Err(SnippetBlockParseError::InvalidToken(Self::next_identifier(input).into())),
+                        }
                     }
-                    _ => return Err(SnippetBlockParseError::InvalidToken(Self::next_identifier(input).into())),
                 };
                 (Some(attribute), &input[token.len() + 1..])
             }
@@ -348,12 +361,6 @@ impl SnippetParser {
             .map_err(|_| SnippetBlockParseError::InvalidHighlightedLines(format!("not a number: '{input}'")))
     }
 
-    fn parse_width(input: &str) -> ParseResult<(Percent, &str)> {
-        let end_index = input.find(' ').unwrap_or(input.len());
-        let value = input[0..end_index].parse().map_err(SnippetBlockParseError::InvalidWidth)?;
-        Ok((value, &input[end_index..]))
-    }
-
     fn skip_whitespace(input: &str) -> &str {
         input.trim_start_matches(' ')
     }
@@ -390,14 +397,21 @@ pub enum SnippetBlockParseError {
 #[derive(EnumDiscriminants)]
 enum SnippetAttribute {
     LineNumbers,
-    Exec,
-    ExecReplace,
+    Exec(SnippetExecutorSpec),
+    ExecReplace(SnippetExecutorSpec),
     Image,
     Render,
     HighlightedLines(Vec<HighlightGroup>),
     Width(Percent),
     NoBackground,
-    AcquireTerminal,
+    AcquireTerminal(SnippetExecutorSpec),
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) enum SnippetExecutorSpec {
+    #[default]
+    Default,
+    Alternative(String),
 }
 
 /// A code snippet.
@@ -624,8 +638,8 @@ pub(crate) enum SnippetRepr {
 pub(crate) enum SnippetExec {
     #[default]
     None,
-    Exec,
-    AcquireTerminal,
+    Exec(SnippetExecutorSpec),
+    AcquireTerminal(SnippetExecutorSpec),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -723,21 +737,21 @@ mod test {
     #[test]
     fn one_attribute() {
         let attributes = parse_attributes("bash +exec");
-        assert_eq!(attributes.execution, SnippetExec::Exec);
+        assert_eq!(attributes.execution, SnippetExec::Exec(Default::default()));
         assert!(!attributes.line_numbers);
     }
 
     #[test]
     fn two_attributes() {
         let attributes = parse_attributes("bash +exec +line_numbers");
-        assert_eq!(attributes.execution, SnippetExec::Exec);
+        assert_eq!(attributes.execution, SnippetExec::Exec(Default::default()));
         assert!(attributes.line_numbers);
     }
 
     #[test]
     fn acquire_terminal() {
         let attributes = parse_attributes("bash +acquire_terminal +exec");
-        assert_eq!(attributes.execution, SnippetExec::AcquireTerminal);
+        assert_eq!(attributes.execution, SnippetExec::AcquireTerminal(Default::default()));
         assert_eq!(attributes.representation, SnippetRepr::Snippet);
         assert!(!attributes.line_numbers);
     }
@@ -745,7 +759,7 @@ mod test {
     #[test]
     fn image() {
         let attributes = parse_attributes("bash +image +exec");
-        assert_eq!(attributes.execution, SnippetExec::Exec);
+        assert_eq!(attributes.execution, SnippetExec::Exec(Default::default()));
         assert_eq!(attributes.representation, SnippetRepr::Image);
         assert!(!attributes.line_numbers);
     }
@@ -854,5 +868,21 @@ println!("Hello world");
         let snippet = Snippet { contents: "\thi".into(), language: SnippetLanguage::C, attributes: Default::default() };
         let lines = SnippetSplitter::new(&Default::default(), None).split(&snippet);
         assert_eq!(lines[0].code, "    hi\n");
+    }
+
+    #[rstest]
+    #[case::exec("bash +exec:foo", SnippetExecutorSpec::Alternative("foo".to_string()))]
+    #[case::exec_and_more("bash +exec:foo +line_numbers", SnippetExecutorSpec::Alternative("foo".to_string()))]
+    #[case::exec_replace("bash +exec_replace:foo", SnippetExecutorSpec::Alternative("foo".to_string()))]
+    #[case::exec_replace_and_more("bash +exec_replace:foo +line_numbers", SnippetExecutorSpec::Alternative("foo".into()))]
+    fn alternative_executor(#[case] input: &str, #[case] spec: SnippetExecutorSpec) {
+        let attributes = parse_attributes(input);
+        assert_eq!(attributes.execution, SnippetExec::Exec(spec));
+    }
+
+    #[test]
+    fn acquire_terminal_alternative() {
+        let attributes = parse_attributes("bash +acquire_terminal:foo");
+        assert_eq!(attributes.execution, SnippetExec::AcquireTerminal(SnippetExecutorSpec::Alternative("foo".into())));
     }
 }

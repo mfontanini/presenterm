@@ -1,5 +1,5 @@
 use crate::{
-    code::{execute::SnippetExecutor, snippet::Snippet},
+    code::{execute::LanguageSnippetExecutor, snippet::Snippet},
     markdown::elements::{Line, Text},
     render::{
         operation::{AsRenderOperations, Pollable, PollableState, RenderAsync, RenderOperation},
@@ -26,7 +26,7 @@ const MINIMUM_SEPARATOR_WIDTH: u16 = 32;
 pub(crate) struct RunAcquireTerminalSnippet {
     snippet: Snippet,
     block_length: u16,
-    executor: Arc<SnippetExecutor>,
+    executor: LanguageSnippetExecutor,
     colors: ExecutionStatusBlockStyle,
     state: Arc<Mutex<State>>,
     font_size: u8,
@@ -35,7 +35,7 @@ pub(crate) struct RunAcquireTerminalSnippet {
 impl RunAcquireTerminalSnippet {
     pub(crate) fn new(
         snippet: Snippet,
-        executor: Arc<SnippetExecutor>,
+        executor: LanguageSnippetExecutor,
         colors: ExecutionStatusBlockStyle,
         block_length: u16,
         font_size: u8,
