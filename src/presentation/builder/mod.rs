@@ -311,6 +311,10 @@ impl<'a> PresentationBuilder<'a> {
                 self.push_image_from_path(path, title, source_position)?
             }
             MarkdownElement::Alert { alert_type, title, lines } => self.push_alert(alert_type, title, lines)?,
+            MarkdownElement::Footnote(line) => {
+                let line = line.resolve(&self.theme.palette)?;
+                self.push_text(line, ElementType::Paragraph);
+            }
         };
         if should_clear_last {
             self.slide_state.last_element = LastElement::Other;
@@ -2045,5 +2049,13 @@ language: rust"
             source_position: Default::default(),
         }];
         build_presentation(elements);
+    }
+
+    #[test]
+    fn footnote() {
+        let elements = vec![MarkdownElement::Footnote(Line::from("hi")), MarkdownElement::Footnote(Line::from("bye"))];
+        let slides = build_presentation(elements).into_slides();
+        let text = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        assert_eq!(text, &["hi", "bye"]);
     }
 }
