@@ -5,7 +5,10 @@ use crate::{
 use crossterm::style::{ContentStyle, StyledContent, Stylize};
 use hex::FromHexError;
 use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display};
+use std::{
+    borrow::Cow,
+    fmt::{self, Display},
+};
 
 /// The style of a piece of text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -133,7 +136,8 @@ impl TextStyle<Color> {
         text: &'a str,
         capabilities: &TerminalCapabilities,
     ) -> StyledContent<impl Display + Clone + 'a> {
-        let mut text = FontSizedStr { contents: text, font_size: FontSize::Scaled(self.size) };
+        let mut contents = Cow::Borrowed(text);
+        let mut font_size = FontSize::Scaled(self.size);
         let mut style = ContentStyle::default();
         for attr in self.iter_attributes() {
             style = match attr {
@@ -143,7 +147,9 @@ impl TextStyle<Color> {
                 TextAttribute::Underlined => style.underlined(),
                 TextAttribute::Superscript => {
                     if capabilities.fractional_font_size {
-                        text.font_size = FontSize::Fractional { numerator: self.size, denominator: 2 }
+                        font_size = FontSize::Fractional { numerator: self.size, denominator: 2 }
+                    } else if let Some(t) = text.try_into_superscript() {
+                        contents = Cow::Owned(t);
                     }
                     style
                 }
@@ -151,6 +157,7 @@ impl TextStyle<Color> {
                 TextAttribute::BackgroundColor(color) => style.on(color.into()),
             }
         }
+        let text = FontSizedStr { contents, font_size };
         StyledContent::new(style, text)
     }
 
@@ -236,7 +243,7 @@ pub(crate) enum TextAttribute {
 
 #[derive(Clone)]
 struct FontSizedStr<'a> {
-    contents: &'a str,
+    contents: Cow<'a, str>,
     font_size: FontSize,
 }
 
@@ -387,6 +394,64 @@ impl From<Colors> for crossterm::style::Colors {
 pub(crate) enum ParseColorError {
     #[error("invalid hex color: {0}")]
     Hex(#[from] FromHexError),
+}
+
+trait TryIntoSuperscript {
+    fn try_into_superscript(&self) -> Option<String>;
+}
+
+impl TryIntoSuperscript for &'_ str {
+    fn try_into_superscript(&self) -> Option<String> {
+        let mut output = String::new();
+        for from in self.chars() {
+            let to = match from {
+                '0' => '⁰',
+                '1' => '¹',
+                '2' => '²',
+                '3' => '³',
+                '4' => '⁴',
+                '5' => '⁵',
+                '6' => '⁶',
+                '7' => '⁷',
+                '8' => '⁸',
+                '9' => '⁹',
+                '+' => '⁺',
+                '-' => '⁻',
+                '=' => '⁼',
+                '(' => '⁽',
+                ')' => '⁾',
+                'a' => 'ᵃ',
+                'b' => 'ᵇ',
+                'c' => 'ᶜ',
+                'd' => 'ᵈ',
+                'e' => 'ᵉ',
+                'f' => 'ᶠ',
+                'g' => 'ᵍ',
+                'h' => 'ʰ',
+                'i' => 'ⁱ',
+                'j' => 'ʲ',
+                'k' => 'ᵏ',
+                'l' => 'ˡ',
+                'm' => 'ᵐ',
+                'n' => 'ⁿ',
+                'o' => 'ᵒ',
+                'p' => 'ᵖ',
+                'q' => '𐞥',
+                'r' => 'ʳ',
+                's' => 'ˢ',
+                't' => 'ᵗ',
+                'u' => 'ᵘ',
+                'v' => 'ᵛ',
+                'w' => 'ʷ',
+                'x' => 'ˣ',
+                'y' => 'ʸ',
+                'z' => 'ᶻ',
+                _ => return None,
+            };
+            output.push(to);
+        }
+        Some(output)
+    }
 }
 
 #[cfg(test)]
