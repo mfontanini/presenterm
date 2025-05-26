@@ -65,6 +65,9 @@ pub(crate) enum MarkdownElement {
         /// The content lines in this alert.
         lines: Vec<Line<RawColor>>,
     },
+
+    /// A footnote definition.
+    Footnote(Line<RawColor>),
 }
 
 #[derive(Clone, Copy, Debug, Default)]

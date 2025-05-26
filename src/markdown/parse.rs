@@ -9,8 +9,8 @@ use comrak::{
     arena_tree::Node,
     format_commonmark,
     nodes::{
-        Ast, AstNode, ListDelimType, ListType, NodeAlert, NodeCodeBlock, NodeHeading, NodeHtmlBlock, NodeList,
-        NodeValue, Sourcepos,
+        Ast, AstNode, ListDelimType, ListType, NodeAlert, NodeCodeBlock, NodeFootnoteDefinition, NodeHeading,
+        NodeHtmlBlock, NodeList, NodeValue, Sourcepos,
     },
     parse_document,
 };
@@ -35,6 +35,7 @@ impl Default for ParserOptions {
         options.extension.alerts = true;
         options.extension.wikilinks_title_before_pipe = true;
         options.extension.superscript = true;
+        options.extension.footnotes = true;
         Self(options)
     }
 }
@@ -110,6 +111,7 @@ impl<'a> MarkdownParser<'a> {
             NodeValue::HtmlBlock(block) => self.parse_html_block(block, data.sourcepos)?,
             NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => self.parse_block_quote(node)?,
             NodeValue::Alert(alert) => self.parse_alert(alert, node)?,
+            NodeValue::FootnoteDefinition(definition) => self.parse_footnote_definition(definition, node)?,
             other => return Err(ParseErrorKind::UnsupportedElement(other.identifier()).with_sourcepos(data.sourcepos)),
         };
         Ok(vec![element])
@@ -169,6 +171,22 @@ impl<'a> MarkdownParser<'a> {
     fn parse_alert(&self, alert: &NodeAlert, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
         let MarkdownElement::BlockQuote(lines) = self.parse_block_quote(node)? else { panic!("not a block quote") };
         Ok(MarkdownElement::Alert { alert_type: alert.alert_type, title: alert.title.clone(), lines })
+    }
+
+    fn parse_footnote_definition(
+        &self,
+        definition: &NodeFootnoteDefinition,
+        node: &'a AstNode<'a>,
+    ) -> ParseResult<MarkdownElement> {
+        let mut line = vec![Text::new(definition.name.clone(), TextStyle::default().superscript())];
+        let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::Yes).parse(node)?;
+        for inline in inlines {
+            match inline {
+                Inline::Text(text) => line.extend(text.0),
+                Inline::LineBreak | Inline::Image { .. } => {}
+            }
+        }
+        Ok(MarkdownElement::Footnote(Line(line)))
     }
 
     fn parse_heading(&self, heading: &NodeHeading, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
@@ -449,6 +467,11 @@ impl<'a> InlinesParser<'a> {
                     HtmlInline::OpenSpan { style } => return Ok(Some(HtmlStyle::Add(style))),
                     HtmlInline::CloseSpan => return Ok(Some(HtmlStyle::Remove)),
                 };
+            }
+            NodeValue::FootnoteReference(reference) => {
+                // Keep only colors here, we don't care about e.g. italics footnotes.
+                let style = TextStyle::colored(style.colors).superscript();
+                self.pending_text.push(Text::new(reference.name.clone(), style));
             }
             other => {
                 return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.identifier() }
@@ -1081,5 +1104,22 @@ mom
             "?".into(),
         ];
         assert_eq!(parsed.0, expected);
+    }
+
+    #[test]
+    fn footnote() {
+        let input = r"
+this[^1]
+
+[^1]: ref
+        ";
+        let elements = parse_all(input);
+        assert_eq!(elements.len(), 2);
+
+        let MarkdownElement::Paragraph(line) = &elements[0] else { panic!("not a paragraph") };
+        assert_eq!(line, &[Line(vec![Text::from("this"), Text::new("1", TextStyle::default().superscript())])]);
+
+        let MarkdownElement::Footnote(line) = &elements[1] else { panic!("not a footnote") };
+        assert_eq!(line, &Line(vec![Text::new("1", TextStyle::default().superscript()), Text::from("ref")]));
     }
 }
