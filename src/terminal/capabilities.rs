@@ -134,6 +134,9 @@ impl TerminalCapabilities {
         let mut capabilities = TerminalCapabilities::default();
         loop {
             let bytes_read = term.read(&mut buffer)?;
+            if bytes_read == 0 {
+                return Ok(capabilities);
+            }
             for next in &buffer[0..bytes_read] {
                 let next = char::from(*next);
                 let Some(output) = state.update(next) else {
