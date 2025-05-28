@@ -87,3 +87,9 @@ Install the latest version in Scoop via [Scoop](https://scoop.sh/#/apps?q=presen
 ```powershell
 scoop install presenterm
 ```
+
+Alternatively, you can install via [WinGet](https://github.com/microsoft/winget-cli) by running:
+
+```powershell
+winget install --id=mfontanini.presenterm  -e
+```
