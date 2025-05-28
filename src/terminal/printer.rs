@@ -56,12 +56,13 @@ pub(crate) struct Terminal<I: TerminalWrite> {
     cursor_row: u16,
     current_row_height: u16,
     rows: u16,
+    background_color: Option<Color>,
 }
 
 impl<I: TerminalWrite> Terminal<I> {
     pub(crate) fn new(mut writer: I, image_printer: Arc<ImagePrinter>) -> io::Result<Self> {
         writer.init()?;
-        Ok(Self { writer, image_printer, cursor_row: 0, current_row_height: 1, rows: u16::MAX })
+        Ok(Self { writer, image_printer, cursor_row: 0, current_row_height: 1, rows: u16::MAX, background_color: None })
     }
 
     fn begin_update(&mut self) -> io::Result<()> {
@@ -135,9 +136,19 @@ impl<I: TerminalWrite> Terminal<I> {
     }
 
     fn set_colors(&mut self, colors: Colors) -> io::Result<()> {
-        let colors = colors.into();
+        let crossterm_colors = colors.into();
         self.writer.queue(style::ResetColor)?;
-        self.writer.queue(style::SetColors(colors))?;
+        self.writer.queue(style::SetColors(crossterm_colors))?;
+        if self.background_color != colors.background {
+            self.background_color = colors.background;
+            match self.background_color {
+                Some(Color::Rgb { r, g, b }) => {
+                    write!(self.writer, "\x1b]11;#{r:02x}{g:02x}{b:02x}\x1b\\")?;
+                }
+                Some(_) => (),
+                None => write!(self.writer, "\x1b]111\x1b\\")?,
+            };
+        }
         Ok(())
     }
 
@@ -203,6 +214,9 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
 
 impl<I: TerminalWrite> Drop for Terminal<I> {
     fn drop(&mut self) {
+        if let Some(Color::Rgb { .. }) = self.background_color {
+            let _ = write!(self.writer, "\x1b]111\x1b\\");
+        }
         self.writer.deinit();
     }
 }
