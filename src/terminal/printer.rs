@@ -140,14 +140,16 @@ impl<I: TerminalWrite> Terminal<I> {
         self.writer.queue(style::ResetColor)?;
         self.writer.queue(style::SetColors(crossterm_colors))?;
         if self.background_color != colors.background {
-            self.background_color = colors.background;
-            match self.background_color {
-                Some(Color::Rgb { r, g, b }) => {
+            match (self.background_color, colors.background) {
+                (_, Some(Color::Rgb { r, g, b })) => {
+                    // Set background via OSC 11 if we have an RGB color
                     write!(self.writer, "\x1b]11;#{r:02x}{g:02x}{b:02x}\x1b\\")?;
                 }
-                Some(_) => (),
-                None => write!(self.writer, "\x1b]111\x1b\\")?,
+                // If it was RGB and it no longer is, or we have no background now, clear it.
+                (Some(Color::Rgb { .. }), Some(_)) | (_, None) => write!(self.writer, "\x1b]111\x1b\\")?,
+                _ => (),
             };
+            self.background_color = colors.background;
         }
         Ok(())
     }
