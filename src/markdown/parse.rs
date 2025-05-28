@@ -89,6 +89,7 @@ impl<'a> MarkdownParser<'a> {
                 }
                 Inline::Image { .. } => return Err(ParseInlinesError("images not supported".into())),
                 Inline::LineBreak => return Err(ParseInlinesError("line breaks not supported".into())),
+                Inline::PauseCommand => return Err(ParseInlinesError("pause commands not supported".into())),
             };
         }
         Ok(output)
@@ -149,6 +150,7 @@ impl<'a> MarkdownParser<'a> {
                 Inline::Text(text) => lines.push(text),
                 Inline::LineBreak => lines.push(Line::from("")),
                 Inline::Image { .. } => {}
+                Inline::PauseCommand => {}
             }
         }
         if lines.last() == Some(&Line::<RawColor>::from("")) {
@@ -183,7 +185,7 @@ impl<'a> MarkdownParser<'a> {
         for inline in inlines {
             match inline {
                 Inline::Text(text) => line.extend(text.0),
-                Inline::LineBreak | Inline::Image { .. } => {}
+                Inline::LineBreak | Inline::Image { .. } | Inline::PauseCommand => {}
             }
         }
         Ok(MarkdownElement::Footnote(Line(line)))
@@ -215,6 +217,13 @@ impl<'a> MarkdownParser<'a> {
                         title,
                         source_position: node.data.borrow().sourcepos.into(),
                     });
+                }
+                Inline::PauseCommand => {
+                    if !paragraph_elements.is_empty() {
+                        elements.push(MarkdownElement::Paragraph(mem::take(&mut paragraph_elements)));
+                    }
+                    elements
+                        .push(MarkdownElement::PauseCommand { source_position: node.data.borrow().sourcepos.into() })
                 }
             }
         }
@@ -466,6 +475,10 @@ impl<'a> InlinesParser<'a> {
                 match html_inline {
                     HtmlInline::OpenSpan { style } => return Ok(Some(HtmlStyle::Add(style))),
                     HtmlInline::CloseSpan => return Ok(Some(HtmlStyle::Remove)),
+                    HtmlInline::PauseCommand => {
+                        self.store_pending_text();
+                        self.inlines.push(Inline::PauseCommand);
+                    }
                 };
             }
             NodeValue::FootnoteReference(reference) => {
@@ -511,6 +524,7 @@ enum Inline {
     Text(Line<RawColor>),
     Image { path: String, title: String },
     LineBreak,
+    PauseCommand,
 }
 
 impl Inline {
@@ -519,6 +533,7 @@ impl Inline {
             Self::Text(_) => "text",
             Self::Image { .. } => "image",
             Self::LineBreak => "line break",
+            Self::PauseCommand => "pause command",
         }
     }
 }

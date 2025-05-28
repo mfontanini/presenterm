@@ -30,6 +30,27 @@ impl HtmlParser {
         let dom = tl::parse(input, Default::default())?;
         let top = dom.children().iter().next().ok_or(ParseHtmlError::NoTags)?;
         let node = top.get(dom.parser()).expect("failed to get");
+
+        // Check for inline pause
+        if let Some(comment) = node.as_comment() {
+            let bytes = comment.as_bytes().trim_ascii();
+
+            if bytes.len() >= 7 && bytes.starts_with(b"<!--") && bytes.ends_with(b"-->") {
+                let content = &bytes[4..bytes.len() - 3].trim_ascii();
+
+                if content != b"pause" {
+                    return Err(ParseHtmlError::UnsupportedHtml);
+                }
+
+                return match str::from_utf8(content) {
+                    Ok(_) => Ok(HtmlInline::PauseCommand),
+                    Err(parse_err) => Err(ParseHtmlError::NotUtf8(parse_err)),
+                };
+            } else {
+                return Err(ParseHtmlError::UnsupportedHtml);
+            }
+        }
+
         let tag = node.as_tag().ok_or(ParseHtmlError::NoTags)?;
         if tag.name().as_bytes() != b"span" {
             return Err(ParseHtmlError::UnsupportedHtml);
@@ -97,6 +118,7 @@ impl HtmlParser {
 
 #[derive(Debug)]
 pub(crate) enum HtmlInline {
+    PauseCommand,
     OpenSpan { style: TextStyle<RawColor> },
     CloseSpan,
 }

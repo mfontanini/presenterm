@@ -322,6 +322,7 @@ impl<'a> PresentationBuilder<'a> {
                 let line = line.resolve(&self.theme.palette)?;
                 self.push_text(line, ElementType::Paragraph);
             }
+            MarkdownElement::PauseCommand { .. } => self.push_pause(),
         };
         if should_clear_last {
             self.slide_state.last_element = LastElement::Other;

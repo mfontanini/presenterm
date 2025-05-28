@@ -68,6 +68,9 @@ pub(crate) enum MarkdownElement {
 
     /// A footnote definition.
     Footnote(Line<RawColor>),
+
+    /// Inline pause command
+    PauseCommand { source_position: SourcePosition },
 }
 
 #[derive(Clone, Copy, Debug, Default)]
