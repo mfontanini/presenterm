@@ -589,6 +589,7 @@ impl<'a> PresentationBuilder<'a> {
                 }
             }
             CommentCommand::EndSlide => self.terminate_slide(),
+            CommentCommand::SkipSlide => self.slide_state.skip_slide = true,
             _ => {}
         }
     }
@@ -1499,8 +1500,8 @@ theme:
             MarkdownElement::FrontMatter(frontmatter.into()),
             MarkdownElement::Heading { text: "hi".into(), level: 1 },
         ];
-        let slides = build_presentation(elements).into_slides();
-        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        let mut slides = build_presentation(elements).into_slides();
+        let lines = extract_slide_text_lines(slides.remove(0));
         let expected_lines = &["hi"];
         assert_eq!(lines, expected_lines);
     }
@@ -1552,8 +1553,8 @@ theme:
             header: TableRow(vec![Line::from("key"), Line::from("value"), Line::from("other")]),
             rows: vec![TableRow(vec![Line::from("potato"), Line::from("bar"), Line::from("yes")])],
         })];
-        let slides = build_presentation(elements).into_slides();
-        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        let mut slides = build_presentation(elements).into_slides();
+        let lines = extract_slide_text_lines(slides.remove(0));
         let expected_lines = &["key    │ value │ other", "───────┼───────┼──────", "potato │ bar   │ yes  "];
         assert_eq!(lines, expected_lines);
     }
@@ -1693,8 +1694,8 @@ theme:
                 item_type: ListItemType::OrderedPeriod(2),
             }]),
         ];
-        let slides = build_presentation(elements).into_slides();
-        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        let mut slides = build_presentation(elements).into_slides();
+        let lines = extract_slide_text_lines(slides.remove(0));
         let expected_lines = &["   1. one", "      1. one_one", "      2. one_two", "   2. two"];
         assert_eq!(lines, expected_lines);
     }
@@ -1718,8 +1719,8 @@ theme:
             theme_options: ThemeOptions { font_size_supported: true },
             ..Default::default()
         };
-        let slides = build_presentation_with_options(elements, options).into_slides();
-        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        let mut slides = build_presentation_with_options(elements, options).into_slides();
+        let lines = extract_slide_text_lines(slides.remove(0));
         assert_eq!(lines, expected);
     }
 
@@ -1801,10 +1802,10 @@ theme:
             MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
             MarkdownElement::Paragraph(vec![Line::from("bye")]),
         ];
-        let slides = build_presentation(elements).into_slides();
+        let mut slides = build_presentation(elements).into_slides();
         assert_eq!(slides.len(), 1);
 
-        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        let lines = extract_slide_text_lines(slides.remove(0));
         assert_eq!(lines, &["bye"]);
     }
 
@@ -1814,11 +1815,11 @@ theme:
             MarkdownElement::Paragraph(vec![Line::from("hi")]),
             MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
         ];
-        let slides = build_presentation(elements).into_slides();
+        let mut slides = build_presentation(elements).into_slides();
         assert_eq!(slides.len(), 1);
 
         // We should still have one slide but it should be empty
-        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        let lines = extract_slide_text_lines(slides.remove(0));
         assert_eq!(lines, Vec::<String>::new());
     }
 
@@ -1831,11 +1832,25 @@ theme:
             MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
             MarkdownElement::Paragraph(vec![Line::from("bye")]),
         ];
-        let slides = build_presentation(elements).into_slides();
+        let mut slides = build_presentation(elements).into_slides();
         assert_eq!(slides.len(), 1);
 
-        let lines = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        let lines = extract_slide_text_lines(slides.remove(0));
         assert_eq!(lines, &["bye"]);
+    }
+
+    #[test]
+    fn skip_slide_speaker_note() {
+        let elements = vec![
+            MarkdownElement::Paragraph(vec![Line::from("hi")]),
+            MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
+            MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
+            MarkdownElement::Comment { comment: "speaker_note: bye".into(), source_position: Default::default() },
+        ];
+        let options = PresentationBuilderOptions { render_speaker_notes_only: true, ..Default::default() };
+        let mut slides = build_presentation_with_options(elements, options).into_slides();
+        assert_eq!(slides.len(), 1);
+        assert_eq!(extract_slide_text_lines(slides.remove(0)), &["bye"]);
     }
 
     #[test]
@@ -1872,8 +1887,8 @@ theme:
             MarkdownElement::Paragraph(vec!["hola".into()]),
         ];
 
-        let slides = build_presentation(elements).into_slides();
-        let operations = slides.into_iter().next().unwrap().into_operations();
+        let mut slides = build_presentation(elements).into_slides();
+        let operations = slides.remove(0).into_operations();
         let alignments: Vec<_> = operations
             .into_iter()
             .filter_map(|op| match op {
@@ -2054,8 +2069,8 @@ language: rust"
     #[test]
     fn footnote() {
         let elements = vec![MarkdownElement::Footnote(Line::from("hi")), MarkdownElement::Footnote(Line::from("bye"))];
-        let slides = build_presentation(elements).into_slides();
-        let text = extract_slide_text_lines(slides.into_iter().next().unwrap());
+        let mut slides = build_presentation(elements).into_slides();
+        let text = extract_slide_text_lines(slides.remove(0));
         assert_eq!(text, &["hi", "bye"]);
     }
 }
