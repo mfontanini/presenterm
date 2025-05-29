@@ -56,13 +56,22 @@ pub(crate) struct Terminal<I: TerminalWrite> {
     cursor_row: u16,
     current_row_height: u16,
     rows: u16,
+    last_cleared_background_color: Option<Color>,
     background_color: Option<Color>,
 }
 
 impl<I: TerminalWrite> Terminal<I> {
     pub(crate) fn new(mut writer: I, image_printer: Arc<ImagePrinter>) -> io::Result<Self> {
         writer.init()?;
-        Ok(Self { writer, image_printer, cursor_row: 0, current_row_height: 1, rows: u16::MAX, background_color: None })
+        Ok(Self {
+            writer,
+            image_printer,
+            cursor_row: 0,
+            current_row_height: 1,
+            rows: u16::MAX,
+            last_cleared_background_color: None,
+            background_color: None,
+        })
     }
 
     fn begin_update(&mut self) -> io::Result<()> {
@@ -129,6 +138,16 @@ impl<I: TerminalWrite> Terminal<I> {
     }
 
     fn clear_screen(&mut self) -> io::Result<()> {
+        match (self.last_cleared_background_color, self.background_color) {
+            (_, Some(Color::Rgb { r, g, b })) => {
+                // Set background via OSC 11 if we have an RGB color
+                write!(self.writer, "\x1b]11;#{r:02x}{g:02x}{b:02x}\x1b\\")?;
+            }
+            // If it was RGB and it no longer is, or we have no background now, clear it.
+            (Some(Color::Rgb { .. }), Some(_)) | (_, None) => write!(self.writer, "\x1b]111\x1b\\")?,
+            _ => (),
+        };
+        self.last_cleared_background_color = self.background_color;
         self.writer.queue(terminal::Clear(terminal::ClearType::All))?;
         self.cursor_row = 0;
         self.current_row_height = 1;
@@ -136,25 +155,18 @@ impl<I: TerminalWrite> Terminal<I> {
     }
 
     fn set_colors(&mut self, colors: Colors) -> io::Result<()> {
-        let crossterm_colors = colors.into();
+        // Save this for when the screen is cleared..
+        self.background_color = colors.background;
+
+        let colors = colors.into();
         self.writer.queue(style::ResetColor)?;
-        self.writer.queue(style::SetColors(crossterm_colors))?;
-        if self.background_color != colors.background {
-            match (self.background_color, colors.background) {
-                (_, Some(Color::Rgb { r, g, b })) => {
-                    // Set background via OSC 11 if we have an RGB color
-                    write!(self.writer, "\x1b]11;#{r:02x}{g:02x}{b:02x}\x1b\\")?;
-                }
-                // If it was RGB and it no longer is, or we have no background now, clear it.
-                (Some(Color::Rgb { .. }), Some(_)) | (_, None) => write!(self.writer, "\x1b]111\x1b\\")?,
-                _ => (),
-            };
-            self.background_color = colors.background;
-        }
+        self.writer.queue(style::SetColors(colors))?;
         Ok(())
     }
 
     fn set_background_color(&mut self, color: Color) -> io::Result<()> {
+        self.background_color = Some(color);
+
         let color = color.into();
         self.writer.queue(style::SetBackgroundColor(color))?;
         Ok(())
