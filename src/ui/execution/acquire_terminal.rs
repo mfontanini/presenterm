@@ -2,7 +2,7 @@ use crate::{
     code::{execute::LanguageSnippetExecutor, snippet::Snippet},
     markdown::elements::{Line, Text},
     render::{
-        operation::{AsRenderOperations, Pollable, PollableState, RenderAsync, RenderOperation},
+        operation::{AsRenderOperations, Pollable, PollableState, RenderAsync, RenderOperation, RenderTextProperties},
         properties::WindowSize,
     },
     terminal::should_hide_cursor,
@@ -87,7 +87,10 @@ impl AsRenderOperations for RunAcquireTerminalSnippet {
                 ops.extend([
                     RenderOperation::RenderText {
                         line: vec![Text::new(line, self.colors.failure_style)].into(),
-                        alignment: Alignment::Left { margin: Margin::Percent(25) },
+                        properties: RenderTextProperties {
+                            alignment: Alignment::Left { margin: Margin::Percent(25) },
+                            ..Default::default()
+                        },
                     },
                     RenderOperation::RenderLineBreak,
                 ]);

@@ -1,7 +1,7 @@
 use super::text_style::{Color, TextStyle};
 use crate::theme::raw::{ParseColorError, RawColor};
 use std::{borrow::Cow, str, str::Utf8Error};
-use tl::Attributes;
+use tl::{Attributes, Node};
 
 pub(crate) struct HtmlParseOptions {
     pub(crate) strict: bool,
@@ -32,31 +32,29 @@ impl HtmlParser {
         let node = top.get(dom.parser()).expect("failed to get");
 
         // Check for inline pause
-        if let Some(comment) = node.as_comment() {
-            let bytes = comment.as_bytes().trim_ascii();
-
-            if bytes.len() >= 7 && bytes.starts_with(b"<!--") && bytes.ends_with(b"-->") {
-                let content = &bytes[4..bytes.len() - 3].trim_ascii();
-
-                if content != b"pause" {
-                    return Err(ParseHtmlError::UnsupportedHtml);
+        match node {
+            Node::Tag(tag) => {
+                if tag.name().as_bytes() == b"span" {
+                    let style = self.parse_attributes(tag.attributes())?;
+                    Ok(HtmlInline::OpenSpan { style })
+                } else {
+                    Err(ParseHtmlError::UnsupportedHtml)
                 }
-
-                return match str::from_utf8(content) {
-                    Ok(_) => Ok(HtmlInline::PauseCommand),
-                    Err(parse_err) => Err(ParseHtmlError::NotUtf8(parse_err)),
-                };
-            } else {
-                return Err(ParseHtmlError::UnsupportedHtml);
             }
+            Node::Comment(bytes) => {
+                let bytes = bytes
+                    .as_bytes()
+                    .strip_prefix(b"<!--")
+                    .and_then(|b| b.strip_suffix(b"-->"))
+                    .map(|b| b.trim_ascii())
+                    .ok_or(ParseHtmlError::UnsupportedHtml)?;
+                match bytes {
+                    b"pause" => Ok(HtmlInline::PauseCommand),
+                    _ => Err(ParseHtmlError::UnsupportedHtml),
+                }
+            }
+            Node::Raw(_) => Err(ParseHtmlError::UnsupportedHtml),
         }
-
-        let tag = node.as_tag().ok_or(ParseHtmlError::NoTags)?;
-        if tag.name().as_bytes() != b"span" {
-            return Err(ParseHtmlError::UnsupportedHtml);
-        }
-        let style = self.parse_attributes(tag.attributes())?;
-        Ok(HtmlInline::OpenSpan { style })
     }
 
     fn parse_attributes(&self, attributes: &Attributes) -> Result<TextStyle<RawColor>, ParseHtmlError> {
@@ -190,12 +188,19 @@ mod tests {
         assert!(matches!(tag, HtmlInline::CloseSpan));
     }
 
+    #[test]
+    fn parse_pause() {
+        let tag = HtmlParser::default().parse("<!--      pause     -->").expect("parse failed");
+        assert!(matches!(tag, HtmlInline::PauseCommand));
+    }
+
     #[rstest]
     #[case::invalid_start_tag("<div>")]
     #[case::invalid_end_tag("</div>")]
     #[case::invalid_attribute("<span foo=\"bar\">")]
     #[case::invalid_attribute("<span style=\"bleh: 42\"")]
     #[case::invalid_color("<span style=\"color: 42\"")]
+    #[case::invalid_comment("<!-- potato -->")]
     fn parse_invalid_html(#[case] input: &str) {
         HtmlParser::default().parse(input).expect_err("parse succeeded");
     }

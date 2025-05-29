@@ -8,6 +8,8 @@ use crate::{
     terminal::printer::{TerminalCommand, TerminalIo},
 };
 
+use super::operation::RenderTextCursor;
+
 /// Draws text on the screen.
 ///
 /// This deals with splitting words and doing word wrapping based on the given positioning.
@@ -22,6 +24,7 @@ pub(crate) struct TextDrawer<'a> {
     block_color: Option<Color>,
     repeat_prefix: bool,
     center_newlines: bool,
+    cursor: RenderTextCursor,
 }
 
 impl<'a> TextDrawer<'a> {
@@ -57,6 +60,7 @@ impl<'a> TextDrawer<'a> {
                 block_color: None,
                 repeat_prefix: false,
                 center_newlines: false,
+                cursor: Default::default(),
             })
         }
     }
@@ -77,6 +81,11 @@ impl<'a> TextDrawer<'a> {
         self
     }
 
+    pub(crate) fn with_text_cursor(mut self, cursor: RenderTextCursor) -> Self {
+        self.cursor = cursor;
+        self
+    }
+
     /// Draw text on the given handle.
     ///
     /// This performs word splitting and word wrapping.
@@ -85,7 +94,12 @@ impl<'a> TextDrawer<'a> {
         T: TerminalIo,
     {
         let mut line_length: u16 = 0;
-        terminal.execute(&TerminalCommand::MoveToColumn(self.positioning.start_column))?;
+        match self.cursor {
+            RenderTextCursor::LayoutStart => {
+                terminal.execute(&TerminalCommand::MoveToColumn(self.positioning.start_column))?
+            }
+            RenderTextCursor::Current => (),
+        };
         let font_size = self.line.font_size();
 
         // Print the prefix at the beginning of the line.

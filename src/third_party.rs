@@ -8,7 +8,7 @@ use crate::{
     render::{
         operation::{
             AsRenderOperations, ImageRenderProperties, ImageSize, Pollable, PollableState, RenderAsync,
-            RenderAsyncStartPolicy, RenderOperation,
+            RenderAsyncStartPolicy, RenderOperation, RenderTextProperties,
         },
         properties::WindowSize,
     },
@@ -352,7 +352,10 @@ impl AsRenderOperations for RenderThirdParty {
                 let text = Line::from(Text::new("Loading...", TextStyle::default().bold()));
                 vec![RenderOperation::RenderText {
                     line: text.into(),
-                    alignment: Alignment::Center { minimum_margin: Default::default(), minimum_size: 0 },
+                    properties: RenderTextProperties {
+                        alignment: Alignment::Center { minimum_margin: Default::default(), minimum_size: 0 },
+                        ..Default::default()
+                    },
                 }]
             }
         }

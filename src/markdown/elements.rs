@@ -19,8 +19,8 @@ pub(crate) enum MarkdownElement {
     /// A normal heading.
     Heading { level: u8, text: Line<RawColor> },
 
-    /// A paragraph composed by a list of lines.
-    Paragraph(Vec<Line<RawColor>>),
+    /// A paragraph composed by a sequence of text items.
+    Paragraph(Vec<ParagraphItem>),
 
     /// An image.
     Image { path: PathBuf, title: String, source_position: SourcePosition },
@@ -68,9 +68,19 @@ pub(crate) enum MarkdownElement {
 
     /// A footnote definition.
     Footnote(Line<RawColor>),
+}
 
-    /// Inline pause command
-    PauseCommand { source_position: SourcePosition },
+#[derive(Clone, Debug, PartialEq)]
+pub enum ParagraphItem {
+    Text(Text<RawColor>),
+    LineBreak,
+    Pause,
+}
+
+impl From<&str> for ParagraphItem {
+    fn from(value: &str) -> Self {
+        Self::Text(value.into())
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -135,8 +145,7 @@ impl Line<RawColor> {
     pub(crate) fn resolve(self, palette: &ColorPalette) -> Result<Line<Color>, UndefinedPaletteColorError> {
         let mut output = Vec::with_capacity(self.0.len());
         for text in self.0 {
-            let style = text.style.resolve(palette)?;
-            output.push(Text::new(text.content, style));
+            output.push(text.resolve(palette)?);
         }
         Ok(Line(output))
     }
@@ -172,6 +181,15 @@ impl<C> Text<C> {
     /// Get the width of this text.
     pub(crate) fn width(&self) -> usize {
         self.content.width()
+    }
+}
+
+impl Text<RawColor> {
+    /// Resolve the colors in this text.
+    pub(crate) fn resolve(self, palette: &ColorPalette) -> Result<Text<Color>, UndefinedPaletteColorError> {
+        let Self { content, style } = self;
+        let style = style.resolve(palette)?;
+        Ok(Text { content, style })
     }
 }
 

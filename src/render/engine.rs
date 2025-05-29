@@ -1,5 +1,9 @@
 use super::{
-    RenderError, RenderResult, layout::Layout, operation::ImagePosition, properties::CursorPosition, text::TextDrawer,
+    RenderError, RenderResult,
+    layout::Layout,
+    operation::{ImagePosition, RenderTextProperties},
+    properties::CursorPosition,
+    text::TextDrawer,
 };
 use crate::{
     config::{MaxColumnsAlignment, MaxRowsAlignment},
@@ -143,7 +147,7 @@ where
             RenderOperation::JumpToRow { index } => self.jump_to_row(*index),
             RenderOperation::JumpToBottomRow { index } => self.jump_to_bottom(*index),
             RenderOperation::JumpToColumn { index } => self.jump_to_column(*index),
-            RenderOperation::RenderText { line, alignment } => self.render_text(line, *alignment),
+            RenderOperation::RenderText { line, properties } => self.render_text(line, *properties),
             RenderOperation::RenderLineBreak => self.render_line_break(),
             RenderOperation::RenderImage(image, properties) => self.render_image(image, properties),
             RenderOperation::RenderBlockLine(operation) => self.render_block_line(operation),
@@ -237,14 +241,14 @@ where
         Ok(())
     }
 
-    fn render_text(&mut self, text: &WeightedLine, alignment: Alignment) -> RenderResult {
-        let layout = self.build_layout(alignment);
+    fn render_text(&mut self, text: &WeightedLine, properties: RenderTextProperties) -> RenderResult {
+        let layout = self.build_layout(properties.alignment);
         let dimensions = self.current_dimensions();
         let positioning = layout.compute(dimensions, text.width() as u16);
         let prefix = "".into();
         let text_drawer = TextDrawer::new(&prefix, 0, text, positioning, &self.colors, MINIMUM_LINE_LENGTH)?;
-        let center_newlines = matches!(alignment, Alignment::Center { .. });
-        let text_drawer = text_drawer.center_newlines(center_newlines);
+        let center_newlines = matches!(properties.alignment, Alignment::Center { .. });
+        let text_drawer = text_drawer.center_newlines(center_newlines).with_text_cursor(properties.cursor);
         text_drawer.draw(self.terminal)?;
         // Restore colors
         self.apply_colors()
@@ -679,13 +683,13 @@ mod tests {
             RenderOperation::InitColumnLayout { columns: vec![1, 1] },
             // print on column 0
             RenderOperation::EnterColumn { column: 0 },
-            RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "A".into(), properties: Default::default() },
             // print on column 1
             RenderOperation::EnterColumn { column: 1 },
-            RenderOperation::RenderText { line: "B".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "B".into(), properties: Default::default() },
             // go back to column 0 and print
             RenderOperation::EnterColumn { column: 0 },
-            RenderOperation::RenderText { line: "1".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "1".into(), properties: Default::default() },
         ]);
         let expected = [
             Instruction::MoveToRow(0),
@@ -706,9 +710,9 @@ mod tests {
     fn bottom_margin() {
         let ops = render(&[
             RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 0, bottom: 10 }),
-            RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "A".into(), properties: Default::default() },
             RenderOperation::JumpToBottomRow { index: 0 },
-            RenderOperation::RenderText { line: "B".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "B".into(), properties: Default::default() },
         ]);
         let expected = [
             Instruction::MoveToColumn(1),
@@ -725,7 +729,7 @@ mod tests {
     fn top_margin() {
         let ops = render(&[
             RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 3, bottom: 0 }),
-            RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "A".into(), properties: Default::default() },
         ]);
         let expected = [Instruction::MoveToRow(3), Instruction::MoveToColumn(1), Instruction::PrintText("A".into())];
         assert_eq!(ops, expected);
@@ -736,9 +740,9 @@ mod tests {
         let ops = render(&[
             RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 3, bottom: 10 }),
             RenderOperation::JumpToRow { index: 0 },
-            RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "A".into(), properties: Default::default() },
             RenderOperation::JumpToBottomRow { index: 0 },
-            RenderOperation::RenderText { line: "B".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "B".into(), properties: Default::default() },
         ]);
         let expected = [
             Instruction::MoveToRow(3),
@@ -758,13 +762,13 @@ mod tests {
         let ops = render(&[
             RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 0, bottom: 10 }),
             RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 0, bottom: 10 }),
-            RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "A".into(), properties: Default::default() },
             RenderOperation::JumpToBottomRow { index: 0 },
-            RenderOperation::RenderText { line: "B".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "B".into(), properties: Default::default() },
             // pop and go to bottom, this should go back up to the end of the first margin
             RenderOperation::PopMargin,
             RenderOperation::JumpToBottomRow { index: 0 },
-            RenderOperation::RenderText { line: "C".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "C".into(), properties: Default::default() },
         ]);
         let expected = [
             Instruction::MoveToColumn(2),
@@ -784,11 +788,11 @@ mod tests {
     #[test]
     fn margin_with_max_size() {
         let ops = render_with_max_size(&[
-            RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "A".into(), properties: Default::default() },
             RenderOperation::ApplyMargin(MarginProperties { horizontal: Margin::Fixed(1), top: 2, bottom: 1 }),
-            RenderOperation::RenderText { line: "B".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "B".into(), properties: Default::default() },
             RenderOperation::JumpToBottomRow { index: 0 },
-            RenderOperation::RenderText { line: "C".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },
+            RenderOperation::RenderText { line: "C".into(), properties: Default::default() },
         ]);
         let expected = [
             // centered 20x10

@@ -5,7 +5,10 @@ use crate::{
         text_style::{TextStyle, UndefinedPaletteColorError},
     },
     render::{
-        operation::{AsRenderOperations, ImagePosition, ImageRenderProperties, MarginProperties, RenderOperation},
+        operation::{
+            AsRenderOperations, ImagePosition, ImageRenderProperties, MarginProperties, RenderOperation,
+            RenderTextProperties,
+        },
         properties::WindowSize,
     },
     terminal::image::Image,
@@ -49,7 +52,10 @@ impl FooterGenerator {
     fn render_line(line: &FooterLine, alignment: Alignment, height: u16, operations: &mut Vec<RenderOperation>) {
         operations.extend([
             RenderOperation::JumpToBottomRow { index: height / 2 },
-            RenderOperation::RenderText { line: line.0.clone().into(), alignment },
+            RenderOperation::RenderText {
+                line: line.0.clone().into(),
+                properties: RenderTextProperties { alignment, ..Default::default() },
+            },
         ]);
     }
 
@@ -122,10 +128,7 @@ impl AsRenderOperations for FooterGenerator {
                 let bar = Text::new(bar, *style);
                 vec![
                     RenderOperation::JumpToBottomRow { index: 0 },
-                    RenderOperation::RenderText {
-                        line: vec![bar].into(),
-                        alignment: Alignment::Left { margin: Margin::Fixed(0) },
-                    },
+                    RenderOperation::RenderText { line: vec![bar].into(), properties: Default::default() },
                 ]
             }
             Empty => vec![],

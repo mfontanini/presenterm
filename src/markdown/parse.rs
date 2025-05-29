@@ -1,5 +1,5 @@
 use super::{
-    elements::{Line, ListItem, ListItemType, MarkdownElement, SourcePosition, Table, TableRow, Text},
+    elements::{Line, ListItem, ListItemType, MarkdownElement, ParagraphItem, SourcePosition, Table, TableRow, Text},
     html::{HtmlInline, HtmlParser, ParseHtmlError},
     text_style::TextStyle,
 };
@@ -84,8 +84,8 @@ impl<'a> MarkdownParser<'a> {
         let mut output = Line::default();
         for inline in inlines {
             match inline {
-                Inline::Text(line) => {
-                    output.0.extend(line.0);
+                Inline::Texts(texts) => {
+                    output.0.extend(texts);
                 }
                 Inline::Image { .. } => return Err(ParseInlinesError("images not supported".into())),
                 Inline::LineBreak => return Err(ParseInlinesError("line breaks not supported".into())),
@@ -147,7 +147,7 @@ impl<'a> MarkdownParser<'a> {
         let inlines = InlinesParser::new(self.arena, SoftBreak::Newline, StringifyImages::Yes).parse(node)?;
         for inline in inlines {
             match inline {
-                Inline::Text(text) => lines.push(text),
+                Inline::Texts(text) => lines.push(Line(text)),
                 Inline::LineBreak => lines.push(Line::from("")),
                 Inline::Image { .. } => {}
                 Inline::PauseCommand => {}
@@ -184,7 +184,7 @@ impl<'a> MarkdownParser<'a> {
         let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::Yes).parse(node)?;
         for inline in inlines {
             match inline {
-                Inline::Text(text) => line.extend(text.0),
+                Inline::Texts(texts) => line.extend(texts),
                 Inline::LineBreak | Inline::Image { .. } | Inline::PauseCommand => {}
             }
         }
@@ -203,14 +203,14 @@ impl<'a> MarkdownParser<'a> {
     fn parse_paragraph(&self, node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
         let mut elements = Vec::new();
         let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No).parse(node)?;
-        let mut paragraph_elements = Vec::new();
+        let mut items = Vec::new();
         for inline in inlines {
             match inline {
-                Inline::Text(text) => paragraph_elements.push(text),
-                Inline::LineBreak => (),
+                Inline::Texts(text) => items.extend(text.into_iter().map(ParagraphItem::Text)),
+                Inline::LineBreak => items.push(ParagraphItem::LineBreak),
                 Inline::Image { path, title } => {
-                    if !paragraph_elements.is_empty() {
-                        elements.push(MarkdownElement::Paragraph(mem::take(&mut paragraph_elements)));
+                    if !items.is_empty() {
+                        elements.push(MarkdownElement::Paragraph(mem::take(&mut items)));
                     }
                     elements.push(MarkdownElement::Image {
                         path: path.into(),
@@ -219,16 +219,12 @@ impl<'a> MarkdownParser<'a> {
                     });
                 }
                 Inline::PauseCommand => {
-                    if !paragraph_elements.is_empty() {
-                        elements.push(MarkdownElement::Paragraph(mem::take(&mut paragraph_elements)));
-                    }
-                    elements
-                        .push(MarkdownElement::PauseCommand { source_position: node.data.borrow().sourcepos.into() })
+                    items.push(ParagraphItem::Pause);
                 }
             }
         }
-        if !paragraph_elements.is_empty() {
-            elements.push(MarkdownElement::Paragraph(mem::take(&mut paragraph_elements)));
+        if !items.is_empty() {
+            elements.push(MarkdownElement::Paragraph(mem::take(&mut items)));
         }
         Ok(elements)
     }
@@ -238,7 +234,7 @@ impl<'a> MarkdownParser<'a> {
         let mut chunks = Vec::new();
         for inline in inlines {
             match inline {
-                Inline::Text(text) => chunks.extend(text.0),
+                Inline::Texts(texts) => chunks.extend(texts),
                 other => {
                     return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.kind() }
                         .with_sourcepos(node.data.borrow().sourcepos));
@@ -369,7 +365,7 @@ impl<'a> InlinesParser<'a> {
     fn store_pending_text(&mut self) {
         let chunks = mem::take(&mut self.pending_text);
         if !chunks.is_empty() {
-            self.inlines.push(Inline::Text(Line(chunks)));
+            self.inlines.push(Inline::Texts(chunks));
         }
     }
 
@@ -521,7 +517,7 @@ enum HtmlStyle {
 }
 
 enum Inline {
-    Text(Line<RawColor>),
+    Texts(Vec<Text<RawColor>>),
     Image { path: String, title: String },
     LineBreak,
     PauseCommand,
@@ -530,7 +526,7 @@ enum Inline {
 impl Inline {
     fn kind(&self) -> &'static str {
         match self {
-            Self::Text(_) => "text",
+            Self::Texts(_) => "text",
             Self::Image { .. } => "image",
             Self::LineBreak => "line break",
             Self::PauseCommand => "pause command",
@@ -695,8 +691,8 @@ boop
     fn paragraph() {
         let parsed =
             parse_single("some **bold text**, _italics_, *italics*, **nested _italics_**, ~strikethrough~, ^super^");
-        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        let expected_chunks = vec![
+        let MarkdownElement::Paragraph(items) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_items = [
             Text::from("some "),
             Text::new("bold text", TextStyle::default().bold()),
             Text::from(", "),
@@ -710,10 +706,12 @@ boop
             Text::new("strikethrough", TextStyle::default().strikethrough()),
             Text::from(", "),
             Text::new("super", TextStyle::default().superscript()),
-        ];
+        ]
+        .into_iter()
+        .map(ParagraphItem::Text)
+        .collect::<Vec<_>>();
 
-        let expected_elements = &[Line(expected_chunks)];
-        assert_eq!(elements, expected_elements);
+        assert_eq!(items, expected_items);
     }
 
     #[test]
@@ -721,66 +719,72 @@ boop
         let parsed = parse_single(
             "hi<span style=\"color: red\">red<span style=\"background-color: blue\">blue<span style=\"color: yellow\">yellow</span></span></span>",
         );
-        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        let expected_chunks = vec![
+        let MarkdownElement::Paragraph(items) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_items = vec![
             Text::from("hi"),
             Text::new("red", TextStyle::default().fg_color(Color::Red)),
             Text::new("blue", TextStyle::default().fg_color(Color::Red).bg_color(Color::Blue)),
             Text::new("yellow", TextStyle::default().fg_color(Color::Yellow).bg_color(Color::Blue)),
-        ];
+        ]
+        .into_iter()
+        .map(ParagraphItem::Text)
+        .collect::<Vec<_>>();
 
-        let expected_elements = &[Line(expected_chunks)];
-        assert_eq!(elements, expected_elements);
+        assert_eq!(items, expected_items);
     }
 
     #[test]
     fn link_wo_label_wo_title() {
         let parsed = parse_single("my [](https://example.com)");
-        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        let expected_chunks =
-            vec![Text::from("my "), Text::new("https://example.com", TextStyle::default().link_url())];
-
-        let expected_elements = &[Line(expected_chunks)];
-        assert_eq!(elements, expected_elements);
+        let MarkdownElement::Paragraph(items) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_items = [Text::from("my "), Text::new("https://example.com", TextStyle::default().link_url())]
+            .into_iter()
+            .map(ParagraphItem::Text)
+            .collect::<Vec<_>>();
+        assert_eq!(items, expected_items);
     }
 
     #[test]
     fn link_w_label_wo_title() {
         let parsed = parse_single("my [website](https://example.com)");
-        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        let expected_chunks = vec![
+        let MarkdownElement::Paragraph(items) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_items = [
             Text::from("my "),
             Text::new("website", TextStyle::default().link_label()),
             Text::from(" ("),
             Text::new("https://example.com", TextStyle::default().link_url()),
             Text::from(")"),
-        ];
+        ]
+        .into_iter()
+        .map(ParagraphItem::Text)
+        .collect::<Vec<_>>();
 
-        let expected_elements = &[Line(expected_chunks)];
-        assert_eq!(elements, expected_elements);
+        assert_eq!(items, expected_items);
     }
 
     #[test]
     fn link_wo_label_w_title() {
         let parsed = parse_single("my [](https://example.com \"Example\")");
-        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        let expected_chunks = vec![
+        let MarkdownElement::Paragraph(items) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_items = [
             Text::from("my "),
             Text::new("https://example.com", TextStyle::default().link_url()),
             Text::from(" \""),
             Text::new("Example", TextStyle::default().link_title()),
             Text::from("\""),
-        ];
+        ]
+        .into_iter()
+        .map(ParagraphItem::Text)
+        .collect::<Vec<_>>();
 
-        let expected_elements = &[Line(expected_chunks)];
-        assert_eq!(elements, expected_elements);
+        assert_eq!(items, expected_items);
     }
 
     #[test]
     fn link_w_label_w_title() {
         let parsed = parse_single("my [website](https://example.com \"Example\")");
-        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        let expected_chunks = vec![
+        let MarkdownElement::Paragraph(items) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_items = vec![
             Text::from("my "),
             Text::new("website", TextStyle::default().link_label()),
             Text::from(" ("),
@@ -789,20 +793,20 @@ boop
             Text::new("Example", TextStyle::default().link_title()),
             Text::from("\""),
             Text::from(")"),
-        ];
+        ]
+        .into_iter()
+        .map(ParagraphItem::Text)
+        .collect::<Vec<_>>();
 
-        let expected_elements = &[Line(expected_chunks)];
-        assert_eq!(elements, expected_elements);
+        assert_eq!(items, expected_items);
     }
 
     #[test]
     fn wikilink_wo_title() {
         let parsed = parse_single("[[https://example.com]]");
-        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        let expected_chunks = vec![Text::new("https://example.com", TextStyle::default().link_url())];
-
-        let expected_elements = &[Line(expected_chunks)];
-        assert_eq!(elements, expected_elements);
+        let MarkdownElement::Paragraph(items) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_items = [ParagraphItem::Text(Text::new("https://example.com", TextStyle::default().link_url()))];
+        assert_eq!(items, expected_items);
     }
 
     #[test]
@@ -898,12 +902,15 @@ another",
         // note that "with line breaks" also has a hard break ("  ") at the end, hence the 3.
         assert_eq!(parsed.len(), 2);
 
-        let MarkdownElement::Paragraph(elements) = &parsed[0] else { panic!("not a line break: {parsed:?}") };
-        assert_eq!(elements.len(), 2);
-
-        let expected_chunks = &[Text::from("some text"), Text::from(" "), Text::from("with line breaks")];
-        let text = &elements[0];
-        assert_eq!(text.0, expected_chunks);
+        let MarkdownElement::Paragraph(items) = &parsed[0] else { panic!("not a line break: {parsed:?}") };
+        let expected_items = &[
+            "some text".into(),
+            " ".into(),
+            "with line breaks".into(),
+            ParagraphItem::LineBreak,
+            "a hard break".into(),
+        ];
+        assert_eq!(items, expected_items);
     }
 
     #[test]
@@ -923,12 +930,12 @@ let q = 42;
     #[test]
     fn inline_code() {
         let parsed = parse_single("some `inline code`");
-        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        let expected_chunks = &[Text::from("some "), Text::new("inline code", TextStyle::default().code())];
-        assert_eq!(elements.len(), 1);
-
-        let text = &elements[0];
-        assert_eq!(text.0, expected_chunks);
+        let MarkdownElement::Paragraph(items) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected = [Text::from("some "), Text::new("inline code", TextStyle::default().code())]
+            .into_iter()
+            .map(ParagraphItem::Text)
+            .collect::<Vec<_>>();
+        assert_eq!(items, expected);
     }
 
     #[test]
@@ -1131,8 +1138,12 @@ this[^1]
         let elements = parse_all(input);
         assert_eq!(elements.len(), 2);
 
-        let MarkdownElement::Paragraph(line) = &elements[0] else { panic!("not a paragraph") };
-        assert_eq!(line, &[Line(vec![Text::from("this"), Text::new("1", TextStyle::default().superscript())])]);
+        let MarkdownElement::Paragraph(items) = &elements[0] else { panic!("not a paragraph") };
+        let expected_items = [Text::from("this"), Text::new("1", TextStyle::default().superscript())]
+            .into_iter()
+            .map(ParagraphItem::Text)
+            .collect::<Vec<_>>();
+        assert_eq!(items, &expected_items);
 
         let MarkdownElement::Footnote(line) = &elements[1] else { panic!("not a footnote") };
         assert_eq!(line, &Line(vec![Text::new("1", TextStyle::default().superscript()), Text::from("ref")]));

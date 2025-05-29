@@ -92,7 +92,7 @@ impl AsRenderOperations for IndexDrawer {
             if index == current_slide_index {
                 row = row.with_style(self.selection_style);
             }
-            let operation = RenderOperation::RenderText { line: row.build(), alignment: Default::default() };
+            let operation = RenderOperation::RenderText { line: row.build(), properties: Default::default() };
             operations.extend([operation, RenderOperation::RenderLineBreak]);
         }
         operations.extend(self.suffix.iter().cloned());
@@ -171,7 +171,7 @@ impl ModalBuilder {
         prefix.extend([
             RenderOperation::RenderText {
                 line: Self::build_line(vec![Text::from(heading)], content_width).build(),
-                alignment: Default::default(),
+                properties: Default::default(),
             },
             RenderOperation::RenderLineBreak,
         ]);
@@ -218,7 +218,7 @@ impl ModalContent {
         let mut operations = self.prefix;
         operations.extend(self.content.into_iter().flat_map(|c| {
             [
-                RenderOperation::RenderText { line: c.build(), alignment: Default::default() },
+                RenderOperation::RenderText { line: c.build(), properties: Default::default() },
                 RenderOperation::RenderLineBreak,
             ]
         }));
@@ -265,7 +265,7 @@ impl Border {
         line.push(closing);
         let horizontal_border = WeightedLine::from(vec![Text::from(line)]);
         [
-            RenderOperation::RenderText { line: horizontal_border.clone(), alignment: Default::default() },
+            RenderOperation::RenderText { line: horizontal_border.clone(), properties: Default::default() },
             RenderOperation::RenderLineBreak,
         ]
     }

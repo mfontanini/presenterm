@@ -7,8 +7,8 @@ use crate::{
     config::{KeyBindingsConfig, OptionsConfig},
     markdown::{
         elements::{
-            Line, ListItem, ListItemType, MarkdownElement, Percent, PercentParseError, SourcePosition, Table, TableRow,
-            Text,
+            Line, ListItem, ListItemType, MarkdownElement, ParagraphItem, Percent, PercentParseError, SourcePosition,
+            Table, TableRow, Text,
         },
         parse::MarkdownParser,
         text::WeightedLine,
@@ -18,7 +18,9 @@ use crate::{
         ChunkMutator, Modals, Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata,
         RenderOperation, SlideBuilder, SlideChunk,
     },
-    render::operation::{BlockLine, ImageRenderProperties, ImageSize, MarginProperties},
+    render::operation::{
+        BlockLine, ImageRenderProperties, ImageSize, MarginProperties, RenderTextCursor, RenderTextProperties,
+    },
     resource::Resources,
     terminal::image::{
         Image,
@@ -320,9 +322,8 @@ impl<'a> PresentationBuilder<'a> {
             MarkdownElement::Alert { alert_type, title, lines } => self.push_alert(alert_type, title, lines)?,
             MarkdownElement::Footnote(line) => {
                 let line = line.resolve(&self.theme.palette)?;
-                self.push_text(line, ElementType::Paragraph);
+                self.push_line(line, ElementType::Paragraph);
             }
-            MarkdownElement::PauseCommand { .. } => self.push_pause(),
         };
         if should_clear_last {
             self.slide_state.last_element = LastElement::Other;
@@ -464,7 +465,7 @@ impl<'a> PresentationBuilder<'a> {
         }
         self.chunk_operations.push(RenderOperation::JumpToVerticalCenter);
         if let Some(title) = title {
-            self.push_text(title, ElementType::PresentationTitle);
+            self.push_line(title, ElementType::PresentationTitle);
             self.push_line_break();
         }
 
@@ -595,7 +596,7 @@ impl<'a> PresentationBuilder<'a> {
         match comment_command {
             CommentCommand::SpeakerNote(note) => {
                 for line in note.lines() {
-                    self.push_text(line.into(), ElementType::Paragraph);
+                    self.push_line(line.into(), ElementType::Paragraph);
                     self.push_line_break();
                 }
             }
@@ -661,7 +662,7 @@ impl<'a> PresentationBuilder<'a> {
         text.apply_style(&style.style);
 
         self.push_line_breaks(style.padding_top as usize);
-        self.push_text(text, ElementType::SlideTitle);
+        self.push_line(text, ElementType::SlideTitle);
         self.push_line_break();
 
         for _ in 0..style.padding_bottom {
@@ -696,17 +697,37 @@ impl<'a> PresentationBuilder<'a> {
         }
         text.apply_style(&style.style);
 
-        self.push_text(text, element_type);
+        self.push_line(text, element_type);
         self.push_line_breaks(self.slide_font_size() as usize);
         Ok(())
     }
 
-    fn push_paragraph(&mut self, lines: Vec<Line<RawColor>>) -> BuildResult {
-        for line in lines {
-            let line = line.resolve(&self.theme.palette)?;
-            self.push_text(line, ElementType::Paragraph);
-            self.push_line_breaks(self.slide_font_size() as usize);
+    fn push_paragraph(&mut self, items: Vec<ParagraphItem>) -> BuildResult {
+        let mut paused = false;
+        for item in items {
+            let was_paused = mem::take(&mut paused);
+            match item {
+                ParagraphItem::Text(text) => {
+                    let text = text.resolve(&self.theme.palette)?;
+                    let alignment =
+                        self.slide_state.alignment.unwrap_or_else(|| self.theme.alignment(&ElementType::Paragraph));
+                    let cursor = match was_paused {
+                        true => RenderTextCursor::Current,
+                        false => RenderTextCursor::LayoutStart,
+                    };
+                    let properties = RenderTextProperties { alignment, cursor };
+                    self.push_line_with_properties(Line(vec![text]), properties);
+                }
+                ParagraphItem::LineBreak => {
+                    self.push_line_breaks(self.slide_font_size() as usize);
+                }
+                ParagraphItem::Pause => {
+                    self.push_pause();
+                    paused = true;
+                }
+            }
         }
+        self.push_line_breaks(self.slide_font_size() as usize);
         Ok(())
     }
 
@@ -926,18 +947,22 @@ impl<'a> PresentationBuilder<'a> {
     }
 
     fn push_intro_slide_text(&mut self, text: Text, element_type: ElementType) {
-        self.push_text(Line::from(text), element_type);
+        self.push_line(Line::from(text), element_type);
         self.push_line_break();
     }
 
-    fn push_text(&mut self, line: Line, element_type: ElementType) {
+    fn push_line(&mut self, line: Line, element_type: ElementType) {
         let alignment = self.slide_state.alignment.unwrap_or_else(|| self.theme.alignment(&element_type));
-        self.push_aligned_text(line, alignment);
+        let properties = RenderTextProperties { alignment, ..Default::default() };
+        self.push_line_with_properties(line, properties);
     }
 
-    fn push_aligned_text(&mut self, mut block: Line, alignment: Alignment) {
+    fn push_line_with_properties(&mut self, mut line: Line, properties: RenderTextProperties) {
+        if line.0.is_empty() {
+            return;
+        }
         let default_font_size = self.slide_font_size();
-        for chunk in &mut block.0 {
+        for chunk in &mut line.0 {
             if chunk.style.is_code() {
                 chunk.style.colors = self.theme.inline_code.style.colors;
             }
@@ -945,9 +970,7 @@ impl<'a> PresentationBuilder<'a> {
                 chunk.style = chunk.style.size(default_font_size);
             }
         }
-        if !block.0.is_empty() {
-            self.chunk_operations.push(RenderOperation::RenderText { line: WeightedLine::from(block), alignment });
-        }
+        self.chunk_operations.push(RenderOperation::RenderText { line: WeightedLine::from(line), properties });
     }
 
     fn push_line_break(&mut self) {
@@ -1028,7 +1051,7 @@ impl<'a> PresentationBuilder<'a> {
             .map(|column| table.iter_column(column).map(|text| text.width()).max().unwrap_or(0))
             .collect();
         let flattened_header = self.prepare_table_row(table.header, &widths)?;
-        self.push_text(flattened_header, ElementType::Table);
+        self.push_line(flattened_header, ElementType::Table);
         self.push_line_break();
 
         let mut separator = Line(Vec::new());
@@ -1046,12 +1069,12 @@ impl<'a> PresentationBuilder<'a> {
             separator.0.push(Text::from(contents));
         }
 
-        self.push_text(separator, ElementType::Table);
+        self.push_line(separator, ElementType::Table);
         self.push_line_break();
 
         for row in table.rows {
             let flattened_row = self.prepare_table_row(row, &widths)?;
-            self.push_text(flattened_row, ElementType::Table);
+            self.push_line(flattened_row, ElementType::Table);
             self.push_line_break();
         }
         Ok(())
@@ -1501,6 +1524,11 @@ mod test {
         extract_text_lines(&operations)
     }
 
+    fn extract_slide_chunk_text_lines(chunk: &SlideChunk) -> Vec<String> {
+        let operations: Vec<_> = chunk.iter_operations().filter(|op| is_visible(op)).cloned().collect();
+        extract_text_lines(&operations)
+    }
+
     #[test]
     fn empty_heading_prefix() {
         let frontmatter = r#"
@@ -1804,9 +1832,9 @@ theme:
     #[test]
     fn pause_new_slide() {
         let elements = vec![
-            MarkdownElement::Paragraph(vec![Line::from("hi")]),
+            MarkdownElement::Paragraph(vec!["hi".into()]),
             MarkdownElement::Comment { comment: "pause".into(), source_position: Default::default() },
-            MarkdownElement::Paragraph(vec![Line::from("bye")]),
+            MarkdownElement::Paragraph(vec!["bye".into()]),
         ];
         let options = PresentationBuilderOptions { pause_create_new_slide: true, ..Default::default() };
         let slides = build_presentation_with_options(elements, options).into_slides();
@@ -1830,10 +1858,10 @@ theme:
     #[test]
     fn skip_slide() {
         let elements = vec![
-            MarkdownElement::Paragraph(vec![Line::from("hi")]),
+            MarkdownElement::Paragraph(vec!["hi".into()]),
             MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
             MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
-            MarkdownElement::Paragraph(vec![Line::from("bye")]),
+            MarkdownElement::Paragraph(vec!["bye".into()]),
         ];
         let mut slides = build_presentation(elements).into_slides();
         assert_eq!(slides.len(), 1);
@@ -1845,7 +1873,7 @@ theme:
     #[test]
     fn skip_all_slides() {
         let elements = vec![
-            MarkdownElement::Paragraph(vec![Line::from("hi")]),
+            MarkdownElement::Paragraph(vec!["hi".into()]),
             MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
         ];
         let mut slides = build_presentation(elements).into_slides();
@@ -1859,11 +1887,11 @@ theme:
     #[test]
     fn skip_slide_pauses() {
         let elements = vec![
-            MarkdownElement::Paragraph(vec![Line::from("hi")]),
+            MarkdownElement::Paragraph(vec!["hi".into()]),
             MarkdownElement::Comment { comment: "pause".into(), source_position: Default::default() },
             MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
             MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
-            MarkdownElement::Paragraph(vec![Line::from("bye")]),
+            MarkdownElement::Paragraph(vec!["bye".into()]),
         ];
         let mut slides = build_presentation(elements).into_slides();
         assert_eq!(slides.len(), 1);
@@ -1875,7 +1903,7 @@ theme:
     #[test]
     fn skip_slide_speaker_note() {
         let elements = vec![
-            MarkdownElement::Paragraph(vec![Line::from("hi")]),
+            MarkdownElement::Paragraph(vec!["hi".into()]),
             MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
             MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
             MarkdownElement::Comment { comment: "speaker_note: bye".into(), source_position: Default::default() },
@@ -1925,7 +1953,7 @@ theme:
         let alignments: Vec<_> = operations
             .into_iter()
             .filter_map(|op| match op {
-                RenderOperation::RenderText { alignment, .. } => Some(alignment),
+                RenderOperation::RenderText { properties, .. } => Some(properties.alignment),
                 _ => None,
             })
             .collect();
@@ -2105,5 +2133,17 @@ language: rust"
         let mut slides = build_presentation(elements).into_slides();
         let text = extract_slide_text_lines(slides.remove(0));
         assert_eq!(text, &["hi", "bye"]);
+    }
+
+    #[test]
+    fn paragraph_pauses() {
+        let items = vec!["hi".into(), ParagraphItem::Pause, "bye".into()];
+        let mut slides = build_presentation(vec![MarkdownElement::Paragraph(items)]).into_slides();
+        assert_eq!(slides.len(), 1);
+
+        let slide = slides.remove(0);
+        assert_eq!(slide.chunks.len(), 2);
+        assert_eq!(extract_slide_chunk_text_lines(&slide.chunks[0]), &["hi"]);
+        assert_eq!(extract_slide_chunk_text_lines(&slide.chunks[1]), &["bye"]);
     }
 }

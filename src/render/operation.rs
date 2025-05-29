@@ -56,7 +56,7 @@ pub(crate) enum RenderOperation {
     JumpToColumn { index: u16 },
 
     /// Render text.
-    RenderText { line: WeightedLine, alignment: Alignment },
+    RenderText { line: WeightedLine, properties: RenderTextProperties },
 
     /// Render a line break.
     RenderLineBreak,
@@ -96,6 +96,24 @@ pub(crate) enum RenderOperation {
 
     /// Pop an `ApplyMargin` operation.
     PopMargin,
+}
+
+/// Properties about text being rendered.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct RenderTextProperties {
+    pub(crate) alignment: Alignment,
+    pub(crate) cursor: RenderTextCursor,
+}
+
+/// Specifies where the cursor should be when printing this text.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) enum RenderTextCursor {
+    /// Move the cursor to the beginning of the layout this text is aligned to.
+    #[default]
+    LayoutStart,
+
+    /// Print starting from where the cursor is currently at.
+    Current,
 }
 
 /// The properties of an image being rendered.

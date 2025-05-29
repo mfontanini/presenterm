@@ -1,7 +1,10 @@
 use crate::{
     markdown::{elements::Text, text_style::TextStyle},
     render::{
-        operation::{AsRenderOperations, Pollable, RenderAsync, RenderAsyncStartPolicy, RenderOperation, ToggleState},
+        operation::{
+            AsRenderOperations, Pollable, RenderAsync, RenderAsyncStartPolicy, RenderOperation, RenderTextProperties,
+            ToggleState,
+        },
         properties::WindowSize,
     },
     theme::Alignment,
@@ -40,7 +43,10 @@ impl AsRenderOperations for SnippetExecutionDisabledOperation {
         }
         vec![
             RenderOperation::RenderLineBreak,
-            RenderOperation::RenderText { line: vec![self.text.clone()].into(), alignment: self.alignment },
+            RenderOperation::RenderText {
+                line: vec![self.text.clone()].into(),
+                properties: RenderTextProperties { alignment: self.alignment, ..Default::default() },
+            },
             RenderOperation::RenderLineBreak,
         ]
     }

@@ -21,7 +21,7 @@ use crate::{
     theme::{Alignment, Margin},
 };
 use engine::{MaxSize, RenderEngine, RenderEngineOptions};
-use operation::AsRenderOperations;
+use operation::{AsRenderOperations, RenderTextProperties};
 use std::{
     io::{self, Stdout},
     iter,
@@ -138,7 +138,8 @@ impl AsRenderOperations for RenderErrorOperation {
         let heading = vec![Text::new(heading_text, TextStyle::default().bold()), Text::from(": ")];
         let total_lines = self.message.lines().count();
         let starting_row = (dimensions.rows / 2).saturating_sub(total_lines as u16 / 2 + 3);
-        let alignment = Alignment::Left { margin: Margin::Percent(25) };
+        let properties =
+            RenderTextProperties { alignment: Alignment::Left { margin: Margin::Percent(25) }, ..Default::default() };
 
         let mut operations = vec![
             RenderOperation::SetColors(Colors {
@@ -147,13 +148,13 @@ impl AsRenderOperations for RenderErrorOperation {
             }),
             RenderOperation::ClearScreen,
             RenderOperation::JumpToRow { index: starting_row },
-            RenderOperation::RenderText { line: WeightedLine::from(heading), alignment },
+            RenderOperation::RenderText { line: WeightedLine::from(heading), properties },
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
         ];
         for line in self.message.lines() {
             let error = vec![Text::from(line)];
-            let op = RenderOperation::RenderText { line: WeightedLine::from(error), alignment };
+            let op = RenderOperation::RenderText { line: WeightedLine::from(error), properties };
             operations.extend([op, RenderOperation::RenderLineBreak]);
         }
         operations

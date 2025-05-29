@@ -7,7 +7,7 @@ use crate::{
     render::{
         operation::{
             AsRenderOperations, ImageRenderProperties, Pollable, PollableState, RenderAsync, RenderAsyncStartPolicy,
-            RenderOperation,
+            RenderOperation, RenderTextProperties,
         },
         properties::WindowSize,
     },
@@ -71,7 +71,10 @@ impl AsRenderOperations for RunImageSnippet {
                 for line in lines {
                     output.extend([RenderOperation::RenderText {
                         line: vec![Text::new(line, self.colors.failure_style)].into(),
-                        alignment: Alignment::Left { margin: Margin::Percent(25) },
+                        properties: RenderTextProperties {
+                            alignment: Alignment::Left { margin: Margin::Percent(25) },
+                            ..Default::default()
+                        },
                     }]);
                 }
                 output

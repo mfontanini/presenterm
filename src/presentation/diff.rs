@@ -68,7 +68,9 @@ impl ContentDiff for RenderOperation {
         match (self, other) {
             (SetColors(original), SetColors(updated)) if original != updated => false,
             (RenderText { line: original, .. }, RenderText { line: updated, .. }) if original != updated => true,
-            (RenderText { alignment: original, .. }, RenderText { alignment: updated, .. }) if original != updated => {
+            (RenderText { properties: original, .. }, RenderText { properties: updated, .. })
+                if original != updated =>
+            {
                 false
             }
             (RenderImage(original, original_properties), RenderImage(updated, updated_properties))
@@ -120,7 +122,7 @@ mod test {
         },
         presentation::{Slide, SlideBuilder},
         render::{
-            operation::{AsRenderOperations, BlockLine, Pollable, RenderAsync, ToggleState},
+            operation::{AsRenderOperations, BlockLine, Pollable, RenderAsync, RenderTextProperties, ToggleState},
             properties::WindowSize,
         },
         theme::{Alignment, Margin},
@@ -150,7 +152,7 @@ mod test {
     #[case(RenderOperation::JumpToBottomRow{ index: 0 })]
     #[case(RenderOperation::RenderLineBreak)]
     #[case(RenderOperation::SetColors(Colors{background: None, foreground: None}))]
-    #[case(RenderOperation::RenderText{line: String::from("asd").into(), alignment: Default::default()})]
+    #[case(RenderOperation::RenderText{line: String::from("asd").into(), properties: Default::default()})]
     #[case(RenderOperation::RenderBlockLine(
         BlockLine{
             prefix: "".into(),
@@ -174,8 +176,8 @@ mod test {
 
     #[test]
     fn different_text() {
-        let lhs = RenderOperation::RenderText { line: String::from("foo").into(), alignment: Default::default() };
-        let rhs = RenderOperation::RenderText { line: String::from("bar").into(), alignment: Default::default() };
+        let lhs = RenderOperation::RenderText { line: String::from("foo").into(), properties: Default::default() };
+        let rhs = RenderOperation::RenderText { line: String::from("bar").into(), properties: Default::default() };
         assert!(lhs.is_content_different(&rhs));
     }
 
@@ -183,11 +185,17 @@ mod test {
     fn different_text_alignment() {
         let lhs = RenderOperation::RenderText {
             line: String::from("foo").into(),
-            alignment: Alignment::Left { margin: Margin::Fixed(42) },
+            properties: RenderTextProperties {
+                alignment: Alignment::Left { margin: Margin::Fixed(42) },
+                ..Default::default()
+            },
         };
         let rhs = RenderOperation::RenderText {
             line: String::from("foo").into(),
-            alignment: Alignment::Left { margin: Margin::Fixed(1337) },
+            properties: RenderTextProperties {
+                alignment: Alignment::Left { margin: Margin::Fixed(1337) },
+                ..Default::default()
+            },
         };
         assert!(!lhs.is_content_different(&rhs));
     }
