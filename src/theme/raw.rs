@@ -75,6 +75,10 @@ pub struct PresentationTheme {
     #[serde(default)]
     pub(super) modals: ModalStyle,
 
+    /// The style for bold text.
+    #[serde(default)]
+    pub(super) bold: Option<BoldStyle>,
+
     /// The color palette.
     #[serde(default)]
     pub(super) palette: ColorPalette,
@@ -795,6 +799,12 @@ pub(super) struct ModalStyle {
     /// The colors to use for selected lines.
     #[serde(default)]
     pub(super) selection_colors: RawColors,
+}
+
+/// Style used for **strong** text segments.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(super) struct BoldStyle {
+    pub(super) colors: RawColors,
 }
 
 /// The color palette.

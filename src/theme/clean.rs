@@ -46,6 +46,7 @@ pub(crate) struct PresentationTheme {
     pub(crate) mermaid: MermaidStyle,
     pub(crate) modals: ModalStyle,
     pub(crate) palette: ColorPalette,
+    pub(crate) bold: Option<Colors<Color>>,
 }
 
 impl PresentationTheme {
@@ -70,6 +71,7 @@ impl PresentationTheme {
             mermaid,
             modals,
             palette,
+            bold,
             extends: _,
         } = raw;
 
@@ -90,6 +92,7 @@ impl PresentationTheme {
             typst: TypstStyle::new(typst, &palette)?,
             mermaid: MermaidStyle::new(mermaid),
             modals: ModalStyle::new(modals, &default_style, &palette)?,
+            bold: bold.clone().map(|bold| bold.colors.resolve(&palette)).transpose()?,
             palette,
         })
     }
