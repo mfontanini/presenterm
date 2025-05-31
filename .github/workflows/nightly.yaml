@@ -52,19 +52,13 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@a448c4b13769d56b63b035024fef8577e1d81915
         with:
-          toolchain: stable
-          target: ${{ matrix.config.TARGET }}
-          override: true
-
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
           command: build
-          args: --release --locked --target ${{ matrix.config.TARGET }}
+          toolchain: 1.82.0
+          target: ${{ matrix.config.TARGET }}
+          args: "--locked --release"
 
       - name: Prepare release assets
         shell: bash
@@ -88,7 +82,7 @@ jobs:
               > presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.tar.gz.sha512
           fi
       - name: Upload the release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@e2a63377780a8bacc68dcac9b0979ee20ad5a791
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: nightly
