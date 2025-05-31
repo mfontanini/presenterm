@@ -289,6 +289,7 @@ impl CoreComponents {
             pause_before_incremental_lists: config.defaults.incremental_lists.pause_before.unwrap_or(true),
             pause_after_incremental_lists: config.defaults.incremental_lists.pause_after.unwrap_or(true),
             pause_create_new_slide: false,
+            list_item_newlines: config.options.list_item_newlines.map(Into::into).unwrap_or(1),
         }
     }
 

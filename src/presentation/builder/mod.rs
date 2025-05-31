@@ -40,7 +40,9 @@ use comrak::{Arena, nodes::AlertType};
 use image::DynamicImage;
 use serde::Deserialize;
 use snippet::{SnippetOperations, SnippetProcessor, SnippetProcessorState};
-use std::{collections::HashSet, fmt::Display, iter, mem, path::PathBuf, rc::Rc, str::FromStr, sync::Arc};
+use std::{
+    collections::HashSet, fmt::Display, iter, mem, num::NonZeroU8, path::PathBuf, rc::Rc, str::FromStr, sync::Arc,
+};
 use unicode_width::UnicodeWidthStr;
 
 mod snippet;
@@ -72,6 +74,7 @@ pub struct PresentationBuilderOptions {
     pub pause_before_incremental_lists: bool,
     pub pause_after_incremental_lists: bool,
     pub pause_create_new_slide: bool,
+    pub list_item_newlines: u8,
 }
 
 impl PresentationBuilderOptions {
@@ -89,6 +92,9 @@ impl PresentationBuilderOptions {
         }
         if !options.auto_render_languages.is_empty() {
             self.auto_render_languages = options.auto_render_languages;
+        }
+        if let Some(count) = options.list_item_newlines {
+            self.list_item_newlines = count.into();
         }
     }
 }
@@ -113,6 +119,7 @@ impl Default for PresentationBuilderOptions {
             pause_before_incremental_lists: true,
             pause_after_incremental_lists: true,
             pause_create_new_slide: false,
+            list_item_newlines: 1,
         }
     }
 }
@@ -574,6 +581,9 @@ impl<'a> PresentationBuilder<'a> {
             CommentCommand::SkipSlide => {
                 self.slide_state.skip_slide = true;
             }
+            CommentCommand::ListItemNewlines(count) => {
+                self.slide_state.list_item_newlines = Some(count.into());
+            }
         };
         // Don't push line breaks for any comments.
         self.slide_state.ignore_element_line_break = true;
@@ -791,7 +801,8 @@ impl<'a> PresentationBuilder<'a> {
             alignment,
             block_color: None,
         }));
-        self.push_line_break();
+        let newlines = self.slide_state.list_item_newlines.unwrap_or(self.options.list_item_newlines);
+        self.push_line_breaks(newlines as usize);
         if item.depth == 0 {
             self.slide_state.last_element = LastElement::List { last_index: index };
         }
@@ -1109,6 +1120,7 @@ struct SlideState {
     last_chunk_ended_in_list: bool,
     last_element: LastElement,
     incremental_lists: Option<bool>,
+    list_item_newlines: Option<u8>,
     layout: LayoutState,
     title: Option<Line>,
     font_size: Option<u8>,
@@ -1229,6 +1241,7 @@ enum CommentCommand {
     FontSize(u8),
     Alignment(CommentCommandAlignment),
     SkipSlide,
+    ListItemNewlines(NonZeroU8),
 }
 
 impl FromStr for CommentCommand {
@@ -1766,6 +1779,26 @@ theme:
         let options = PresentationBuilderOptions { pause_after_incremental_lists: false, ..Default::default() };
         let slides = build_presentation_with_options(elements, options).into_slides();
         assert_eq!(slides[0].iter_chunks().count(), 1);
+    }
+
+    #[test]
+    fn list_item_newlines() {
+        let elements = vec![
+            MarkdownElement::Comment { comment: "list_item_newlines: 3".into(), source_position: Default::default() },
+            MarkdownElement::List(vec![
+                ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::Unordered },
+                ListItem { depth: 1, contents: "two".into(), item_type: ListItemType::Unordered },
+            ]),
+        ];
+        let mut slides = build_presentation(elements).into_slides();
+        let slide = slides.remove(0);
+        println!("{slide:#?}");
+        let mut ops =
+            slide.into_operations().into_iter().skip_while(|op| !matches!(op, RenderOperation::RenderBlockLine { .. }));
+        ops.next().expect("no text");
+        let newlines =
+            ops.position(|op| matches!(op, RenderOperation::RenderBlockLine { .. })).expect("only one text found");
+        assert_eq!(newlines, 3);
     }
 
     #[test]
