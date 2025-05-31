@@ -12,6 +12,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     fs, io,
     net::{IpAddr, Ipv4Addr, SocketAddr},
+    num::NonZeroU8,
     path::{Path, PathBuf},
 };
 
@@ -208,6 +209,9 @@ pub struct OptionsConfig {
 
     /// Show all lists incrementally, by implicitly adding pauses in between elements.
     pub incremental_lists: Option<bool>,
+
+    /// The number of newlines in between list items.
+    pub list_item_newlines: Option<NonZeroU8>,
 
     /// Whether to treat a thematic break as a slide end.
     pub end_slide_shorthand: Option<bool>,
