@@ -2,14 +2,22 @@
 
 _presenterm_ works on Linux, macOS, and Windows and can be installed in different ways:
 
-## Pre-built binaries (recommended)
+#### Binary
 
-The recommended way to install _presenterm_ is to download the latest pre-built version for 
-your system from the [releases](https://github.com/mfontanini/presenterm/releases) page.
+The recommended way to install _presenterm_ is to download the latest pre-built version for your system from the 
+[releases page](https://github.com/mfontanini/presenterm/releases).
 
-## Install via cargo
+#### cargo-binstall
 
-Alternatively, download [rust](https://www.rust-lang.org/) and run:
+If you're a [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) user:
+
+```bash
+cargo binstall presenterm
+```
+
+#### From source
+
+Alternatively, build from source by downloading [rust](https://www.rust-lang.org/) and running:
 
 ```bash
 cargo install --locked presenterm
@@ -17,11 +25,24 @@ cargo install --locked presenterm
 
 ## Latest unreleased version
 
-To install from the latest source code run:
+The latest unreleased version can be installed either in binary form or by building it from source.
+
+#### Binary
+
+The nightly pre-build binary can be downloaded from 
+[github](https://github.com/mfontanini/presenterm/releases/tag/nightly). Keep in mind this is built once a day at 
+midnight UTC so if you need code that has been recently merged you may have to wait a few hours.
+
+#### From source
 
 ```bash
-cargo install --git https://github.com/mfontanini/presenterm
+cargo install --locked --git https://github.com/mfontanini/presenterm
 ```
+
+# Community maintained packages
+
+The community maintains packages for various operating systems and linux distributions and can be installed in the 
+following ways:
 
 ## macOS
 
@@ -29,6 +50,12 @@ Install the latest version in macOS via [brew](https://formulae.brew.sh/formula/
 
 ```bash
 brew install presenterm
+```
+
+The latest unreleased version can be built via brew by running:
+
+```bash
+brew install --head presenterm
 ```
 
 ## Nix
@@ -40,13 +67,17 @@ nix-env -iA nixos.presenterm    # for nixos
 nix-env -iA nixpkgs.presenterm  # for non-nixos
 ```
 
-Or, you can install it by adding the following to your configuration.nix if you are on NixOS
+#### NixOS
+
+Add the following to your `configuration.nix` if you are on NixOS
 
 ```nix
 environment.systemPackages = [
   pkgs.presenterm
 ];
 ```
+
+#### Flakes
 
 Alternatively if you're a Nix user using flakes you can run:
 
@@ -66,7 +97,7 @@ _presenterm_ is available in the [official repositories](https://archlinux.org/p
 pacman -S presenterm
 ```
 
-#### Binary release
+#### Binary
 
 Alternatively, you can use any AUR helper to install the upstream binaries:
 
@@ -74,7 +105,7 @@ Alternatively, you can use any AUR helper to install the upstream binaries:
 paru/yay -S presenterm-bin
 ```
 
-#### Building from git
+#### From source
 
 ```bash
 paru/yay -S presenterm-git
@@ -82,11 +113,16 @@ paru/yay -S presenterm-git
 
 ## Windows
 
-Install the latest version in Scoop via [Scoop](https://scoop.sh/#/apps?q=presenterm&id=a462290f824b50f180afbaa6d8c7c1e6e0952e3a) by running:
+#### Scoop
+
+Install the [latest version](https://scoop.sh/#/apps?q=presenterm&id=a462289f824b50f180afbaa6d8c7c1e6e0952e3a) via scoop 
+by running:
 
 ```powershell
-scoop install presenterm
+scoop install main/presenterm
 ```
+
+#### Winget
 
 Alternatively, you can install via [WinGet](https://github.com/microsoft/winget-cli) by running:
 

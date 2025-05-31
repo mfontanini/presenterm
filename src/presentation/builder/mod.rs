@@ -1792,7 +1792,6 @@ theme:
         ];
         let mut slides = build_presentation(elements).into_slides();
         let slide = slides.remove(0);
-        println!("{slide:#?}");
         let mut ops =
             slide.into_operations().into_iter().skip_while(|op| !matches!(op, RenderOperation::RenderBlockLine { .. }));
         ops.next().expect("no text");
