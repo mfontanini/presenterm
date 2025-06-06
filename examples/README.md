@@ -57,3 +57,12 @@ because asciinema doesn't support these and it will otherwise look like a normal
 This example shows how to use speaker notes.
 
 [![asciicast](https://asciinema.org/a/ETusvlmHuHrcLKzwa0CMQRX2J.svg)](https://asciinema.org/a/ETusvlmHuHrcLKzwa0CMQRX2J)
+
+# Custom introduction slides
+
+[Source](/examples/custom-intro-slides.md)
+
+This example various custom introduction slides that contain images placed in different layouts. Note that the images 
+looks pixelated because of asciinema but they will otherwise look normal in your terminal.
+
+[![asciicast](https://asciinema.org/a/sBeAMJbpBxqKA2gF2RI3MmLT7.svg)](https://asciinema.org/a/sBeAMJbpBxqKA2gF2RI3MmLT7)
