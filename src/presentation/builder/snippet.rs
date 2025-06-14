@@ -2,7 +2,7 @@ use super::{BuildError, BuildResult, ExecutionMode, PresentationBuilderOptions};
 use crate::{
     ImageRegistry,
     code::{
-        execute::SnippetExecutor,
+        execute::{LanguageSnippetExecutor, SnippetExecutor},
         highlighting::SnippetHighlighter,
         snippet::{
             ExternalFile, Highlight, HighlightContext, HighlightGroup, HighlightMutator, HighlightedLine, Snippet,
@@ -21,7 +21,7 @@ use crate::{
     third_party::{ThirdPartyRender, ThirdPartyRenderRequest},
     ui::execution::{
         RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation, SnippetExecutionDisabledOperation,
-        disabled::ExecutionType, snippet::DisplaySeparator,
+        disabled::ExecutionType, snippet::DisplaySeparator, validator::ValidateSnippetOperation,
     },
 };
 use itertools::Itertools;
@@ -276,6 +276,8 @@ impl<'a> SnippetProcessor<'a> {
 
     fn push_code_as_image(&mut self, snippet: Snippet) -> BuildResult {
         let executor = self.snippet_executor.language_executor(&snippet.language, &Default::default())?;
+        self.push_validator(&snippet, &executor);
+
         let operation = RunImageSnippet::new(
             snippet,
             executor,
@@ -315,6 +317,8 @@ impl<'a> SnippetProcessor<'a> {
         spec: &SnippetExecutorSpec,
     ) -> BuildResult {
         let executor = self.snippet_executor.language_executor(&snippet.language, spec)?;
+        self.push_validator(&snippet, &executor);
+
         let separator = match mode {
             ExecutionMode::AlongSnippet => DisplaySeparator::On,
             ExecutionMode::ReplaceSnippet => DisplaySeparator::Off,
@@ -356,6 +360,14 @@ impl<'a> SnippetProcessor<'a> {
 
     fn push_differ(&mut self, text: String) {
         self.operations.push(RenderOperation::RenderDynamic(Rc::new(Differ(text))));
+    }
+
+    fn push_validator(&mut self, snippet: &Snippet, executor: &LanguageSnippetExecutor) {
+        if !self.options.validate_snippets {
+            return;
+        }
+        let operation = ValidateSnippetOperation::new(snippet.clone(), executor.clone());
+        self.operations.push(RenderOperation::RenderAsync(Rc::new(operation)));
     }
 }
 

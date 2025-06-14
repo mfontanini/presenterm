@@ -716,6 +716,11 @@
               "$ref": "#/definitions/SnippetRenderConfig"
             }
           ]
+        },
+        "validate": {
+          "description": "Whether to validate snippets.",
+          "default": false,
+          "type": "boolean"
         }
       },
       "additionalProperties": false
