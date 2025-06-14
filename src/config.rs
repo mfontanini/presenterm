@@ -239,6 +239,10 @@ pub struct SnippetConfig {
     /// The properties for snippet auto rendering.
     #[serde(default)]
     pub render: SnippetRenderConfig,
+
+    /// Whether to validate snippets.
+    #[serde(default)]
+    pub validate: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

@@ -75,6 +75,7 @@ pub struct PresentationBuilderOptions {
     pub pause_after_incremental_lists: bool,
     pub pause_create_new_slide: bool,
     pub list_item_newlines: u8,
+    pub validate_snippets: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -120,6 +121,7 @@ impl Default for PresentationBuilderOptions {
             pause_after_incremental_lists: true,
             pause_create_new_slide: false,
             list_item_newlines: 1,
+            validate_snippets: false,
         }
     }
 }

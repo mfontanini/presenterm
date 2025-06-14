@@ -255,6 +255,7 @@ impl SnippetParser {
                 NoBackground => attributes.no_background = true,
                 HighlightedLines(lines) => attributes.highlight_groups = lines,
                 Width(width) => attributes.width = Some(width),
+                ExpectedExecutionResult(result) => attributes.expected_execution_result = result,
             };
             processed_attributes.push(discriminant);
             input = rest;
@@ -294,6 +295,19 @@ impl SnippetParser {
                                 let width = parameter.parse().map_err(SnippetBlockParseError::InvalidWidth)?;
                                 SnippetAttribute::Width(width)
                             }
+                            "validate" => match parameter {
+                                "success" => {
+                                    SnippetAttribute::ExpectedExecutionResult(ExpectedSnippetExecutionResult::Success)
+                                }
+                                "failure" | "fail" => {
+                                    SnippetAttribute::ExpectedExecutionResult(ExpectedSnippetExecutionResult::Failure)
+                                }
+                                _ => {
+                                    return Err(SnippetBlockParseError::InvalidToken(
+                                        Self::next_identifier(input).into(),
+                                    ));
+                                }
+                            },
                             _ => return Err(SnippetBlockParseError::InvalidToken(Self::next_identifier(input).into())),
                         }
                     }
@@ -405,6 +419,7 @@ enum SnippetAttribute {
     Width(Percent),
     NoBackground,
     AcquireTerminal(SnippetExecutorSpec),
+    ExpectedExecutionResult(ExpectedSnippetExecutionResult),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -412,6 +427,13 @@ pub(crate) enum SnippetExecutorSpec {
     #[default]
     Default,
     Alternative(String),
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum ExpectedSnippetExecutionResult {
+    #[default]
+    Success,
+    Failure,
 }
 
 /// A code snippet.
@@ -623,6 +645,9 @@ pub(crate) struct SnippetAttributes {
 
     /// Whether to add no background to a snippet.
     pub(crate) no_background: bool,
+
+    /// The expected execution result for a snippet.
+    pub(crate) expected_execution_result: ExpectedSnippetExecutionResult,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -884,5 +909,14 @@ println!("Hello world");
     fn acquire_terminal_alternative() {
         let attributes = parse_attributes("bash +acquire_terminal:foo");
         assert_eq!(attributes.execution, SnippetExec::AcquireTerminal(SnippetExecutorSpec::Alternative("foo".into())));
+    }
+
+    #[rstest]
+    #[case::success("validate:success", ExpectedSnippetExecutionResult::Success)]
+    #[case::failure("validate:failure", ExpectedSnippetExecutionResult::Failure)]
+    #[case::fail("validate:fail", ExpectedSnippetExecutionResult::Failure)]
+    fn validate_success(#[case] input: &str, #[case] expected: ExpectedSnippetExecutionResult) {
+        let attributes = parse_attributes(&format!("bash +{input}"));
+        assert_eq!(attributes.expected_execution_result, expected);
     }
 }
