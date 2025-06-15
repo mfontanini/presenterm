@@ -135,6 +135,10 @@ struct Cli {
     /// Whether to listen for speaker notes.
     #[clap(short, long, group = "speaker-notes")]
     listen_speaker_notes: bool,
+
+    /// Whether to validate snippets.
+    #[clap(long)]
+    validate_snippets: bool,
 }
 
 fn create_splash() -> String {
@@ -290,6 +294,7 @@ impl CoreComponents {
             pause_after_incremental_lists: config.defaults.incremental_lists.pause_after.unwrap_or(true),
             pause_create_new_slide: false,
             list_item_newlines: config.options.list_item_newlines.map(Into::into).unwrap_or(1),
+            validate_snippets: config.snippet.validate,
         }
     }
 
@@ -406,6 +411,9 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     let parser = MarkdownParser::new(&arena);
     let validate_overflows =
         overflow_validation_enabled(&present_mode, &config.defaults.validate_overflows) || cli.validate_overflows;
+    if cli.validate_snippets {
+        builder_options.validate_snippets = cli.validate_snippets;
+    }
     if cli.export_pdf || cli.export_html {
         let dimensions = match config.export.dimensions {
             Some(dimensions) => WindowSize {
