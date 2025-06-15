@@ -15,7 +15,7 @@ use crate::{
         },
         properties::WindowSize,
     },
-    terminal::ansi::AnsiSplitter,
+    terminal::ansi::AnsiParser,
     theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle, PaddingRect},
     ui::separator::{RenderSeparator, SeparatorWidth},
 };
@@ -232,7 +232,7 @@ impl Pollable for OperationPollable {
         drop(state);
 
         let mut max_line_length = 0;
-        let (lines, _) = AnsiSplitter::new(self.style).split_lines(&lines);
+        let (lines, _) = AnsiParser::new(self.style).parse_lines(&lines);
         for line in &lines {
             let width = u16::try_from(line.width()).unwrap_or(u16::MAX);
             max_line_length = max_line_length.max(width);

@@ -6,16 +6,16 @@ use crate::markdown::{
 use std::mem;
 use vte::{ParamsIter, Parser, Perform};
 
-pub(crate) struct AnsiSplitter {
+pub(crate) struct AnsiParser {
     starting_style: TextStyle,
 }
 
-impl AnsiSplitter {
+impl AnsiParser {
     pub(crate) fn new(current_style: TextStyle) -> Self {
         Self { starting_style: current_style }
     }
 
-    pub(crate) fn split_lines<I, S>(self, lines: I) -> (Vec<WeightedLine>, TextStyle)
+    pub(crate) fn parse_lines<I, S>(self, lines: I) -> (Vec<WeightedLine>, TextStyle)
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
@@ -224,8 +224,8 @@ mod tests {
         Line::from(Text::new("hi", TextStyle::default().bold()))
     )]
     fn parse_single(#[case] input: &str, #[case] expected: Line) {
-        let splitter = AnsiSplitter::new(Default::default());
-        let (lines, _) = splitter.split_lines([input]);
+        let splitter = AnsiParser::new(Default::default());
+        let (lines, _) = splitter.parse_lines([input]);
         assert_eq!(lines, vec![expected.into()]);
     }
 
@@ -267,8 +267,8 @@ mod tests {
             .strikethrough()
             .fg_color(Color::Red)
             .bg_color(Color::Black);
-        let splitter = AnsiSplitter::new(style);
-        let (lines, _) = splitter.split_lines([input]);
+        let splitter = AnsiParser::new(style);
+        let (lines, _) = splitter.parse_lines([input]);
         assert_eq!(lines, vec![expected.into()]);
     }
 }
