@@ -2,7 +2,7 @@ use super::{
     elements::{Line, Text},
     text_style::TextStyle,
 };
-use std::mem;
+use std::{fmt, mem};
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 /// A weighted line of text.
@@ -90,7 +90,7 @@ struct CharAccumulator {
 }
 
 /// A piece of weighted text.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct WeightedText {
     text: Text,
     accumulators: Vec<CharAccumulator>,
@@ -128,6 +128,12 @@ impl From<Text> for WeightedText {
         }
         accumulators.push(CharAccumulator { width, bytes });
         Self { text, accumulators }
+    }
+}
+
+impl fmt::Debug for WeightedText {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WeightedText").field("text", &self.text).finish()
     }
 }
 

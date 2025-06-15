@@ -15,13 +15,14 @@ use crate::{
     render::{operation::RenderOperation, properties::WindowSize},
     terminal::{
         Terminal,
+        ansi::AnsiParser,
         image::printer::{ImagePrinter, PrintImageError},
         printer::TerminalError,
     },
-    theme::{Alignment, Margin},
+    theme::Margin,
 };
 use engine::{MaxSize, RenderEngine, RenderEngineOptions};
-use operation::AsRenderOperations;
+use operation::{AsRenderOperations, MarginProperties};
 use std::{
     io::{self, Stdout},
     iter,
@@ -66,7 +67,8 @@ impl TerminalDrawer {
     }
 
     pub(crate) fn render_error(&mut self, message: &str, source: &ErrorSource) -> RenderResult {
-        let operation = RenderErrorOperation { message: message.into(), source: source.clone() };
+        let (lines, _) = AnsiParser::new(Default::default()).parse_lines(message.lines());
+        let operation = RenderErrorOperation { lines, source: source.clone() };
         let operation = RenderOperation::RenderDynamic(Rc::new(operation));
         let dimensions = WindowSize::current(self.options.font_size_fallback)?;
         let engine = self.create_engine(dimensions);
@@ -123,7 +125,7 @@ pub(crate) enum ErrorSource {
 
 #[derive(Debug)]
 struct RenderErrorOperation {
-    message: String,
+    lines: Vec<WeightedLine>,
     source: ErrorSource,
 }
 
@@ -135,25 +137,32 @@ impl AsRenderOperations for RenderErrorOperation {
                 format!("Error in slide {slide}")
             }
         };
-        let heading = vec![Text::new(heading_text, TextStyle::default().bold()), Text::from(": ")];
-        let total_lines = self.message.lines().count();
+        let heading = vec![Text::new(heading_text, TextStyle::default().bold().fg_color(Color::Red)), Text::from(": ")];
+        let content_width: u16 =
+            self.lines.iter().map(|l| l.width()).max().unwrap_or_default().try_into().unwrap_or(u16::MAX);
+        let minimum_margin = (dimensions.columns as f32 * 0.1) as u16;
+        let margin = dimensions.columns.saturating_sub(content_width).max(minimum_margin) / 2;
+
+        let total_lines = self.lines.len();
         let starting_row = (dimensions.rows / 2).saturating_sub(total_lines as u16 / 2 + 3);
-        let alignment = Alignment::Left { margin: Margin::Percent(25) };
 
         let mut operations = vec![
             RenderOperation::SetColors(Colors {
-                foreground: Some(Color::new(255, 0, 0)),
-                background: Some(Color::new(0, 0, 0)),
+                background: Some(Color::Rgb { r: 0, g: 0, b: 0 }),
+                foreground: Some(Color::White),
             }),
             RenderOperation::ClearScreen,
-            RenderOperation::JumpToRow { index: starting_row },
-            RenderOperation::RenderText { line: WeightedLine::from(heading), alignment },
+            RenderOperation::ApplyMargin(MarginProperties {
+                horizontal: Margin::Fixed(margin),
+                top: starting_row,
+                bottom: 0,
+            }),
+            RenderOperation::RenderText { line: WeightedLine::from(heading), alignment: Default::default() },
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderLineBreak,
         ];
-        for line in self.message.lines() {
-            let error = vec![Text::from(line)];
-            let op = RenderOperation::RenderText { line: WeightedLine::from(error), alignment };
+        for line in self.lines.iter().cloned() {
+            let op = RenderOperation::RenderText { line, alignment: Default::default() };
             operations.extend([op, RenderOperation::RenderLineBreak]);
         }
         operations
