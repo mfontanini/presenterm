@@ -103,6 +103,12 @@ rust:
       filename: snippet.rs
       commands:
         - ["rust-script", "--debug", "$pwd/snippet.rs"]
+    rust-script-pedantic:
+      filename: snippet.rs
+      environment:
+        RUSTFLAGS: "--deny warnings"
+      commands:
+        - ["rust-script", "--debug", "$pwd/snippet.rs"]
 sh:
   filename: script.sh
   commands:
