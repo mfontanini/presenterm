@@ -89,6 +89,8 @@ ruby:
     - ["ruby", "$pwd/snippet.rb"]
 rust-script:
   filename: snippet.rs
+  environment:
+    CARGO_TERM_COLOR: "always"
   commands:
     - ["rust-script", "--debug", "$pwd/snippet.rs"]
   hidden_line_prefix: "# "
@@ -101,12 +103,15 @@ rust:
   alternative:
     rust-script:
       filename: snippet.rs
+      environment:
+        CARGO_TERM_COLOR: "always"
       commands:
         - ["rust-script", "--debug", "$pwd/snippet.rs"]
     rust-script-pedantic:
       filename: snippet.rs
       environment:
         RUSTFLAGS: "--deny warnings"
+        CARGO_TERM_COLOR: "always"
       commands:
         - ["rust-script", "--debug", "$pwd/snippet.rs"]
 sh:
