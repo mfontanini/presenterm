@@ -138,6 +138,11 @@ impl<'a> SnippetProcessor<'a> {
                 self.push_code_execution(snippet, block_length, ExecutionMode::AlongSnippet, &spec)
             }
             SnippetExec::AcquireTerminal(spec) => self.push_acquire_terminal_execution(snippet, block_length, &spec),
+            SnippetExec::Validate(spec) => {
+                let executor = self.snippet_executor.language_executor(&snippet.language, &spec)?;
+                self.push_validator(&snippet, &executor);
+                Ok(())
+            }
         }
     }
 
