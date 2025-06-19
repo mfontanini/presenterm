@@ -414,7 +414,6 @@ impl<'a> Presenter<'a> {
 
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
         let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
-        let elements = self.parser.parse(&content)?;
         let presentation = PresentationBuilder::new(
             self.default_theme,
             self.resources.clone(),
@@ -423,9 +422,10 @@ impl<'a> Presenter<'a> {
             &self.themes,
             ImageRegistry::new(self.image_printer.clone()),
             self.options.bindings.clone(),
+            &self.parser,
             self.options.builder_options.clone(),
         )?
-        .build(elements)?;
+        .build(&content)?;
         Ok(presentation)
     }
 
