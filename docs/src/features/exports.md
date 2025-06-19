@@ -26,6 +26,12 @@ want the output file to be written to.
 > If you're using a separate virtual env to install _weasyprint_ just make sure you activate it before running 
 > _presenterm_ with the `--export-pdf` parameter.
 
+> [!note]
+> If you have [uv](https://github.com/astral-sh/uv) installed you can simply run: 
+> ```bash
+> uv run --with weasyprint presenterm --export-pdf examples/demo.md
+> ```
+
 ## HTML
 
 Similarly, using the `--export-html` parameter allows generating a single self contained HTML file that contains all 
