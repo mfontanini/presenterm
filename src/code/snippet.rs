@@ -246,6 +246,11 @@ impl SnippetParser {
                     attributes.representation = SnippetRepr::ExecReplace;
                     attributes.execution = SnippetExec::Exec(spec);
                 }
+                Validate(spec) => {
+                    if matches!(attributes.execution, SnippetExec::None) {
+                        attributes.execution = SnippetExec::Validate(spec);
+                    }
+                }
                 Image => {
                     attributes.representation = SnippetRepr::Image;
                     attributes.execution = SnippetExec::Exec(Default::default());
@@ -275,6 +280,7 @@ impl SnippetParser {
                     "line_numbers" => SnippetAttribute::LineNumbers,
                     "exec" => SnippetAttribute::Exec(SnippetExecutorSpec::default()),
                     "exec_replace" => SnippetAttribute::ExecReplace(SnippetExecutorSpec::default()),
+                    "validate" => SnippetAttribute::Validate(SnippetExecutorSpec::default()),
                     "image" => SnippetAttribute::Image,
                     "render" => SnippetAttribute::Render,
                     "no_background" => SnippetAttribute::NoBackground,
@@ -288,6 +294,9 @@ impl SnippetParser {
                             "exec_replace" => {
                                 SnippetAttribute::ExecReplace(SnippetExecutorSpec::Alternative(parameter.to_string()))
                             }
+                            "validate" => {
+                                SnippetAttribute::Validate(SnippetExecutorSpec::Alternative(parameter.to_string()))
+                            }
                             "acquire_terminal" => SnippetAttribute::AcquireTerminal(SnippetExecutorSpec::Alternative(
                                 parameter.to_string(),
                             )),
@@ -295,7 +304,7 @@ impl SnippetParser {
                                 let width = parameter.parse().map_err(SnippetBlockParseError::InvalidWidth)?;
                                 SnippetAttribute::Width(width)
                             }
-                            "validate" => match parameter {
+                            "expect" => match parameter {
                                 "success" => {
                                     SnippetAttribute::ExpectedExecutionResult(ExpectedSnippetExecutionResult::Success)
                                 }
@@ -413,6 +422,7 @@ enum SnippetAttribute {
     LineNumbers,
     Exec(SnippetExecutorSpec),
     ExecReplace(SnippetExecutorSpec),
+    Validate(SnippetExecutorSpec),
     Image,
     Render,
     HighlightedLines(Vec<HighlightGroup>),
@@ -665,6 +675,7 @@ pub(crate) enum SnippetExec {
     None,
     Exec(SnippetExecutorSpec),
     AcquireTerminal(SnippetExecutorSpec),
+    Validate(SnippetExecutorSpec),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -912,10 +923,10 @@ println!("Hello world");
     }
 
     #[rstest]
-    #[case::success("validate:success", ExpectedSnippetExecutionResult::Success)]
-    #[case::failure("validate:failure", ExpectedSnippetExecutionResult::Failure)]
-    #[case::fail("validate:fail", ExpectedSnippetExecutionResult::Failure)]
-    fn validate_success(#[case] input: &str, #[case] expected: ExpectedSnippetExecutionResult) {
+    #[case::success("expect:success", ExpectedSnippetExecutionResult::Success)]
+    #[case::failure("expect:failure", ExpectedSnippetExecutionResult::Failure)]
+    #[case::fail("expect:fail", ExpectedSnippetExecutionResult::Failure)]
+    fn parse_expect(#[case] input: &str, #[case] expected: ExpectedSnippetExecutionResult) {
         let attributes = parse_attributes(&format!("bash +{input}"));
         assert_eq!(attributes.expected_execution_result, expected);
     }
