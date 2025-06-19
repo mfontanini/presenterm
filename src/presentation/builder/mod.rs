@@ -10,7 +10,7 @@ use crate::{
             Line, ListItem, ListItemType, MarkdownElement, Percent, PercentParseError, SourcePosition, Table, TableRow,
             Text,
         },
-        parse::MarkdownParser,
+        parse::{MarkdownParser, ParseError},
         text::WeightedLine,
         text_style::{Color, Colors, TextStyle, UndefinedPaletteColorError},
     },
@@ -130,7 +130,7 @@ impl Default for PresentationBuilderOptions {
 ///
 /// This type transforms [MarkdownElement]s and turns them into a presentation, which is made up of
 /// render operations.
-pub(crate) struct PresentationBuilder<'a> {
+pub(crate) struct PresentationBuilder<'a, 'b> {
     slide_chunks: Vec<SlideChunk>,
     chunk_operations: Vec<RenderOperation>,
     chunk_mutators: Vec<Box<dyn ChunkMutator>>,
@@ -149,10 +149,11 @@ pub(crate) struct PresentationBuilder<'a> {
     image_registry: ImageRegistry,
     bindings_config: KeyBindingsConfig,
     slides_without_footer: HashSet<usize>,
+    markdown_parser: &'a MarkdownParser<'b>,
     options: PresentationBuilderOptions,
 }
 
-impl<'a> PresentationBuilder<'a> {
+impl<'a, 'b> PresentationBuilder<'a, 'b> {
     /// Construct a new builder.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
@@ -163,6 +164,7 @@ impl<'a> PresentationBuilder<'a> {
         themes: &'a Themes,
         image_registry: ImageRegistry,
         bindings_config: KeyBindingsConfig,
+        markdown_parser: &'a MarkdownParser<'b>,
         options: PresentationBuilderOptions,
     ) -> Result<Self, ProcessingThemeError> {
         let theme = PresentationTheme::new(default_raw_theme, &resources, &options.theme_options)?;
@@ -185,12 +187,19 @@ impl<'a> PresentationBuilder<'a> {
             image_registry,
             bindings_config,
             slides_without_footer: HashSet::new(),
+            markdown_parser,
             options,
         })
     }
 
-    /// Build a presentation.
-    pub(crate) fn build(mut self, elements: Vec<MarkdownElement>) -> Result<Presentation, BuildError> {
+    /// Build a presentation from a markdown input.
+    pub(crate) fn build(self, input: &str) -> Result<Presentation, BuildError> {
+        let elements = self.markdown_parser.parse(input)?;
+        self.build_from_parsed(elements)
+    }
+
+    /// Build a presentation from already parsed elements.
+    pub(crate) fn build_from_parsed(mut self, elements: Vec<MarkdownElement>) -> Result<Presentation, BuildError> {
         let mut skip_first = false;
         if let Some(MarkdownElement::FrontMatter(contents)) = elements.first() {
             self.process_front_matter(contents)?;
@@ -1215,6 +1224,9 @@ pub enum BuildError {
 
     #[error("invalid footer: {0}")]
     InvalidFooter(#[from] InvalidFooterTemplateError),
+
+    #[error("invalid markdown: {0}")]
+    Parse(#[from] ParseError),
 }
 
 #[derive(Debug)]
@@ -1388,64 +1400,82 @@ struct ImageAttributes {
 
 #[cfg(test)]
 mod test {
-    use crate::presentation::Slide;
-
     use super::*;
+    use crate::presentation::Slide;
     use rstest::rstest;
 
-    fn build_presentation(elements: Vec<MarkdownElement>) -> Presentation {
-        try_build_presentation(elements).expect("build failed")
+    enum Input {
+        Markdown(String),
+        Parsed(Vec<MarkdownElement>),
     }
 
-    fn build_presentation_with_options(
-        elements: Vec<MarkdownElement>,
+    impl From<&'_ str> for Input {
+        fn from(value: &'_ str) -> Self {
+            Self::Markdown(value.to_string())
+        }
+    }
+
+    impl From<String> for Input {
+        fn from(value: String) -> Self {
+            Self::Markdown(value)
+        }
+    }
+
+    impl From<Vec<MarkdownElement>> for Input {
+        fn from(value: Vec<MarkdownElement>) -> Self {
+            Self::Parsed(value)
+        }
+    }
+
+    struct Test {
+        input: Input,
         options: PresentationBuilderOptions,
-    ) -> Presentation {
-        try_build_presentation_with_options(elements, options).expect("build failed")
     }
 
-    fn try_build_presentation(elements: Vec<MarkdownElement>) -> Result<Presentation, BuildError> {
-        try_build_presentation_with_options(elements, Default::default())
-    }
+    impl Test {
+        fn new<T: Into<Input>>(input: T) -> Self {
+            Self { input: input.into(), options: Default::default() }
+        }
 
-    fn try_build_presentation_with_options(
-        elements: Vec<MarkdownElement>,
-        options: PresentationBuilderOptions,
-    ) -> Result<Presentation, BuildError> {
-        let theme = raw::PresentationTheme::default();
-        let tmp_dir = std::env::temp_dir();
-        let resources = Resources::new(&tmp_dir, &tmp_dir, Default::default());
-        let mut third_party = ThirdPartyRender::default();
-        let code_executor = Arc::new(SnippetExecutor::default());
-        let themes = Themes::default();
-        let bindings = KeyBindingsConfig::default();
-        let builder = PresentationBuilder::new(
-            &theme,
-            resources,
-            &mut third_party,
-            code_executor,
-            &themes,
-            Default::default(),
-            bindings,
-            options,
-        )?;
-        builder.build(elements)
-    }
+        fn options(mut self, options: PresentationBuilderOptions) -> Self {
+            self.options = options;
+            self
+        }
 
-    fn build_pause() -> MarkdownElement {
-        MarkdownElement::Comment { comment: "pause".into(), source_position: Default::default() }
-    }
+        fn build(self) -> Presentation {
+            self.try_build().expect("build failed")
+        }
 
-    fn build_end_slide() -> MarkdownElement {
-        MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() }
-    }
+        fn expect_invalid(self) -> BuildError {
+            self.try_build().expect_err("build succeeded")
+        }
 
-    fn build_column_layout(width: u8) -> MarkdownElement {
-        MarkdownElement::Comment { comment: format!("column_layout: [{width}]"), source_position: Default::default() }
-    }
-
-    fn build_column(column: u8) -> MarkdownElement {
-        MarkdownElement::Comment { comment: format!("column: {column}"), source_position: Default::default() }
+        fn try_build(self) -> Result<Presentation, BuildError> {
+            let theme = raw::PresentationTheme::default();
+            let tmp_dir = std::env::temp_dir();
+            let resources = Resources::new(&tmp_dir, &tmp_dir, Default::default());
+            let mut third_party = ThirdPartyRender::default();
+            let code_executor = Arc::new(SnippetExecutor::default());
+            let themes = Themes::default();
+            let bindings = KeyBindingsConfig::default();
+            let arena = Default::default();
+            let parser = MarkdownParser::new(&arena);
+            let builder = PresentationBuilder::new(
+                &theme,
+                resources,
+                &mut third_party,
+                code_executor,
+                &themes,
+                Default::default(),
+                bindings,
+                &parser,
+                self.options,
+            )?;
+            match self.input {
+                Input::Markdown(input) => builder.build(&input),
+                Input::Parsed(elements) => builder.build_from_parsed(elements),
+            }
+        }
     }
 
     fn is_visible(operation: &RenderOperation) -> bool {
@@ -1504,18 +1534,17 @@ mod test {
 
     #[test]
     fn empty_heading_prefix() {
-        let frontmatter = r#"
+        let input = r#"---
 theme:
   override:
     headings:
       h1:
         prefix: ""
+---
+
+# hi
 "#;
-        let elements = vec![
-            MarkdownElement::FrontMatter(frontmatter.into()),
-            MarkdownElement::Heading { text: "hi".into(), level: 1 },
-        ];
-        let mut slides = build_presentation(elements).into_slides();
+        let mut slides = Test::new(input).build().into_slides();
         let lines = extract_slide_text_lines(slides.remove(0));
         let expected_lines = &["hi"];
         assert_eq!(lines, expected_lines);
@@ -1523,13 +1552,17 @@ theme:
 
     #[test]
     fn prelude_appears_once() {
-        let elements = vec![
-            MarkdownElement::FrontMatter("author: bob".to_string()),
-            MarkdownElement::Heading { text: Line::from("hello"), level: 1 },
-            build_end_slide(),
-            MarkdownElement::Heading { text: Line::from("bye"), level: 1 },
-        ];
-        let presentation = build_presentation(elements);
+        let input = r#"---
+author: bob
+---
+
+# hello
+
+<!-- end_slide -->
+
+# bye
+"#;
+        let presentation = Test::new(input).build();
         for (index, slide) in presentation.iter_slides().enumerate() {
             let clear_screen_count =
                 slide.iter_visible_operations().filter(|op| matches!(op, RenderOperation::ClearScreen)).count();
@@ -1542,13 +1575,18 @@ theme:
 
     #[test]
     fn slides_start_with_one_newline() {
-        let elements = vec![
-            MarkdownElement::FrontMatter("author: bob".to_string()),
-            MarkdownElement::Heading { text: Line::from("hello"), level: 1 },
-            build_end_slide(),
-            MarkdownElement::Heading { text: Line::from("bye"), level: 1 },
-        ];
-        let presentation = build_presentation(elements);
+        let input = r#"---
+author: bob
+---
+
+# hello
+
+<!-- end_slide -->
+
+# bye
+"#;
+        let presentation = Test::new(input).build();
+
         assert_eq!(presentation.iter_slides().count(), 3);
 
         // Don't process the intro slide as it's special
@@ -1568,7 +1606,7 @@ theme:
             header: TableRow(vec![Line::from("key"), Line::from("value"), Line::from("other")]),
             rows: vec![TableRow(vec![Line::from("potato"), Line::from("bar"), Line::from("yes")])],
         })];
-        let mut slides = build_presentation(elements).into_slides();
+        let mut slides = Test::new(elements).build().into_slides();
         let lines = extract_slide_text_lines(slides.remove(0));
         let expected_lines = &["key    │ value │ other", "───────┼───────┼──────", "potato │ bar   │ yes  "];
         assert_eq!(lines, expected_lines);
@@ -1576,30 +1614,27 @@ theme:
 
     #[test]
     fn layout_without_init() {
-        let elements = vec![build_column(0)];
-        let result = try_build_presentation(elements);
-        assert!(result.is_err());
+        let input = "<!-- column: 0 -->";
+        Test::new(input).expect_invalid();
     }
 
     #[test]
     fn already_in_column() {
-        let elements = vec![
-            MarkdownElement::Comment { comment: "column_layout: [1]".into(), source_position: Default::default() },
-            MarkdownElement::Comment { comment: "column: 0".into(), source_position: Default::default() },
-            MarkdownElement::Comment { comment: "column: 0".into(), source_position: Default::default() },
-        ];
-        let result = try_build_presentation(elements);
-        assert!(result.is_err());
+        let input = r"
+<!-- column_layout: [1] -->
+<!-- column: 0 -->
+<!-- column: 0 -->
+";
+        Test::new(input).expect_invalid();
     }
 
     #[test]
     fn column_index_overflow() {
-        let elements = vec![
-            MarkdownElement::Comment { comment: "column_layout: [1]".into(), source_position: Default::default() },
-            MarkdownElement::Comment { comment: "column: 1".into(), source_position: Default::default() },
-        ];
-        let result = try_build_presentation(elements);
-        assert!(result.is_err());
+        let input = r"
+<!-- column_layout: [1] -->
+<!-- column: 1 -->
+";
+        Test::new(input).expect_invalid();
     }
 
     #[rstest]
@@ -1607,20 +1642,18 @@ theme:
     #[case::zero("column_layout: [0]")]
     #[case::one_is_zero("column_layout: [1, 0]")]
     fn invalid_layouts(#[case] definition: &str) {
-        let elements =
-            vec![MarkdownElement::Comment { comment: definition.into(), source_position: Default::default() }];
-        let result = try_build_presentation(elements);
-        assert!(result.is_err());
+        let input = format!("<!-- {definition} -->");
+        Test::new(input).expect_invalid();
     }
 
     #[test]
     fn operation_without_enter_column() {
-        let elements = vec![
-            MarkdownElement::Comment { comment: "column_layout: [1]".into(), source_position: Default::default() },
-            MarkdownElement::ThematicBreak,
-        ];
-        let result = try_build_presentation(elements);
-        assert!(result.is_err());
+        let input = r"
+<!-- column_layout: [1] -->
+
+# hi
+";
+        Test::new(input).expect_invalid();
     }
 
     #[rstest]
@@ -1642,22 +1675,33 @@ theme:
 
     #[test]
     fn end_slide_inside_layout() {
-        let elements = vec![build_column_layout(1), build_end_slide()];
-        let presentation = build_presentation(elements);
+        let input = r"
+<!-- column_layout: [1] -->
+<!-- end_slide -->
+";
+        let presentation = Test::new(input).build();
         assert_eq!(presentation.iter_slides().count(), 2);
     }
 
     #[test]
     fn end_slide_inside_column() {
-        let elements = vec![build_column_layout(1), build_column(0), build_end_slide()];
-        let presentation = build_presentation(elements);
+        let input = r"
+<!-- column_layout: [1] -->
+<!-- column: 0 -->
+<!-- end_slide -->
+";
+        let presentation = Test::new(input).build();
         assert_eq!(presentation.iter_slides().count(), 2);
     }
 
     #[test]
     fn pause_inside_layout() {
-        let elements = vec![build_column_layout(1), build_pause(), build_column(0)];
-        let presentation = build_presentation(elements);
+        let input = r"
+<!-- column_layout: [1] -->
+<!-- pause -->
+<!-- column: 0 -->
+";
+        let presentation = Test::new(input).build();
         assert_eq!(presentation.iter_slides().count(), 1);
     }
 
@@ -1696,20 +1740,16 @@ theme:
 
     #[test]
     fn ordered_list_with_pauses() {
-        let elements = vec![
-            MarkdownElement::List(vec![
-                ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::OrderedPeriod(1) },
-                ListItem { depth: 1, contents: "one_one".into(), item_type: ListItemType::OrderedPeriod(1) },
-                ListItem { depth: 1, contents: "one_two".into(), item_type: ListItemType::OrderedPeriod(2) },
-            ]),
-            build_pause(),
-            MarkdownElement::List(vec![ListItem {
-                depth: 0,
-                contents: "two".into(),
-                item_type: ListItemType::OrderedPeriod(2),
-            }]),
-        ];
-        let mut slides = build_presentation(elements).into_slides();
+        let input = r"
+1. one
+    1. one_one
+    2. one_two
+
+<!-- pause -->
+
+2. two
+";
+        let mut slides = Test::new(input).build().into_slides();
         let lines = extract_slide_text_lines(slides.remove(0));
         let expected_lines = &["   1. one", "      1. one_one", "      2. one_two", "   2. two"];
         assert_eq!(lines, expected_lines);
@@ -1720,21 +1760,19 @@ theme:
     #[case::three(3, &[" •  0", "    ◦  00"])]
     #[case::four(4, &[" •  0", "    ◦  00"])]
     fn list_font_size(#[case] font_size: u8, #[case] expected: &[&str]) {
-        let elements = vec![
-            MarkdownElement::Comment {
-                comment: format!("font_size: {font_size}"),
-                source_position: Default::default(),
-            },
-            MarkdownElement::List(vec![
-                ListItem { depth: 0, contents: "0".into(), item_type: ListItemType::Unordered },
-                ListItem { depth: 1, contents: "00".into(), item_type: ListItemType::Unordered },
-            ]),
-        ];
+        let input = format!(
+            r"
+<!-- font_size: {font_size} -->
+
+* 0
+    * 00
+"
+        );
         let options = PresentationBuilderOptions {
             theme_options: ThemeOptions { font_size_supported: true },
             ..Default::default()
         };
-        let mut slides = build_presentation_with_options(elements, options).into_slides();
+        let mut slides = Test::new(input).options(options).build().into_slides();
         let lines = extract_slide_text_lines(slides.remove(0));
         assert_eq!(lines, expected);
     }
@@ -1752,47 +1790,42 @@ theme:
         3
     )]
     fn automatic_pauses(#[case] options: PresentationBuilderOptions, #[case] expected_chunks: usize) {
-        let elements = vec![
-            MarkdownElement::Comment { comment: "incremental_lists: true".into(), source_position: Default::default() },
-            MarkdownElement::List(vec![
-                ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::Unordered },
-                ListItem { depth: 1, contents: "two".into(), item_type: ListItemType::Unordered },
-                ListItem { depth: 0, contents: "three".into(), item_type: ListItemType::Unordered },
-            ]),
-            MarkdownElement::Paragraph(vec!["hi".into()]),
-        ];
-        let slides = build_presentation_with_options(elements, options).into_slides();
+        let input = r"
+<!-- incremental_lists: true -->
+
+* one
+    * two
+* three
+
+hi
+";
+        let slides = Test::new(input).options(options).build().into_slides();
         assert_eq!(slides[0].iter_chunks().count(), expected_chunks);
     }
 
     #[test]
     fn automatic_pauses_no_incremental_lists() {
-        let elements = vec![
-            MarkdownElement::Comment {
-                comment: "incremental_lists: false".into(),
-                source_position: Default::default(),
-            },
-            MarkdownElement::List(vec![
-                ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::Unordered },
-                ListItem { depth: 1, contents: "two".into(), item_type: ListItemType::Unordered },
-                ListItem { depth: 0, contents: "three".into(), item_type: ListItemType::Unordered },
-            ]),
-        ];
+        let input = "
+<!-- incremental_lists: false -->
+
+* one
+    * two
+* three
+        ";
         let options = PresentationBuilderOptions { pause_after_incremental_lists: false, ..Default::default() };
-        let slides = build_presentation_with_options(elements, options).into_slides();
+        let slides = Test::new(input).options(options).build().into_slides();
         assert_eq!(slides[0].iter_chunks().count(), 1);
     }
 
     #[test]
     fn list_item_newlines() {
-        let elements = vec![
-            MarkdownElement::Comment { comment: "list_item_newlines: 3".into(), source_position: Default::default() },
-            MarkdownElement::List(vec![
-                ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::Unordered },
-                ListItem { depth: 1, contents: "two".into(), item_type: ListItemType::Unordered },
-            ]),
-        ];
-        let mut slides = build_presentation(elements).into_slides();
+        let input = "
+<!-- list_item_newlines: 3 -->
+
+* one
+    * two
+";
+        let mut slides = Test::new(input).build().into_slides();
         let slide = slides.remove(0);
         let mut ops =
             slide.into_operations().into_iter().skip_while(|op| !matches!(op, RenderOperation::RenderBlockLine { .. }));
@@ -1804,39 +1837,42 @@ theme:
 
     #[test]
     fn pause_new_slide() {
-        let elements = vec![
-            MarkdownElement::Paragraph(vec![Line::from("hi")]),
-            MarkdownElement::Comment { comment: "pause".into(), source_position: Default::default() },
-            MarkdownElement::Paragraph(vec![Line::from("bye")]),
-        ];
+        let input = "
+hi
+
+<!-- pause -->
+
+bye
+";
         let options = PresentationBuilderOptions { pause_create_new_slide: true, ..Default::default() };
-        let slides = build_presentation_with_options(elements, options).into_slides();
+        let slides = Test::new(input).options(options).build().into_slides();
         assert_eq!(slides.len(), 2);
     }
 
     #[test]
     fn incremental_lists_end_of_slide() {
-        let elements = vec![
-            MarkdownElement::Comment { comment: "incremental_lists: true".into(), source_position: Default::default() },
-            MarkdownElement::List(vec![
-                ListItem { depth: 0, contents: "one".into(), item_type: ListItemType::Unordered },
-                ListItem { depth: 1, contents: "two".into(), item_type: ListItemType::Unordered },
-            ]),
-        ];
-        let slides = build_presentation(elements).into_slides();
+        let input = "
+<!-- incremental_lists: true -->
+
+* one
+    * two
+";
+        let slides = Test::new(input).build().into_slides();
         // There shouldn't be an extra one at the end
         assert_eq!(slides[0].iter_chunks().count(), 3);
     }
 
     #[test]
     fn skip_slide() {
-        let elements = vec![
-            MarkdownElement::Paragraph(vec![Line::from("hi")]),
-            MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
-            MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
-            MarkdownElement::Paragraph(vec![Line::from("bye")]),
-        ];
-        let mut slides = build_presentation(elements).into_slides();
+        let input = "
+hi
+
+<!-- skip_slide -->
+<!-- end_slide -->
+
+bye
+";
+        let mut slides = Test::new(input).build().into_slides();
         assert_eq!(slides.len(), 1);
 
         let lines = extract_slide_text_lines(slides.remove(0));
@@ -1845,11 +1881,12 @@ theme:
 
     #[test]
     fn skip_all_slides() {
-        let elements = vec![
-            MarkdownElement::Paragraph(vec![Line::from("hi")]),
-            MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
-        ];
-        let mut slides = build_presentation(elements).into_slides();
+        let input = "
+hi
+
+<!-- skip_slide -->
+";
+        let mut slides = Test::new(input).build().into_slides();
         assert_eq!(slides.len(), 1);
 
         // We should still have one slide but it should be empty
@@ -1859,14 +1896,16 @@ theme:
 
     #[test]
     fn skip_slide_pauses() {
-        let elements = vec![
-            MarkdownElement::Paragraph(vec![Line::from("hi")]),
-            MarkdownElement::Comment { comment: "pause".into(), source_position: Default::default() },
-            MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
-            MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
-            MarkdownElement::Paragraph(vec![Line::from("bye")]),
-        ];
-        let mut slides = build_presentation(elements).into_slides();
+        let input = "
+hi
+
+<!-- pause -->
+<!-- skip_slide -->
+<!-- end_slide -->
+
+bye
+";
+        let mut slides = Test::new(input).build().into_slides();
         assert_eq!(slides.len(), 1);
 
         let lines = extract_slide_text_lines(slides.remove(0));
@@ -1875,35 +1914,31 @@ theme:
 
     #[test]
     fn skip_slide_speaker_note() {
-        let elements = vec![
-            MarkdownElement::Paragraph(vec![Line::from("hi")]),
-            MarkdownElement::Comment { comment: "skip_slide".into(), source_position: Default::default() },
-            MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
-            MarkdownElement::Comment { comment: "speaker_note: bye".into(), source_position: Default::default() },
-        ];
+        let input = "
+hi
+
+<!-- skip_slide -->
+<!-- end_slide -->
+<!-- speaker_note: bye -->
+";
         let options = PresentationBuilderOptions { render_speaker_notes_only: true, ..Default::default() };
-        let mut slides = build_presentation_with_options(elements, options).into_slides();
+        let mut slides = Test::new(input).options(options).build().into_slides();
         assert_eq!(slides.len(), 1);
         assert_eq!(extract_slide_text_lines(slides.remove(0)), &["bye"]);
     }
 
     #[test]
     fn pause_after_list() {
-        let elements = vec![
-            MarkdownElement::List(vec![ListItem {
-                depth: 0,
-                contents: "one".into(),
-                item_type: ListItemType::OrderedPeriod(1),
-            }]),
-            build_pause(),
-            MarkdownElement::Heading { level: 1, text: "hi".into() },
-            MarkdownElement::List(vec![ListItem {
-                depth: 0,
-                contents: "two".into(),
-                item_type: ListItemType::OrderedPeriod(2),
-            }]),
-        ];
-        let slides = build_presentation(elements).into_slides();
+        let input = "
+1. one
+
+<!-- pause -->
+
+# hi
+
+2. two
+";
+        let slides = Test::new(input).build().into_slides();
         let first_chunk = &slides[0];
         let operations = first_chunk.iter_visible_operations().collect::<Vec<_>>();
         // This is pretty easy to break, refactor soon
@@ -1913,15 +1948,19 @@ theme:
 
     #[test]
     fn alignment() {
-        let elements = vec![
-            MarkdownElement::Paragraph(vec!["hi".into()]),
-            MarkdownElement::Comment { comment: "alignment: center".into(), source_position: Default::default() },
-            MarkdownElement::Paragraph(vec!["hello".into()]),
-            MarkdownElement::Comment { comment: "alignment: right".into(), source_position: Default::default() },
-            MarkdownElement::Paragraph(vec!["hola".into()]),
-        ];
+        let input = "
+hi
 
-        let mut slides = build_presentation(elements).into_slides();
+<!-- alignment: center -->
+
+hello            
+
+<!-- alignment: right -->
+
+hola
+";
+
+        let mut slides = Test::new(input).build().into_slides();
         let operations = slides.remove(0).into_operations();
         let alignments: Vec<_> = operations
             .into_iter()
@@ -1942,30 +1981,37 @@ theme:
 
     #[test]
     fn implicit_slide_ends() {
-        let elements = vec![
-            // first slide
-            MarkdownElement::SetexHeading { text: "hi".into() },
-            // second
-            MarkdownElement::SetexHeading { text: "hi".into() },
-            MarkdownElement::Heading { level: 1, text: "hi".into() },
-            // explicitly ends
-            MarkdownElement::Comment { comment: "end_slide".into(), source_position: Default::default() },
-            // third starts
-            MarkdownElement::SetexHeading { text: "hi".into() },
-        ];
+        let input = "
+hi
+---
+
+hi
+---
+
+# hi
+
+<!-- end_slide -->
+
+hi
+---
+";
         let options = PresentationBuilderOptions { implicit_slide_ends: true, ..Default::default() };
-        let slides = build_presentation_with_options(elements, options).into_slides();
+        let slides = Test::new(input).options(options).build().into_slides();
         assert_eq!(slides.len(), 3);
     }
 
     #[test]
     fn implicit_slide_ends_with_front_matter() {
-        let elements = vec![
-            MarkdownElement::FrontMatter("theme:\n name: light".into()),
-            MarkdownElement::SetexHeading { text: "hi".into() },
-        ];
+        let input = "---
+theme:
+    name: light
+---
+
+hi
+---
+";
         let options = PresentationBuilderOptions { implicit_slide_ends: true, ..Default::default() };
-        let slides = build_presentation_with_options(elements, options).into_slides();
+        let slides = Test::new(input).options(options).build().into_slides();
         assert_eq!(slides.len(), 1);
     }
 
@@ -1976,8 +2022,8 @@ theme:
     #[case::vim_command("vim: hi")]
     #[case::padded_vim_command("vim: hi")]
     fn ignore_comments(#[case] comment: &str) {
-        let element = MarkdownElement::Comment { comment: comment.into(), source_position: Default::default() };
-        build_presentation(vec![element]);
+        let input = format!("<!-- {comment} -->");
+        Test::new(input).build();
     }
 
     #[rstest]
@@ -1988,26 +2034,27 @@ theme:
         let options = PresentationBuilderOptions { command_prefix: "cmd:".into(), ..Default::default() };
 
         let element = MarkdownElement::Comment { comment: comment.into(), source_position: Default::default() };
-        let result = try_build_presentation_with_options(vec![element], options);
+        let result = Test::new(vec![element]).options(options).try_build();
         assert_eq!(result.is_ok(), should_work, "{result:?}");
     }
 
     #[test]
     fn extra_fields_in_metadata() {
         let element = MarkdownElement::FrontMatter("nope: 42".into());
-        let result = try_build_presentation(vec![element]);
-        assert!(result.is_err());
+        Test::new(vec![element]).expect_invalid();
     }
 
     #[test]
     fn end_slide_shorthand() {
+        let input = "
+hola
+
+---
+
+hi
+";
         let options = PresentationBuilderOptions { end_slide_shorthand: true, ..Default::default() };
-        let elements = vec![
-            MarkdownElement::Paragraph(vec![]),
-            MarkdownElement::ThematicBreak,
-            MarkdownElement::Paragraph(vec!["hi".into()]),
-        ];
-        let presentation = build_presentation_with_options(elements, options);
+        let presentation = Test::new(input).options(options).build();
         assert_eq!(presentation.iter_slides().count(), 2);
 
         let second = presentation.iter_slides().nth(1).unwrap();
@@ -2021,7 +2068,7 @@ theme:
     fn parse_front_matter_strict() {
         let options = PresentationBuilderOptions { strict_front_matter_parsing: false, ..Default::default() };
         let elements = vec![MarkdownElement::FrontMatter("potato: yes".into())];
-        let result = try_build_presentation_with_options(elements, options);
+        let result = Test::new(elements).options(options).try_build();
         assert!(result.is_ok());
     }
 
@@ -2029,13 +2076,13 @@ theme:
     #[case::enabled(true)]
     #[case::disabled(false)]
     fn snippet_execution(#[case] enabled: bool) {
-        let element = MarkdownElement::Snippet {
-            info: "rust +exec".into(),
-            code: "".into(),
-            source_position: Default::default(),
-        };
+        let input = "
+```rust +exec
+hi
+```
+";
         let options = PresentationBuilderOptions { enable_snippet_execution: enabled, ..Default::default() };
-        let presentation = build_presentation_with_options(vec![element], options);
+        let presentation = Test::new(input).options(options).build();
         let slide = presentation.iter_slides().next().unwrap();
         let mut found_render_block = false;
         let mut found_cant_render_block = false;
@@ -2087,23 +2134,21 @@ theme:
     fn external_snippet() {
         let temp = tempfile::NamedTempFile::new().expect("failed to create tempfile");
         let path = temp.path().file_name().expect("no file name").to_string_lossy();
-        let code = format!(
-            r"
+        let input = format!(
+            "
+```file +line_numbers +exec
 path: {path}
-language: rust"
+language: rust
+```
+"
         );
-        let elements = vec![MarkdownElement::Snippet {
-            info: "file +line_numbers +exec".into(),
-            code,
-            source_position: Default::default(),
-        }];
-        build_presentation(elements);
+        Test::new(input).build();
     }
 
     #[test]
     fn footnote() {
         let elements = vec![MarkdownElement::Footnote(Line::from("hi")), MarkdownElement::Footnote(Line::from("bye"))];
-        let mut slides = build_presentation(elements).into_slides();
+        let mut slides = Test::new(elements).build().into_slides();
         let text = extract_slide_text_lines(slides.remove(0));
         assert_eq!(text, &["hi", "bye"]);
     }

@@ -111,6 +111,8 @@ impl ThemesDemo {
         };
         let executer = Arc::new(SnippetExecutor::default());
         let bindings_config = Default::default();
+        let arena = Default::default();
+        let parser = MarkdownParser::new(&arena);
         let builder = PresentationBuilder::new(
             theme,
             resources,
@@ -119,11 +121,12 @@ impl ThemesDemo {
             &self.themes,
             image_registry,
             bindings_config,
+            &parser,
             options,
         )?;
         let mut elements = vec![MarkdownElement::SetexHeading { text: format!("theme: {theme_name}").into() }];
         elements.extend(base_elements.iter().cloned());
-        builder.build(elements)
+        builder.build_from_parsed(elements)
     }
 }
 

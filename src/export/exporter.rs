@@ -117,7 +117,6 @@ impl<'a> Exporter<'a> {
         renderer: OutputFormat,
     ) -> Result<ExportRenderer, ExportError> {
         let content = fs::read_to_string(presentation_path).map_err(ExportError::ReadPresentation)?;
-        let elements = self.parser.parse(&content)?;
 
         let mut presentation = PresentationBuilder::new(
             self.default_theme,
@@ -127,9 +126,10 @@ impl<'a> Exporter<'a> {
             &self.themes,
             Default::default(),
             KeyBindingsConfig::default(),
+            &self.parser,
             self.options.clone(),
         )?
-        .build(elements)?;
+        .build(&content)?;
         Self::validate_theme_colors(&presentation)?;
 
         let mut render = ExportRenderer::new(self.dimensions.clone(), output_directory, renderer);
