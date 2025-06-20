@@ -6,6 +6,10 @@ default:
     foreground: palette:white
     background: "040312"
 
+bold:
+  colors:
+    foreground: palette:orange
+
 slide_title:
   alignment: center
   padding_bottom: 1
