@@ -129,3 +129,8 @@ csharp:
   commands:
     - ["dotnet-script", "$pwd/snippet.cs"]
   hidden_line_prefix: "/// "
+fsharp:
+  filename: snippet.fsx
+  commands:
+    - ["dotnet", "fsi", "$pwd/snippet.fsx"]
+  hidden_line_prefix: "/// "
