@@ -3,7 +3,7 @@
 Code highlighting is supported for the following languages:
 
 | Language   | Execution support |
-| -----------|-------------------|
+|------------|-------------------|
 | ada        |                   |
 | asp        |                   |
 | awk        |                   |
@@ -24,6 +24,7 @@ Code highlighting is supported for the following languages:
 | elm        |                   |
 | erlang     |                   |
 | fish       |         ✓         |
+| F#         |         ✓         |
 | go         |         ✓         |
 | haskell    |         ✓         |
 | HTML       |                   |

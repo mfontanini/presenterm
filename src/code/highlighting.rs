@@ -124,6 +124,7 @@ impl SnippetHighlighter {
             Erlang => "erl",
             File => "txt",
             Fish => "fish",
+            FSharp => "fsx",
             Go => "go",
             GraphQL => "graphql",
             Haskell => "hs",
