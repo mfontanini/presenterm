@@ -19,7 +19,7 @@ use crate::{
         RenderOperation, SlideBuilder, SlideChunk,
     },
     render::operation::{BlockLine, ImageRenderProperties, ImageSize, MarginProperties},
-    resource::Resources,
+    resource::{ResourceBasePath, Resources},
     terminal::image::{
         Image,
         printer::{ImageRegistry, ImageSpec, RegisterImageError},
@@ -41,7 +41,7 @@ use image::DynamicImage;
 use serde::Deserialize;
 use snippet::{SnippetOperations, SnippetProcessor, SnippetProcessorState};
 use std::{
-    collections::HashSet, fmt::Display, iter, mem, num::NonZeroU8, path::PathBuf, rc::Rc, str::FromStr, sync::Arc,
+    collections::HashSet, fmt::Display, io, iter, mem, num::NonZeroU8, path::PathBuf, rc::Rc, str::FromStr, sync::Arc,
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -150,6 +150,7 @@ pub(crate) struct PresentationBuilder<'a, 'b> {
     bindings_config: KeyBindingsConfig,
     slides_without_footer: HashSet<usize>,
     markdown_parser: &'a MarkdownParser<'b>,
+    include_paths: Vec<PathBuf>,
     options: PresentationBuilderOptions,
 }
 
@@ -188,13 +189,14 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             bindings_config,
             slides_without_footer: HashSet::new(),
             markdown_parser,
+            include_paths: Default::default(),
             options,
         })
     }
 
     /// Build a presentation from a markdown input.
     pub(crate) fn build(self, input: &str) -> Result<Presentation, BuildError> {
-        let elements = self.markdown_parser.parse(input)?;
+        let elements = self.markdown_parser.parse(input).map_err(BuildError::Parse)?;
         self.build_from_parsed(elements)
     }
 
@@ -529,11 +531,15 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             self.process_comment_command_speaker_notes_mode(command);
             Ok(())
         } else {
-            self.process_comment_command_presentation_mode(command)
+            self.process_comment_command_presentation_mode(command, source_position)
         }
     }
 
-    fn process_comment_command_presentation_mode(&mut self, command: CommentCommand) -> BuildResult {
+    fn process_comment_command_presentation_mode(
+        &mut self,
+        command: CommentCommand,
+        source_position: SourcePosition,
+    ) -> BuildResult {
         match command {
             CommentCommand::Pause => self.push_pause(),
             CommentCommand::EndSlide => self.terminate_slide(),
@@ -595,6 +601,10 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             CommentCommand::ListItemNewlines(count) => {
                 self.slide_state.list_item_newlines = Some(count.into());
             }
+            CommentCommand::Include(path) => {
+                self.process_include(path, source_position)?;
+                return Ok(());
+            }
         };
         // Don't push line breaks for any comments.
         self.slide_state.ignore_element_line_break = true;
@@ -628,6 +638,40 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             let comment = comment.trim();
             comment == "{{{" || comment == "}}}"
         }
+    }
+
+    fn resource_base_path(&self) -> ResourceBasePath {
+        self.include_paths
+            .last()
+            // SAFETY: we validate we know the parent before pushing into `include_paths`
+            .map(|path| ResourceBasePath::Custom(path.parent().expect("no parent").to_path_buf()))
+            .unwrap_or_default()
+    }
+
+    fn process_include(&mut self, path: PathBuf, source_position: SourcePosition) -> BuildResult {
+        let base = self.resource_base_path();
+        let resolved_path = self.resources.resolve_path(&path, &base);
+        if self.include_paths.contains(&resolved_path) {
+            return Err(BuildError::IncludeCycle(source_position, path));
+        }
+        if resolved_path.parent().is_none() {
+            return Err(BuildError::IncludeParentMissing(source_position));
+        }
+        let contents = self
+            .resources
+            .external_text_file(&path, &base)
+            .map_err(|e| BuildError::IncludeMarkdown(path.clone(), e))?;
+        let elements = self.markdown_parser.parse(&contents).map_err(|e| BuildError::ParseInclude(path, e))?;
+        self.include_paths.push(resolved_path);
+        for element in elements {
+            if let MarkdownElement::FrontMatter(_) = element {
+                return Err(BuildError::IncludeFrontMatter);
+            }
+            self.process_element_for_presentation_mode(element)?;
+        }
+        self.include_paths.pop();
+
+        Ok(())
     }
 
     fn validate_column_layout(columns: &[u8]) -> BuildResult {
@@ -733,7 +777,8 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
     }
 
     fn push_image_from_path(&mut self, path: PathBuf, title: String, source_position: SourcePosition) -> BuildResult {
-        let image = self.resources.image(&path).map_err(|e| BuildError::LoadImage {
+        let base_path = self.resource_base_path();
+        let image = self.resources.image(&path, &base_path).map_err(|e| BuildError::LoadImage {
             path,
             source_position,
             error: e.to_string(),
@@ -978,6 +1023,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             highlighter: &self.highlighter,
             options: &self.options,
             font_size: self.slide_font_size(),
+            resource_base_path: self.resource_base_path(),
         };
         let processor = SnippetProcessor::new(state);
         let SnippetOperations { operations, mutators } = processor.process_code(info, code, source_position)?;
@@ -1226,7 +1272,22 @@ pub enum BuildError {
     InvalidFooter(#[from] InvalidFooterTemplateError),
 
     #[error("invalid markdown: {0}")]
-    Parse(#[from] ParseError),
+    Parse(ParseError),
+
+    #[error("invalid markdown in imported file {0:?}: {1}")]
+    ParseInclude(PathBuf, ParseError),
+
+    #[error("could not read included markdown file {0:?}: {1}")]
+    IncludeMarkdown(PathBuf, io::Error),
+
+    #[error("included markdown files cannot contain a front matter")]
+    IncludeFrontMatter,
+
+    #[error("import cycle at {0}: {1:?} was already imported")]
+    IncludeCycle(SourcePosition, PathBuf),
+
+    #[error("cannot detect included path's parent: {0}")]
+    IncludeParentMissing(SourcePosition),
 }
 
 #[derive(Debug)]
@@ -1238,24 +1299,25 @@ enum ExecutionMode {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum CommentCommand {
-    Pause,
+    Alignment(CommentCommandAlignment),
+    Column(usize),
     EndSlide,
+    FontSize(u8),
+    Include(PathBuf),
+    IncrementalLists(bool),
+    #[serde(rename = "column_layout")]
+    InitColumnLayout(Vec<u8>),
+    JumpToMiddle,
+    ListItemNewlines(NonZeroU8),
     #[serde(alias = "newline")]
     NewLine,
     #[serde(alias = "newlines")]
     NewLines(u32),
-    #[serde(rename = "column_layout")]
-    InitColumnLayout(Vec<u8>),
-    Column(usize),
-    ResetLayout,
-    JumpToMiddle,
-    IncrementalLists(bool),
     NoFooter,
-    SpeakerNote(String),
-    FontSize(u8),
-    Alignment(CommentCommandAlignment),
+    Pause,
+    ResetLayout,
     SkipSlide,
-    ListItemNewlines(NonZeroU8),
+    SpeakerNote(String),
 }
 
 impl FromStr for CommentCommand {
@@ -1400,9 +1462,13 @@ struct ImageAttributes {
 
 #[cfg(test)]
 mod test {
+    use std::{fs, io::BufWriter};
+
     use super::*;
     use crate::presentation::Slide;
+    use image::{ImageEncoder, codecs::png::PngEncoder};
     use rstest::rstest;
+    use tempfile::tempdir;
 
     enum Input {
         Markdown(String),
@@ -1430,15 +1496,21 @@ mod test {
     struct Test {
         input: Input,
         options: PresentationBuilderOptions,
+        resources_path: PathBuf,
     }
 
     impl Test {
         fn new<T: Into<Input>>(input: T) -> Self {
-            Self { input: input.into(), options: Default::default() }
+            Self { input: input.into(), options: Default::default(), resources_path: std::env::temp_dir() }
         }
 
         fn options(mut self, options: PresentationBuilderOptions) -> Self {
             self.options = options;
+            self
+        }
+
+        fn resources_path<P: Into<PathBuf>>(mut self, path: P) -> Self {
+            self.resources_path = path.into();
             self
         }
 
@@ -1452,8 +1524,7 @@ mod test {
 
         fn try_build(self) -> Result<Presentation, BuildError> {
             let theme = raw::PresentationTheme::default();
-            let tmp_dir = std::env::temp_dir();
-            let resources = Resources::new(&tmp_dir, &tmp_dir, Default::default());
+            let resources = Resources::new(&self.resources_path, &self.resources_path, Default::default());
             let mut third_party = ThirdPartyRender::default();
             let code_executor = Arc::new(SnippetExecutor::default());
             let themes = Themes::default();
@@ -2151,5 +2222,88 @@ language: rust
         let mut slides = Test::new(elements).build().into_slides();
         let text = extract_slide_text_lines(slides.remove(0));
         assert_eq!(text, &["hi", "bye"]);
+    }
+
+    #[test]
+    fn include() {
+        let dir = tempdir().expect("failed to created tempdir");
+        let path = dir.path();
+        let inner_path = path.join("inner");
+        fs::create_dir_all(path.join(&inner_path)).expect("failed to create dir");
+
+        let image = DynamicImage::new_rgba8(1, 1);
+        let mut buffer = BufWriter::new(fs::File::create(inner_path.join("img.png")).expect("failed to write image"));
+        PngEncoder::new(&mut buffer)
+            .write_image(image.as_bytes(), 1, 1, image.color().into())
+            .expect("failed to create imager");
+        drop(buffer);
+
+        fs::write(
+            path.join("first.md"),
+            r"
+first
+===
+
+![](inner/img.png)
+
+<!-- include: inner/second.md -->
+
+```file
+path: inner/foo.txt
+language: text
+```
+",
+        )
+        .unwrap();
+
+        fs::write(
+            inner_path.join("second.md"),
+            r"
+second
+===
+
+![](img.png)
+",
+        )
+        .unwrap();
+
+        fs::write(inner_path.join("foo.txt"), "a").unwrap();
+
+        let input = "
+hi
+
+<!-- include: first.md -->
+        ";
+        let mut slides = Test::new(input).resources_path(path).build().into_slides();
+        assert_eq!(slides.len(), 1);
+
+        let text = extract_slide_text_lines(slides.remove(0));
+        let expected = &["hi", "first", "second"];
+        assert_eq!(text, expected);
+    }
+
+    #[test]
+    fn self_include() {
+        let dir = tempdir().expect("failed to created tempdir");
+        let path = dir.path();
+
+        fs::write(path.join("main.md"), "<!-- include: main.md -->").unwrap();
+        let input = "<!-- include: main.md -->";
+
+        let err = Test::new(input).resources_path(path).expect_invalid();
+        assert!(matches!(err, BuildError::IncludeCycle(..)), "{err:?}");
+    }
+
+    #[test]
+    fn include_cycle() {
+        let dir = tempdir().expect("failed to created tempdir");
+        let path = dir.path();
+
+        fs::write(path.join("main.md"), "<!-- include: inner.md -->").unwrap();
+        fs::write(path.join("inner.md"), "<!-- include: main.md -->").unwrap();
+        let input = "<!-- include: main.md -->";
+
+        let err = Test::new(input).resources_path(path).expect_invalid();
+        assert!(matches!(err, BuildError::IncludeCycle(..)), "{err:?}");
     }
 }

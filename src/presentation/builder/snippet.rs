@@ -16,7 +16,7 @@ use crate::{
         operation::{AsRenderOperations, RenderAsyncStartPolicy, RenderOperation},
         properties::WindowSize,
     },
-    resource::Resources,
+    resource::{ResourceBasePath, Resources},
     theme::{Alignment, CodeBlockStyle, PresentationTheme},
     third_party::{ThirdPartyRender, ThirdPartyRenderRequest},
     ui::execution::{
@@ -36,6 +36,7 @@ pub(crate) struct SnippetProcessorState<'a> {
     pub(crate) highlighter: &'a SnippetHighlighter,
     pub(crate) options: &'a PresentationBuilderOptions,
     pub(crate) font_size: u8,
+    pub(crate) resource_base_path: ResourceBasePath,
 }
 
 pub(crate) struct SnippetProcessor<'a> {
@@ -49,6 +50,7 @@ pub(crate) struct SnippetProcessor<'a> {
     highlighter: &'a SnippetHighlighter,
     options: &'a PresentationBuilderOptions,
     font_size: u8,
+    resource_base_path: ResourceBasePath,
 }
 
 impl<'a> SnippetProcessor<'a> {
@@ -62,6 +64,7 @@ impl<'a> SnippetProcessor<'a> {
             highlighter,
             options,
             font_size,
+            resource_base_path,
         } = state;
         Self {
             operations: Vec::new(),
@@ -74,6 +77,7 @@ impl<'a> SnippetProcessor<'a> {
             highlighter,
             options,
             font_size,
+            resource_base_path,
         }
     }
 
@@ -179,9 +183,8 @@ impl<'a> SnippetProcessor<'a> {
             .map_err(|e| BuildError::InvalidSnippet { source_position, error: e.to_string() })?;
         let path = file.path;
         let path_display = path.display();
-        let contents = self.resources.external_snippet(&path).map_err(|e| BuildError::InvalidSnippet {
-            source_position,
-            error: format!("failed to load {path_display}: {e}"),
+        let contents = self.resources.external_text_file(&path, &self.resource_base_path).map_err(|e| {
+            BuildError::InvalidSnippet { source_position, error: format!("failed to load {path_display}: {e}") }
         })?;
         code.language = file.language;
         code.contents = Self::filter_lines(contents, file.start_line, file.end_line);
