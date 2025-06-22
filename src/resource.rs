@@ -25,7 +25,7 @@ const LOOP_INTERVAL: Duration = Duration::from_millis(250);
 #[derive(Debug)]
 struct ResourcesInner {
     themes: HashMap<PathBuf, PresentationTheme>,
-    external_snippets: HashMap<PathBuf, String>,
+    external_text_files: HashMap<PathBuf, String>,
     base_path: PathBuf,
     themes_path: PathBuf,
     image_registry: ImageRegistry,
@@ -55,7 +55,7 @@ impl Resources {
             base_path: base_path.into(),
             themes_path: themes_path.into(),
             themes: Default::default(),
-            external_snippets: Default::default(),
+            external_text_files: Default::default(),
             image_registry,
             watcher,
         };
@@ -68,15 +68,19 @@ impl Resources {
     }
 
     /// Get the image at the given path.
-    pub(crate) fn image<P: AsRef<Path>>(&self, path: P) -> Result<Image, RegisterImageError> {
+    pub(crate) fn image<P: AsRef<Path>>(
+        &self,
+        path: P,
+        base_path: &ResourceBasePath,
+    ) -> Result<Image, RegisterImageError> {
+        let path = self.resolve_path(path, base_path);
         let inner = self.inner.borrow();
-        let path = inner.base_path.join(path);
         let image = inner.image_registry.register(ImageSpec::Filesystem(path.clone()))?;
         Ok(image)
     }
 
     pub(crate) fn theme_image<P: AsRef<Path>>(&self, path: P) -> Result<Image, RegisterImageError> {
-        match self.image(&path) {
+        match self.image(&path, &ResourceBasePath::Presentation) {
             Ok(image) => return Ok(image),
             Err(RegisterImageError::Io(e)) if e.kind() != io::ErrorKind::NotFound => return Err(e.into()),
             _ => (),
@@ -101,17 +105,21 @@ impl Resources {
         Ok(theme)
     }
 
-    /// Get the external snippet at the given path.
-    pub(crate) fn external_snippet<P: AsRef<Path>>(&self, path: P) -> io::Result<String> {
+    /// Get the external text file at the given path.
+    pub(crate) fn external_text_file<P: AsRef<Path>>(
+        &self,
+        path: P,
+        base_path: &ResourceBasePath,
+    ) -> io::Result<String> {
+        let path = self.resolve_path(path, base_path);
         let mut inner = self.inner.borrow_mut();
-        let path = inner.base_path.join(path);
-        if let Some(contents) = inner.external_snippets.get(&path) {
+        if let Some(contents) = inner.external_text_files.get(&path) {
             return Ok(contents.clone());
         }
 
         let contents = fs::read_to_string(&path)?;
         inner.watcher.send(WatchEvent::WatchFile { path: path.clone(), watch_forever: false });
-        inner.external_snippets.insert(path, contents.clone());
+        inner.external_text_files.insert(path, contents.clone());
         Ok(contents)
     }
 
@@ -124,7 +132,7 @@ impl Resources {
         let mut inner = self.inner.borrow_mut();
         inner.watcher.send(WatchEvent::ClearWatches);
         // We could do better than this but this works for now.
-        inner.external_snippets.clear();
+        inner.external_text_files.clear();
     }
 
     /// Clears all resources.
@@ -133,6 +141,23 @@ impl Resources {
         inner.image_registry.clear();
         inner.themes.clear();
     }
+
+    pub(crate) fn resolve_path<P: AsRef<Path>>(&self, path: P, base_path: &ResourceBasePath) -> PathBuf {
+        match base_path {
+            ResourceBasePath::Presentation => {
+                let inner = self.inner.borrow();
+                inner.base_path.join(path)
+            }
+            ResourceBasePath::Custom(base) => base.join(path),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) enum ResourceBasePath {
+    #[default]
+    Presentation,
+    Custom(PathBuf),
 }
 
 /// Watches for file changes.
