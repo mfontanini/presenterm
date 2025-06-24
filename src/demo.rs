@@ -8,7 +8,7 @@ use crate::{
     markdown::elements::MarkdownElement,
     presentation::{
         Presentation,
-        builder::{BuildError, PresentationBuilder},
+        builder::{PresentationBuilder, error::BuildError},
     },
     render::TerminalDrawer,
     terminal::emulator::TerminalEmulator,

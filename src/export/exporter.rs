@@ -3,10 +3,10 @@ use crate::{
     code::execute::SnippetExecutor,
     config::{KeyBindingsConfig, PauseExportPolicy, PdfExportConfig, SnippetsExportPolicy},
     export::output::{ExportRenderer, OutputFormat},
-    markdown::{parse::ParseError, text_style::Color},
+    markdown::text_style::Color,
     presentation::{
         Presentation,
-        builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
+        builder::{PresentationBuilder, PresentationBuilderOptions, Themes, error::BuildError},
         poller::{Poller, PollerCommand},
     },
     render::{
@@ -116,8 +116,6 @@ impl<'a> Exporter<'a> {
         output_directory: OutputDirectory,
         renderer: OutputFormat,
     ) -> Result<ExportRenderer, ExportError> {
-        let content = fs::read_to_string(presentation_path).map_err(ExportError::ReadPresentation)?;
-
         let mut presentation = PresentationBuilder::new(
             self.default_theme,
             self.resources.clone(),
@@ -129,7 +127,7 @@ impl<'a> Exporter<'a> {
             &self.parser,
             self.options.clone(),
         )?
-        .build(&content)?;
+        .build(presentation_path)?;
         Self::validate_theme_colors(&presentation)?;
 
         let mut render = ExportRenderer::new(self.dimensions.clone(), output_directory, renderer);
@@ -309,12 +307,6 @@ impl<'a> Exporter<'a> {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ExportError {
-    #[error("failed to read presentation: {0}")]
-    ReadPresentation(io::Error),
-
-    #[error("failed to parse presentation: {0}")]
-    ParsePresentation(#[from] ParseError),
-
     #[error("failed to build presentation: {0}")]
     BuildPresentation(#[from] BuildError),
 

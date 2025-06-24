@@ -1,6 +1,6 @@
 use crate::{
     code::{
-        execute::{SnippetExecutor, UnsupportedExecution},
+        execute::SnippetExecutor,
         highlighting::{HighlightThemeSet, SnippetHighlighter},
         snippet::SnippetLanguage,
     },
@@ -10,13 +10,17 @@ use crate::{
             Line, ListItem, ListItemType, MarkdownElement, Percent, PercentParseError, SourcePosition, Table, TableRow,
             Text,
         },
-        parse::{MarkdownParser, ParseError},
+        parse::MarkdownParser,
         text::WeightedLine,
-        text_style::{Color, Colors, TextStyle, UndefinedPaletteColorError},
+        text_style::{Color, Colors, TextStyle},
     },
     presentation::{
         ChunkMutator, Modals, Presentation, PresentationMetadata, PresentationState, PresentationThemeMetadata,
         RenderOperation, SlideBuilder, SlideChunk,
+        builder::{
+            error::{BuildError, InvalidPresentation},
+            sources::MarkdownSources,
+        },
     },
     render::operation::{BlockLine, ImageRenderProperties, ImageSize, MarginProperties},
     resource::{ResourceBasePath, Resources},
@@ -27,11 +31,11 @@ use crate::{
     theme::{
         Alignment, AuthorPositioning, ElementType, PresentationTheme, ProcessingThemeError, ThemeOptions,
         raw::{self, RawColor},
-        registry::{LoadThemeError, PresentationThemeRegistry},
+        registry::PresentationThemeRegistry,
     },
-    third_party::{ThirdPartyRender, ThirdPartyRenderError},
+    third_party::ThirdPartyRender,
     ui::{
-        footer::{FooterGenerator, FooterVariables, InvalidFooterTemplateError},
+        footer::{FooterGenerator, FooterVariables},
         modals::{IndexBuilder, KeyBindingsModalBuilder},
         separator::RenderSeparator,
     },
@@ -41,11 +45,20 @@ use image::DynamicImage;
 use serde::Deserialize;
 use snippet::{SnippetOperations, SnippetProcessor, SnippetProcessorState};
 use std::{
-    collections::HashSet, fmt::Display, io, iter, mem, num::NonZeroU8, path::PathBuf, rc::Rc, str::FromStr, sync::Arc,
+    collections::HashSet,
+    fmt::Display,
+    fs, io, iter, mem,
+    num::NonZeroU8,
+    path::{Path, PathBuf},
+    rc::Rc,
+    str::FromStr,
+    sync::Arc,
 };
 use unicode_width::UnicodeWidthStr;
 
+pub(crate) mod error;
 mod snippet;
+mod sources;
 
 pub(crate) type BuildResult = Result<(), BuildError>;
 
@@ -150,7 +163,7 @@ pub(crate) struct PresentationBuilder<'a, 'b> {
     bindings_config: KeyBindingsConfig,
     slides_without_footer: HashSet<usize>,
     markdown_parser: &'a MarkdownParser<'b>,
-    include_paths: Vec<PathBuf>,
+    sources: MarkdownSources,
     options: PresentationBuilderOptions,
 }
 
@@ -189,15 +202,14 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             bindings_config,
             slides_without_footer: HashSet::new(),
             markdown_parser,
-            include_paths: Default::default(),
+            sources: Default::default(),
             options,
         })
     }
 
     /// Build a presentation from a markdown input.
-    pub(crate) fn build(self, input: &str) -> Result<Presentation, BuildError> {
-        let elements = self.markdown_parser.parse(input).map_err(BuildError::Parse)?;
-        self.build_from_parsed(elements)
+    pub(crate) fn build(self, path: &Path) -> Result<Presentation, BuildError> {
+        self.build_with_reader(path, FilesystemPresentationReader)
     }
 
     /// Build a presentation from already parsed elements.
@@ -261,6 +273,14 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         let modals = Modals { slide_index, bindings };
         let presentation = Presentation::new(slides, modals, self.presentation_state);
         Ok(presentation)
+    }
+
+    fn build_with_reader<F: PresentationReader>(self, path: &Path, reader: F) -> Result<Presentation, BuildError> {
+        let _guard = self.sources.enter(path).map_err(BuildError::EnterRoot)?;
+        let input = reader.read(path).map_err(|e| BuildError::ReadPresentation(path.into(), e))?;
+        let elements =
+            self.markdown_parser.parse(&input).map_err(|error| BuildError::Parse { path: path.into(), error })?;
+        self.build_from_parsed(elements)
     }
 
     fn build_modal_background(&self) -> Result<Image, RegisterImageError> {
@@ -523,7 +543,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
                 if self.should_ignore_comment(comment) {
                     return Ok(());
                 }
-                return Err(BuildError::CommandParse { source_position, error });
+                return Err(self.invalid_presentation(source_position, error));
             }
         };
 
@@ -549,7 +569,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             }
             CommentCommand::JumpToMiddle => self.chunk_operations.push(RenderOperation::JumpToVerticalCenter),
             CommentCommand::InitColumnLayout(columns) => {
-                Self::validate_column_layout(&columns)?;
+                self.validate_column_layout(&columns, source_position)?;
                 self.slide_state.layout = LayoutState::InLayout { columns_count: columns.len() };
                 self.chunk_operations.push(RenderOperation::InitColumnLayout { columns });
                 self.slide_state.needs_enter_column = true;
@@ -562,12 +582,14 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
                 let (current_column, columns_count) = match self.slide_state.layout {
                     LayoutState::InColumn { column, columns_count } => (Some(column), columns_count),
                     LayoutState::InLayout { columns_count } => (None, columns_count),
-                    LayoutState::Default => return Err(BuildError::NoLayout),
+                    LayoutState::Default => {
+                        return Err(self.invalid_presentation(source_position, InvalidPresentation::NoLayout));
+                    }
                 };
                 if current_column == Some(column) {
-                    return Err(BuildError::AlreadyInColumn);
+                    return Err(self.invalid_presentation(source_position, InvalidPresentation::AlreadyInColumn));
                 } else if column >= columns_count {
-                    return Err(BuildError::ColumnIndexTooLarge);
+                    return Err(self.invalid_presentation(source_position, InvalidPresentation::ColumnIndexTooLarge));
                 }
                 self.slide_state.layout = LayoutState::InColumn { column, columns_count };
                 self.chunk_operations.push(RenderOperation::EnterColumn { column });
@@ -581,7 +603,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             CommentCommand::SpeakerNote(_) => {}
             CommentCommand::FontSize(size) => {
                 if size == 0 || size > 7 {
-                    return Err(BuildError::InvalidFontSize);
+                    return Err(self.invalid_presentation(source_position, InvalidPresentation::InvalidFontSize));
                 }
                 self.slide_state.font_size = Some(size)
             }
@@ -640,45 +662,57 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         }
     }
 
+    fn invalid_presentation<E>(&self, source_position: SourcePosition, error: E) -> BuildError
+    where
+        E: Into<InvalidPresentation>,
+    {
+        BuildError::InvalidPresentation {
+            source_position: self.sources.resolve_source_position(source_position),
+            error: error.into(),
+        }
+    }
+
     fn resource_base_path(&self) -> ResourceBasePath {
-        self.include_paths
-            .last()
-            // SAFETY: we validate we know the parent before pushing into `include_paths`
-            .map(|path| ResourceBasePath::Custom(path.parent().expect("no parent").to_path_buf()))
-            .unwrap_or_default()
+        ResourceBasePath::Custom(self.sources.current_base_path())
     }
 
     fn process_include(&mut self, path: PathBuf, source_position: SourcePosition) -> BuildResult {
         let base = self.resource_base_path();
         let resolved_path = self.resources.resolve_path(&path, &base);
-        if self.include_paths.contains(&resolved_path) {
-            return Err(BuildError::IncludeCycle(source_position, path));
-        }
-        if resolved_path.parent().is_none() {
-            return Err(BuildError::IncludeParentMissing(source_position));
-        }
-        let contents = self
-            .resources
-            .external_text_file(&path, &base)
-            .map_err(|e| BuildError::IncludeMarkdown(path.clone(), e))?;
-        let elements = self.markdown_parser.parse(&contents).map_err(|e| BuildError::ParseInclude(path, e))?;
-        self.include_paths.push(resolved_path);
+        let contents = self.resources.external_text_file(&path, &base).map_err(|e| {
+            self.invalid_presentation(
+                source_position,
+                InvalidPresentation::IncludeMarkdown { path: path.clone(), error: e },
+            )
+        })?;
+        let elements = self.markdown_parser.parse(&contents).map_err(|e| {
+            self.invalid_presentation(
+                source_position,
+                InvalidPresentation::ParseInclude { path: path.clone(), error: e },
+            )
+        })?;
+        let _guard = self
+            .sources
+            .enter(resolved_path)
+            .map_err(|e| self.invalid_presentation(source_position, InvalidPresentation::Import { path, error: e }))?;
         for element in elements {
             if let MarkdownElement::FrontMatter(_) = element {
-                return Err(BuildError::IncludeFrontMatter);
+                return Err(self.invalid_presentation(source_position, InvalidPresentation::IncludeFrontMatter));
             }
             self.process_element_for_presentation_mode(element)?;
         }
-        self.include_paths.pop();
-
         Ok(())
     }
 
-    fn validate_column_layout(columns: &[u8]) -> BuildResult {
+    fn validate_column_layout(&self, columns: &[u8], source_position: SourcePosition) -> BuildResult {
         if columns.is_empty() {
-            Err(BuildError::InvalidLayout("need at least one column"))
+            Err(self
+                .invalid_presentation(source_position, InvalidPresentation::InvalidLayout("need at least one column")))
         } else if columns.iter().any(|column| column == &0) {
-            Err(BuildError::InvalidLayout("can't have zero sized columns"))
+            Err(self.invalid_presentation(
+                source_position,
+                InvalidPresentation::InvalidLayout("can't have zero sized columns"),
+            ))
         } else {
             Ok(())
         }
@@ -778,16 +812,14 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
 
     fn push_image_from_path(&mut self, path: PathBuf, title: String, source_position: SourcePosition) -> BuildResult {
         let base_path = self.resource_base_path();
-        let image = self.resources.image(&path, &base_path).map_err(|e| BuildError::LoadImage {
-            path,
-            source_position,
-            error: e.to_string(),
+        let image = self.resources.image(&path, &base_path).map_err(|e| {
+            self.invalid_presentation(source_position, InvalidPresentation::LoadImage { path, error: e.to_string() })
         })?;
         self.push_image(image, title, source_position)
     }
 
     fn push_image(&mut self, image: Image, title: String, source_position: SourcePosition) -> BuildResult {
-        let attributes = Self::parse_image_attributes(&title, &self.options.image_attribute_prefix, source_position)?;
+        let attributes = self.parse_image_attributes(&title, &self.options.image_attribute_prefix, source_position)?;
         let size = match attributes.width {
             Some(percent) => ImageSize::WidthScaled { ratio: percent.as_ratio() },
             None => ImageSize::ShrinkIfNeeded,
@@ -1023,7 +1055,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             highlighter: &self.highlighter,
             options: &self.options,
             font_size: self.slide_font_size(),
-            resource_base_path: self.resource_base_path(),
+            sources: &self.sources,
         };
         let processor = SnippetProcessor::new(state);
         let SnippetOperations { operations, mutators } = processor.process_code(info, code, source_position)?;
@@ -1133,6 +1165,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
     }
 
     fn parse_image_attributes(
+        &self,
         input: &str,
         attribute_prefix: &str,
         source_position: SourcePosition,
@@ -1144,7 +1177,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
                 continue;
             }
             Self::parse_image_attribute(suffix, &mut attributes)
-                .map_err(|e| BuildError::ImageAttributeParse { source_position, error: e })?;
+                .map_err(|e| self.invalid_presentation(source_position, e))?;
         }
         Ok(attributes)
     }
@@ -1166,6 +1199,18 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
     fn slide_font_size(&self) -> u8 {
         let font_size = self.slide_state.font_size.unwrap_or(1);
         if self.options.theme_options.font_size_supported { font_size.clamp(1, 7) } else { 1 }
+    }
+}
+
+trait PresentationReader {
+    fn read(&self, path: &Path) -> io::Result<String>;
+}
+
+struct FilesystemPresentationReader;
+
+impl PresentationReader for FilesystemPresentationReader {
+    fn read(&self, path: &Path) -> io::Result<String> {
+        fs::read_to_string(path)
     }
 }
 
@@ -1206,88 +1251,6 @@ enum LastElement {
         last_index: usize,
     },
     Other,
-}
-
-/// An error when building a presentation.
-#[derive(thiserror::Error, Debug)]
-pub enum BuildError {
-    #[error("could not load image '{path}' at {source_position}: {error}")]
-    LoadImage { path: PathBuf, source_position: SourcePosition, error: String },
-
-    #[error("failed to register image: {0}")]
-    RegisterImage(#[from] RegisterImageError),
-
-    #[error("invalid presentation metadata: {0}")]
-    InvalidMetadata(String),
-
-    #[error("invalid theme: {0}")]
-    InvalidTheme(#[from] LoadThemeError),
-
-    #[error("invalid code snippet at {source_position}: {error}")]
-    InvalidSnippet { source_position: SourcePosition, error: String },
-
-    #[error("invalid code highlighter theme: '{0}'")]
-    InvalidCodeTheme(String),
-
-    #[error("invalid layout: {0}")]
-    InvalidLayout(&'static str),
-
-    #[error("can't enter layout: no layout defined")]
-    NoLayout,
-
-    #[error("can't enter layout column: already in it")]
-    AlreadyInColumn,
-
-    #[error("can't enter layout column: column index too large")]
-    ColumnIndexTooLarge,
-
-    #[error("need to enter layout column explicitly using `column` command")]
-    NotInsideColumn,
-
-    #[error("invalid command at {source_position}: {error}")]
-    CommandParse { source_position: SourcePosition, error: CommandParseError },
-
-    #[error("invalid image attribute at {source_position}: {error}")]
-    ImageAttributeParse { source_position: SourcePosition, error: ImageAttributeError },
-
-    #[error("third party render failed: {0}")]
-    ThirdPartyRender(#[from] ThirdPartyRenderError),
-
-    #[error(transparent)]
-    UnsupportedExecution(#[from] UnsupportedExecution),
-
-    #[error(transparent)]
-    UndefinedPaletteColor(#[from] UndefinedPaletteColorError),
-
-    #[error("font size must be >= 1 and <= 7")]
-    InvalidFontSize,
-
-    #[error("processing theme: {0}")]
-    ThemeProcessing(#[from] ProcessingThemeError),
-
-    #[error("invalid presentation title: {0}")]
-    PresentationTitle(String),
-
-    #[error("invalid footer: {0}")]
-    InvalidFooter(#[from] InvalidFooterTemplateError),
-
-    #[error("invalid markdown: {0}")]
-    Parse(ParseError),
-
-    #[error("invalid markdown in imported file {0:?}: {1}")]
-    ParseInclude(PathBuf, ParseError),
-
-    #[error("could not read included markdown file {0:?}: {1}")]
-    IncludeMarkdown(PathBuf, io::Error),
-
-    #[error("included markdown files cannot contain a front matter")]
-    IncludeFrontMatter,
-
-    #[error("import cycle at {0}: {1:?} was already imported")]
-    IncludeCycle(SourcePosition, PathBuf),
-
-    #[error("cannot detect included path's parent: {0}")]
-    IncludeParentMissing(SourcePosition),
 }
 
 #[derive(Debug)]
@@ -1462,13 +1425,22 @@ struct ImageAttributes {
 
 #[cfg(test)]
 mod test {
-    use std::{fs, io::BufWriter};
-
     use super::*;
-    use crate::presentation::Slide;
+    use crate::presentation::{Slide, builder::sources::MarkdownSourceError};
     use image::{ImageEncoder, codecs::png::PngEncoder};
     use rstest::rstest;
+    use std::{fs, io::BufWriter};
     use tempfile::tempdir;
+
+    struct MemoryPresentationReader {
+        contents: String,
+    }
+
+    impl PresentationReader for MemoryPresentationReader {
+        fn read(&self, _path: &Path) -> io::Result<String> {
+            Ok(self.contents.clone())
+        }
+    }
 
     enum Input {
         Markdown(String),
@@ -1514,15 +1486,10 @@ mod test {
             self
         }
 
-        fn build(self) -> Presentation {
-            self.try_build().expect("build failed")
-        }
-
-        fn expect_invalid(self) -> BuildError {
-            self.try_build().expect_err("build succeeded")
-        }
-
-        fn try_build(self) -> Result<Presentation, BuildError> {
+        fn with_builder<T, F>(&self, callback: F) -> T
+        where
+            F: for<'a, 'b> Fn(PresentationBuilder<'a, 'b>) -> T,
+        {
             let theme = raw::PresentationTheme::default();
             let resources = Resources::new(&self.resources_path, &self.resources_path, Default::default());
             let mut third_party = ThirdPartyRender::default();
@@ -1540,12 +1507,29 @@ mod test {
                 Default::default(),
                 bindings,
                 &parser,
-                self.options,
-            )?;
-            match self.input {
-                Input::Markdown(input) => builder.build(&input),
-                Input::Parsed(elements) => builder.build_from_parsed(elements),
-            }
+                self.options.clone(),
+            )
+            .expect("failed to create builder");
+            callback(builder)
+        }
+
+        fn build(self) -> Presentation {
+            self.try_build().expect("build failed")
+        }
+
+        fn expect_invalid(self) -> BuildError {
+            self.try_build().expect_err("build succeeded")
+        }
+
+        fn try_build(self) -> Result<Presentation, BuildError> {
+            self.with_builder(|builder| match &self.input {
+                Input::Markdown(input) => {
+                    let reader = MemoryPresentationReader { contents: input.clone() };
+                    let path = self.resources_path.join("presentation.md");
+                    builder.build_with_reader(&path, reader)
+                }
+                Input::Parsed(elements) => builder.build_from_parsed(elements.clone()),
+            })
         }
     }
 
@@ -2187,8 +2171,9 @@ hi
     #[case::nothing("", None)]
     #[case::no_prefix("width", None)]
     fn image_attributes(#[case] input: &str, #[case] expectation: Option<u8>) {
-        let attributes =
-            PresentationBuilder::parse_image_attributes(input, "image:", Default::default()).expect("failed to parse");
+        let attributes = Test::new("").with_builder(|builder| {
+            builder.parse_image_attributes(input, "image:", Default::default()).expect("failed to parse")
+        });
         assert_eq!(attributes.width, expectation.map(Percent));
     }
 
@@ -2196,8 +2181,9 @@ hi
     #[case::width("width:50%", Some(50))]
     #[case::empty("", None)]
     fn image_attributes_empty_prefix(#[case] input: &str, #[case] expectation: Option<u8>) {
-        let attributes =
-            PresentationBuilder::parse_image_attributes(input, "", Default::default()).expect("failed to parse");
+        let attributes = Test::new("").with_builder(|builder| {
+            builder.parse_image_attributes(input, "", Default::default()).expect("failed to parse")
+        });
         assert_eq!(attributes.width, expectation.map(Percent));
     }
 
@@ -2291,7 +2277,16 @@ hi
         let input = "<!-- include: main.md -->";
 
         let err = Test::new(input).resources_path(path).expect_invalid();
-        assert!(matches!(err, BuildError::IncludeCycle(..)), "{err:?}");
+        assert!(
+            matches!(
+                err,
+                BuildError::InvalidPresentation {
+                    error: InvalidPresentation::Import { error: MarkdownSourceError::IncludeCycle(..), .. },
+                    ..
+                }
+            ),
+            "{err:?}"
+        );
     }
 
     #[test]
@@ -2304,6 +2299,15 @@ hi
         let input = "<!-- include: main.md -->";
 
         let err = Test::new(input).resources_path(path).expect_invalid();
-        assert!(matches!(err, BuildError::IncludeCycle(..)), "{err:?}");
+        assert!(
+            matches!(
+                err,
+                BuildError::InvalidPresentation {
+                    error: InvalidPresentation::Import { error: MarkdownSourceError::IncludeCycle(..), .. },
+                    ..
+                }
+            ),
+            "{err:?}"
+        );
     }
 }
