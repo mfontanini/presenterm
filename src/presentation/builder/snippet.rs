@@ -11,7 +11,10 @@ use crate::{
         },
     },
     markdown::elements::SourcePosition,
-    presentation::ChunkMutator,
+    presentation::{
+        ChunkMutator,
+        builder::{error::InvalidPresentation, sources::MarkdownSources},
+    },
     render::{
         operation::{AsRenderOperations, RenderAsyncStartPolicy, RenderOperation},
         properties::WindowSize,
@@ -36,7 +39,7 @@ pub(crate) struct SnippetProcessorState<'a> {
     pub(crate) highlighter: &'a SnippetHighlighter,
     pub(crate) options: &'a PresentationBuilderOptions,
     pub(crate) font_size: u8,
-    pub(crate) resource_base_path: ResourceBasePath,
+    pub(crate) sources: &'a MarkdownSources,
 }
 
 pub(crate) struct SnippetProcessor<'a> {
@@ -50,7 +53,7 @@ pub(crate) struct SnippetProcessor<'a> {
     highlighter: &'a SnippetHighlighter,
     options: &'a PresentationBuilderOptions,
     font_size: u8,
-    resource_base_path: ResourceBasePath,
+    sources: &'a MarkdownSources,
 }
 
 impl<'a> SnippetProcessor<'a> {
@@ -64,7 +67,7 @@ impl<'a> SnippetProcessor<'a> {
             highlighter,
             options,
             font_size,
-            resource_base_path,
+            sources,
         } = state;
         Self {
             operations: Vec::new(),
@@ -77,7 +80,7 @@ impl<'a> SnippetProcessor<'a> {
             highlighter,
             options,
             font_size,
-            resource_base_path,
+            sources,
         }
     }
 
@@ -94,8 +97,10 @@ impl<'a> SnippetProcessor<'a> {
     }
 
     fn do_process_code(&mut self, info: String, code: String, source_position: SourcePosition) -> BuildResult {
-        let mut snippet = SnippetParser::parse(info, code)
-            .map_err(|e| BuildError::InvalidSnippet { source_position, error: e.to_string() })?;
+        let mut snippet = SnippetParser::parse(info, code).map_err(|e| BuildError::InvalidPresentation {
+            source_position: self.sources.resolve_source_position(source_position),
+            error: InvalidPresentation::Snippet(e.to_string()),
+        })?;
         if matches!(snippet.language, SnippetLanguage::File) {
             snippet = self.load_external_snippet(snippet, source_position)?;
         }
@@ -179,13 +184,17 @@ impl<'a> SnippetProcessor<'a> {
         mut code: Snippet,
         source_position: SourcePosition,
     ) -> Result<Snippet, BuildError> {
-        let file: ExternalFile = serde_yaml::from_str(&code.contents)
-            .map_err(|e| BuildError::InvalidSnippet { source_position, error: e.to_string() })?;
-        let path = file.path;
-        let path_display = path.display();
-        let contents = self.resources.external_text_file(&path, &self.resource_base_path).map_err(|e| {
-            BuildError::InvalidSnippet { source_position, error: format!("failed to load {path_display}: {e}") }
+        let file: ExternalFile = serde_yaml::from_str(&code.contents).map_err(|e| BuildError::InvalidPresentation {
+            source_position: self.sources.resolve_source_position(source_position),
+            error: InvalidPresentation::Snippet(e.to_string()),
         })?;
+        let path = file.path;
+        let base_path = ResourceBasePath::Custom(self.sources.current_base_path());
+        let contents =
+            self.resources.external_text_file(&path, &base_path).map_err(|e| BuildError::InvalidPresentation {
+                source_position: self.sources.resolve_source_position(source_position),
+                error: InvalidPresentation::Snippet(format!("failed to load snippet {path:?}: {e}")),
+            })?;
         code.language = file.language;
         code.contents = Self::filter_lines(contents, file.start_line, file.end_line);
         Ok(code)
@@ -208,9 +217,9 @@ impl<'a> SnippetProcessor<'a> {
             SnippetLanguage::Latex => ThirdPartyRenderRequest::Latex(contents, self.theme.typst.clone()),
             SnippetLanguage::Mermaid => ThirdPartyRenderRequest::Mermaid(contents, self.theme.mermaid.clone()),
             _ => {
-                return Err(BuildError::InvalidSnippet {
-                    source_position,
-                    error: format!("language {language:?} doesn't support rendering"),
+                return Err(BuildError::InvalidPresentation {
+                    source_position: self.sources.resolve_source_position(source_position),
+                    error: InvalidPresentation::Snippet(format!("language {language:?} doesn't support rendering")),
                 })?;
             }
         };

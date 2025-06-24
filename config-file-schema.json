@@ -918,12 +918,12 @@
         },
         "listen_address": {
           "description": "The address in which to listen for speaker note events.",
-          "default": "127.0.0.1:59418",
+          "default": "127.255.255.255:59418",
           "type": "string"
         },
         "publish_address": {
           "description": "The address in which to publish speaker notes events.",
-          "default": "127.0.0.1:59418",
+          "default": "127.255.255.255:59418",
           "type": "string"
         }
       },

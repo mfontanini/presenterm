@@ -5,10 +5,10 @@ use crate::{
         speaker_notes::{SpeakerNotesEvent, SpeakerNotesEventPublisher},
     },
     config::{KeyBindingsConfig, SlideTransitionConfig, SlideTransitionStyleConfig},
-    markdown::parse::{MarkdownParser, ParseError},
+    markdown::parse::MarkdownParser,
     presentation::{
         Presentation, Slide,
-        builder::{BuildError, PresentationBuilder, PresentationBuilderOptions, Themes},
+        builder::{PresentationBuilder, PresentationBuilderOptions, Themes, error::BuildError},
         diff::PresentationDiffer,
         poller::{PollableEffect, Poller, PollerCommand},
     },
@@ -36,7 +36,6 @@ use crate::{
 };
 use std::{
     fmt::Display,
-    fs,
     io::{self},
     mem,
     ops::Deref,
@@ -413,7 +412,6 @@ impl<'a> Presenter<'a> {
     }
 
     fn load_presentation(&mut self, path: &Path) -> Result<Presentation, LoadPresentationError> {
-        let content = fs::read_to_string(path).map_err(LoadPresentationError::Reading)?;
         let presentation = PresentationBuilder::new(
             self.default_theme,
             self.resources.clone(),
@@ -425,7 +423,7 @@ impl<'a> Presenter<'a> {
             &self.parser,
             self.options.builder_options.clone(),
         )?
-        .build(&content)?;
+        .build(path)?;
         Ok(presentation)
     }
 
@@ -678,12 +676,6 @@ pub enum PresentMode {
 /// An error when loading a presentation.
 #[derive(thiserror::Error, Debug)]
 pub enum LoadPresentationError {
-    #[error(transparent)]
-    Parse(#[from] ParseError),
-
-    #[error("reading presentation: {0}")]
-    Reading(io::Error),
-
     #[error(transparent)]
     Processing(#[from] BuildError),
 
