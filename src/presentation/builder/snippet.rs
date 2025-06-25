@@ -1,9 +1,7 @@
-use super::{BuildError, BuildResult, ExecutionMode, PresentationBuilderOptions};
+use super::{BuildError, BuildResult};
 use crate::{
-    ImageRegistry,
     code::{
-        execute::{LanguageSnippetExecutor, SnippetExecutor},
-        highlighting::SnippetHighlighter,
+        execute::LanguageSnippetExecutor,
         snippet::{
             ExternalFile, Highlight, HighlightContext, HighlightGroup, HighlightMutator, HighlightedLine, Snippet,
             SnippetExec, SnippetExecutorSpec, SnippetLanguage, SnippetLine, SnippetParser, SnippetRepr,
@@ -11,96 +9,25 @@ use crate::{
         },
     },
     markdown::elements::SourcePosition,
-    presentation::{
-        ChunkMutator,
-        builder::{error::InvalidPresentation, sources::MarkdownSources},
-    },
+    presentation::builder::{PresentationBuilder, error::InvalidPresentation},
     render::{
         operation::{AsRenderOperations, RenderAsyncStartPolicy, RenderOperation},
         properties::WindowSize,
     },
-    resource::{ResourceBasePath, Resources},
-    theme::{Alignment, CodeBlockStyle, PresentationTheme},
-    third_party::{ThirdPartyRender, ThirdPartyRenderRequest},
+    theme::{Alignment, CodeBlockStyle},
+    third_party::ThirdPartyRenderRequest,
     ui::execution::{
         RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation, SnippetExecutionDisabledOperation,
         disabled::ExecutionType, snippet::DisplaySeparator, validator::ValidateSnippetOperation,
     },
 };
 use itertools::Itertools;
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, rc::Rc};
 
-pub(crate) struct SnippetProcessorState<'a> {
-    pub(crate) resources: &'a Resources,
-    pub(crate) image_registry: &'a ImageRegistry,
-    pub(crate) snippet_executor: Arc<SnippetExecutor>,
-    pub(crate) theme: &'a PresentationTheme,
-    pub(crate) third_party: &'a ThirdPartyRender,
-    pub(crate) highlighter: &'a SnippetHighlighter,
-    pub(crate) options: &'a PresentationBuilderOptions,
-    pub(crate) font_size: u8,
-    pub(crate) sources: &'a MarkdownSources,
-}
-
-pub(crate) struct SnippetProcessor<'a> {
-    operations: Vec<RenderOperation>,
-    mutators: Vec<Box<dyn ChunkMutator>>,
-    resources: &'a Resources,
-    image_registry: &'a ImageRegistry,
-    snippet_executor: Arc<SnippetExecutor>,
-    theme: &'a PresentationTheme,
-    third_party: &'a ThirdPartyRender,
-    highlighter: &'a SnippetHighlighter,
-    options: &'a PresentationBuilderOptions,
-    font_size: u8,
-    sources: &'a MarkdownSources,
-}
-
-impl<'a> SnippetProcessor<'a> {
-    pub(crate) fn new(state: SnippetProcessorState<'a>) -> Self {
-        let SnippetProcessorState {
-            resources,
-            image_registry,
-            snippet_executor,
-            theme,
-            third_party,
-            highlighter,
-            options,
-            font_size,
-            sources,
-        } = state;
-        Self {
-            operations: Vec::new(),
-            mutators: Vec::new(),
-            resources,
-            image_registry,
-            snippet_executor,
-            theme,
-            third_party,
-            highlighter,
-            options,
-            font_size,
-            sources,
-        }
-    }
-
-    pub(crate) fn process_code(
-        mut self,
-        info: String,
-        code: String,
-        source_position: SourcePosition,
-    ) -> Result<SnippetOperations, BuildError> {
-        self.do_process_code(info, code, source_position)?;
-
-        let Self { operations, mutators, .. } = self;
-        Ok(SnippetOperations { operations, mutators })
-    }
-
-    fn do_process_code(&mut self, info: String, code: String, source_position: SourcePosition) -> BuildResult {
-        let mut snippet = SnippetParser::parse(info, code).map_err(|e| BuildError::InvalidPresentation {
-            source_position: self.sources.resolve_source_position(source_position),
-            error: InvalidPresentation::Snippet(e.to_string()),
-        })?;
+impl PresentationBuilder<'_, '_> {
+    pub(crate) fn push_code(&mut self, info: String, code: String, source_position: SourcePosition) -> BuildResult {
+        let mut snippet = SnippetParser::parse(info, code)
+            .map_err(|e| self.invalid_presentation(source_position, InvalidPresentation::Snippet(e.to_string())))?;
         if matches!(snippet.language, SnippetLanguage::File) {
             snippet = self.load_external_snippet(snippet, source_position)?;
         }
@@ -166,15 +93,15 @@ impl<'a> SnippetProcessor<'a> {
     fn push_code_lines(&mut self, snippet: &Snippet) -> u16 {
         let lines = SnippetSplitter::new(&self.theme.code, self.snippet_executor.hidden_line_prefix(&snippet.language))
             .split(snippet);
-        let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0) * self.font_size as usize;
+        let block_length = lines.iter().map(|line| line.width()).max().unwrap_or(0) * self.slide_font_size() as usize;
         let block_length = block_length as u16;
         let (lines, context) = self.highlight_lines(snippet, lines, block_length);
         for line in lines {
-            self.operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
+            self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(line)));
         }
-        self.operations.push(RenderOperation::SetColors(self.theme.default_style.style.colors));
+        self.chunk_operations.push(RenderOperation::SetColors(self.theme.default_style.style.colors));
         if self.options.allow_mutations && context.borrow().groups.len() > 1 {
-            self.mutators.push(Box::new(HighlightMutator::new(context)));
+            self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
         block_length
     }
@@ -184,17 +111,16 @@ impl<'a> SnippetProcessor<'a> {
         mut code: Snippet,
         source_position: SourcePosition,
     ) -> Result<Snippet, BuildError> {
-        let file: ExternalFile = serde_yaml::from_str(&code.contents).map_err(|e| BuildError::InvalidPresentation {
-            source_position: self.sources.resolve_source_position(source_position),
-            error: InvalidPresentation::Snippet(e.to_string()),
-        })?;
+        let file: ExternalFile = serde_yaml::from_str(&code.contents)
+            .map_err(|e| self.invalid_presentation(source_position, InvalidPresentation::Snippet(e.to_string())))?;
         let path = file.path;
-        let base_path = ResourceBasePath::Custom(self.sources.current_base_path());
-        let contents =
-            self.resources.external_text_file(&path, &base_path).map_err(|e| BuildError::InvalidPresentation {
-                source_position: self.sources.resolve_source_position(source_position),
-                error: InvalidPresentation::Snippet(format!("failed to load snippet {path:?}: {e}")),
-            })?;
+        let base_path = self.resource_base_path();
+        let contents = self.resources.external_text_file(&path, &base_path).map_err(|e| {
+            self.invalid_presentation(
+                source_position,
+                InvalidPresentation::Snippet(format!("failed to load snippet {path:?}: {e}")),
+            )
+        })?;
         code.language = file.language;
         code.contents = Self::filter_lines(contents, file.start_line, file.end_line);
         Ok(code)
@@ -217,14 +143,14 @@ impl<'a> SnippetProcessor<'a> {
             SnippetLanguage::Latex => ThirdPartyRenderRequest::Latex(contents, self.theme.typst.clone()),
             SnippetLanguage::Mermaid => ThirdPartyRenderRequest::Mermaid(contents, self.theme.mermaid.clone()),
             _ => {
-                return Err(BuildError::InvalidPresentation {
-                    source_position: self.sources.resolve_source_position(source_position),
-                    error: InvalidPresentation::Snippet(format!("language {language:?} doesn't support rendering")),
-                })?;
+                return Err(self.invalid_presentation(
+                    source_position,
+                    InvalidPresentation::Snippet(format!("language {language:?} doesn't support rendering")),
+                ));
             }
         };
-        let operation = self.third_party.render(request, self.theme, attributes.width)?;
-        self.operations.push(operation);
+        let operation = self.third_party.render(request, &self.theme, attributes.width)?;
+        self.chunk_operations.push(operation);
         Ok(())
     }
 
@@ -237,7 +163,7 @@ impl<'a> SnippetProcessor<'a> {
         let mut code_highlighter = self.highlighter.language_highlighter(&code.language);
         let style = self.code_style(code);
         let block_length = self.theme.code.alignment.adjust_size(block_length);
-        let font_size = self.font_size;
+        let font_size = self.slide_font_size();
         let dim_style = {
             let mut highlighter = self.highlighter.language_highlighter(&SnippetLanguage::Rust);
             highlighter.style_line("//", &style).0.first().expect("no styles").style.size(font_size)
@@ -258,7 +184,7 @@ impl<'a> SnippetProcessor<'a> {
             let context = context.clone();
             output.push(HighlightedLine {
                 prefix,
-                right_padding_length: line.right_padding_length * self.font_size as u16,
+                right_padding_length: line.right_padding_length * font_size as u16,
                 highlighted,
                 not_highlighted,
                 line_number,
@@ -288,7 +214,7 @@ impl<'a> SnippetProcessor<'a> {
             policy,
             exec_type,
         );
-        self.operations.push(RenderOperation::RenderAsync(Rc::new(operation)));
+        self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(operation)));
     }
 
     fn push_code_as_image(&mut self, snippet: Snippet) -> BuildResult {
@@ -302,7 +228,7 @@ impl<'a> SnippetProcessor<'a> {
             self.theme.execution_output.status.clone(),
         );
         let operation = RenderOperation::RenderAsync(Rc::new(operation));
-        self.operations.push(operation);
+        self.chunk_operations.push(operation);
         Ok(())
     }
 
@@ -319,10 +245,10 @@ impl<'a> SnippetProcessor<'a> {
             executor,
             self.theme.execution_output.status.clone(),
             block_length,
-            self.font_size,
+            self.slide_font_size(),
         );
         let operation = RenderOperation::RenderAsync(Rc::new(operation));
-        self.operations.push(operation);
+        self.chunk_operations.push(operation);
         Ok(())
     }
 
@@ -366,17 +292,17 @@ impl<'a> SnippetProcessor<'a> {
             block_length,
             separator,
             alignment,
-            self.font_size,
+            self.slide_font_size(),
             policy,
             self.theme.execution_output.padding.clone(),
         );
         let operation = RenderOperation::RenderAsync(Rc::new(operation));
-        self.operations.push(operation);
+        self.chunk_operations.push(operation);
         Ok(())
     }
 
     fn push_differ(&mut self, text: String) {
-        self.operations.push(RenderOperation::RenderDynamic(Rc::new(Differ(text))));
+        self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(Differ(text))));
     }
 
     fn push_validator(&mut self, snippet: &Snippet, executor: &LanguageSnippetExecutor) {
@@ -384,13 +310,8 @@ impl<'a> SnippetProcessor<'a> {
             return;
         }
         let operation = ValidateSnippetOperation::new(snippet.clone(), executor.clone());
-        self.operations.push(RenderOperation::RenderAsync(Rc::new(operation)));
+        self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(operation)));
     }
-}
-
-pub(crate) struct SnippetOperations {
-    pub(crate) operations: Vec<RenderOperation>,
-    pub(crate) mutators: Vec<Box<dyn ChunkMutator>>,
 }
 
 #[derive(Debug)]
@@ -404,6 +325,12 @@ impl AsRenderOperations for Differ {
     fn diffable_content(&self) -> Option<&str> {
         Some(&self.0)
     }
+}
+
+#[derive(Debug)]
+enum ExecutionMode {
+    AlongSnippet,
+    ReplaceSnippet,
 }
 
 #[cfg(test)]
@@ -425,7 +352,7 @@ mod tests {
     #[case::crossed(Some(2), Some(1), &[])]
     fn filter_lines(#[case] start: Option<usize>, #[case] end: Option<usize>, #[case] expected: &[&str]) {
         let code = ["a", "b", "c", "d", "e"].join("\n");
-        let output = SnippetProcessor::filter_lines(code, start, end);
+        let output = PresentationBuilder::filter_lines(code, start, end);
         let expected = expected.join("\n");
         assert_eq!(output, expected);
     }
