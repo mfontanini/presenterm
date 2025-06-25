@@ -1,7 +1,7 @@
 use crate::{
     code::execute::UnsupportedExecution,
     markdown::{elements::SourcePosition, parse::ParseError, text_style::UndefinedPaletteColorError},
-    presentation::builder::{CommandParseError, ImageAttributeError, sources::MarkdownSourceError},
+    presentation::builder::{comment::CommandParseError, images::ImageAttributeError, sources::MarkdownSourceError},
     terminal::image::printer::RegisterImageError,
     theme::{ProcessingThemeError, registry::LoadThemeError},
     third_party::ThirdPartyRenderError,
