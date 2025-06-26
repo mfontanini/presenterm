@@ -36,29 +36,28 @@ impl<'a> TextDrawer<'a> {
         let text_length = (line.width() + prefix.width() + right_padding_length as usize) as u16;
         // If our line doesn't fit and it's just too small then abort
         if text_length > positioning.max_line_length && positioning.max_line_length <= minimum_line_length {
-            Err(RenderError::TerminalTooSmall)
-        } else {
-            let prefix_width = prefix.width() as u16;
-            let positioning = Positioning {
-                max_line_length: positioning
-                    .max_line_length
-                    .saturating_sub(prefix_width)
-                    .saturating_sub(right_padding_length),
-                start_column: positioning.start_column,
-            };
-            Ok(Self {
-                prefix,
-                right_padding_length,
-                line,
-                positioning,
-                prefix_width,
-                default_colors,
-                draw_block: false,
-                block_color: None,
-                repeat_prefix: false,
-                center_newlines: false,
-            })
+            return Err(RenderError::TerminalTooSmall);
         }
+        let prefix_width = prefix.width() as u16;
+        let positioning = Positioning {
+            max_line_length: positioning
+                .max_line_length
+                .saturating_sub(prefix_width)
+                .saturating_sub(right_padding_length),
+            start_column: positioning.start_column,
+        };
+        Ok(Self {
+            prefix,
+            right_padding_length,
+            line,
+            positioning,
+            prefix_width,
+            default_colors,
+            draw_block: false,
+            block_color: None,
+            repeat_prefix: false,
+            center_newlines: false,
+        })
     }
 
     pub(crate) fn with_surrounding_block(mut self, block_color: Option<Color>) -> Self {

@@ -18,7 +18,9 @@ use crate::{
     third_party::ThirdPartyRenderRequest,
     ui::execution::{
         RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation, SnippetExecutionDisabledOperation,
-        disabled::ExecutionType, snippet::DisplaySeparator, validator::ValidateSnippetOperation,
+        disabled::ExecutionType,
+        snippet::{ExecIndicator, ExecIndicatorStyle, RunSnippetTrigger, SnippetHandle},
+        validator::ValidateSnippetOperation,
     },
 };
 use itertools::Itertools;
@@ -34,6 +36,14 @@ impl PresentationBuilder<'_, '_> {
         if self.options.auto_render_languages.contains(&snippet.language) {
             snippet.attributes.representation = SnippetRepr::Render;
         }
+        // Ids can only be used in `+exec` snippets.
+        if snippet.attributes.id.is_some()
+            && (!matches!(snippet.attributes.execution, SnippetExec::Exec(_))
+                || !matches!(snippet.attributes.representation, SnippetRepr::Snippet))
+        {
+            return Err(self.invalid_presentation(source_position, InvalidPresentation::SnippetIdNonExec));
+        }
+
         self.push_differ(snippet.contents.clone());
         // Redraw slide if attributes change
         self.push_differ(format!("{:?}", snippet.attributes));
@@ -48,11 +58,7 @@ impl PresentationBuilder<'_, '_> {
             }
             SnippetRepr::ExecReplace => {
                 if execution_allowed {
-                    // TODO: representation and execution should probably be merged
-                    let SnippetExec::Exec(spec) = snippet.attributes.execution.clone() else {
-                        panic!("not an exec snippet");
-                    };
-                    return self.push_code_execution(snippet, 0, ExecutionMode::ReplaceSnippet, &spec);
+                    return self.push_replace_code_execution(snippet.clone());
                 }
             }
             SnippetRepr::Snippet => (),
@@ -71,7 +77,25 @@ impl PresentationBuilder<'_, '_> {
                 Ok(())
             }
             SnippetExec::Exec(spec) => {
-                self.push_code_execution(snippet, block_length, ExecutionMode::AlongSnippet, &spec)
+                let executor = self.snippet_executor.language_executor(&snippet.language, &spec)?;
+                let alignment = self.code_style(&snippet).alignment;
+                let handle = SnippetHandle::new(snippet.clone(), executor, RenderAsyncStartPolicy::OnDemand);
+                self.chunk_operations
+                    .push(RenderOperation::RenderAsync(Rc::new(RunSnippetTrigger::new(handle.clone()))));
+                self.push_indicator(handle.clone(), block_length, alignment);
+                match snippet.attributes.id.clone() {
+                    Some(id) => {
+                        if self.executable_snippets.insert(id.clone(), handle).is_some() {
+                            return Err(self
+                                .invalid_presentation(source_position, InvalidPresentation::SnippetAlreadyExists(id)));
+                        }
+                        Ok(())
+                    }
+                    None => {
+                        self.push_line_break();
+                        self.push_code_execution(block_length, handle, alignment)
+                    }
+                }
             }
             SnippetExec::AcquireTerminal(spec) => self.push_acquire_terminal_execution(snippet, block_length, &spec),
             SnippetExec::Validate(spec) => {
@@ -80,6 +104,11 @@ impl PresentationBuilder<'_, '_> {
                 Ok(())
             }
         }
+    }
+
+    pub(crate) fn push_detached_code_execution(&mut self, handle: SnippetHandle) -> BuildResult {
+        let alignment = self.code_style(&handle.snippet()).alignment;
+        self.push_code_execution(0, handle, alignment)
     }
 
     fn is_execution_allowed(&self, snippet: &Snippet) -> bool {
@@ -104,6 +133,25 @@ impl PresentationBuilder<'_, '_> {
             self.chunk_mutators.push(Box::new(HighlightMutator::new(context)));
         }
         block_length
+    }
+
+    fn push_replace_code_execution(&mut self, snippet: Snippet) -> BuildResult {
+        // TODO: representation and execution should probably be merged
+        let SnippetExec::Exec(spec) = snippet.attributes.execution.clone() else {
+            panic!("not an exec snippet");
+        };
+        let alignment = match self.code_style(&snippet).alignment {
+            // If we're replacing the snippet output, we have center alignment and no background, use
+            // center alignment but without any margins and minimum sizes so we truly center the output.
+            Alignment::Center { .. } if snippet.attributes.no_background => {
+                Alignment::Center { minimum_margin: Default::default(), minimum_size: 0 }
+            }
+            other => other,
+        };
+        let executor = self.snippet_executor.language_executor(&snippet.language, &spec)?;
+        let handle = SnippetHandle::new(snippet, executor, RenderAsyncStartPolicy::Automatic);
+        self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(RunSnippetTrigger::new(handle.clone()))));
+        self.push_code_execution(0, handle, alignment)
     }
 
     fn load_external_snippet(
@@ -222,12 +270,8 @@ impl PresentationBuilder<'_, '_> {
         let executor = self.snippet_executor.language_executor(&snippet.language, &Default::default())?;
         self.push_validator(&snippet, &executor);
 
-        let operation = RunImageSnippet::new(
-            snippet,
-            executor,
-            self.image_registry.clone(),
-            self.theme.execution_output.status.clone(),
-        );
+        let operation =
+            RunImageSnippet::new(snippet, executor, self.image_registry.clone(), self.theme.execution_output.status);
         let operation = RenderOperation::RenderAsync(Rc::new(operation));
         self.chunk_operations.push(operation);
         Ok(())
@@ -244,7 +288,7 @@ impl PresentationBuilder<'_, '_> {
         let operation = RunAcquireTerminalSnippet::new(
             snippet,
             executor,
-            self.theme.execution_output.status.clone(),
+            self.theme.execution_output.status,
             block_length,
             self.slide_font_size(),
         );
@@ -253,51 +297,37 @@ impl PresentationBuilder<'_, '_> {
         Ok(())
     }
 
-    fn push_code_execution(
-        &mut self,
-        snippet: Snippet,
-        block_length: u16,
-        mode: ExecutionMode,
-        spec: &SnippetExecutorSpec,
-    ) -> BuildResult {
-        let executor = self.snippet_executor.language_executor(&snippet.language, spec)?;
+    fn push_indicator(&mut self, handle: SnippetHandle, block_length: u16, alignment: Alignment) {
+        let style = ExecIndicatorStyle {
+            theme: self.theme.execution_output.status,
+            block_length,
+            font_size: self.slide_font_size(),
+            alignment,
+        };
+        let indicator = Rc::new(ExecIndicator::new(handle, style));
+        self.chunk_operations.push(RenderOperation::RenderDynamic(indicator));
+    }
+
+    fn push_code_execution(&mut self, block_length: u16, handle: SnippetHandle, alignment: Alignment) -> BuildResult {
+        let executor = handle.executor();
+        let snippet = handle.snippet();
         self.push_validator(&snippet, &executor);
 
-        let separator = match mode {
-            ExecutionMode::AlongSnippet => DisplaySeparator::On,
-            ExecutionMode::ReplaceSnippet => DisplaySeparator::Off,
-        };
-        let default_alignment = self.code_style(&snippet).alignment;
-        // If we're replacing the snippet output and we have center alignment, use center alignment but
-        // without any margins and minimum sizes so we truly center the output.
-        let alignment = match (&mode, default_alignment) {
-            (ExecutionMode::ReplaceSnippet, Alignment::Center { .. }) => {
-                Alignment::Center { minimum_margin: Default::default(), minimum_size: 0 }
-            }
-            (_, alignment) => alignment,
-        };
         let default_colors = self.theme.default_style.style.colors;
         let mut execution_output_style = self.theme.execution_output.clone();
         if snippet.attributes.no_background {
             execution_output_style.style.colors.background = None;
+            execution_output_style.padding = Default::default();
         }
-        let policy = match mode {
-            ExecutionMode::AlongSnippet => RenderAsyncStartPolicy::OnDemand,
-            ExecutionMode::ReplaceSnippet => RenderAsyncStartPolicy::Automatic,
-        };
         let operation = RunSnippetOperation::new(
-            snippet,
-            executor,
+            handle,
             default_colors,
             execution_output_style,
             block_length,
-            separator,
             alignment,
             self.slide_font_size(),
-            policy,
-            self.theme.execution_output.padding.clone(),
         );
-        let operation = RenderOperation::RenderAsync(Rc::new(operation));
+        let operation = RenderOperation::RenderDynamic(Rc::new(operation));
         self.chunk_operations.push(operation);
         Ok(())
     }
@@ -326,12 +356,6 @@ impl AsRenderOperations for Differ {
     fn diffable_content(&self) -> Option<&str> {
         Some(&self.0)
     }
-}
-
-#[derive(Debug)]
-enum ExecutionMode {
-    AlongSnippet,
-    ReplaceSnippet,
 }
 
 #[cfg(test)]

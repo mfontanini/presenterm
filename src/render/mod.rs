@@ -68,6 +68,7 @@ impl TerminalDrawer {
 
     pub(crate) fn render_error(&mut self, message: &str, source: &ErrorSource) -> RenderResult {
         let (lines, _) = AnsiParser::new(Default::default()).parse_lines(message.lines());
+        let lines = lines.into_iter().map(Into::into).collect();
         let operation = RenderErrorOperation { lines, source: source.clone() };
         let operation = RenderOperation::RenderDynamic(Rc::new(operation));
         let dimensions = WindowSize::current(self.options.font_size_fallback)?;

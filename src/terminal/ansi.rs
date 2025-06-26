@@ -1,6 +1,5 @@
 use crate::markdown::{
     elements::{Line, Text},
-    text::WeightedLine,
     text_style::{Color, TextStyle},
 };
 use std::mem;
@@ -15,7 +14,7 @@ impl AnsiParser {
         Self { starting_style: current_style }
     }
 
-    pub(crate) fn parse_lines<I, S>(self, lines: I) -> (Vec<WeightedLine>, TextStyle)
+    pub(crate) fn parse_lines<I, S>(self, lines: I) -> (Vec<Line>, TextStyle)
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
@@ -28,7 +27,7 @@ impl AnsiParser {
             parser.advance(&mut handler, line.as_ref().as_bytes());
 
             let (line, ending_style) = handler.into_parts();
-            output_lines.push(line.into());
+            output_lines.push(line);
             style = ending_style;
         }
         (output_lines, style)
