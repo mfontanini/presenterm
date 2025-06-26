@@ -116,7 +116,9 @@ where
 
     pub(crate) fn render<'b>(mut self, operations: impl Iterator<Item = &'b RenderOperation>) -> RenderResult {
         let current_rect = self.current_rect().clone();
-        self.terminal.execute(&TerminalCommand::SetCursorBoundaries { rows: current_rect.dimensions.rows })?;
+        self.terminal.execute(&TerminalCommand::SetCursorBoundaries {
+            rows: current_rect.dimensions.rows.saturating_add(current_rect.start_row),
+        })?;
         self.terminal.execute(&TerminalCommand::BeginUpdate)?;
         if current_rect.start_row != 0 || current_rect.start_column != 0 {
             self.terminal
