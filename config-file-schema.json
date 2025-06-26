@@ -6,6 +6,9 @@
     "bindings": {
       "$ref": "#/definitions/KeyBindingsConfig"
     },
+    "d2": {
+      "$ref": "#/definitions/D2Config"
+    },
     "defaults": {
       "description": "The default configuration for the presentation.",
       "allOf": [
@@ -45,6 +48,21 @@
   },
   "additionalProperties": false,
   "definitions": {
+    "D2Config": {
+      "type": "object",
+      "properties": {
+        "scale": {
+          "description": "The scaling parameter to be used in the d2 CLI.",
+          "default": null,
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "float"
+        }
+      },
+      "additionalProperties": false
+    },
     "DefaultsConfig": {
       "type": "object",
       "properties": {
@@ -806,6 +824,7 @@
             "Clojure",
             "Cpp",
             "Css",
+            "D2",
             "DLang",
             "Diff",
             "Docker",

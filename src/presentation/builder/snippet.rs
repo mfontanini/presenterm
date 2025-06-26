@@ -142,6 +142,7 @@ impl PresentationBuilder<'_, '_> {
             SnippetLanguage::Typst => ThirdPartyRenderRequest::Typst(contents, self.theme.typst.clone()),
             SnippetLanguage::Latex => ThirdPartyRenderRequest::Latex(contents, self.theme.typst.clone()),
             SnippetLanguage::Mermaid => ThirdPartyRenderRequest::Mermaid(contents, self.theme.mermaid.clone()),
+            SnippetLanguage::D2 => ThirdPartyRenderRequest::D2(contents, self.theme.d2.clone()),
             _ => {
                 return Err(self.invalid_presentation(
                     source_position,

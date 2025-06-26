@@ -143,6 +143,9 @@ mermaid:
   background: transparent
   theme: dark
 
+d2:
+  theme: 200
+
 palette:
   colors:
     blue: "3085c3"

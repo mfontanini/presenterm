@@ -22,6 +22,10 @@ impl ThirdPartyTools {
         Tool::new(mmdc, args)
     }
 
+    pub(crate) fn d2(args: &[&str]) -> Tool {
+        Tool::new("d2", args)
+    }
+
     pub(crate) fn weasyprint(args: &[&str]) -> Tool {
         Tool::new("weasyprint", args).inherit_stdout().max_error_lines(100)
     }

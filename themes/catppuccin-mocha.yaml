@@ -141,3 +141,6 @@ modals:
 mermaid:
   background: transparent
   theme: dark
+
+d2:
+  theme: 200

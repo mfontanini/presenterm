@@ -248,6 +248,7 @@ impl CoreComponents {
         let third_party_config = ThirdPartyConfigs {
             typst_ppi: config.typst.ppi.to_string(),
             mermaid_scale: config.mermaid.scale.to_string(),
+            d2_scale: config.d2.scale.map(|s| s.to_string()).unwrap_or_else(|| "-1".to_string()),
             threads: config.snippet.render.threads,
         };
         let third_party = ThirdPartyRender::new(third_party_config, registry, &resources_path);

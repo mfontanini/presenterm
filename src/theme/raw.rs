@@ -71,6 +71,10 @@ pub struct PresentationTheme {
     #[serde(default)]
     pub(super) mermaid: MermaidStyle,
 
+    /// The style for d2 auto-rendered code blocks.
+    #[serde(default)]
+    pub(super) d2: D2Style,
+
     /// The style for modals.
     #[serde(default)]
     pub(super) modals: ModalStyle,
@@ -783,6 +787,13 @@ pub(super) struct MermaidStyle {
 
     /// The background color to use.
     pub(super) background: Option<String>,
+}
+
+/// D2 styles.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(super) struct D2Style {
+    /// The d2 theme id to use.
+    pub(super) theme: Option<u32>,
 }
 
 /// Modals style.
