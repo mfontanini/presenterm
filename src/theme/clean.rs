@@ -17,6 +17,7 @@ const DEFAULT_TYPST_HORIZONTAL_MARGIN: u16 = 5;
 const DEFAULT_TYPST_VERTICAL_MARGIN: u16 = 7;
 const DEFAULT_MERMAID_THEME: &str = "default";
 const DEFAULT_MERMAID_BACKGROUND: &str = "transparent";
+const DEFAULT_D2_THEME: u32 = 0;
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ThemeOptions {
@@ -44,6 +45,7 @@ pub(crate) struct PresentationTheme {
     pub(crate) footer: FooterStyle,
     pub(crate) typst: TypstStyle,
     pub(crate) mermaid: MermaidStyle,
+    pub(crate) d2: D2Style,
     pub(crate) modals: ModalStyle,
     pub(crate) palette: ColorPalette,
 }
@@ -68,6 +70,7 @@ impl PresentationTheme {
             footer,
             typst,
             mermaid,
+            d2,
             modals,
             palette,
             extends: _,
@@ -89,6 +92,7 @@ impl PresentationTheme {
             footer: FooterStyle::new(&footer.clone().unwrap_or_default(), &palette, resources)?,
             typst: TypstStyle::new(typst, &palette)?,
             mermaid: MermaidStyle::new(mermaid),
+            d2: D2Style::new(d2),
             modals: ModalStyle::new(modals, &default_style, &palette)?,
             palette,
         })
@@ -670,6 +674,19 @@ impl MermaidStyle {
         let theme = theme.as_deref().unwrap_or(DEFAULT_MERMAID_THEME).to_string();
         let background = background.as_deref().unwrap_or(DEFAULT_MERMAID_BACKGROUND).to_string();
         Self { theme, background }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct D2Style {
+    pub(crate) theme: String,
+}
+
+impl D2Style {
+    fn new(raw: &raw::D2Style) -> Self {
+        let raw::D2Style { theme } = raw;
+        let theme = theme.unwrap_or(DEFAULT_D2_THEME).to_string();
+        Self { theme }
     }
 }
 

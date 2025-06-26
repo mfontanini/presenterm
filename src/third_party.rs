@@ -16,7 +16,7 @@ use crate::{
         Image,
         printer::{ImageSpec, RegisterImageError},
     },
-    theme::{Alignment, MermaidStyle, PresentationTheme, TypstStyle, raw::RawColor},
+    theme::{Alignment, D2Style, MermaidStyle, PresentationTheme, TypstStyle, raw::RawColor},
     tools::{ExecutionError, ThirdPartyTools},
 };
 use std::{
@@ -31,6 +31,7 @@ use std::{
 pub struct ThirdPartyConfigs {
     pub typst_ppi: String,
     pub mermaid_scale: String,
+    pub d2_scale: String,
     pub threads: usize,
 }
 
@@ -66,6 +67,7 @@ impl Default for ThirdPartyRender {
         let config = ThirdPartyConfigs {
             typst_ppi: default_typst_ppi().to_string(),
             mermaid_scale: default_mermaid_scale().to_string(),
+            d2_scale: "-1".to_string(),
             threads: default_snippet_render_threads(),
         };
         Self::new(config, Default::default(), Path::new("."))
@@ -77,6 +79,7 @@ pub(crate) enum ThirdPartyRenderRequest {
     Typst(String, TypstStyle),
     Latex(String, TypstStyle),
     Mermaid(String, MermaidStyle),
+    D2(String, D2Style),
 }
 
 #[derive(Debug, Default)]
@@ -154,6 +157,7 @@ impl Worker {
             ThirdPartyRenderRequest::Typst(input, style) => self.render_typst(input, &style),
             ThirdPartyRenderRequest::Latex(input, style) => self.render_latex(input, &style),
             ThirdPartyRenderRequest::Mermaid(input, style) => self.render_mermaid(input, &style),
+            ThirdPartyRenderRequest::D2(input, style) => self.render_d2(input, &style),
         };
         let mut result = result.lock().unwrap();
         match output {
@@ -204,6 +208,27 @@ impl Worker {
             &style.theme,
             "-b",
             &style.background,
+        ])
+        .run()?;
+
+        self.load_image(snippet, &output_path)
+    }
+
+    pub(crate) fn render_d2(&self, input: String, style: &D2Style) -> Result<Image, ThirdPartyRenderError> {
+        let snippet = ImageSnippet { snippet: input.clone(), source: SnippetSource::D2 };
+        let workdir = tempfile::Builder::default().prefix(".presenterm").tempdir()?;
+        let output_path = workdir.path().join("output.png");
+        let input_path = workdir.path().join("input.d2");
+        fs::write(&input_path, input)?;
+        ThirdPartyTools::d2(&[
+            &input_path.to_string_lossy(),
+            &output_path.to_string_lossy(),
+            "--pad",
+            "0",
+            "--scale",
+            &self.shared.config.d2_scale,
+            "--theme",
+            &style.theme,
         ])
         .run()?;
 
@@ -299,6 +324,7 @@ enum SnippetSource {
     Typst,
     Latex,
     Mermaid,
+    D2,
 }
 
 #[derive(Hash, PartialEq, Eq)]

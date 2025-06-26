@@ -31,6 +31,9 @@ pub struct Config {
     pub mermaid: MermaidConfig,
 
     #[serde(default)]
+    pub d2: D2Config,
+
+    #[serde(default)]
     pub options: OptionsConfig,
 
     #[serde(default)]
@@ -322,6 +325,15 @@ impl Default for MermaidConfig {
 
 pub(crate) fn default_mermaid_scale() -> u32 {
     2
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct D2Config {
+    /// The scaling parameter to be used in the d2 CLI.
+    #[serde(default)]
+    pub scale: Option<f32>,
 }
 
 pub(crate) fn default_u16_max() -> u16 {
