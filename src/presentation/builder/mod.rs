@@ -31,6 +31,7 @@ use crate::{
     },
     third_party::ThirdPartyRender,
     ui::{
+        execution::snippet::SnippetHandle,
         footer::{FooterGenerator, FooterVariables},
         modals::{IndexBuilder, KeyBindingsModalBuilder},
         separator::RenderSeparator,
@@ -38,7 +39,13 @@ use crate::{
 };
 use comrak::Arena;
 use image::DynamicImage;
-use std::{collections::HashSet, fs, io, iter, mem, path::Path, rc::Rc, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    fs, io, iter, mem,
+    path::Path,
+    rc::Rc,
+    sync::Arc,
+};
 
 pub(crate) mod error;
 
@@ -158,6 +165,7 @@ pub(crate) struct PresentationBuilder<'a, 'b> {
     bindings_config: KeyBindingsConfig,
     slides_without_footer: HashSet<usize>,
     markdown_parser: &'a MarkdownParser<'b>,
+    executable_snippets: HashMap<String, SnippetHandle>,
     sources: MarkdownSources,
     options: PresentationBuilderOptions,
 }
@@ -198,6 +206,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             slides_without_footer: HashSet::new(),
             markdown_parser,
             sources: Default::default(),
+            executable_snippets: Default::default(),
             options,
         })
     }

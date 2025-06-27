@@ -565,7 +565,7 @@ impl CodeBlockStyle {
 }
 
 /// Vertical/horizontal padding.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct PaddingRect {
     /// The number of columns to use as horizontal padding.
     pub(crate) horizontal: u8,
@@ -594,7 +594,7 @@ impl ExecutionOutputBlockStyle {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub(crate) struct ExecutionStatusBlockStyle {
     pub(crate) running_style: TextStyle,
     pub(crate) success_style: TextStyle,

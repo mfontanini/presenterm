@@ -103,6 +103,13 @@ impl PresentationBuilder<'_, '_> {
                 self.process_include(path, source_position)?;
                 return Ok(());
             }
+            CommentCommand::SnippetOutput(id) => {
+                let handle = self.executable_snippets.get(&id).cloned().ok_or_else(|| {
+                    self.invalid_presentation(source_position, InvalidPresentation::UndefinedSnippetId(id))
+                })?;
+                self.push_detached_code_execution(handle)?;
+                return Ok(());
+            }
         };
         // Don't push line breaks for any comments.
         self.slide_state.ignore_element_line_break = true;
@@ -189,6 +196,7 @@ enum CommentCommand {
     ResetLayout,
     SkipSlide,
     SpeakerNote(String),
+    SnippetOutput(String),
 }
 
 impl FromStr for CommentCommand {

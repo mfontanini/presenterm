@@ -246,6 +246,9 @@ impl SnippetParser {
                     attributes.representation = SnippetRepr::ExecReplace;
                     attributes.execution = SnippetExec::Exec(spec);
                 }
+                Id(id) => {
+                    attributes.id = Some(id);
+                }
                 Validate(spec) => {
                     if matches!(attributes.execution, SnippetExec::None) {
                         attributes.execution = SnippetExec::Validate(spec);
@@ -294,6 +297,7 @@ impl SnippetParser {
                             "exec_replace" => {
                                 SnippetAttribute::ExecReplace(SnippetExecutorSpec::Alternative(parameter.to_string()))
                             }
+                            "id" => SnippetAttribute::Id(parameter.to_string()),
                             "validate" => {
                                 SnippetAttribute::Validate(SnippetExecutorSpec::Alternative(parameter.to_string()))
                             }
@@ -430,6 +434,7 @@ enum SnippetAttribute {
     NoBackground,
     AcquireTerminal(SnippetExecutorSpec),
     ExpectedExecutionResult(ExpectedSnippetExecutionResult),
+    Id(String),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -662,6 +667,9 @@ pub(crate) struct SnippetAttributes {
 
     /// The expected execution result for a snippet.
     pub(crate) expected_execution_result: ExpectedSnippetExecutionResult,
+
+    /// The identifier for a snippet.
+    pub(crate) id: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

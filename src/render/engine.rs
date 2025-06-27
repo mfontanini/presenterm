@@ -5,7 +5,6 @@ use crate::{
     config::{MaxColumnsAlignment, MaxRowsAlignment},
     markdown::{text::WeightedLine, text_style::Colors},
     render::{
-        layout::Positioning,
         operation::{
             AsRenderOperations, BlockLine, ImageRenderProperties, ImageSize, MarginProperties, RenderAsync,
             RenderOperation,
@@ -327,14 +326,12 @@ where
         let layout = self.build_layout(*alignment).with_font_size(text.font_size());
 
         let dimensions = self.current_dimensions();
-        let Positioning { max_line_length, start_column } = layout.compute(dimensions, *block_length);
-        if self.options.validate_overflows && text.width() as u16 > max_line_length {
+        let positioning = layout.compute(dimensions, *block_length);
+        if self.options.validate_overflows && text.width() as u16 > positioning.max_line_length {
             return Err(RenderError::HorizontalOverflow);
         }
 
-        self.terminal.execute(&TerminalCommand::MoveToColumn(start_column))?;
-
-        let positioning = Positioning { max_line_length, start_column };
+        self.terminal.execute(&TerminalCommand::MoveToColumn(positioning.start_column))?;
         let text_drawer =
             TextDrawer::new(prefix, *right_padding_length, text, positioning, &self.colors, MINIMUM_LINE_LENGTH)?
                 .with_surrounding_block(*block_color)

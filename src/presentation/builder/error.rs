@@ -98,6 +98,15 @@ pub(crate) enum InvalidPresentation {
 
     #[error("font sizes must be >= 1 and <= 7")]
     InvalidFontSize,
+
+    #[error("snippet id '{0}' not defined")]
+    UndefinedSnippetId(String),
+
+    #[error("snippet identifiers can only be used in +exec blocks")]
+    SnippetIdNonExec,
+
+    #[error("snippet id '{0}' already exists")]
+    SnippetAlreadyExists(String),
 }
 
 #[derive(Debug)]

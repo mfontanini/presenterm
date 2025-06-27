@@ -667,7 +667,7 @@ hi
     for operation in slide.iter_visible_operations() {
         if let RenderOperation::RenderAsync(operation) = operation {
             let operation = format!("{operation:?}");
-            if operation.contains("RunSnippetOperation") {
+            if operation.contains("RunSnippetTrigger") {
                 assert!(enabled);
                 found_render_block = true;
             } else if operation.contains("SnippetExecutionDisabledOperation") {
