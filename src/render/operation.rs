@@ -202,6 +202,16 @@ pub(crate) enum PollableState {
     Failed { error: String },
 }
 
+impl PollableState {
+    #[cfg(test)]
+    pub(crate) fn is_completed(&self) -> bool {
+        match self {
+            Self::Unmodified | Self::Modified => false,
+            Self::Done | Self::Failed { .. } => true,
+        }
+    }
+}
+
 pub(crate) struct ToggleState {
     toggled: Arc<Mutex<bool>>,
 }

@@ -12,7 +12,7 @@ use crate::{
 };
 use std::rc::Rc;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub(crate) enum SeparatorWidth {
     Fixed(u16),
 
@@ -55,8 +55,9 @@ impl AsRenderOperations for RenderSeparator {
             SeparatorWidth::FitToWindow => dimensions.columns as usize,
         };
         let style = TextStyle::default().size(self.font_size);
+        let width = width / self.font_size as usize;
         let separator = match self.heading.width() == 0 {
-            true => Line::from(Text::new(character.repeat(width / self.font_size as usize), style)),
+            true => Line::from(Text::new(character.repeat(width), style)),
             false => {
                 let width = width.saturating_sub(self.heading.width());
                 let (dashes_len, remainder) = (width / 2, width % 2);

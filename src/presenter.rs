@@ -467,9 +467,9 @@ impl<'a> Presenter<'a> {
         let presentation = self.state.presentation_mut();
         let dimensions = WindowSize::current(self.options.font_size_fallback)?;
         presentation.jump_previous();
-        let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
+        let left = Self::virtual_render(presentation.current_slide(), dimensions, &options)?;
         presentation.jump_next();
-        let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
+        let right = Self::virtual_render(presentation.current_slide(), dimensions, &options)?;
         let direction = TransitionDirection::Next;
         self.animate_transition(drawer, left, right, direction, dimensions, config)
     }
@@ -487,9 +487,9 @@ impl<'a> Presenter<'a> {
         // Re-borrow to avoid calling fns above while mutably borrowing
         let presentation = self.state.presentation_mut();
 
-        let right = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
+        let right = Self::virtual_render(presentation.current_slide(), dimensions, &options)?;
         presentation.jump_previous();
-        let left = Self::virtual_render(presentation.current_slide(), dimensions.clone(), &options)?;
+        let left = Self::virtual_render(presentation.current_slide(), dimensions, &options)?;
         let direction = TransitionDirection::Previous;
         self.animate_transition(drawer, left, right, direction, dimensions, config)
     }
@@ -573,8 +573,8 @@ impl<'a> Presenter<'a> {
         dimensions: WindowSize,
         options: &RenderEngineOptions,
     ) -> Result<TerminalGrid, RenderError> {
-        let mut term = VirtualTerminal::new(dimensions.clone(), ImageBehavior::PrintAscii);
-        let engine = RenderEngine::new(&mut term, dimensions.clone(), options.clone());
+        let mut term = VirtualTerminal::new(dimensions, ImageBehavior::PrintAscii);
+        let engine = RenderEngine::new(&mut term, dimensions, options.clone());
         engine.render(slide.iter_visible_operations())?;
         Ok(term.into_contents())
     }

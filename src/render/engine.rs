@@ -326,6 +326,7 @@ where
         let layout = self.build_layout(*alignment).with_font_size(text.font_size());
 
         let dimensions = self.current_dimensions();
+
         let positioning = layout.compute(dimensions, *block_length);
         if self.options.validate_overflows && text.width() as u16 > positioning.max_line_length {
             return Err(RenderError::HorizontalOverflow);

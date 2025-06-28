@@ -17,9 +17,9 @@ use crate::{
     theme::{Alignment, CodeBlockStyle},
     third_party::ThirdPartyRenderRequest,
     ui::execution::{
-        RunAcquireTerminalSnippet, RunImageSnippet, RunSnippetOperation, SnippetExecutionDisabledOperation,
+        RunAcquireTerminalSnippet, RunImageSnippet, SnippetExecutionDisabledOperation, SnippetOutputOperation,
         disabled::ExecutionType,
-        snippet::{ExecIndicator, ExecIndicatorStyle, RunSnippetTrigger, SnippetHandle},
+        output::{ExecIndicator, ExecIndicatorStyle, RunSnippetTrigger, SnippetHandle},
         validator::ValidateSnippetOperation,
     },
 };
@@ -319,7 +319,7 @@ impl PresentationBuilder<'_, '_> {
             execution_output_style.style.colors.background = None;
             execution_output_style.padding = Default::default();
         }
-        let operation = RunSnippetOperation::new(
+        let operation = SnippetOutputOperation::new(
             handle,
             default_colors,
             execution_output_style,
@@ -358,10 +358,12 @@ impl AsRenderOperations for Differ {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
+    use crate::{markdown::text_style::Color, presentation::builder::utils::Test, theme::raw};
     use rstest::rstest;
+    use std::fs;
 
     #[rstest]
     #[case::no_filters(None, None, &["a", "b", "c", "d", "e"])]
@@ -380,5 +382,362 @@ mod tests {
         let output = PresentationBuilder::filter_lines(code, start, end);
         let expected = expected.join("\n");
         assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn plain() {
+        let input = "
+```bash
+echo hi
+```";
+        let lines = Test::new(input).render().rows(3).columns(7).into_lines();
+        let expected = &["       ", "echo hi", "       "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn external_snippet() {
+        let temp = tempfile::NamedTempFile::new().expect("failed to create tempfile");
+        let path = temp.path();
+        fs::write(path, "echo hi").unwrap();
+
+        let path = path.to_string_lossy();
+        let input = format!(
+            "
+```file
+path: {path}
+language: bash
+```
+"
+        );
+        let lines = Test::new(input).render().rows(3).columns(7).into_lines();
+        let expected = &["       ", "echo hi", "       "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn line_numbers() {
+        let input = "
+```bash +line_numbers
+hi
+bye
+```";
+        let lines = Test::new(input).render().rows(4).columns(5).into_lines();
+        let expected = &["     ", "1 hi ", "2 bye", "     "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn surroundings() {
+        let input = "
+---
+```bash
+echo hi
+```
+---";
+        let lines = Test::new(input).render().rows(7).columns(7).into_lines();
+        let expected = &["       ", "———————", "       ", "echo hi", "       ", "———————", "       "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn padding() {
+        let input = "
+```bash
+echo hi
+```";
+        let theme = raw::PresentationTheme {
+            code: raw::CodeBlockStyle {
+                padding: raw::PaddingRect { horizontal: Some(2), vertical: Some(1) },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let lines = Test::new(input).theme(theme).render().rows(5).columns(13).into_lines();
+        let expected = &["             ", "             ", "  echo hi    ", "             ", "             "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn exec_no_run() {
+        let input = "
+```bash +exec
+echo hi
+```";
+        let lines = Test::new(input).render().rows(4).columns(19).run_async_renders(false).into_lines();
+        let expected = &["                   ", "echo hi            ", "                   ", "—— [not started] ——"];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn exec_disabled() {
+        let input = "
+```bash +exec
+echo hi
+```";
+        let lines = Test::new(input).disable_exec().render().rows(6).columns(25).into_lines();
+        let expected = &[
+            "                         ",
+            "echo hi                  ",
+            "                         ",
+            "snippet +exec is         ",
+            "disabled, run with -x to ",
+            "enable                   ",
+        ];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn exec_replace_disabled() {
+        let input = "
+```bash +exec_replace
+echo hi
+```";
+        let lines = Test::new(input).disable_exec_replace().render().rows(6).columns(25).into_lines();
+        let expected = &[
+            "                         ",
+            "echo hi                  ",
+            "                         ",
+            "snippet +exec_replace is ",
+            "disabled, run with -X to ",
+            "enable                   ",
+        ];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn exec() {
+        let input = "
+```bash +exec
+echo hi
+```";
+        let theme = raw::PresentationTheme {
+            execution_output: raw::ExecutionOutputBlockStyle {
+                colors: raw::RawColors {
+                    background: Some(raw::RawColor::Color(Color::new(45, 45, 45))),
+                    foreground: None,
+                },
+                padding: raw::PaddingRect { horizontal: Some(1), vertical: Some(1) },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (lines, styles) = Test::new(input)
+            .theme(theme)
+            .render()
+            .map_background(Color::new(45, 45, 45), 'x')
+            .rows(8)
+            .columns(16)
+            .into_parts();
+        let expected_lines = &[
+            "                ",
+            "echo hi         ",
+            "                ",
+            "—— [finished] ——",
+            "                ",
+            "                ",
+            " hi             ",
+            "                ",
+        ];
+        let expected_styles = &[
+            "                ",
+            "xxxxxxxxxxxxxxxx",
+            "                ",
+            "                ",
+            "                ",
+            "xxxxxxxxxxxxxxxx",
+            "xxxxxxxxxxxxxxxx",
+            "xxxxxxxxxxxxxxxx",
+        ];
+        assert_eq!(lines, expected_lines);
+        assert_eq!(styles, expected_styles);
+    }
+
+    #[test]
+    fn exec_font_size() {
+        let input = "
+<!-- font_size: 2 -->
+```bash +exec
+echo hi
+```";
+        let lines = Test::new(input).render().rows(8).columns(32).into_lines();
+        let expected = &[
+            "                                ",
+            "e c h o   h i                   ",
+            "                                ",
+            "                                ",
+            "— —   [ f i n i s h e d ]   — — ",
+            "                                ",
+            "                                ",
+            "h i                             ",
+        ];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn exec_font_size_centered() {
+        let input = "
+<!-- font_size: 2 -->
+```bash +exec
+echo hi
+```";
+        let theme = raw::PresentationTheme {
+            code: raw::CodeBlockStyle {
+                alignment: Some(raw::Alignment::Center { minimum_margin: raw::Margin::Fixed(0), minimum_size: 40 }),
+                ..Default::default()
+            },
+            execution_output: raw::ExecutionOutputBlockStyle {
+                colors: raw::RawColors {
+                    background: Some(raw::RawColor::Color(Color::new(45, 45, 45))),
+                    foreground: None,
+                },
+                padding: raw::PaddingRect { horizontal: Some(1), vertical: Some(1) },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (lines, styles) = Test::new(input)
+            .theme(theme)
+            .render()
+            .map_background(Color::new(45, 45, 45), 'x')
+            .rows(10)
+            .columns(40)
+            .into_parts();
+        let expected_lines = &[
+            "                                        ",
+            "e c h o   h i                           ",
+            "                                        ",
+            "                                        ",
+            "— — — —   [ f i n i s h e d ]   — — — — ",
+            "                                        ",
+            "                                        ",
+            "                                        ",
+            "                                        ",
+            "  h i                                   ",
+        ];
+        let expected_styles = &[
+            "                                        ",
+            "x x x x x x x x x x x x x x x x x x x x ",
+            "                                        ",
+            "                                        ",
+            "                                        ",
+            "                                        ",
+            "                                        ",
+            "x x x x x x x x x x x x x x x x x x x x ",
+            "                                        ",
+            "x x x x x x x x x x x x x x x x x x x x ",
+        ];
+        assert_eq!(lines, expected_lines);
+        assert_eq!(styles, expected_styles);
+    }
+
+    #[test]
+    fn exec_adjacent_detached_output() {
+        let input = "
+```bash +exec +id:foo
+echo hi
+```
+<!-- snippet_output: foo -->";
+        let lines = Test::new(input).render().rows(4).columns(19).run_async_renders(false).into_lines();
+        // this should look exactly the same as if we hadn't detached the output
+        let expected = &["                   ", "echo hi            ", "                   ", "—— [not started] ——"];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn exec_detached_output() {
+        let input = "
+```bash +exec +id:foo
+echo hi
+```
+
+bar
+
+<!-- snippet_output: foo -->";
+        let lines = Test::new(input).render().rows(8).columns(16).into_lines();
+        let expected = &[
+            "                ",
+            "echo hi         ",
+            "                ",
+            "—— [finished] ——",
+            "                ",
+            "bar             ",
+            "                ",
+            "hi              ",
+        ];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn exec_replace() {
+        let input = "
+```bash +exec_replace
+echo hi
+```";
+        let lines = Test::new(input).render().rows(3).columns(7).into_lines();
+        let expected = &["       ", "hi     ", "       "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn snippet_exec_replace_centered() {
+        let input = "
+```bash +exec_replace
+echo hi
+```";
+        let theme = raw::PresentationTheme {
+            code: raw::CodeBlockStyle {
+                alignment: Some(raw::Alignment::Center { minimum_margin: raw::Margin::Fixed(1), minimum_size: 1 }),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let lines = Test::new(input).theme(theme).render().rows(3).columns(6).into_lines();
+        let expected = &["      ", "  hi  ", "      "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn exec_replace_font_size() {
+        let input = "
+<!-- font_size: 2 -->
+```bash +exec_replace
+echo hi
+```";
+        let lines = Test::new(input).render().rows(3).columns(7).into_lines();
+        let expected = &["       ", "h i    ", "       "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn exec_replace_long() {
+        let qr = [
+            "█▀▀▀▀▀█ ▄▀ ▄▀ █▀▀▀▀▀█",
+            "█ ███ █ ▄▀ ▄  █ ███ █",
+            "█ ▀▀▀ █ ▄▄█▀█ █ ▀▀▀ █",
+            "▀▀▀▀▀▀▀ ▀ █▄█ ▀▀▀▀▀▀▀",
+            "█▀▀██ ▀▀█▀  █▀ █ ▀ ▀▄",
+            "▄▄██▀▄▀▀▄ █▀ ▀ ▄█▀█▀ ",
+            "▀  ▀▀ ▀▀▄█▄█▄█▄▄▀ ▄ █",
+            "█▀▀▀▀▀█ ▀▀ ▄█▄█▀ ▄█▀▄",
+            "█ ███ █ ██▀ █  ▄█▄ ▀ ",
+            "█ ▀▀▀ █ █ ▄▀ ▀  ▄██  ",
+            "▀▀▀▀▀▀▀ ▀▀ ▀ ▀  ▀  ▀ ",
+        ]
+        .join("\n");
+
+        let input = format!(
+            r#"
+```bash +exec_replace
+echo "{qr}"
+```
+"#
+        );
+        let rows = 13;
+        let columns = 21;
+        let lines = Test::new(input).render().rows(rows).columns(columns).into_lines();
+        let empty = " ".repeat(columns as usize);
+        let expected: Vec<_> = [empty.as_str()].into_iter().chain(qr.lines()).chain([empty.as_str()]).collect();
+        assert_eq!(lines, expected);
     }
 }

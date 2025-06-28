@@ -125,8 +125,8 @@ impl ExportRenderer {
     }
 
     pub(crate) fn process_slide(&mut self, slide: Slide) -> Result<(), ExportError> {
-        let mut terminal = VirtualTerminal::new(self.dimensions.clone(), Default::default());
-        let engine = RenderEngine::new(&mut terminal, self.dimensions.clone(), Default::default());
+        let mut terminal = VirtualTerminal::new(self.dimensions, Default::default());
+        let engine = RenderEngine::new(&mut terminal, self.dimensions, Default::default());
         engine.render(slide.iter_operations())?;
 
         let grid = terminal.into_contents();
