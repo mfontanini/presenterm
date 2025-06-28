@@ -31,7 +31,7 @@ use crate::{
     },
     third_party::ThirdPartyRender,
     ui::{
-        execution::snippet::SnippetHandle,
+        execution::output::SnippetHandle,
         footer::{FooterGenerator, FooterVariables},
         modals::{IndexBuilder, KeyBindingsModalBuilder},
         separator::RenderSeparator,
@@ -656,4 +656,221 @@ enum LastElement {
         last_index: usize,
     },
     Other,
+}
+
+#[cfg(test)]
+pub(crate) mod utils {
+    use super::*;
+    use crate::{
+        render::{engine::RenderEngine, properties::WindowSize},
+        terminal::virt::VirtualTerminal,
+    };
+    use std::{path::PathBuf, thread::sleep, time::Duration};
+
+    struct MemoryPresentationReader {
+        contents: String,
+    }
+
+    impl PresentationReader for MemoryPresentationReader {
+        fn read(&self, _path: &Path) -> io::Result<String> {
+            Ok(self.contents.clone())
+        }
+    }
+
+    pub(crate) enum Input {
+        Markdown(String),
+        Parsed(Vec<MarkdownElement>),
+    }
+
+    impl From<&'_ str> for Input {
+        fn from(value: &'_ str) -> Self {
+            Self::Markdown(value.to_string())
+        }
+    }
+
+    impl From<String> for Input {
+        fn from(value: String) -> Self {
+            Self::Markdown(value)
+        }
+    }
+
+    impl From<Vec<MarkdownElement>> for Input {
+        fn from(value: Vec<MarkdownElement>) -> Self {
+            Self::Parsed(value)
+        }
+    }
+
+    pub(crate) struct Test {
+        input: Input,
+        options: PresentationBuilderOptions,
+        resources_path: PathBuf,
+        theme: raw::PresentationTheme,
+    }
+
+    impl Test {
+        pub(crate) fn new<T: Into<Input>>(input: T) -> Self {
+            let options = PresentationBuilderOptions {
+                enable_snippet_execution: true,
+                enable_snippet_execution_replace: true,
+                theme_options: ThemeOptions { font_size_supported: true },
+                ..Default::default()
+            };
+            Self { input: input.into(), options, resources_path: std::env::temp_dir(), theme: Default::default() }
+        }
+
+        pub(crate) fn options(mut self, options: PresentationBuilderOptions) -> Self {
+            self.options = options;
+            self
+        }
+
+        pub(crate) fn resources_path<P: Into<PathBuf>>(mut self, path: P) -> Self {
+            self.resources_path = path.into();
+            self
+        }
+
+        pub(crate) fn theme(mut self, theme: raw::PresentationTheme) -> Self {
+            self.theme = theme;
+            self
+        }
+
+        pub(crate) fn disable_exec_replace(mut self) -> Self {
+            self.options.enable_snippet_execution_replace = false;
+            self
+        }
+
+        pub(crate) fn disable_exec(mut self) -> Self {
+            self.options.enable_snippet_execution = false;
+            self
+        }
+
+        pub(crate) fn with_builder<T, F>(&self, callback: F) -> T
+        where
+            F: for<'a, 'b> Fn(PresentationBuilder<'a, 'b>) -> T,
+        {
+            let theme = &self.theme;
+            let resources = Resources::new(&self.resources_path, &self.resources_path, Default::default());
+            let mut third_party = ThirdPartyRender::default();
+            let code_executor = Arc::new(SnippetExecutor::default());
+            let themes = Themes::default();
+            let bindings = KeyBindingsConfig::default();
+            let arena = Default::default();
+            let parser = MarkdownParser::new(&arena);
+            let builder = PresentationBuilder::new(
+                theme,
+                resources,
+                &mut third_party,
+                code_executor,
+                &themes,
+                Default::default(),
+                bindings,
+                &parser,
+                self.options.clone(),
+            )
+            .expect("failed to create builder");
+            callback(builder)
+        }
+
+        pub(crate) fn render(self) -> PresentationRender {
+            let presentation = self.build();
+            PresentationRender::new(presentation)
+        }
+
+        pub(crate) fn build(self) -> Presentation {
+            self.try_build().expect("build failed")
+        }
+
+        pub(crate) fn expect_invalid(self) -> BuildError {
+            self.try_build().expect_err("build succeeded")
+        }
+
+        pub(crate) fn try_build(self) -> Result<Presentation, BuildError> {
+            self.with_builder(|builder| match &self.input {
+                Input::Markdown(input) => {
+                    let reader = MemoryPresentationReader { contents: input.clone() };
+                    let path = self.resources_path.join("presentation.md");
+                    builder.build_with_reader(&path, reader)
+                }
+                Input::Parsed(elements) => builder.build_from_parsed(elements.clone()),
+            })
+        }
+    }
+
+    pub(crate) struct PresentationRender {
+        presentation: Presentation,
+        dimensions: WindowSize,
+        run_async_renders: bool,
+        background_maps: Vec<(Color, char)>,
+    }
+
+    impl PresentationRender {
+        fn new(presentation: Presentation) -> Self {
+            Self {
+                presentation,
+                dimensions: WindowSize { rows: 5, columns: 10, width: 0, height: 0 },
+                run_async_renders: true,
+                background_maps: Default::default(),
+            }
+        }
+
+        pub(crate) fn rows(mut self, rows: u16) -> Self {
+            self.dimensions.rows = rows;
+            self
+        }
+
+        pub(crate) fn columns(mut self, columns: u16) -> Self {
+            self.dimensions.columns = columns;
+            self
+        }
+
+        pub(crate) fn run_async_renders(mut self, value: bool) -> Self {
+            self.run_async_renders = value;
+            self
+        }
+
+        pub(crate) fn map_background(mut self, color: Color, c: char) -> Self {
+            self.background_maps.push((color, c));
+            self
+        }
+
+        pub(crate) fn into_lines(self) -> Vec<String> {
+            self.into_parts().0
+        }
+
+        pub(crate) fn into_parts(self) -> (Vec<String>, Vec<String>) {
+            let Self { presentation, dimensions, run_async_renders, background_maps } = self;
+            let mut slide = presentation.into_slides().into_iter().next().expect("no slides");
+            if run_async_renders {
+                for operation in slide.iter_operations_mut() {
+                    if let RenderOperation::RenderAsync(operation) = operation {
+                        let mut pollable = operation.pollable();
+                        while !pollable.poll().is_completed() {
+                            sleep(Duration::from_millis(1));
+                        }
+                    }
+                }
+            }
+
+            let mut term = VirtualTerminal::new(dimensions, Default::default());
+            let engine = RenderEngine::new(&mut term, dimensions, Default::default());
+            engine.render(slide.iter_operations()).expect("failed to render");
+            let mut lines = Vec::new();
+            let mut styles = Vec::new();
+            for row in term.into_contents().rows {
+                let mut line = String::new();
+                let mut style = String::new();
+                for character in &row {
+                    let style_char = background_maps
+                        .iter()
+                        .filter_map(|(b, c)| (character.style.colors.background == Some(*b)).then_some(c))
+                        .next()
+                        .unwrap_or(&' ');
+                    line.push(character.character);
+                    style.push(*style_char);
+                }
+                lines.push(line);
+                styles.push(style);
+            }
+            (lines, styles)
+        }
+    }
 }

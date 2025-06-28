@@ -21,67 +21,67 @@ pub struct PresentationTheme {
 
     /// The style for a slide's title.
     #[serde(default)]
-    pub(super) slide_title: SlideTitleStyle,
+    pub(crate) slide_title: SlideTitleStyle,
 
     /// The style for a block of code.
     #[serde(default)]
-    pub(super) code: CodeBlockStyle,
+    pub(crate) code: CodeBlockStyle,
 
     /// The style for the execution output of a piece of code.
     #[serde(default)]
-    pub(super) execution_output: ExecutionOutputBlockStyle,
+    pub(crate) execution_output: ExecutionOutputBlockStyle,
 
     /// The style for inline code.
     #[serde(default)]
-    pub(super) inline_code: InlineCodeStyle,
+    pub(crate) inline_code: InlineCodeStyle,
 
     /// The style for a table.
     #[serde(default)]
-    pub(super) table: Option<Alignment>,
+    pub(crate) table: Option<Alignment>,
 
     /// The style for a block quote.
     #[serde(default)]
-    pub(super) block_quote: BlockQuoteStyle,
+    pub(crate) block_quote: BlockQuoteStyle,
 
     /// The style for an alert.
     #[serde(default)]
-    pub(super) alert: AlertStyle,
+    pub(crate) alert: AlertStyle,
 
     /// The default style.
     #[serde(rename = "default", default)]
-    pub(super) default_style: DefaultStyle,
+    pub(crate) default_style: DefaultStyle,
 
     //// The style of all headings.
     #[serde(default)]
-    pub(super) headings: HeadingStyles,
+    pub(crate) headings: HeadingStyles,
 
     /// The style of the introduction slide.
     #[serde(default)]
-    pub(super) intro_slide: IntroSlideStyle,
+    pub(crate) intro_slide: IntroSlideStyle,
 
     /// The style of the presentation footer.
     #[serde(default)]
-    pub(super) footer: Option<FooterStyle>,
+    pub(crate) footer: Option<FooterStyle>,
 
     /// The style for typst auto-rendered code blocks.
     #[serde(default)]
-    pub(super) typst: TypstStyle,
+    pub(crate) typst: TypstStyle,
 
     /// The style for mermaid auto-rendered code blocks.
     #[serde(default)]
-    pub(super) mermaid: MermaidStyle,
+    pub(crate) mermaid: MermaidStyle,
 
     /// The style for d2 auto-rendered code blocks.
     #[serde(default)]
-    pub(super) d2: D2Style,
+    pub(crate) d2: D2Style,
 
     /// The style for modals.
     #[serde(default)]
-    pub(super) modals: ModalStyle,
+    pub(crate) modals: ModalStyle,
 
     /// The color palette.
     #[serde(default)]
-    pub(super) palette: ColorPalette,
+    pub(crate) palette: ColorPalette,
 }
 
 impl PresentationTheme {
@@ -96,256 +96,256 @@ impl PresentationTheme {
 
 /// The style of a slide title.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct SlideTitleStyle {
+pub(crate) struct SlideTitleStyle {
     /// The alignment.
     #[serde(flatten, default)]
-    pub(super) alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// Whether to use a separator line.
     #[serde(default)]
-    pub(super) separator: bool,
+    pub(crate) separator: bool,
 
     /// The padding that should be added before the text.
     #[serde(default)]
-    pub(super) padding_top: Option<u8>,
+    pub(crate) padding_top: Option<u8>,
 
     /// The padding that should be added after the text.
     #[serde(default)]
-    pub(super) padding_bottom: Option<u8>,
+    pub(crate) padding_bottom: Option<u8>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: RawColors,
+    pub(crate) colors: RawColors,
 
     /// Whether to use bold font for slide titles.
     #[serde(default)]
-    pub(super) bold: Option<bool>,
+    pub(crate) bold: Option<bool>,
 
     /// Whether to use italics font for slide titles.
     #[serde(default)]
-    pub(super) italics: Option<bool>,
+    pub(crate) italics: Option<bool>,
 
     /// Whether to use underlined font for slide titles.
     #[serde(default)]
-    pub(super) underlined: Option<bool>,
+    pub(crate) underlined: Option<bool>,
 
     /// The font size to be used if the terminal supports it.
     #[serde(default)]
-    pub(super) font_size: Option<u8>,
+    pub(crate) font_size: Option<u8>,
 }
 
 /// The style for all headings.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct HeadingStyles {
+pub(crate) struct HeadingStyles {
     /// H1 style.
     #[serde(default)]
-    pub(super) h1: HeadingStyle,
+    pub(crate) h1: HeadingStyle,
 
     /// H2 style.
     #[serde(default)]
-    pub(super) h2: HeadingStyle,
+    pub(crate) h2: HeadingStyle,
 
     /// H3 style.
     #[serde(default)]
-    pub(super) h3: HeadingStyle,
+    pub(crate) h3: HeadingStyle,
 
     /// H4 style.
     #[serde(default)]
-    pub(super) h4: HeadingStyle,
+    pub(crate) h4: HeadingStyle,
 
     /// H5 style.
     #[serde(default)]
-    pub(super) h5: HeadingStyle,
+    pub(crate) h5: HeadingStyle,
 
     /// H6 style.
     #[serde(default)]
-    pub(super) h6: HeadingStyle,
+    pub(crate) h6: HeadingStyle,
 }
 
 /// The style for a heading.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct HeadingStyle {
+pub(crate) struct HeadingStyle {
     /// The alignment.
     #[serde(flatten, default)]
-    pub(super) alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// The prefix to be added to this heading.
     ///
     /// This allows adding text like "->" to every heading.
     #[serde(default)]
-    pub(super) prefix: Option<String>,
+    pub(crate) prefix: Option<String>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: RawColors,
+    pub(crate) colors: RawColors,
 
     /// The font size to be used if the terminal supports it.
     #[serde(default)]
-    pub(super) font_size: Option<u8>,
+    pub(crate) font_size: Option<u8>,
 }
 
 /// The style of a block quote.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct BlockQuoteStyle {
+pub(crate) struct BlockQuoteStyle {
     /// The alignment.
     #[serde(flatten, default)]
-    pub(super) alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// The prefix to be added to this block quote.
     ///
     /// This allows adding something like a vertical bar before the text.
     #[serde(default)]
-    pub(super) prefix: Option<String>,
+    pub(crate) prefix: Option<String>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: BlockQuoteColors,
+    pub(crate) colors: BlockQuoteColors,
 }
 
 /// The colors of a block quote.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct BlockQuoteColors {
+pub(crate) struct BlockQuoteColors {
     /// The foreground/background colors.
     #[serde(flatten)]
-    pub(super) base: RawColors,
+    pub(crate) base: RawColors,
 
     /// The color of the vertical bar that prefixes each line in the quote.
     #[serde(default)]
-    pub(super) prefix: Option<RawColor>,
+    pub(crate) prefix: Option<RawColor>,
 }
 
 /// The style of an alert.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct AlertStyle {
+pub(crate) struct AlertStyle {
     /// The alignment.
     #[serde(flatten, default)]
-    pub(super) alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// The base colors.
     #[serde(default)]
-    pub(super) base_colors: RawColors,
+    pub(crate) base_colors: RawColors,
 
     /// The prefix to be added to this block quote.
     ///
     /// This allows adding something like a vertical bar before the text.
     #[serde(default)]
-    pub(super) prefix: Option<String>,
+    pub(crate) prefix: Option<String>,
 
     /// The style for each alert type.
     #[serde(default)]
-    pub(super) styles: AlertTypeStyles,
+    pub(crate) styles: AlertTypeStyles,
 }
 
 /// The style for each alert type.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct AlertTypeStyles {
+pub(crate) struct AlertTypeStyles {
     /// The style for note alert types.
     #[serde(default)]
-    pub(super) note: AlertTypeStyle,
+    pub(crate) note: AlertTypeStyle,
 
     /// The style for tip alert types.
     #[serde(default)]
-    pub(super) tip: AlertTypeStyle,
+    pub(crate) tip: AlertTypeStyle,
 
     /// The style for important alert types.
     #[serde(default)]
-    pub(super) important: AlertTypeStyle,
+    pub(crate) important: AlertTypeStyle,
 
     /// The style for warning alert types.
     #[serde(default)]
-    pub(super) warning: AlertTypeStyle,
+    pub(crate) warning: AlertTypeStyle,
 
     /// The style for caution alert types.
     #[serde(default)]
-    pub(super) caution: AlertTypeStyle,
+    pub(crate) caution: AlertTypeStyle,
 }
 
 /// The style for an alert type.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct AlertTypeStyle {
+pub(crate) struct AlertTypeStyle {
     /// The color to be used.
     #[serde(default)]
-    pub(super) color: Option<RawColor>,
+    pub(crate) color: Option<RawColor>,
 
     /// The title to be used.
     #[serde(default)]
-    pub(super) title: Option<String>,
+    pub(crate) title: Option<String>,
 
     /// The icon to be used.
     #[serde(default)]
-    pub(super) icon: Option<String>,
+    pub(crate) icon: Option<String>,
 }
 
 /// The style for the presentation introduction slide.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct IntroSlideStyle {
+pub(crate) struct IntroSlideStyle {
     /// The style of the title line.
     #[serde(default)]
-    pub(super) title: IntroSlideTitleStyle,
+    pub(crate) title: IntroSlideTitleStyle,
 
     /// The style of the subtitle line.
     #[serde(default)]
-    pub(super) subtitle: BasicStyle,
+    pub(crate) subtitle: BasicStyle,
 
     /// The style of the event line.
     #[serde(default)]
-    pub(super) event: BasicStyle,
+    pub(crate) event: BasicStyle,
 
     /// The style of the location line.
     #[serde(default)]
-    pub(super) location: BasicStyle,
+    pub(crate) location: BasicStyle,
 
     /// The style of the date line.
     #[serde(default)]
-    pub(super) date: BasicStyle,
+    pub(crate) date: BasicStyle,
 
     /// The style of the author line.
     #[serde(default)]
-    pub(super) author: AuthorStyle,
+    pub(crate) author: AuthorStyle,
 
     /// Whether we want a footer in the intro slide.
     #[serde(default)]
-    pub(super) footer: Option<bool>,
+    pub(crate) footer: Option<bool>,
 }
 
 /// A simple style.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct DefaultStyle {
+pub(crate) struct DefaultStyle {
     /// The margin on the left/right of the screen.
     #[serde(default, with = "serde_yaml::with::singleton_map")]
-    pub(super) margin: Option<Margin>,
+    pub(crate) margin: Option<Margin>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: RawColors,
+    pub(crate) colors: RawColors,
 }
 
 /// A simple style.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct BasicStyle {
+pub(crate) struct BasicStyle {
     /// The alignment.
     #[serde(flatten, default)]
-    pub(super) alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: RawColors,
+    pub(crate) colors: RawColors,
 }
 
 /// The intro slide title's style.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct IntroSlideTitleStyle {
+pub(crate) struct IntroSlideTitleStyle {
     /// The alignment.
     #[serde(flatten, default)]
-    pub(super) alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: RawColors,
+    pub(crate) colors: RawColors,
 
     /// The font size to be used if the terminal supports it.
     #[serde(default)]
-    pub(super) font_size: Option<u8>,
+    pub(crate) font_size: Option<u8>,
 }
 
 /// Text alignment.
@@ -353,7 +353,7 @@ pub(super) struct IntroSlideTitleStyle {
 /// This allows anchoring presentation elements to the left, center, or right of the screen.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "alignment", rename_all = "snake_case")]
-pub(super) enum Alignment {
+pub(crate) enum Alignment {
     /// Left alignment.
     Left {
         /// The margin before any text.
@@ -388,24 +388,24 @@ impl Default for Alignment {
 
 /// The style for the author line in the presentation intro slide.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct AuthorStyle {
+pub(crate) struct AuthorStyle {
     /// The alignment.
     #[serde(flatten, default)]
-    pub(super) alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: RawColors,
+    pub(crate) colors: RawColors,
 
     /// The positioning of the author's name.
     #[serde(default)]
-    pub(super) positioning: AuthorPositioning,
+    pub(crate) positioning: AuthorPositioning,
 }
 
 /// The style of the footer that's shown in every slide.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "style", rename_all = "snake_case")]
-pub(super) enum FooterStyle {
+pub(crate) enum FooterStyle {
     /// Use a template to generate the footer.
     Template {
         /// The content to be put on the left.
@@ -462,7 +462,7 @@ pub(crate) enum FooterTemplateChunk {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
-pub(super) enum FooterContent {
+pub(crate) enum FooterContent {
     Template(FooterTemplate),
     Image {
         #[serde(rename = "image")]
@@ -623,77 +623,77 @@ pub(crate) enum ParseFooterTemplateError {
 
 /// The style for a piece of code.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct CodeBlockStyle {
+pub(crate) struct CodeBlockStyle {
     /// The alignment.
     #[serde(flatten)]
-    pub(super) alignment: Option<Alignment>,
+    pub(crate) alignment: Option<Alignment>,
 
     /// The padding.
     #[serde(default)]
-    pub(super) padding: PaddingRect,
+    pub(crate) padding: PaddingRect,
 
     /// The syntect theme name to use.
     #[serde(default)]
-    pub(super) theme_name: Option<String>,
+    pub(crate) theme_name: Option<String>,
 
     /// Whether to use the theme's background color.
-    pub(super) background: Option<bool>,
+    pub(crate) background: Option<bool>,
 }
 
 /// The style for the output of a code execution block.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct ExecutionOutputBlockStyle {
+pub(crate) struct ExecutionOutputBlockStyle {
     /// The colors to be used for the output pane.
     #[serde(default)]
-    pub(super) colors: RawColors,
+    pub(crate) colors: RawColors,
 
     /// The colors to be used for the text that represents the status of the execution block.
     #[serde(default)]
-    pub(super) status: ExecutionStatusBlockStyle,
+    pub(crate) status: ExecutionStatusBlockStyle,
 
     /// The padding.
     #[serde(default)]
-    pub(super) padding: PaddingRect,
+    pub(crate) padding: PaddingRect,
 }
 
 /// The style for the status of a code execution block.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct ExecutionStatusBlockStyle {
+pub(crate) struct ExecutionStatusBlockStyle {
     /// The colors for the "running" status.
     #[serde(default)]
-    pub(super) running: RawColors,
+    pub(crate) running: RawColors,
 
     /// The colors for the "finished" status.
     #[serde(default)]
-    pub(super) success: RawColors,
+    pub(crate) success: RawColors,
 
     /// The colors for the "finished with error" status.
     #[serde(default)]
-    pub(super) failure: RawColors,
+    pub(crate) failure: RawColors,
 
     /// The colors for the "not started" status.
     #[serde(default)]
-    pub(super) not_started: RawColors,
+    pub(crate) not_started: RawColors,
 }
 
 /// The style for inline code.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct InlineCodeStyle {
+pub(crate) struct InlineCodeStyle {
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: RawColors,
+    pub(crate) colors: RawColors,
 }
 
 /// Vertical/horizontal padding.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct PaddingRect {
+pub(crate) struct PaddingRect {
     /// The number of columns to use as horizontal padding.
     #[serde(default)]
-    pub(super) horizontal: Option<u8>,
+    pub(crate) horizontal: Option<u8>,
 
     /// The number of rows to use as vertical padding.
     #[serde(default)]
-    pub(super) vertical: Option<u8>,
+    pub(crate) vertical: Option<u8>,
 }
 
 /// A margin.
@@ -732,7 +732,7 @@ impl Default for Margin {
 /// An element type.
 #[derive(Clone, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub(super) enum ElementType {
+pub(crate) enum ElementType {
     SlideTitle,
     Heading1,
     Heading2,
@@ -767,55 +767,55 @@ pub(crate) enum AuthorPositioning {
 
 /// Typst styles.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct TypstStyle {
+pub(crate) struct TypstStyle {
     /// The horizontal margin on the generated images.
-    pub(super) horizontal_margin: Option<u16>,
+    pub(crate) horizontal_margin: Option<u16>,
 
     /// The vertical margin on the generated images.
-    pub(super) vertical_margin: Option<u16>,
+    pub(crate) vertical_margin: Option<u16>,
 
     /// The colors to be used.
     #[serde(default)]
-    pub(super) colors: RawColors,
+    pub(crate) colors: RawColors,
 }
 
 /// Mermaid styles.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct MermaidStyle {
+pub(crate) struct MermaidStyle {
     /// The mermaidjs theme to use.
-    pub(super) theme: Option<String>,
+    pub(crate) theme: Option<String>,
 
     /// The background color to use.
-    pub(super) background: Option<String>,
+    pub(crate) background: Option<String>,
 }
 
 /// D2 styles.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct D2Style {
+pub(crate) struct D2Style {
     /// The d2 theme id to use.
-    pub(super) theme: Option<u32>,
+    pub(crate) theme: Option<u32>,
 }
 
 /// Modals style.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct ModalStyle {
+pub(crate) struct ModalStyle {
     /// The default colors to use for everything in the modal.
     #[serde(default)]
-    pub(super) colors: RawColors,
+    pub(crate) colors: RawColors,
 
     /// The colors to use for selected lines.
     #[serde(default)]
-    pub(super) selection_colors: RawColors,
+    pub(crate) selection_colors: RawColors,
 }
 
 /// The color palette.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(super) struct ColorPalette {
+pub(crate) struct ColorPalette {
     #[serde(default)]
-    pub(super) colors: BTreeMap<String, RawColor>,
+    pub(crate) colors: BTreeMap<String, RawColor>,
 
     #[serde(default)]
-    pub(super) classes: BTreeMap<String, RawColors>,
+    pub(crate) classes: BTreeMap<String, RawColors>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

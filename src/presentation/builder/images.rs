@@ -91,7 +91,7 @@ struct ImageAttributes {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::presentation::builder::tests::Test;
+    use crate::presentation::builder::utils::Test;
     use rstest::rstest;
 
     #[rstest]

@@ -130,7 +130,7 @@ impl<'a> Exporter<'a> {
         .build(presentation_path)?;
         Self::validate_theme_colors(&presentation)?;
 
-        let mut render = ExportRenderer::new(self.dimensions.clone(), output_directory, renderer);
+        let mut render = ExportRenderer::new(self.dimensions, output_directory, renderer);
         Self::log("waiting for images to be generated and code to be executed, if any...")?;
         match self.snippet_policy {
             SnippetsExportPolicy::Parallel => Self::wait_async_renders_parallel(&mut presentation),

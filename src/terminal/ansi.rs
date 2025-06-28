@@ -225,7 +225,7 @@ mod tests {
     fn parse_single(#[case] input: &str, #[case] expected: Line) {
         let splitter = AnsiParser::new(Default::default());
         let (lines, _) = splitter.parse_lines([input]);
-        assert_eq!(lines, vec![expected.into()]);
+        assert_eq!(lines, vec![expected]);
     }
 
     #[rstest]
@@ -268,6 +268,6 @@ mod tests {
             .bg_color(Color::Black);
         let splitter = AnsiParser::new(style);
         let (lines, _) = splitter.parse_lines([input]);
-        assert_eq!(lines, vec![expected.into()]);
+        assert_eq!(lines, vec![expected]);
     }
 }

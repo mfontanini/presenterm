@@ -241,7 +241,7 @@ pub(crate) enum TextAttribute {
     BackgroundColor(Color),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct FontSizedStr<'a> {
     contents: Cow<'a, str>,
     font_size: FontSize,
@@ -260,7 +260,7 @@ impl fmt::Display for FontSizedStr<'_> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum FontSize {
     Scaled(u8),
     Fractional { numerator: u8, denominator: u8 },

@@ -1,113 +1,15 @@
 use super::*;
 use crate::{
     markdown::elements::{Table, TableRow},
-    presentation::{Slide, builder::sources::MarkdownSourceError},
+    presentation::{
+        Slide,
+        builder::{sources::MarkdownSourceError, utils::Test},
+    },
 };
 use image::{ImageEncoder, codecs::png::PngEncoder};
 use rstest::rstest;
-use std::{fs, io::BufWriter, path::PathBuf};
+use std::{fs, io::BufWriter};
 use tempfile::tempdir;
-
-struct MemoryPresentationReader {
-    contents: String,
-}
-
-impl PresentationReader for MemoryPresentationReader {
-    fn read(&self, _path: &Path) -> io::Result<String> {
-        Ok(self.contents.clone())
-    }
-}
-
-pub(crate) enum Input {
-    Markdown(String),
-    Parsed(Vec<MarkdownElement>),
-}
-
-impl From<&'_ str> for Input {
-    fn from(value: &'_ str) -> Self {
-        Self::Markdown(value.to_string())
-    }
-}
-
-impl From<String> for Input {
-    fn from(value: String) -> Self {
-        Self::Markdown(value)
-    }
-}
-
-impl From<Vec<MarkdownElement>> for Input {
-    fn from(value: Vec<MarkdownElement>) -> Self {
-        Self::Parsed(value)
-    }
-}
-
-pub(crate) struct Test {
-    input: Input,
-    options: PresentationBuilderOptions,
-    resources_path: PathBuf,
-}
-
-impl Test {
-    pub(crate) fn new<T: Into<Input>>(input: T) -> Self {
-        Self { input: input.into(), options: Default::default(), resources_path: std::env::temp_dir() }
-    }
-
-    pub(crate) fn options(mut self, options: PresentationBuilderOptions) -> Self {
-        self.options = options;
-        self
-    }
-
-    pub(crate) fn resources_path<P: Into<PathBuf>>(mut self, path: P) -> Self {
-        self.resources_path = path.into();
-        self
-    }
-
-    pub(crate) fn with_builder<T, F>(&self, callback: F) -> T
-    where
-        F: for<'a, 'b> Fn(PresentationBuilder<'a, 'b>) -> T,
-    {
-        let theme = raw::PresentationTheme::default();
-        let resources = Resources::new(&self.resources_path, &self.resources_path, Default::default());
-        let mut third_party = ThirdPartyRender::default();
-        let code_executor = Arc::new(SnippetExecutor::default());
-        let themes = Themes::default();
-        let bindings = KeyBindingsConfig::default();
-        let arena = Default::default();
-        let parser = MarkdownParser::new(&arena);
-        let builder = PresentationBuilder::new(
-            &theme,
-            resources,
-            &mut third_party,
-            code_executor,
-            &themes,
-            Default::default(),
-            bindings,
-            &parser,
-            self.options.clone(),
-        )
-        .expect("failed to create builder");
-        callback(builder)
-    }
-
-    pub(crate) fn build(self) -> Presentation {
-        self.try_build().expect("build failed")
-    }
-
-    pub(crate) fn expect_invalid(self) -> BuildError {
-        self.try_build().expect_err("build succeeded")
-    }
-
-    fn try_build(self) -> Result<Presentation, BuildError> {
-        self.with_builder(|builder| match &self.input {
-            Input::Markdown(input) => {
-                let reader = MemoryPresentationReader { contents: input.clone() };
-                let path = self.resources_path.join("presentation.md");
-                builder.build_with_reader(&path, reader)
-            }
-            Input::Parsed(elements) => builder.build_from_parsed(elements.clone()),
-        })
-    }
-}
 
 fn is_visible(operation: &RenderOperation) -> bool {
     use RenderOperation::*;
@@ -648,59 +550,6 @@ fn parse_front_matter_strict() {
     let elements = vec![MarkdownElement::FrontMatter("potato: yes".into())];
     let result = Test::new(elements).options(options).try_build();
     assert!(result.is_ok());
-}
-
-#[rstest]
-#[case::enabled(true)]
-#[case::disabled(false)]
-fn snippet_execution(#[case] enabled: bool) {
-    let input = "
-```rust +exec
-hi
-```
-";
-    let options = PresentationBuilderOptions { enable_snippet_execution: enabled, ..Default::default() };
-    let presentation = Test::new(input).options(options).build();
-    let slide = presentation.iter_slides().next().unwrap();
-    let mut found_render_block = false;
-    let mut found_cant_render_block = false;
-    for operation in slide.iter_visible_operations() {
-        if let RenderOperation::RenderAsync(operation) = operation {
-            let operation = format!("{operation:?}");
-            if operation.contains("RunSnippetTrigger") {
-                assert!(enabled);
-                found_render_block = true;
-            } else if operation.contains("SnippetExecutionDisabledOperation") {
-                assert!(!enabled);
-                found_cant_render_block = true;
-            }
-        }
-    }
-    if found_render_block {
-        assert!(enabled, "snippet execution block found but not enabled");
-    } else {
-        assert!(!enabled, "snippet execution enabled but not found");
-    }
-    if found_cant_render_block {
-        assert!(!enabled, "can't execute snippet operation found but enabled");
-    } else {
-        assert!(enabled, "can't execute snippet operation not found");
-    }
-}
-
-#[test]
-fn external_snippet() {
-    let temp = tempfile::NamedTempFile::new().expect("failed to create tempfile");
-    let path = temp.path().file_name().expect("no file name").to_string_lossy();
-    let input = format!(
-        "
-```file +line_numbers +exec
-path: {path}
-language: rust
-```
-"
-    );
-    Test::new(input).build();
 }
 
 #[test]

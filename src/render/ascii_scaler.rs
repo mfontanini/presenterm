@@ -25,7 +25,7 @@ impl AsciiScaler {
     pub(crate) fn process(self, presentation: &Presentation, dimensions: &WindowSize) -> Result<(), RenderError> {
         let mut collector = ImageCollector::default();
         for slide in presentation.iter_slides() {
-            let engine = RenderEngine::new(&mut collector, dimensions.clone(), self.options.clone());
+            let engine = RenderEngine::new(&mut collector, *dimensions, self.options.clone());
             engine.render(slide.iter_operations())?;
         }
         thread::spawn(move || Self::scale(collector.images));

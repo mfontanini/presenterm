@@ -47,7 +47,7 @@ struct Inner {
 }
 
 #[derive(Debug)]
-pub(crate) struct RunSnippetOperation {
+pub(crate) struct SnippetOutputOperation {
     default_colors: Colors,
     style: ExecutionOutputBlockStyle,
     block_length: u16,
@@ -56,7 +56,7 @@ pub(crate) struct RunSnippetOperation {
     font_size: u8,
 }
 
-impl RunSnippetOperation {
+impl SnippetOutputOperation {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         handle: SnippetHandle,
@@ -71,7 +71,7 @@ impl RunSnippetOperation {
     }
 }
 
-impl AsRenderOperations for RunSnippetOperation {
+impl AsRenderOperations for SnippetOutputOperation {
     fn as_render_operations(&self, _dimensions: &WindowSize) -> Vec<RenderOperation> {
         let inner = self.handle.0.lock().unwrap();
         if let State::Initial = inner.state {
@@ -95,10 +95,12 @@ impl AsRenderOperations for RunSnippetOperation {
                 if has_margin { self.block_length.max(inner.max_line_length) } else { inner.max_line_length };
             let vertical_padding = iter::repeat_n(" ", padding.vertical as usize).map(Line::from);
             let lines = vertical_padding.clone().chain(inner.output_lines.iter().cloned()).chain(vertical_padding);
+            let style = TextStyle::default().size(self.font_size);
             for mut line in lines {
-                line.apply_style(&TextStyle::default().size(self.font_size));
+                line.apply_style(&style);
+                let prefix = Text::new(" ".repeat(padding.horizontal as usize), style).into();
                 operations.push(RenderOperation::RenderBlockLine(BlockLine {
-                    prefix: " ".repeat(padding.horizontal as usize).into(),
+                    prefix,
                     right_padding_length: padding.horizontal as u16,
                     repeat_prefix_on_wrap: false,
                     text: line.into(),
@@ -259,7 +261,9 @@ impl ExecIndicator {
             Alignment::Left { .. } | Alignment::Right { .. } => SeparatorWidth::FitToWindow,
             // We need a minimum here otherwise if the code/block length is too narrow, the separator is
             // word-wrapped and looks bad.
-            Alignment::Center { .. } => SeparatorWidth::Fixed(block_length.max(MINIMUM_SEPARATOR_WIDTH)),
+            Alignment::Center { .. } => {
+                SeparatorWidth::Fixed(block_length.max(MINIMUM_SEPARATOR_WIDTH * font_size as u16))
+            }
         };
         Self { handle, separator_width, theme, font_size }
     }
@@ -277,7 +281,7 @@ impl AsRenderOperations for ExecIndicator {
         };
 
         let heading = Line(vec![" [".into(), description.clone(), "] ".into()]);
-        let separator = RenderSeparator::new(heading, self.separator_width.clone(), self.font_size);
+        let separator = RenderSeparator::new(heading, self.separator_width, self.font_size);
         vec![
             RenderOperation::RenderLineBreak,
             RenderOperation::RenderDynamic(Rc::new(separator)),
@@ -322,7 +326,7 @@ mod tests {
         // Expect to see the output lines
         let inner = handle.0.lock().unwrap();
         let line = Line::from(Text::new("hi mom", TextStyle::default().fg_color(Color::Red).bold()));
-        assert_eq!(inner.output_lines, vec![line.into()]);
+        assert_eq!(inner.output_lines, vec![line]);
     }
 
     #[test]
