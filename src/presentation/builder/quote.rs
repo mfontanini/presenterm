@@ -90,3 +90,60 @@ impl PresentationBuilder<'_, '_> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{markdown::text_style::Color, presentation::builder::utils::Test, theme::raw};
+    use rstest::rstest;
+
+    #[rstest]
+    #[case::left_no_margin(raw::Alignment::Left{ margin: raw::Margin::Fixed(0) },"▍ hi   ", "XXXXXXX", )]
+    #[case::left_one_margin(raw::Alignment::Left{ margin: raw::Margin::Fixed(1) }, " ▍ hi  ", " XXXXX ")]
+    #[case::center(raw::Alignment::Center{ minimum_margin: raw::Margin::Fixed(0), minimum_size: 0 }, " ▍ hi  ", " XXXX  ")]
+    #[test]
+    fn quote(#[case] alignment: raw::Alignment, #[case] line: &str, #[case] style: &str) {
+        let input = "
+> hi
+> hi
+";
+        let color = Color::new(1, 1, 1);
+        let theme = raw::PresentationTheme {
+            block_quote: raw::BlockQuoteStyle {
+                colors: raw::BlockQuoteColors {
+                    base: raw::RawColors { foreground: None, background: Some(raw::RawColor::Color(color)) },
+                    prefix: None,
+                },
+                alignment: Some(alignment),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (lines, styles) =
+            Test::new(input).theme(theme).render().map_background(color, 'X').rows(4).columns(7).into_parts();
+        let expected_lines = &["       ", line, line, "       "];
+        let expected_styles = &["       ", style, style, "       "];
+        assert_eq!(lines, expected_lines);
+        assert_eq!(styles, expected_styles);
+    }
+
+    #[test]
+    fn alert() {
+        let input = "
+> [!note]
+> hi
+";
+        let theme = raw::PresentationTheme {
+            alert: raw::AlertStyle {
+                styles: raw::AlertTypeStyles {
+                    note: raw::AlertTypeStyle { icon: Some("!".to_string()), ..Default::default() },
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let lines = Test::new(input).theme(theme).render().rows(5).columns(9).into_lines();
+        let expected = &["         ", "▍ ! Note ", "▍        ", "▍ hi     ", "         "];
+        assert_eq!(lines, expected);
+    }
+}
