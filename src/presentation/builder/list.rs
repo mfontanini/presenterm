@@ -163,6 +163,9 @@ struct IndexedListItem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::presentation::builder::{PresentationBuilderOptions, utils::Test};
+    use rstest::rstest;
+    use std::iter;
 
     #[test]
     fn iterate_list() {
@@ -195,5 +198,219 @@ mod tests {
         let expected_indexes = [3, 4];
         let indexes: Vec<_> = list.into_iter().map(|item| item.index).collect();
         assert_eq!(indexes, expected_indexes);
+    }
+
+    #[test]
+    fn unordered() {
+        let input = "
+* A
+    * AA
+        * AAA
+    * AB
+* B
+    * BA 
+";
+        let lines = Test::new(input).render().rows(7).columns(16).into_lines();
+        let expected = &[
+            "                ",
+            "   •  A         ",
+            "      ◦  AA     ",
+            "         ▪  AAA ",
+            "      ◦  AB     ",
+            "   •  B         ",
+            "      ◦  BA     ",
+        ];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn unordered_paused() {
+        let input = "
+* A
+<!-- pause -->
+* B
+<!-- pause -->
+* C
+";
+        let lines = Test::new(input).render().rows(4).columns(8).into_lines();
+        let expected = &["        ", "   •  A ", "   •  B ", "   •  C "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn ordered_period() {
+        let input = "
+1. A
+    1. AA
+        1. AAA
+    2. AB
+2. B
+    1. BA 
+";
+        let lines = Test::new(input).render().rows(7).columns(16).into_lines();
+        let expected = &[
+            "                ",
+            "   1. A         ",
+            "      1. AA     ",
+            "         1. AAA ",
+            "      2. AB     ",
+            "   2. B         ",
+            "      1. BA     ",
+        ];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn ordered_parens() {
+        let input = "
+1) A
+    1) AA
+2) B
+";
+        let lines = Test::new(input).render().rows(4).columns(12).into_lines();
+        let expected = &["            ", "   1) A     ", "      1) AA ", "   2) B     "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn ordered_paused() {
+        let input = "
+1. A
+<!-- pause -->
+2. B
+<!-- pause -->
+3. C
+";
+        let lines = Test::new(input).render().rows(4).columns(8).into_lines();
+        let expected = &["        ", "   1. A ", "   2. B ", "   3. C "];
+        assert_eq!(lines, expected);
+    }
+
+    #[rstest]
+    #[case::zero(0)]
+    #[case::one(1)]
+    #[case::two(2)]
+    fn visible_pauses(#[case] advances: usize) {
+        let input = "
+* A
+<!-- pause -->
+* B
+<!-- pause -->
+* C
+";
+        let lines = Test::new(input).render().rows(4).columns(8).advances(advances).into_lines();
+        let mut expected = vec!["        ", "   •  A "];
+        if advances >= 1 {
+            expected.push("   •  B ");
+        }
+        if advances >= 2 {
+            expected.push("   •  C ");
+        }
+        expected.extend(iter::repeat_n("        ", 4 - expected.len()));
+        assert_eq!(lines, expected);
+    }
+
+    #[rstest]
+    #[case::first_no_before_no_after(true, true, 0, 0)]
+    #[case::first_no_before(false, true, 0, 1)]
+    #[case::second_no_before_no_after(true, true, 1, 1)]
+    #[case::second_no_before(false, true, 1, 2)]
+    #[case::second(false, false, 2, 4)]
+    #[case::third_no_before_no_after(true, true, 2, 2)]
+    #[case::third_no_before(false, true, 3, 4)]
+    #[case::third_no_after(true, false, 3, 4)]
+    fn incremental_lists(
+        #[case] pause_before: bool,
+        #[case] pause_after: bool,
+        #[case] advances: usize,
+        #[case] visible: usize,
+    ) {
+        let input = "
+<!-- incremental_lists: true -->
+* A
+* B
+* C
+
+hi
+";
+        let options = PresentationBuilderOptions {
+            pause_before_incremental_lists: pause_before,
+            pause_after_incremental_lists: pause_after,
+            ..Default::default()
+        };
+        let lines = Test::new(input).options(options).render().rows(6).columns(8).advances(advances).into_lines();
+        let mut expected = vec!["        "];
+        if visible >= 1 {
+            expected.push("   •  A ");
+        }
+        if visible >= 2 {
+            expected.push("   •  B ");
+        }
+        if visible >= 3 {
+            expected.push("   •  C ");
+        }
+        if visible >= 4 {
+            expected.push("        ");
+            expected.push("hi      ");
+        }
+        expected.extend(iter::repeat_n("        ", 6 - expected.len()));
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn font_size() {
+        let input = "
+<!-- font_size: 2 -->
+* A
+* B
+";
+        let lines = Test::new(input).render().rows(4).columns(12).into_lines();
+        let expected = &["            ", "    •     A ", "            ", "    •     B "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn newlines() {
+        let input = "
+<!-- list_item_newlines: 2 -->
+* A
+* B
+";
+        let lines = Test::new(input).render().rows(4).columns(8).into_lines();
+        let expected = &["        ", "   •  A ", "        ", "   •  B "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn incremental_lists_end_of_slide() {
+        let input = "
+<!-- incremental_lists: true -->
+* A
+* B
+
+<!-- end_slide -->
+
+other
+";
+        // 3 moves forward should land in the second slide, not an extra pause at the end
+        let lines = Test::new(input).render().rows(4).columns(8).advances(3).into_lines();
+        let expected = &["        ", "other   ", "        ", "        "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn pause_after_list() {
+        let input = "
+1. A
+
+<!-- pause -->
+
+# hi
+
+2. B
+";
+        let lines = Test::new(input).render().rows(4).columns(8).advances(0).into_lines();
+        let expected = &["        ", "   1. A ", "        ", "        "];
+        assert_eq!(lines, expected);
     }
 }

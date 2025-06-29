@@ -70,4 +70,9 @@ impl PresentationBuilder<'_, '_> {
         self.terminate_slide();
         Ok(())
     }
+
+    fn push_intro_slide_text(&mut self, text: Text, element_type: ElementType) {
+        self.push_text(Line::from(text), element_type);
+        self.push_line_break();
+    }
 }

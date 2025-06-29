@@ -51,6 +51,7 @@ pub(crate) mod error;
 
 mod comment;
 mod frontmatter;
+mod heading;
 mod images;
 mod intro_slide;
 mod list;
@@ -443,63 +444,6 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         self.slide_chunks.push(SlideChunk::new(chunk_operations, mutators));
     }
 
-    fn push_slide_title(&mut self, text: Line<RawColor>) -> BuildResult {
-        let mut text = text.resolve(&self.theme.palette)?;
-        if self.options.implicit_slide_ends && !matches!(self.slide_state.last_element, LastElement::None) {
-            self.terminate_slide();
-        }
-
-        if self.slide_state.title.is_none() {
-            self.slide_state.title = Some(text.clone());
-        }
-
-        let mut style = self.theme.slide_title.clone();
-        if let Some(font_size) = self.slide_state.font_size {
-            style.style = style.style.size(font_size);
-        }
-        text.apply_style(&style.style);
-
-        self.push_line_breaks(style.padding_top as usize);
-        self.push_text(text, ElementType::SlideTitle);
-        self.push_line_break();
-
-        for _ in 0..style.padding_bottom {
-            self.push_line_break();
-        }
-        if style.separator {
-            self.chunk_operations
-                .push(RenderSeparator::new(Line::default(), Default::default(), style.style.size).into());
-        }
-        self.push_line_break();
-        self.slide_state.ignore_element_line_break = true;
-        Ok(())
-    }
-
-    fn push_heading(&mut self, level: u8, text: Line<RawColor>) -> BuildResult {
-        let mut text = text.resolve(&self.theme.palette)?;
-        let (element_type, style) = match level {
-            1 => (ElementType::Heading1, &self.theme.headings.h1),
-            2 => (ElementType::Heading2, &self.theme.headings.h2),
-            3 => (ElementType::Heading3, &self.theme.headings.h3),
-            4 => (ElementType::Heading4, &self.theme.headings.h4),
-            5 => (ElementType::Heading5, &self.theme.headings.h5),
-            6 => (ElementType::Heading6, &self.theme.headings.h6),
-            other => panic!("unexpected heading level {other}"),
-        };
-        if let Some(prefix) = &style.prefix {
-            if !prefix.is_empty() {
-                let mut prefix = prefix.clone();
-                prefix.push(' ');
-                text.0.insert(0, Text::from(prefix));
-            }
-        }
-        text.apply_style(&style.style);
-
-        self.push_text(text, element_type);
-        self.push_line_breaks(self.slide_font_size() as usize);
-        Ok(())
-    }
-
     fn push_paragraph(&mut self, lines: Vec<Line<RawColor>>) -> BuildResult {
         for line in lines {
             let line = line.resolve(&self.theme.palette)?;
@@ -519,11 +463,6 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
                 RenderOperation::RenderLineBreak,
             ]);
         }
-    }
-
-    fn push_intro_slide_text(&mut self, text: Text, element_type: ElementType) {
-        self.push_text(Line::from(text), element_type);
-        self.push_line_break();
     }
 
     fn push_text(&mut self, line: Line, element_type: ElementType) {
@@ -797,28 +736,37 @@ pub(crate) mod utils {
 
     pub(crate) struct PresentationRender {
         presentation: Presentation,
-        dimensions: WindowSize,
+        columns: Option<u16>,
+        rows: Option<u16>,
         run_async_renders: bool,
         background_maps: Vec<(Color, char)>,
+        advances: Option<usize>,
     }
 
     impl PresentationRender {
         fn new(presentation: Presentation) -> Self {
             Self {
                 presentation,
-                dimensions: WindowSize { rows: 5, columns: 10, width: 0, height: 0 },
+                columns: None,
+                rows: None,
                 run_async_renders: true,
                 background_maps: Default::default(),
+                advances: None,
             }
         }
 
         pub(crate) fn rows(mut self, rows: u16) -> Self {
-            self.dimensions.rows = rows;
+            self.rows = Some(rows);
             self
         }
 
         pub(crate) fn columns(mut self, columns: u16) -> Self {
-            self.dimensions.columns = columns;
+            self.columns = Some(columns);
+            self
+        }
+
+        pub(crate) fn advances(mut self, number: usize) -> Self {
+            self.advances = Some(number);
             self
         }
 
@@ -837,8 +785,18 @@ pub(crate) mod utils {
         }
 
         pub(crate) fn into_parts(self) -> (Vec<String>, Vec<String>) {
-            let Self { presentation, dimensions, run_async_renders, background_maps } = self;
-            let mut slide = presentation.into_slides().into_iter().next().expect("no slides");
+            let Self { mut presentation, columns, rows, run_async_renders, background_maps, advances } = self;
+            let columns = columns.expect("no columns");
+            let rows = rows.expect("no rows");
+            let dimensions = WindowSize { rows, columns, width: 0, height: 0 };
+            let only_visible = advances.is_some();
+            if let Some(advances) = advances {
+                for _ in 0..advances {
+                    presentation.jump_next();
+                }
+            }
+
+            let slide = presentation.current_slide_mut();
             if run_async_renders {
                 for operation in slide.iter_operations_mut() {
                     if let RenderOperation::RenderAsync(operation) = operation {
@@ -852,7 +810,11 @@ pub(crate) mod utils {
 
             let mut term = VirtualTerminal::new(dimensions, Default::default());
             let engine = RenderEngine::new(&mut term, dimensions, Default::default());
-            engine.render(slide.iter_operations()).expect("failed to render");
+            if only_visible {
+                engine.render(slide.iter_visible_operations()).expect("failed to render");
+            } else {
+                engine.render(slide.iter_operations()).expect("failed to render");
+            }
             let mut lines = Vec::new();
             let mut styles = Vec::new();
             for row in term.into_contents().rows {

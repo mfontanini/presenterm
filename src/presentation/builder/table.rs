@@ -59,3 +59,28 @@ impl PresentationBuilder<'_, '_> {
         Ok(flattened_row)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::presentation::builder::utils::Test;
+
+    #[test]
+    fn table() {
+        let input = "
+| Name   | Taste  |
+| ------ | ------ |
+| Potato | Great  |
+| Carrot | Yuck   |
+";
+        let lines = Test::new(input).render().rows(6).columns(22).into_lines();
+        let expected_lines = &[
+            "                      ",
+            "Name   │ Taste        ",
+            "───────┼──────        ",
+            "Potato │ Great        ",
+            "Carrot │ Yuck         ",
+            "                      ",
+        ];
+        assert_eq!(lines, expected_lines);
+    }
+}
