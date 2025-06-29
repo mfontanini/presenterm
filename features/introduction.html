@@ -1,0 +1,411 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Features - presenterm documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">presenterm documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/mfontanini/presenterm" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <style>
+.mdbook-alerts {
+  padding: 8px 16px;
+  margin-bottom: 16px;
+  border-left: 0.25em solid var(--mdbook-alerts-color);
+}
+
+.mdbook-alerts > *:first-child {
+  margin-top: 0;
+}
+
+.mdbook-alerts > *:last-child {
+  margin-bottom: 0;
+}
+
+.mdbook-alerts-title {
+  display: flex;
+  font-weight: 600;
+  align-items: center;
+  line-height: 1;
+  color: var(--mdbook-alerts-color);
+  text-transform: capitalize;
+}
+
+.mdbook-alerts-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.2em;
+  background-color: currentColor;
+  -webkit-mask: no-repeat center / 100%;
+  mask: no-repeat center / 100%;
+  -webkit-mask-image: var(--mdbook-alerts-icon);
+  mask-image: var(--mdbook-alerts-icon);
+}
+
+.mdbook-alerts-note {
+  --mdbook-alerts-color: rgb(9, 105, 218);
+  /* https://icon-sets.iconify.design/material-symbols/info-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M12 17q.425 0 .713-.288T13 16v-4q0-.425-.288-.712T12 11q-.425 0-.712.288T11 12v4q0 .425.288.713T12 17m0-8q.425 0 .713-.288T13 8q0-.425-.288-.712T12 7q-.425 0-.712.288T11 8q0 .425.288.713T12 9m0 13q-2.075 0-3.9-.788t-3.175-2.137q-1.35-1.35-2.137-3.175T2 12q0-2.075.788-3.9t2.137-3.175q1.35-1.35 3.175-2.137T12 2q2.075 0 3.9.788t3.175 2.137q1.35 1.35 2.138 3.175T22 12q0 2.075-.788 3.9t-2.137 3.175q-1.35 1.35-3.175 2.138T12 22m0-2q3.35 0 5.675-2.325T20 12q0-3.35-2.325-5.675T12 4Q8.65 4 6.325 6.325T4 12q0 3.35 2.325 5.675T12 20m0-8"%2F%3E%3C%2Fsvg%3E');
+}
+
+.mdbook-alerts-tip {
+  --mdbook-alerts-color: rgb(26, 127, 55);
+  /* https://icon-sets.iconify.design/material-symbols/lightbulb-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M12 22q-.825 0-1.412-.587T10 20h4q0 .825-.587 1.413T12 22m-3-3q-.425 0-.712-.288T8 18q0-.425.288-.712T9 17h6q.425 0 .713.288T16 18q0 .425-.288.713T15 19zm-.75-3q-1.725-1.025-2.738-2.75T4.5 9.5q0-3.125 2.188-5.312T12 2q3.125 0 5.313 2.188T19.5 9.5q0 2.025-1.012 3.75T15.75 16zm.6-2h6.3q1.125-.8 1.738-1.975T17.5 9.5q0-2.3-1.6-3.9T12 4Q9.7 4 8.1 5.6T6.5 9.5q0 1.35.613 2.525T8.85 14M12 14"%2F%3E%3C%2Fsvg%3E');
+}
+
+.mdbook-alerts-important {
+  --mdbook-alerts-color: rgb(130, 80, 223);
+  /* https://icon-sets.iconify.design/material-symbols/chat-info-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M12 7q.425 0 .713-.288T13 6q0-.425-.288-.712T12 5q-.425 0-.712.288T11 6q0 .425.288.713T12 7m0 8q.425 0 .713-.288T13 14v-4q0-.425-.288-.712T12 9q-.425 0-.712.288T11 10v4q0 .425.288.713T12 15m-6 3l-2.3 2.3q-.475.475-1.088.213T2 19.575V4q0-.825.588-1.412T4 2h16q.825 0 1.413.588T22 4v12q0 .825-.587 1.413T20 18zm-.85-2H20V4H4v13.125zM4 16V4z"%2F%3E%3C%2Fsvg%3E');
+}
+
+.mdbook-alerts-warning {
+  --mdbook-alerts-color: rgb(154, 103, 0);
+  /* https://icon-sets.iconify.design/material-symbols/warning-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M2.725 21q-.275 0-.5-.137t-.35-.363q-.125-.225-.137-.488t.137-.512l9.25-16q.15-.25.388-.375T12 3q.25 0 .488.125t.387.375l9.25 16q.15.25.138.513t-.138.487q-.125.225-.35.363t-.5.137zm1.725-2h15.1L12 6zM12 18q.425 0 .713-.288T13 17q0-.425-.288-.712T12 16q-.425 0-.712.288T11 17q0 .425.288.713T12 18m0-3q.425 0 .713-.288T13 14v-3q0-.425-.288-.712T12 10q-.425 0-.712.288T11 11v3q0 .425.288.713T12 15m0-2.5"%2F%3E%3C%2Fsvg%3E');
+}
+
+.mdbook-alerts-caution {
+  --mdbook-alerts-color: rgb(207, 34, 46);
+  /* https://icon-sets.iconify.design/material-symbols/brightness-alert-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M12 17q.425 0 .713-.288T13 16q0-.425-.288-.712T12 15q-.425 0-.712.288T11 16q0 .425.288.713T12 17m0-4q.425 0 .713-.288T13 12V8q0-.425-.288-.712T12 7q-.425 0-.712.288T11 8v4q0 .425.288.713T12 13m-3.35 7H6q-.825 0-1.412-.587T4 18v-2.65L2.075 13.4q-.275-.3-.425-.662T1.5 12q0-.375.15-.737t.425-.663L4 8.65V6q0-.825.588-1.412T6 4h2.65l1.95-1.925q.3-.275.663-.425T12 1.5q.375 0 .738.15t.662.425L15.35 4H18q.825 0 1.413.588T20 6v2.65l1.925 1.95q.275.3.425.663t.15.737q0 .375-.15.738t-.425.662L20 15.35V18q0 .825-.587 1.413T18 20h-2.65l-1.95 1.925q-.3.275-.662.425T12 22.5q-.375 0-.737-.15t-.663-.425zm.85-2l2.5 2.5l2.5-2.5H18v-3.5l2.5-2.5L18 9.5V6h-3.5L12 3.5L9.5 6H6v3.5L3.5 12L6 14.5V18zm2.5-6"%2F%3E%3C%2Fsvg%3E');
+}
+
+</style>
+<h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<p>This guide teaches you how to use <em>presenterm</em>. At this point you should have already installed <em>presenterm</em>, otherwise
+visit the <a href="../install.html">installation</a> guide to get started.</p>
+<h2 id="quick-start"><a class="header" href="#quick-start">Quick start</a></h2>
+<p>Download the demo presentation and run it using:</p>
+<pre><code class="language-bash">git clone https://github.com/mfontanini/presenterm.git
+cd presenterm
+presenterm examples/demo.md
+</code></pre>
+<h1 id="presentations"><a class="header" href="#presentations">Presentations</a></h1>
+<p>A presentation in <em>presenterm</em> is a single markdown file. Every slide in the presentation file is delimited by a line
+that contains a single HTML comment:</p>
+<pre><code class="language-html">&lt;!-- end_slide --&gt;
+</code></pre>
+<p>Presentations can contain most commonly used markdown elements such as ordered and unordered lists, headings, formatted
+text (<strong>bold</strong>, <em>italics</em>, <del>strikethrough</del>, <code>inline code</code>, etc), code blocks, block quotes, tables, etc.</p>
+<h2 id="introduction-slide"><a class="header" href="#introduction-slide">Introduction slide</a></h2>
+<p>By setting a front matter at the beginning of your presentation you can configure the title, sub title, author and other
+metadata about your presentation. Doing so will cause <em>presenterm</em> to create an introduction slide:</p>
+<pre><code class="language-yaml">---
+title: "My _first_ **presentation**"
+sub_title: (in presenterm!)
+author: Myself
+---
+</code></pre>
+<p>All of these attributes are optional and should be avoided if an introduction slide is not needed. Note that the <code>title</code>
+key can contain arbitrary markdown so you can use bold, italics, <code>&lt;span&gt;</code> tags, etc.</p>
+<h3 id="multiple-authors"><a class="header" href="#multiple-authors">Multiple authors</a></h3>
+<p>If you're creating a presentation in which there's multiple authors, you can use the <code>authors</code> key instead of <code>author</code>
+and list them all this way:</p>
+<pre><code class="language-yaml">---
+title: Our first presentation
+authors:
+  - Me
+  - You
+---
+</code></pre>
+<h2 id="slide-titles"><a class="header" href="#slide-titles">Slide titles</a></h2>
+<p>Any <a href="https://spec.commonmark.org/0.30/#setext-headings">setext header</a> will be considered to be a slide title and will
+be rendered in a more slide-title-looking way. By default this means it will be centered, some vertical padding will be
+added and the text color will be different.</p>
+<pre><code class="language-markdown">Hello
+===
+</code></pre>
+<div class="mdbook-alerts mdbook-alerts-note">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  note
+</p>
+<p>See the <a href="themes/introduction.html">themes</a> section on how to customize the looks of slide titles and any other element
+in a presentation.</p>
+</div>
+<h2 id="ending-slides"><a class="header" href="#ending-slides">Ending slides</a></h2>
+<p>While other applications use a thematic break (<code>---</code>) to mark the end of a slide, <em>presenterm</em> uses a special
+<code>end_slide</code> HTML comment:</p>
+<pre><code class="language-html">&lt;!-- end_slide --&gt;
+</code></pre>
+<p>This makes the end of a slide more explicit and easy to spot while you're editing your presentation. See the
+<a href="../configuration/options.html#implicit_slide_ends">configuration</a> if you want to customize this behavior.</p>
+<p>If you really would prefer to use thematic breaks (<code>---</code>) to delimit slides, you can do that by enabling the
+<a href="../configuration/options.html#end_slide_shorthand"><code>end_slide_shorthand</code></a> options.</p>
+<h2 id="colored-text"><a class="header" href="#colored-text">Colored text</a></h2>
+<p><code>span</code> HTML tags can be used to provide foreground and/or background colors to text. There's currently two ways to
+specify colors:</p>
+<ul>
+<li>Via the <code>style</code> attribute, in which only the CSS attributes <code>color</code> and <code>background-color</code> can be used to set the
+foreground and background colors respectively. Colors used in both CSS attributes can refer to
+<a href="themes/definition.html#color-palette">theme palette colors</a> by using the <code>palette:&lt;name&gt;</code> or <code>p:&lt;name</code> syntaxes.</li>
+<li>Via the <code>class</code> attribute, which must point to a class defined in the <a href="themes/definition.html#color-palette">theme
+palette</a>. Classes allow configuring foreground/background color combinations to be
+used across your presentation.</li>
+</ul>
+<p>For example, the following will use <code>ff0000</code> as the foreground color and whatever the active theme's palette defines as
+<code>foo</code>:</p>
+<pre><code class="language-markdown">&lt;span style="color: #ff0000; background-color: palette:foo"&gt;colored text!&lt;/span&gt;
+</code></pre>
+<p>Alternatively, can you can define a class that contains a foreground/background color combination in your theme's
+palette and use it:</p>
+<pre><code class="language-markdown">&lt;span class="my_class"&gt;colored text!&lt;/span&gt;
+</code></pre>
+<div class="mdbook-alerts mdbook-alerts-note">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  note
+</p>
+<p>Keep in mind <strong>only <code>span</code> tags are supported</strong>.</p>
+</div>
+<h2 id="font-sizes"><a class="header" href="#font-sizes">Font sizes</a></h2>
+<p>The <a href="https://sw.kovidgoyal.net/kitty/"><em>kitty</em></a> terminal added in version 0.40.0 support for a new protocol that allows
+TUIs to specify the font size to be used when printing text. <em>presenterm</em> is one of the first applications supports this
+protocol in various places:</p>
+<ul>
+<li>Themes can specify it in the presentation title in the introduction slide, in slide titles, and in headers by using
+the <code>font_size</code> property. All built in themes currently set font size to 2 (1 is the default) for these elements.</li>
+<li>Explicitly by using the <code>font_size</code> comment command:</li>
+</ul>
+<pre><code class="language-markdown"># Normal text
+
+&lt;!-- font_size: 2 --&gt;
+
+# Larger text
+</code></pre>
+<p>Terminal support for this feature is verified when <em>presenterm</em> starts and any attempt to change the font size, be it
+via the theme or via the comment command, will be ignored if it's not supported.</p>
+<h1 id="key-bindings"><a class="header" href="#key-bindings">Key bindings</a></h1>
+<p>Navigation within a presentation should be intuitive: jumping to the next/previous slide can be done by using the arrow
+keys, <em>hjkl</em>, and page up/down keys.</p>
+<p>Besides this:</p>
+<ul>
+<li>Jumping to the first slide: <code>gg</code>.</li>
+<li>Jumping to the last slide: <code>G</code>.</li>
+<li>Jumping to a specific slide: <code>&lt;slide-number&gt;G</code>.</li>
+<li>Exit the presentation: <code>&lt;ctrl&gt;c</code>.</li>
+</ul>
+<p>You can check all the configured keybindings by pressing <code>?</code> while running <em>presenterm</em>.</p>
+<h2 id="configuring-key-bindings"><a class="header" href="#configuring-key-bindings">Configuring key bindings</a></h2>
+<p>If you don't like the default key bindings, you can override them in the <a href="../configuration/settings.html#key-bindings">configuration
+file</a>.</p>
+<h1 id="modals"><a class="header" href="#modals">Modals</a></h1>
+<p><em>presenterm</em> currently has 2 modals that can provide some information while running the application. Modals can be
+toggled using some key combination and can be hidden using the escape key by default, but these can be configured via
+the <a href="../configuration/settings.html#key-bindings">configuration file key bindings</a>.</p>
+<h2 id="slide-index-modal"><a class="header" href="#slide-index-modal">Slide index modal</a></h2>
+<p>This modal can be toggled by default using <code>control+p</code> and lets you see an index that contains a row for every slide in
+the presentation, including its title and slide index. This allows you to find a slide you're trying to jump to
+quicklier rather than scanning through each of them.</p>
+<p><a href="https://asciinema.org/a/1VgRxVIEyLrMmq6OZ3oKx4PGi"><img src="https://asciinema.org/a/1VgRxVIEyLrMmq6OZ3oKx4PGi.svg" alt="asciicast" /></a></p>
+<h2 id="key-bindings-modal"><a class="header" href="#key-bindings-modal">Key bindings modal</a></h2>
+<p>The key bindings modal displays the key bindings for each of the supported actions and can be opened by pressing <code>?</code>.</p>
+<h1 id="hot-reload"><a class="header" href="#hot-reload">Hot reload</a></h1>
+<p>Unless you run in presentation mode by passing in the <code>--present</code> parameter, <em>presenterm</em> will automatically reload your
+presentation file every time you save it. <em>presenterm</em> will also automatically detect which specific slide was modified
+and jump to it so you don't have to be jumping back and forth between the source markdown and the presentation to see
+how the changes look like.</p>
+<p><a href="https://asciinema.org/a/bu9ITs8KhaQK5OdDWnPwUYKu3"><img src="https://asciinema.org/a/bu9ITs8KhaQK5OdDWnPwUYKu3.svg" alt="asciicast" /></a></p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../install.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../features/images.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../install.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../features/images.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
