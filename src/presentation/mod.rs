@@ -273,11 +273,6 @@ impl Slide {
         self.chunks.iter()
     }
 
-    #[cfg(test)]
-    pub(crate) fn into_operations(self) -> Vec<RenderOperation> {
-        self.chunks.into_iter().flat_map(|chunk| chunk.operations.into_iter()).chain(self.footer).collect()
-    }
-
     fn jump_chunk(&mut self, chunk_index: usize) {
         self.visible_chunks = chunk_index.saturating_add(1).min(self.chunks.len());
         for chunk in self.chunks.iter().take(self.visible_chunks - 1) {

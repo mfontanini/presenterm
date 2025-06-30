@@ -254,6 +254,13 @@
           ]
         },
         {
+          "description": "Use the iTerm2 image protocol in multipart mode.",
+          "type": "string",
+          "enum": [
+            "iterm2-multipart"
+          ]
+        },
+        {
           "description": "Use the kitty protocol in \"local\" mode, meaning both presenterm and the terminal run in the same host and can share the filesystem to communicate.",
           "type": "string",
           "enum": [
