@@ -630,6 +630,7 @@ impl FromStr for SnippetLanguage {
             "toml" => Toml,
             "typescript" | "ts" => TypeScript,
             "typst" => Typst,
+            "uv" => Python,
             "xml" => Xml,
             "yaml" => Yaml,
             "verilog" => Verilog,

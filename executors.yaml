@@ -119,6 +119,11 @@ sh:
   commands:
     - ["sh", "$pwd/script.sh"]
   hidden_line_prefix: "/// "
+uv:
+  filename: snippet.py
+  commands:
+    - ["uv", "run","--script","-q", "$pwd/snippet.py"]
+  hidden_line_prefix: "/// "
 zsh:
   filename: script.sh
   commands:
