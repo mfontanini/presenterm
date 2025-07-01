@@ -3,7 +3,7 @@ use super::{
     protocols::{
         ascii::{AsciiImage, AsciiPrinter},
         iterm::{ItermImage, ItermPrinter},
-        kitty::{KittyImage, KittyMode, KittyPrinter},
+        kitty::{KittyImage, KittyPrinter},
         raw::{RawImage, RawPrinter},
     },
 };
@@ -11,6 +11,8 @@ use crate::{
     markdown::text_style::{Color, PaletteColorError},
     terminal::{
         GraphicsMode,
+        emulator::TerminalEmulator,
+        image::protocols::iterm::ItermMode,
         printer::{TerminalError, TerminalIo},
     },
 };
@@ -85,42 +87,23 @@ pub enum ImagePrinter {
 
 impl Default for ImagePrinter {
     fn default() -> Self {
-        Self::new_ascii()
+        Self::Ascii(AsciiPrinter)
     }
 }
 
 impl ImagePrinter {
     pub fn new(mode: GraphicsMode) -> Result<Self, CreatePrinterError> {
+        let capabilities = TerminalEmulator::capabilities();
         let printer = match mode {
-            GraphicsMode::Kitty { mode, inside_tmux } => Self::new_kitty(mode, inside_tmux)?,
-            GraphicsMode::Iterm2 => Self::new_iterm(),
-            GraphicsMode::AsciiBlocks => Self::new_ascii(),
-            GraphicsMode::Raw => Self::new_raw(),
+            GraphicsMode::Kitty { mode } => Self::Kitty(KittyPrinter::new(mode, capabilities.tmux)?),
+            GraphicsMode::Iterm2 => Self::Iterm(ItermPrinter::new(ItermMode::Single, capabilities.tmux)),
+            GraphicsMode::Iterm2Multipart => Self::Iterm(ItermPrinter::new(ItermMode::Multipart, capabilities.tmux)),
+            GraphicsMode::AsciiBlocks => Self::Ascii(AsciiPrinter),
+            GraphicsMode::Raw => Self::Raw(RawPrinter),
             #[cfg(feature = "sixel")]
-            GraphicsMode::Sixel => Self::new_sixel()?,
+            GraphicsMode::Sixel => Self::Sixel(super::protocols::sixel::SixelPrinter::new()?),
         };
         Ok(printer)
-    }
-
-    fn new_kitty(mode: KittyMode, inside_tmux: bool) -> io::Result<Self> {
-        Ok(Self::Kitty(KittyPrinter::new(mode, inside_tmux)?))
-    }
-
-    fn new_iterm() -> Self {
-        Self::Iterm(ItermPrinter)
-    }
-
-    fn new_ascii() -> Self {
-        Self::Ascii(AsciiPrinter)
-    }
-
-    fn new_raw() -> Self {
-        Self::Raw(RawPrinter)
-    }
-
-    #[cfg(feature = "sixel")]
-    fn new_sixel() -> Result<Self, CreatePrinterError> {
-        Ok(Self::Sixel(super::protocols::sixel::SixelPrinter::new()?))
     }
 }
 

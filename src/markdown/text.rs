@@ -30,12 +30,6 @@ impl WeightedLine {
     pub(crate) fn font_size(&self) -> u8 {
         self.font_size
     }
-
-    /// Get an iterator to the underlying text chunks.
-    #[cfg(test)]
-    pub(crate) fn iter_texts(&self) -> impl Iterator<Item = &WeightedText> {
-        self.text.iter()
-    }
 }
 
 impl From<Line> for WeightedLine {

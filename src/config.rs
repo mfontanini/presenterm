@@ -1,10 +1,7 @@
 use crate::{
     code::snippet::SnippetLanguage,
     commands::keyboard::KeyBinding,
-    terminal::{
-        GraphicsMode, capabilities::TerminalCapabilities, emulator::TerminalEmulator,
-        image::protocols::kitty::KittyMode,
-    },
+    terminal::{GraphicsMode, emulator::TerminalEmulator, image::protocols::kitty::KittyMode},
 };
 use clap::ValueEnum;
 use serde::Deserialize;
@@ -381,6 +378,9 @@ pub enum ImageProtocol {
     /// Use the iTerm2 image protocol.
     Iterm2,
 
+    /// Use the iTerm2 image protocol in multipart mode.
+    Iterm2Multipart,
+
     /// Use the kitty protocol in "local" mode, meaning both presenterm and the terminal run in the
     /// same host and can share the filesystem to communicate.
     KittyLocal,
@@ -409,12 +409,9 @@ impl TryFrom<&ImageProtocol> for GraphicsMode {
                 emulator.preferred_protocol()
             }
             ImageProtocol::Iterm2 => GraphicsMode::Iterm2,
-            ImageProtocol::KittyLocal => {
-                GraphicsMode::Kitty { mode: KittyMode::Local, inside_tmux: TerminalCapabilities::is_inside_tmux() }
-            }
-            ImageProtocol::KittyRemote => {
-                GraphicsMode::Kitty { mode: KittyMode::Remote, inside_tmux: TerminalCapabilities::is_inside_tmux() }
-            }
+            ImageProtocol::Iterm2Multipart => GraphicsMode::Iterm2Multipart,
+            ImageProtocol::KittyLocal => GraphicsMode::Kitty { mode: KittyMode::Local },
+            ImageProtocol::KittyRemote => GraphicsMode::Kitty { mode: KittyMode::Remote },
             ImageProtocol::AsciiBlocks => GraphicsMode::AsciiBlocks,
             #[cfg(feature = "sixel")]
             ImageProtocol::Sixel => GraphicsMode::Sixel,
