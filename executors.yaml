@@ -79,6 +79,11 @@ python:
   commands:
     - ["python", "-u", "$pwd/snippet.py"]
   hidden_line_prefix: "/// "
+  alternative:
+    uv:
+      filename: "snippet.py"
+      commands:
+        - ["uv", "run", "--script", "-q", "$pwd/snippet.py"]
 r:
   filename: snippet.R
   commands:
