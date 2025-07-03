@@ -125,7 +125,7 @@ struct Cli {
     enable_snippet_execution_replace: bool,
 
     /// The path to the configuration file.
-    #[clap(short, long)]
+    #[clap(short, long, env = "PRESENTERM_CONFIG_FILE")]
     config_file: Option<String>,
 
     /// Whether to publish speaker notes to local listeners.

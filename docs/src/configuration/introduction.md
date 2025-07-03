@@ -10,7 +10,7 @@ custom themes, in the following directories:
 
 The configuration file will be looked up automatically in the directories above under the name `config.yaml`. e.g. on 
 Linux you should create it under `~/.config/presenterm/config.yaml`. You can also specify a custom path to this file 
-when running _presenterm_ via the `--config-file` parameter.
+when running _presenterm_ via the `--config-file` parameter or via the ``PRESENTERM_CONFIG_FILE`` environment variable.
 
 A [sample configuration file](https://github.com/mfontanini/presenterm/blob/master/config.sample.yaml) is provided in 
 the repository that you can use as a base.
