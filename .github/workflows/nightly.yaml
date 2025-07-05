@@ -25,12 +25,17 @@ jobs:
           set -euo pipefail
           timestamp=$(date -u)
           git_hash=$(git rev-parse HEAD)
+          latest_nightly_hash=$(gh release view nightly | sed -n 's/.*based on ref \[\(.*\)\].*/\1/p')
           echo "timestamp=$timestamp" >> "$GITHUB_OUTPUT"
           echo "git_hash=$git_hash" >> "$GITHUB_OUTPUT"
+          echo "latest_nightly_hash=$latest_nightly_hash" >> "$GITHUB_OUTPUT"
+
   publish-github:
     name: Publish on GitHub
     runs-on: ${{ matrix.config.OS }}
     needs: vars
+    # Don't run this if the nightly hash already points to the current hash
+    if: ${{ needs.vars.outputs.git_hash != needs.vars.outputs.latest_nightly_hash }}
     strategy:
       fail-fast: false
       matrix:
