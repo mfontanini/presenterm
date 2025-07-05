@@ -414,6 +414,9 @@ impl<'a> InlinesParser<'a> {
                 self.inlines.push(Inline::LineBreak);
             }
             NodeValue::Image(link) => {
+                if link.url.starts_with("http://") || link.url.starts_with("https://") {
+                    return Err(ParseErrorKind::ExternalImageUrl.with_sourcepos(data.sourcepos));
+                }
                 if matches!(self.stringify_images, StringifyImages::Yes) {
                     self.pending_text.push(Text::from(format!("![{}]({})", link.title, link.url)));
                     return Ok(None);
@@ -557,6 +560,9 @@ pub(crate) enum ParseErrorKind {
     /// We don't support unfenced code blocks.
     UnfencedCodeBlock,
 
+    /// We don't support external URLs in images.
+    ExternalImageUrl,
+
     /// Invalid HTML was found.
     InvalidHtml(ParseHtmlError),
 
@@ -571,6 +577,7 @@ impl Display for ParseErrorKind {
             Self::UnsupportedStructure { container, element } => {
                 write!(f, "unsupported structure in {container}: {element}")
             }
+            Self::ExternalImageUrl => write!(f, "external URLs are not supported in image tags"),
             Self::UnfencedCodeBlock => write!(f, "only fenced code blocks are supported"),
             Self::InvalidHtml(inner) => write!(f, "invalid HTML: {inner}"),
             Self::Internal(message) => write!(f, "internal error: {message}"),
@@ -806,6 +813,14 @@ picture of potato: ![](potato.png)
 ",
         );
         assert_eq!(parsed.len(), 2);
+    }
+
+    #[test]
+    fn external_image() {
+        let result = try_parse("![](https://example.com/potato.png)");
+        let Err(ParseError { kind: ParseErrorKind::ExternalImageUrl, .. }) = result else {
+            panic!("not the expected error: {result:?}")
+        };
     }
 
     #[test]
