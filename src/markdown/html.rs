@@ -21,8 +21,8 @@ pub(crate) struct HtmlParser {
 impl HtmlParser {
     pub(crate) fn parse(self, input: &str) -> Result<HtmlInline, ParseHtmlError> {
         if input.starts_with("</") {
-            if input.starts_with("</span") {
-                return Ok(HtmlInline::CloseSpan);
+            if input.starts_with("</span") || input.starts_with("</sup") {
+                return Ok(HtmlInline::CloseTag);
             } else {
                 return Err(ParseHtmlError::UnsupportedClosingTag(input.to_string()));
             }
@@ -31,11 +31,14 @@ impl HtmlParser {
         let top = dom.children().iter().next().ok_or(ParseHtmlError::NoTags)?;
         let node = top.get(dom.parser()).expect("failed to get");
         let tag = node.as_tag().ok_or(ParseHtmlError::NoTags)?;
-        if tag.name().as_bytes() != b"span" {
-            return Err(ParseHtmlError::UnsupportedHtml);
+        match tag.name().as_bytes() {
+            b"span" => {
+                let style = self.parse_attributes(tag.attributes())?;
+                Ok(HtmlInline::OpenTag { style })
+            }
+            b"sup" => Ok(HtmlInline::OpenTag { style: TextStyle::default().superscript() }),
+            _ => Err(ParseHtmlError::UnsupportedHtml),
         }
-        let style = self.parse_attributes(tag.attributes())?;
-        Ok(HtmlInline::OpenSpan { style })
     }
 
     fn parse_attributes(&self, attributes: &Attributes) -> Result<TextStyle<RawColor>, ParseHtmlError> {
@@ -97,8 +100,8 @@ impl HtmlParser {
 
 #[derive(Debug)]
 pub(crate) enum HtmlInline {
-    OpenSpan { style: TextStyle<RawColor> },
-    CloseSpan,
+    OpenTag { style: TextStyle<RawColor> },
+    CloseTag,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -146,14 +149,21 @@ mod tests {
     fn parse_style() {
         let tag =
             HtmlParser::default().parse(r#"<span style="color: red; background-color: black">"#).expect("parse failed");
-        let HtmlInline::OpenSpan { style } = tag else { panic!("not an open tag") };
+        let HtmlInline::OpenTag { style } = tag else { panic!("not an open tag") };
         assert_eq!(style, TextStyle::default().bg_color(Color::Black).fg_color(Color::Red));
+    }
+
+    #[test]
+    fn parse_sup() {
+        let tag = HtmlParser::default().parse(r#"<sup>"#).expect("parse failed");
+        let HtmlInline::OpenTag { style } = tag else { panic!("not an open tag") };
+        assert_eq!(style, TextStyle::default().superscript());
     }
 
     #[test]
     fn parse_class() {
         let tag = HtmlParser::default().parse(r#"<span class="foo">"#).expect("parse failed");
-        let HtmlInline::OpenSpan { style } = tag else { panic!("not an open tag") };
+        let HtmlInline::OpenTag { style } = tag else { panic!("not an open tag") };
         assert_eq!(
             style,
             TextStyle::default()
@@ -162,10 +172,12 @@ mod tests {
         );
     }
 
-    #[test]
-    fn parse_end_tag() {
-        let tag = HtmlParser::default().parse("</span>").expect("parse failed");
-        assert!(matches!(tag, HtmlInline::CloseSpan));
+    #[rstest]
+    #[case::span("</span>")]
+    #[case::sup("</span>")]
+    fn parse_end_tag(#[case] input: &str) {
+        let tag = HtmlParser::default().parse(input).expect("parse failed");
+        assert!(matches!(tag, HtmlInline::CloseTag));
     }
 
     #[rstest]
