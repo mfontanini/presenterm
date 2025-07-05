@@ -31,6 +31,7 @@ Things you should know when using image tags in your presentation's markdown are
   preserving the aspect ratio.
 * If your terminal does not support any of the graphics protocol above, images will be rendered using ascii blocks. It 
   ain't great but it's something!
+* Remote images are not supported [by design](https://github.com/mfontanini/presenterm/issues/213#issuecomment-1950342423).
 
 ## tmux
 
