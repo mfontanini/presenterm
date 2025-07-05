@@ -464,8 +464,8 @@ impl<'a> InlinesParser<'a> {
                     .parse(html)
                     .map_err(|e| ParseErrorKind::InvalidHtml(e).with_sourcepos(data.sourcepos))?;
                 match html_inline {
-                    HtmlInline::OpenSpan { style } => return Ok(Some(HtmlStyle::Add(style))),
-                    HtmlInline::CloseSpan => return Ok(Some(HtmlStyle::Remove)),
+                    HtmlInline::OpenTag { style } => return Ok(Some(HtmlStyle::Add(style))),
+                    HtmlInline::CloseTag => return Ok(Some(HtmlStyle::Remove)),
                 };
             }
             NodeValue::FootnoteReference(reference) => {
@@ -704,14 +704,15 @@ boop
     #[test]
     fn html_inlines() {
         let parsed = parse_single(
-            "hi<span style=\"color: red\">red<span style=\"background-color: blue\">blue<span style=\"color: yellow\">yellow</span></span></span>",
+            "hi<span style=\"color: red\">red<span style=\"background-color: blue\">blue<span style=\"color: yellow\">yell<sup>ow</sup></span></span></span>",
         );
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks = vec![
             Text::from("hi"),
             Text::new("red", TextStyle::default().fg_color(Color::Red)),
             Text::new("blue", TextStyle::default().fg_color(Color::Red).bg_color(Color::Blue)),
-            Text::new("yellow", TextStyle::default().fg_color(Color::Yellow).bg_color(Color::Blue)),
+            Text::new("yell", TextStyle::default().fg_color(Color::Yellow).bg_color(Color::Blue)),
+            Text::new("ow", TextStyle::default().fg_color(Color::Yellow).bg_color(Color::Blue).superscript()),
         ];
 
         let expected_elements = &[Line(expected_chunks)];
