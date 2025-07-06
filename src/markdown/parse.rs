@@ -3,7 +3,7 @@ use super::{
     html::{HtmlInline, HtmlParser, ParseHtmlError},
     text_style::TextStyle,
 };
-use crate::theme::raw::RawColor;
+use crate::{markdown::html::HtmlTag, theme::raw::RawColor};
 use comrak::{
     Arena, ComrakOptions,
     arena_tree::Node,
@@ -467,8 +467,8 @@ impl<'a> InlinesParser<'a> {
                     .parse(html)
                     .map_err(|e| ParseErrorKind::InvalidHtml(e).with_sourcepos(data.sourcepos))?;
                 match html_inline {
-                    HtmlInline::OpenTag { style } => return Ok(Some(HtmlStyle::Add(style))),
-                    HtmlInline::CloseTag => return Ok(Some(HtmlStyle::Remove)),
+                    HtmlInline::OpenTag { style, tag } => return Ok(Some(HtmlStyle::Add(style, tag))),
+                    HtmlInline::CloseTag { tag } => return Ok(Some(HtmlStyle::Remove(tag))),
                 };
             }
             NodeValue::FootnoteReference(reference) => {
@@ -490,14 +490,20 @@ impl<'a> InlinesParser<'a> {
         for node in root.children() {
             if let Some(html_style) = self.process_node(node, root, style.clone())? {
                 match html_style {
-                    HtmlStyle::Add(style) => html_styles.push(style),
-                    HtmlStyle::Remove => {
-                        html_styles.pop();
+                    HtmlStyle::Add(style, tag) => html_styles.push((style, tag)),
+                    HtmlStyle::Remove(tag) => {
+                        let popped_tag = html_styles
+                            .pop()
+                            .ok_or_else(|| ParseErrorKind::NoOpenTag.with_sourcepos(node.data.borrow().sourcepos))?
+                            .1;
+                        if popped_tag != tag {
+                            return Err(ParseErrorKind::CloseTagMismatch.with_sourcepos(node.data.borrow().sourcepos));
+                        }
                     }
                 };
                 style = base_style.clone();
                 for html_style in html_styles.iter().rev() {
-                    style.merge(html_style);
+                    style.merge(&html_style.0);
                 }
             }
         }
@@ -506,8 +512,8 @@ impl<'a> InlinesParser<'a> {
 }
 
 enum HtmlStyle {
-    Add(TextStyle<RawColor>),
-    Remove,
+    Add(TextStyle<RawColor>, HtmlTag),
+    Remove(HtmlTag),
 }
 
 enum Inline {
@@ -566,6 +572,12 @@ pub(crate) enum ParseErrorKind {
     /// Invalid HTML was found.
     InvalidHtml(ParseHtmlError),
 
+    /// HTML tag closed without having an open one.
+    NoOpenTag,
+
+    /// HTML tag closed for a different opened one.
+    CloseTagMismatch,
+
     /// An internal parsing error.
     Internal(String),
 }
@@ -580,6 +592,8 @@ impl Display for ParseErrorKind {
             Self::ExternalImageUrl => write!(f, "external URLs are not supported in image tags"),
             Self::UnfencedCodeBlock => write!(f, "only fenced code blocks are supported"),
             Self::InvalidHtml(inner) => write!(f, "invalid HTML: {inner}"),
+            Self::NoOpenTag => write!(f, "closing tag without an open one"),
+            Self::CloseTagMismatch => write!(f, "closing tag does not match last open one"),
             Self::Internal(message) => write!(f, "internal error: {message}"),
         }
     }
@@ -649,9 +663,8 @@ pub(crate) struct ParseInlinesError(String);
 
 #[cfg(test)]
 mod test {
-    use crate::markdown::text_style::Color;
-
     use super::*;
+    use crate::markdown::text_style::Color;
     use rstest::rstest;
     use std::path::Path;
 
@@ -724,6 +737,16 @@ boop
 
         let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
+    }
+
+    #[rstest]
+    #[case::closed_no_open("<span></span></sup>", ParseErrorKind::NoOpenTag)]
+    #[case::mismatch_open1("<span></sup>", ParseErrorKind::CloseTagMismatch)]
+    #[case::mismatch_open2("<span><span></sup></span>", ParseErrorKind::CloseTagMismatch)]
+    #[case::mismatch_open3("<span><span></span></sup>", ParseErrorKind::CloseTagMismatch)]
+    fn invalid_html_inlines(#[case] input: &str, #[case] expected_error: ParseErrorKind) {
+        let ParseError { kind, .. } = try_parse(input).expect_err("no failure");
+        assert_eq!(kind.to_string(), expected_error.to_string());
     }
 
     #[test]
