@@ -21,8 +21,10 @@ pub(crate) struct HtmlParser {
 impl HtmlParser {
     pub(crate) fn parse(self, input: &str) -> Result<HtmlInline, ParseHtmlError> {
         if input.starts_with("</") {
-            if input.starts_with("</span") || input.starts_with("</sup") {
-                return Ok(HtmlInline::CloseTag);
+            if input.starts_with("</span") {
+                return Ok(HtmlInline::CloseTag { tag: HtmlTag::Span });
+            } else if input.starts_with("</sup") {
+                return Ok(HtmlInline::CloseTag { tag: HtmlTag::Sup });
             } else {
                 return Err(ParseHtmlError::UnsupportedClosingTag(input.to_string()));
             }
@@ -31,14 +33,13 @@ impl HtmlParser {
         let top = dom.children().iter().next().ok_or(ParseHtmlError::NoTags)?;
         let node = top.get(dom.parser()).expect("failed to get");
         let tag = node.as_tag().ok_or(ParseHtmlError::NoTags)?;
-        match tag.name().as_bytes() {
-            b"span" => {
-                let style = self.parse_attributes(tag.attributes())?;
-                Ok(HtmlInline::OpenTag { style })
-            }
-            b"sup" => Ok(HtmlInline::OpenTag { style: TextStyle::default().superscript() }),
-            _ => Err(ParseHtmlError::UnsupportedHtml),
-        }
+        let (output_tag, base_style) = match tag.name().as_bytes() {
+            b"span" => (HtmlTag::Span, TextStyle::default()),
+            b"sup" => (HtmlTag::Sup, TextStyle::default().superscript()),
+            _ => return Err(ParseHtmlError::UnsupportedHtml),
+        };
+        let style = self.parse_attributes(tag.attributes())?;
+        Ok(HtmlInline::OpenTag { style: style.merged(&base_style), tag: output_tag })
     }
 
     fn parse_attributes(&self, attributes: &Attributes) -> Result<TextStyle<RawColor>, ParseHtmlError> {
@@ -98,10 +99,16 @@ impl HtmlParser {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum HtmlInline {
-    OpenTag { style: TextStyle<RawColor> },
-    CloseTag,
+    OpenTag { style: TextStyle<RawColor>, tag: HtmlTag },
+    CloseTag { tag: HtmlTag },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum HtmlTag {
+    Span,
+    Sup,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -149,21 +156,21 @@ mod tests {
     fn parse_style() {
         let tag =
             HtmlParser::default().parse(r#"<span style="color: red; background-color: black">"#).expect("parse failed");
-        let HtmlInline::OpenTag { style } = tag else { panic!("not an open tag") };
+        let HtmlInline::OpenTag { style, tag: HtmlTag::Span } = tag else { panic!("not an open tag") };
         assert_eq!(style, TextStyle::default().bg_color(Color::Black).fg_color(Color::Red));
     }
 
     #[test]
     fn parse_sup() {
         let tag = HtmlParser::default().parse(r#"<sup>"#).expect("parse failed");
-        let HtmlInline::OpenTag { style } = tag else { panic!("not an open tag") };
+        let HtmlInline::OpenTag { style, tag: HtmlTag::Sup } = tag else { panic!("not an open tag") };
         assert_eq!(style, TextStyle::default().superscript());
     }
 
     #[test]
     fn parse_class() {
         let tag = HtmlParser::default().parse(r#"<span class="foo">"#).expect("parse failed");
-        let HtmlInline::OpenTag { style } = tag else { panic!("not an open tag") };
+        let HtmlInline::OpenTag { style, tag: HtmlTag::Span } = tag else { panic!("not an open tag") };
         assert_eq!(
             style,
             TextStyle::default()
@@ -173,11 +180,11 @@ mod tests {
     }
 
     #[rstest]
-    #[case::span("</span>")]
-    #[case::sup("</span>")]
-    fn parse_end_tag(#[case] input: &str) {
-        let tag = HtmlParser::default().parse(input).expect("parse failed");
-        assert!(matches!(tag, HtmlInline::CloseTag));
+    #[case::span("</span>", HtmlTag::Span)]
+    #[case::sup("</sup>", HtmlTag::Sup)]
+    fn parse_end_tag(#[case] input: &str, #[case] tag: HtmlTag) {
+        let inline = HtmlParser::default().parse(input).expect("parse failed");
+        assert_eq!(inline, HtmlInline::CloseTag { tag });
     }
 
     #[rstest]
