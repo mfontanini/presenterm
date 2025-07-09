@@ -3,15 +3,15 @@ default:
   margin:
     percent: 8
   colors:
-    foreground: "c6d0f5"
-    background: "303446"
+    foreground: palette:text
+    background: palette:base
 
 slide_title:
   alignment: center
   padding_bottom: 1
   padding_top: 1
   colors:
-    foreground: "e5c890"
+    foreground: palette:yellow
   bold: true
   font_size: 2
 
@@ -27,51 +27,51 @@ code:
 
 execution_output:
   colors:
-    foreground: "c6d0f5"
-    background: "414559"
+    foreground: palette:text
+    background: palette:surface0
   status:
     running:
-      foreground: "8caaee"
+      foreground: palette:blue
     success:
-      foreground: "a6d189"
+      foreground: palette:green
     failure:
-      foreground: "e78284"
+      foreground: palette:red
     not_started:
-      foreground: "e5c890"
+      foreground: palette:yellow
   padding:
     horizontal: 2
     vertical: 1
 
 inline_code:
   colors:
-    foreground: "a6d189"
+    foreground: palette:green
 
 intro_slide:
   title:
     alignment: center
     colors:
-      foreground: "a6d189"
+      foreground: palette:green
     font_size: 2
   subtitle:
     alignment: center
     colors:
-      foreground: "85c1dc"
+      foreground: palette:sapphire
   event:
     alignment: center
     colors:
-      foreground: "a6d189"
+      foreground: palette:green
   location:
     alignment: center
     colors:
-      foreground: "85c1dc"
+      foreground: palette:sapphire
   date:
     alignment: center
     colors:
-      foreground: "e5c890"
+      foreground: palette:yellow
   author:
     alignment: center
     colors:
-      foreground: "b5bfe2"
+      foreground: palette:subtext1
     positioning: page_bottom
   footer: false
 
@@ -79,56 +79,56 @@ headings:
   h1:
     prefix: "██"
     colors:
-      foreground: "81c8be"
+      foreground: palette:teal
   h2:
     prefix: "▓▓▓"
     colors:
-      foreground: "ca9ee6"
+      foreground: palette:mauve
   h3:
     prefix: "▒▒▒▒"
     colors:
-      foreground: "8caaee"
+      foreground: palette:blue
   h4:
     prefix: "░░░░░"
     colors:
-      foreground: "e78284"
+      foreground: palette:red
   h5:
     prefix: "░░░░░░"
     colors:
-      foreground: "a6d189"
+      foreground: palette:green
   h6:
     prefix: "░░░░░░░"
     colors:
-      foreground: "ef9f76"
+      foreground: palette:peach
 
 block_quote:
   prefix: "▍ "
   colors:
-    foreground: "c6d0f5"
-    background: "414559"
-    prefix: "e5c890"
+    foreground: palette:text
+    background: palette:surface0
+    prefix: palette:yellow
 
 alert:
   prefix: "▍ "
   base_colors:
-    foreground: "c6d0f5"
-    background: "414559"
+    foreground: palette:text
+    background: palette:surface0
   styles:
     note:
-      color: "8caaee"
+      color: palette:blue
     tip:
-      color: "a6d189"
+      color: palette:green
     important:
-      color: "ca9ee6"
+      color: palette:mauve
     warning:
-      color: "e5c890"
+      color: palette:yellow
     caution:
-      color: "e78284"
+      color: palette:red
 
 typst:
   colors:
-    foreground: "c6d0f5"
-    background: "414559"
+    foreground: palette:text
+    background: palette:surface0
 
 footer:
   style: template
@@ -136,7 +136,7 @@ footer:
 
 modals:
   selection_colors:
-    foreground: "85c1dc"
+    foreground: palette:sapphire
 
 mermaid:
   background: transparent
@@ -144,3 +144,32 @@ mermaid:
 
 d2:
   theme: 4
+
+palette:
+  colors:
+    rosewater: "f2d5cf"
+    flamingo: "eebebe"
+    pink: "f4b8e4"
+    mauve: "ca9ee6"
+    red: "e78284"
+    maroon: "ea999c"
+    peach: "ef9f76"
+    yellow: "e5c890"
+    green: "a6d189"
+    teal: "81c8be"
+    sky: "99d1db"
+    sapphire: "85c1dc"
+    blue: "8caaee"
+    lavender: "babbf1"
+    text: "c6d0f5"
+    subtext1: "b5bfe2"
+    subtext0: "a5adce"
+    overlay2: "949cbb"
+    overlay1: "838ba7"
+    overlay0: "737994"
+    surface2: "626880"
+    surface1: "51576d"
+    surface0: "414559"
+    base: "303446"
+    mantle: "292c3c"
+    crust: "232634"
