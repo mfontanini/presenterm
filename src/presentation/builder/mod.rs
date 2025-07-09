@@ -9,20 +9,23 @@ use crate::{
         elements::{Line, MarkdownElement, SourcePosition, Text},
         parse::MarkdownParser,
         text::WeightedLine,
-        text_style::{Color, Colors},
+        text_style::{Color, Colors, TextStyle},
     },
     presentation::{
         ChunkMutator, Modals, Presentation, PresentationState, RenderOperation, SlideBuilder, SlideChunk,
         builder::{
-            error::{BuildError, InvalidPresentation},
+            error::{BuildError, FileSourcePosition, InvalidPresentation},
             sources::MarkdownSources,
         },
     },
     render::operation::MarginProperties,
     resource::{ResourceBasePath, Resources},
-    terminal::image::{
-        Image,
-        printer::{ImageRegistry, ImageSpec, RegisterImageError},
+    terminal::{
+        capabilities::TerminalCapabilities,
+        image::{
+            Image,
+            printer::{ImageRegistry, ImageSpec, RegisterImageError},
+        },
     },
     theme::{
         Alignment, ElementType, PresentationTheme, ProcessingThemeError, ThemeOptions,
@@ -282,9 +285,11 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
 
     fn build_with_reader<F: PresentationReader>(self, path: &Path, reader: F) -> Result<Presentation, BuildError> {
         let _guard = self.sources.enter(path).map_err(BuildError::EnterRoot)?;
-        let input = reader.read(path).map_err(|e| BuildError::ReadPresentation(path.into(), e))?;
-        let elements =
-            self.markdown_parser.parse(&input).map_err(|error| BuildError::Parse { path: path.into(), error })?;
+        let contents = reader.read(path).map_err(|e| BuildError::ReadPresentation(path.into(), e))?;
+        let elements = self.markdown_parser.parse(&contents).map_err(|error| {
+            let context = extract_error_context(&contents, error.sourcepos, error.kind.to_string());
+            BuildError::Parse { path: path.into(), error, context }
+        })?;
         self.build_from_parsed(elements)
     }
 
@@ -406,10 +411,15 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
     where
         E: Into<InvalidPresentation>,
     {
-        BuildError::InvalidPresentation {
-            source_position: self.sources.resolve_source_position(source_position),
-            error: error.into(),
-        }
+        let error = error.into();
+        let source_position = self.sources.resolve_source_position(source_position);
+        let context = fs::read_to_string(&source_position.file)
+            .ok()
+            .map(|s| extract_error_context(&s, source_position.source_position, error.to_string()))
+            .unwrap_or_default();
+
+        let FileSourcePosition { source_position, file } = source_position;
+        BuildError::InvalidPresentation { source_position, path: file, context }
     }
 
     fn resource_base_path(&self) -> ResourceBasePath {
@@ -595,6 +605,28 @@ enum LastElement {
         last_index: usize,
     },
     Other,
+}
+
+pub(super) fn extract_error_context(s: &str, position: SourcePosition, error: String) -> String {
+    let index = position.start.line.saturating_sub(1);
+    let line_number_prefix = position.start.line.to_string();
+    let empty_prefix = " ".repeat(line_number_prefix.len());
+    let prefix_style = TextStyle::default().fg_color(Color::Blue);
+    let capabilities = TerminalCapabilities::default();
+    let empty_line = prefix_style.apply(&format!("{empty_prefix} |"), &capabilities).to_string();
+    let Some(line) = s.lines().nth(index) else {
+        return "".into();
+    };
+    let mut output = empty_line.clone();
+    output.push('\n');
+    let prefix = prefix_style.apply(&format!("{line_number_prefix} | "), &capabilities).to_string();
+    output.push_str(&format!("{prefix}{line}\n"));
+
+    let indicator = format!("{}^ {error}", " ".repeat(position.start.column.saturating_sub(1)));
+    let indicator = TextStyle::default().fg_color(Color::Red).apply(&indicator, &capabilities).to_string();
+    let indicator_line = format!("{empty_line} {indicator}");
+    output.push_str(&indicator_line);
+    output
 }
 
 #[cfg(test)]

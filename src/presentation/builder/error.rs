@@ -7,7 +7,11 @@ use crate::{
     third_party::ThirdPartyRenderError,
     ui::footer::InvalidFooterTemplateError,
 };
-use std::{fmt, io, path::PathBuf};
+use std::{
+    fmt,
+    io::{self},
+    path::PathBuf,
+};
 
 /// An error when building a presentation.
 #[derive(thiserror::Error, Debug)]
@@ -45,14 +49,24 @@ pub(crate) enum BuildError {
     #[error("invalid footer: {0}")]
     InvalidFooter(#[from] InvalidFooterTemplateError),
 
-    #[error("invalid markdown in {path:?}: {error}")]
-    Parse { path: PathBuf, error: ParseError },
+    #[error(
+        "invalid markdown at {display_path}:{line}:{column}:\n\n{context}",
+        display_path = .path.display(),
+        line = .error.sourcepos.start.line,
+        column = .error.sourcepos.start.column,
+    )]
+    Parse { path: PathBuf, error: ParseError, context: String },
 
     #[error("cannot process presentation file: {0}")]
     EnterRoot(MarkdownSourceError),
 
-    #[error("error at '{source_position}': {error}")]
-    InvalidPresentation { source_position: FileSourcePosition, error: InvalidPresentation },
+    #[error(
+        "error at {display_path}:{line}:{column}:\n\n{context}",
+        display_path = .path.display(),
+        line = .source_position.start.line,
+        column = .source_position.start.column,
+    )]
+    InvalidPresentation { path: PathBuf, source_position: SourcePosition, context: String },
 
     #[error("need to enter layout column explicitly using `column` command")]
     NotInsideColumn,
