@@ -37,7 +37,7 @@ jobs:
     runs-on: ${{ matrix.config.OS }}
     needs: vars
     # Don't run this if the nightly hash already points to the current hash
-    if: ${{ needs.vars.outputs.git_hash != needs.vars.outputs.latest_nightly_hash }}
+    if: needs.vars.outputs.git_hash != needs.vars.outputs.latest_nightly_hash
     strategy:
       fail-fast: false
       matrix:
