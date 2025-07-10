@@ -236,9 +236,7 @@ mod tests {
     use std::{fs, io::BufWriter};
 
     use super::*;
-    use crate::presentation::builder::{
-        PresentationBuilderOptions, error::BuildError, sources::MarkdownSourceError, utils::Test,
-    };
+    use crate::presentation::builder::{PresentationBuilderOptions, utils::Test};
     use image::{DynamicImage, ImageEncoder, codecs::png::PngEncoder};
     use rstest::rstest;
     use tempfile::tempdir;
@@ -654,16 +652,7 @@ hi
         let input = "<!-- include: main.md -->";
 
         let err = Test::new(input).resources_path(path).expect_invalid();
-        assert!(
-            matches!(
-                err,
-                BuildError::InvalidPresentation {
-                    error: InvalidPresentation::Import { error: MarkdownSourceError::IncludeCycle(..), .. },
-                    ..
-                }
-            ),
-            "{err:?}"
-        );
+        assert!(err.to_string().contains("was already imported"), "{err:?}");
     }
 
     #[test]
@@ -676,15 +665,6 @@ hi
         let input = "<!-- include: main.md -->";
 
         let err = Test::new(input).resources_path(path).expect_invalid();
-        assert!(
-            matches!(
-                err,
-                BuildError::InvalidPresentation {
-                    error: InvalidPresentation::Import { error: MarkdownSourceError::IncludeCycle(..), .. },
-                    ..
-                }
-            ),
-            "{err:?}"
-        );
+        assert!(err.to_string().contains("was already imported"), "{err:?}");
     }
 }
