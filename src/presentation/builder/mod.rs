@@ -40,7 +40,6 @@ use crate::{
         separator::RenderSeparator,
     },
 };
-use comrak::Arena;
 use image::DynamicImage;
 use std::{
     collections::{HashMap, HashSet},
@@ -396,15 +395,6 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             self.themes.highlight.load_by_name(theme).ok_or_else(|| BuildError::InvalidCodeTheme(theme.clone()))?;
         self.highlighter = highlighter;
         Ok(())
-    }
-
-    fn format_presentation_title(&self, title: String) -> Result<Line, BuildError> {
-        let arena = Arena::default();
-        let parser = MarkdownParser::new(&arena);
-        let line = parser.parse_inlines(&title).map_err(|e| BuildError::PresentationTitle(e.to_string()))?;
-        let mut line = line.resolve(&self.theme.palette)?;
-        line.apply_style(&self.theme.intro_slide.title.style);
-        Ok(line)
     }
 
     fn invalid_presentation<E>(&self, source_position: SourcePosition, error: E) -> BuildError
