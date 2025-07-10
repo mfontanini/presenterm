@@ -1,11 +1,14 @@
+use comrak::Arena;
+
 use crate::{
     markdown::{
         elements::{Line, Text},
+        parse::MarkdownParser,
         text_style::TextStyle,
     },
     presentation::{
         PresentationMetadata,
-        builder::{BuildResult, PresentationBuilder},
+        builder::{BuildResult, PresentationBuilder, error::BuildError},
     },
     render::operation::RenderOperation,
     theme::{AuthorPositioning, ElementType},
@@ -17,7 +20,7 @@ impl PresentationBuilder<'_, '_> {
 
         let create_text =
             |text: Option<String>, style: TextStyle| -> Option<Text> { text.map(|text| Text::new(text, style)) };
-        let title = metadata.title.map(|t| self.format_presentation_title(t)).transpose()?;
+        let title_lines = metadata.title.map(|t| self.format_presentation_title(t)).transpose()?;
 
         let sub_title = create_text(metadata.sub_title, styles.subtitle.style);
         let event = create_text(metadata.event, styles.event.style);
@@ -33,9 +36,11 @@ impl PresentationBuilder<'_, '_> {
             self.slide_state.ignore_footer = true;
         }
         self.chunk_operations.push(RenderOperation::JumpToVerticalCenter);
-        if let Some(title) = title {
-            self.push_text(title, ElementType::PresentationTitle);
-            self.push_line_break();
+        if let Some(title_lines) = title_lines {
+            for line in title_lines {
+                self.push_text(line, ElementType::PresentationTitle);
+                self.push_line_break();
+            }
         }
 
         if let Some(sub_title) = sub_title {
@@ -74,5 +79,54 @@ impl PresentationBuilder<'_, '_> {
     fn push_intro_slide_text(&mut self, text: Text, element_type: ElementType) {
         self.push_text(Line::from(text), element_type);
         self.push_line_break();
+    }
+
+    fn format_presentation_title(&self, title: String) -> Result<Vec<Line>, BuildError> {
+        let arena = Arena::default();
+        let parser = MarkdownParser::new(&arena);
+        let mut lines = Vec::new();
+        for line in title.lines() {
+            let line = parser.parse_inlines(line).map_err(|e| BuildError::PresentationTitle(e.to_string()))?;
+            let mut line = line.resolve(&self.theme.palette)?;
+            line.apply_style(&self.theme.intro_slide.title.style);
+            lines.push(line);
+        }
+        Ok(lines)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{presentation::builder::utils::Test, theme::raw};
+
+    #[test]
+    fn multiline_centered_title() {
+        let input = "---
+title: |
+    Beep
+    Boop boop
+---
+";
+        let theme = raw::PresentationTheme {
+            intro_slide: raw::IntroSlideStyle {
+                title: raw::IntroSlideTitleStyle {
+                    alignment: Some(raw::Alignment::Center { minimum_margin: raw::Margin::Fixed(2), minimum_size: 1 }),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let lines = Test::new(input).theme(theme).render().rows(7).columns(16).advances(0).into_lines();
+        let expected = &[
+            "                ",
+            "                ",
+            "      Beep      ",
+            "   Boop boop    ",
+            "                ",
+            "                ",
+            "                ",
+        ];
+        assert_eq!(lines, expected);
     }
 }
