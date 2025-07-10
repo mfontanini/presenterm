@@ -432,8 +432,8 @@ pub struct KeyBindingsConfig {
 
     /// The keys that cause the presentation to jump to the next slide "fast".
     ///
-    /// "fast" means for slides that contain pauses, we will only jump between the first and last
-    /// pause rather than going through each individual one.
+    /// "fast" means for slides that contain pauses, we will skip all pauses and jump straight to
+    /// the next slide.
     #[serde(default = "default_next_fast_bindings")]
     pub(crate) next_fast: Vec<KeyBinding>,
 
@@ -443,8 +443,8 @@ pub struct KeyBindingsConfig {
 
     /// The keys that cause the presentation to move backwards "fast".
     ///
-    /// "fast" means for slides that contain pauses, we will only jump between the first and last
-    /// pause rather than going through each individual one.
+    /// "fast" means for slides that contain pauses, we will skip all pauses and jump straight to
+    /// the previous slide.
     #[serde(default = "default_previous_fast_bindings")]
     pub(crate) previous_fast: Vec<KeyBinding>,
 
@@ -487,6 +487,10 @@ pub struct KeyBindingsConfig {
     /// The key binding to suspend the application.
     #[serde(default = "default_suspend_bindings")]
     pub(crate) suspend: Vec<KeyBinding>,
+
+    /// The key binding to show the entire slide, after skipping any pauses in it.
+    #[serde(default = "default_skip_pauses")]
+    pub(crate) skip_pauses: Vec<KeyBinding>,
 }
 
 impl Default for KeyBindingsConfig {
@@ -506,6 +510,7 @@ impl Default for KeyBindingsConfig {
             close_modal: default_close_modal_bindings(),
             exit: default_exit_bindings(),
             suspend: default_suspend_bindings(),
+            skip_pauses: default_skip_pauses(),
         }
     }
 }
@@ -717,6 +722,10 @@ fn default_exit_bindings() -> Vec<KeyBinding> {
 
 fn default_suspend_bindings() -> Vec<KeyBinding> {
     make_keybindings(["<c-z>"])
+}
+
+fn default_skip_pauses() -> Vec<KeyBinding> {
+    make_keybindings(["s"])
 }
 
 fn default_transition_duration_millis() -> u16 {

@@ -98,4 +98,7 @@ pub(crate) enum Command {
 
     /// Hide the currently open modal, if any.
     CloseModal,
+
+    /// Skip pauses in the current slide.
+    SkipPauses,
 }

@@ -369,7 +369,7 @@
           }
         },
         "next_fast": {
-          "description": "The keys that cause the presentation to jump to the next slide \"fast\".\n\n\"fast\" means for slides that contain pauses, we will only jump between the first and last pause rather than going through each individual one.",
+          "description": "The keys that cause the presentation to jump to the next slide \"fast\".\n\n\"fast\" means for slides that contain pauses, we will skip all pauses and jump straight to the next slide.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/KeyBinding"
@@ -383,7 +383,7 @@
           }
         },
         "previous_fast": {
-          "description": "The keys that cause the presentation to move backwards \"fast\".\n\n\"fast\" means for slides that contain pauses, we will only jump between the first and last pause rather than going through each individual one.",
+          "description": "The keys that cause the presentation to move backwards \"fast\".\n\n\"fast\" means for slides that contain pauses, we will skip all pauses and jump straight to the previous slide.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/KeyBinding"
@@ -391,6 +391,13 @@
         },
         "reload": {
           "description": "The key binding to reload the presentation.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
+        "skip_pauses": {
+          "description": "The key binding to show the entire slide, after skipping any pauses in it.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/KeyBinding"

@@ -76,15 +76,9 @@ impl Presentation {
         self.jump_next_slide()
     }
 
-    /// Show all chunks in this slide, or jump to the next if already applied.
+    /// Jump to the next slide, ignoring any chunks and modifiers.
     pub(crate) fn jump_next_fast(&mut self) -> bool {
-        let current_slide = self.current_slide_mut();
-        if current_slide.visible_chunks == current_slide.chunks.len() {
-            self.jump_next_slide()
-        } else {
-            current_slide.show_all_chunks();
-            true
-        }
+        self.jump_next_slide()
     }
 
     /// Jump backwards.
@@ -96,15 +90,11 @@ impl Presentation {
         self.jump_previous_slide()
     }
 
-    /// Show only the first chunk in this slide or jump to the previous slide if already there.
+    /// Jump to the previous slide ignoring any chunks and modifiers.
     pub(crate) fn jump_previous_fast(&mut self) -> bool {
-        let current_slide = self.current_slide_mut();
-        if current_slide.visible_chunks == current_slide.chunks.len() && current_slide.chunks.len() > 1 {
-            current_slide.show_first_chunk();
-            true
-        } else {
-            self.jump_previous_slide()
-        }
+        let output = self.jump_previous_slide();
+        self.current_slide_mut().show_first_chunk();
+        output
     }
 
     /// Jump to the first slide.
@@ -143,6 +133,11 @@ impl Presentation {
     pub(crate) fn current_slide_mut(&mut self) -> &mut Slide {
         let index = self.current_slide_index();
         &mut self.slides[index]
+    }
+
+    /// Show all chunks in the current slide.
+    pub(crate) fn show_all_slide_chunks(&mut self) {
+        self.current_slide_mut().show_all_chunks();
     }
 
     fn jump_next_slide(&mut self) -> bool {
@@ -548,11 +543,11 @@ mod test {
     #[case::next_from_first(0, &[Jump::Next], 0, 1)]
     #[case::next_next_from_first(0, &[Jump::Next, Jump::Next], 0, 2)]
     #[case::next_next_next_from_first(0, &[Jump::Next, Jump::Next, Jump::Next], 1, 0)]
-    #[case::next_fast_from_first(0, &[Jump::NextFast], 0, 2)]
-    #[case::next_fast_twice_from_first(0, &[Jump::NextFast, Jump::NextFast], 1, 0)]
+    #[case::next_fast_from_first(0, &[Jump::NextFast], 1, 0)]
+    #[case::next_fast_twice_from_first(0, &[Jump::NextFast, Jump::NextFast], 2, 0)]
     #[case::last_from_first(0, &[Jump::Last], 2, 0)]
     #[case::previous_from_second(1, &[Jump::Previous], 0, 2)]
-    #[case::previous_fast_from_second(1, &[Jump::PreviousFast], 0, 2)]
+    #[case::previous_fast_from_second(1, &[Jump::PreviousFast], 0, 0)]
     #[case::previous_fast_twice_from_second(1, &[Jump::PreviousFast, Jump::PreviousFast], 0, 0)]
     #[case::next_from_second(1, &[Jump::Next], 1, 1)]
     #[case::specific_first_from_second(1, &[Jump::Specific(0)], 0, 0)]

@@ -101,3 +101,6 @@ bindings:
 
   # the key binding to suspend the application.
   suspend: ["<c-z>"]
+
+  # the key binding to show all pauses in the current slide.
+  show_pauses: ["s"]
