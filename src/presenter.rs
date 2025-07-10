@@ -330,6 +330,10 @@ impl<'a> Presenter<'a> {
                 self.state = PresenterState::Presenting(presentation);
                 true
             }
+            Command::SkipPauses => {
+                presentation.show_all_slide_chunks();
+                true
+            }
             // These are handled above as they don't require the presentation
             Command::Reload | Command::HardReload | Command::Exit | Command::Suspend | Command::Redraw => {
                 panic!("unreachable commands")

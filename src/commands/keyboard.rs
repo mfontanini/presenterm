@@ -94,6 +94,7 @@ impl CommandKeyBindings {
             ToggleSlideIndex => Command::ToggleSlideIndex,
             ToggleKeyBindingsConfig => Command::ToggleKeyBindingsConfig,
             CloseModal => Command::CloseModal,
+            SkipPauses => Command::SkipPauses,
         };
         InputAction::Emit(command)
     }
@@ -138,6 +139,7 @@ impl TryFrom<KeyBindingsConfig> for CommandKeyBindings {
             .chain(zip(CommandDiscriminants::ToggleKeyBindingsConfig, config.toggle_bindings))
             .chain(zip(CommandDiscriminants::RenderAsyncOperations, config.execute_code))
             .chain(zip(CommandDiscriminants::CloseModal, config.close_modal))
+            .chain(zip(CommandDiscriminants::SkipPauses, config.skip_pauses))
             .collect();
         Self::validate_conflicts(bindings.iter().map(|binding| &binding.0))?;
         Ok(Self { bindings })
