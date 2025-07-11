@@ -190,10 +190,11 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn parse_heading(&self, heading: &NodeHeading, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
-        let text = self.parse_text(node)?;
         if heading.setext {
+            let text = self.parse_exheading(node)?;
             Ok(MarkdownElement::SetexHeading { text })
         } else {
+            let text = self.parse_text(node)?;
             Ok(MarkdownElement::Heading { text, level: heading.level })
         }
     }
@@ -222,6 +223,27 @@ impl<'a> MarkdownParser<'a> {
             elements.push(MarkdownElement::Paragraph(mem::take(&mut paragraph_elements)));
         }
         Ok(elements)
+    }
+
+    fn parse_exheading(&self, node: &'a AstNode<'a>) -> ParseResult<Vec<Line<RawColor>>> {
+        let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No).parse(node)?;
+        let mut lines = Vec::new();
+        let mut chunks = Vec::new();
+        for inline in inlines {
+            match inline {
+                Inline::Text(text) => chunks.extend(text.0),
+                Inline::LineBreak => {
+                    lines.push(Line(chunks));
+                    chunks = Vec::new();
+                }
+                other => {
+                    return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.kind() }
+                        .with_sourcepos(node.data.borrow().sourcepos));
+                }
+            };
+        }
+        lines.push(Line(chunks));
+        Ok(lines)
     }
 
     fn parse_text(&self, node: &'a AstNode<'a>) -> ParseResult<Line<RawColor>> {
@@ -856,7 +878,7 @@ Title
         );
         let MarkdownElement::SetexHeading { text } = parsed else { panic!("not a slide title: {parsed:?}") };
         let expected_chunks = [Text::from("Title")];
-        assert_eq!(text.0, expected_chunks);
+        assert_eq!(text[0].0, expected_chunks);
     }
 
     #[test]

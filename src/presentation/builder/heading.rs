@@ -6,25 +6,23 @@ use crate::{
 };
 
 impl PresentationBuilder<'_, '_> {
-    pub(crate) fn push_slide_title(&mut self, text: Line<RawColor>) -> BuildResult {
-        let mut text = text.resolve(&self.theme.palette)?;
+    pub(crate) fn push_slide_title(&mut self, text: Vec<Line<RawColor>>) -> BuildResult {
         if self.options.implicit_slide_ends && !matches!(self.slide_state.last_element, LastElement::None) {
             self.terminate_slide();
         }
 
-        if self.slide_state.title.is_none() {
-            self.slide_state.title = Some(text.clone());
-        }
-
         let mut style = self.theme.slide_title.clone();
-        if let Some(font_size) = self.slide_state.font_size {
-            style.style = style.style.size(font_size);
-        }
-        text.apply_style(&style.style);
-
         self.push_line_breaks(style.padding_top as usize);
-        self.push_text(text, ElementType::SlideTitle);
-        self.push_line_break();
+        for title_line in text {
+            let mut title_line = title_line.resolve(&self.theme.palette)?;
+            self.slide_state.title.get_or_insert_with(|| title_line.clone());
+            if let Some(font_size) = self.slide_state.font_size {
+                style.style = style.style.size(font_size);
+            }
+            title_line.apply_style(&style.style);
+            self.push_text(title_line, ElementType::SlideTitle);
+            self.push_line_break();
+        }
 
         for _ in 0..style.padding_bottom {
             self.push_line_break();
