@@ -14,7 +14,7 @@ pub(crate) enum MarkdownElement {
     FrontMatter(String),
 
     /// A setex heading.
-    SetexHeading { text: Line<RawColor> },
+    SetexHeading { text: Vec<Line<RawColor>> },
 
     /// A normal heading.
     Heading { level: u8, text: Line<RawColor> },

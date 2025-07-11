@@ -124,7 +124,7 @@ impl ThemesDemo {
             &parser,
             options,
         )?;
-        let mut elements = vec![MarkdownElement::SetexHeading { text: format!("theme: {theme_name}").into() }];
+        let mut elements = vec![MarkdownElement::SetexHeading { text: vec![format!("theme: {theme_name}").into()] }];
         elements.extend(base_elements.iter().cloned());
         builder.build_from_parsed(elements)
     }
