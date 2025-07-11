@@ -20,9 +20,11 @@ impl PresentationBuilder<'_, '_> {
 
         let create_text =
             |text: Option<String>, style: TextStyle| -> Option<Text> { text.map(|text| Text::new(text, style)) };
-        let title_lines = metadata.title.map(|t| self.format_presentation_title(t)).transpose()?;
+        let title_lines =
+            metadata.title.map(|t| self.format_multiline(t, &self.theme.intro_slide.title.style)).transpose()?;
 
-        let sub_title = create_text(metadata.sub_title, styles.subtitle.style);
+        let sub_title_lines =
+            metadata.sub_title.map(|t| self.format_multiline(t, &self.theme.intro_slide.subtitle.style)).transpose()?;
         let event = create_text(metadata.event, styles.event.style);
         let location = create_text(metadata.location, styles.location.style);
         let date = create_text(metadata.date, styles.date.style);
@@ -43,8 +45,11 @@ impl PresentationBuilder<'_, '_> {
             }
         }
 
-        if let Some(sub_title) = sub_title {
-            self.push_intro_slide_text(sub_title, ElementType::PresentationSubTitle);
+        if let Some(sub_title_lines) = sub_title_lines {
+            for line in sub_title_lines {
+                self.push_text(line, ElementType::PresentationSubTitle);
+                self.push_line_break();
+            }
         }
         if event.is_some() || location.is_some() || date.is_some() {
             self.push_line_breaks(2);
@@ -81,14 +86,14 @@ impl PresentationBuilder<'_, '_> {
         self.push_line_break();
     }
 
-    fn format_presentation_title(&self, title: String) -> Result<Vec<Line>, BuildError> {
+    fn format_multiline(&self, text: String, style: &TextStyle) -> Result<Vec<Line>, BuildError> {
         let arena = Arena::default();
         let parser = MarkdownParser::new(&arena);
         let mut lines = Vec::new();
-        for line in title.lines() {
+        for line in text.lines() {
             let line = parser.parse_inlines(line).map_err(|e| BuildError::PresentationTitle(e.to_string()))?;
             let mut line = line.resolve(&self.theme.palette)?;
-            line.apply_style(&self.theme.intro_slide.title.style);
+            line.apply_style(style);
             lines.push(line);
         }
         Ok(lines)
