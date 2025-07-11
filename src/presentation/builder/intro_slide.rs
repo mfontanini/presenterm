@@ -47,7 +47,7 @@ impl PresentationBuilder<'_, '_> {
 
         if let Some(sub_title_lines) = sub_title_lines {
             for line in sub_title_lines {
-                self.push_text(line, ElementType::PresentationTitle);
+                self.push_text(line, ElementType::PresentationSubTitle);
                 self.push_line_break();
             }
         }
