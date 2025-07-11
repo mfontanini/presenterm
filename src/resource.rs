@@ -203,6 +203,10 @@ impl FileWatcher {
                 self.watches = new_watches;
             }
             WatchEvent::WatchFile { path, watch_forever } => {
+                // If we're already watching this forever, don't reset it
+                if self.watches.get(&path).is_some_and(|w| w.watch_forever) {
+                    return;
+                }
                 let last_modification =
                     fs::metadata(&path).and_then(|m| m.modified()).unwrap_or(SystemTime::UNIX_EPOCH);
                 let meta = WatchMetadata { last_modification, watch_forever };
