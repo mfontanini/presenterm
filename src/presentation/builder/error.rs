@@ -1,8 +1,12 @@
 use crate::{
     code::execute::UnsupportedExecution,
-    markdown::{elements::SourcePosition, parse::ParseError, text_style::UndefinedPaletteColorError},
+    markdown::{
+        elements::SourcePosition,
+        parse::ParseError,
+        text_style::{Color, TextStyle, UndefinedPaletteColorError},
+    },
     presentation::builder::{comment::CommandParseError, images::ImageAttributeError, sources::MarkdownSourceError},
-    terminal::image::printer::RegisterImageError,
+    terminal::{capabilities::TerminalCapabilities, image::printer::RegisterImageError},
     theme::{ProcessingThemeError, registry::LoadThemeError},
     third_party::ThirdPartyRenderError,
     ui::footer::InvalidFooterTemplateError,
@@ -22,9 +26,6 @@ pub(crate) enum BuildError {
     #[error("failed to register image: {0}")]
     RegisterImage(#[from] RegisterImageError),
 
-    #[error("invalid presentation metadata: {0}")]
-    InvalidMetadata(String),
-
     #[error("invalid theme: {0}")]
     InvalidTheme(#[from] LoadThemeError),
 
@@ -42,9 +43,6 @@ pub(crate) enum BuildError {
 
     #[error("processing theme: {0}")]
     ThemeProcessing(#[from] ProcessingThemeError),
-
-    #[error("invalid presentation title: {0}")]
-    PresentationTitle(String),
 
     #[error("invalid footer: {0}")]
     InvalidFooter(#[from] InvalidFooterTemplateError),
@@ -68,8 +66,11 @@ pub(crate) enum BuildError {
     )]
     InvalidPresentation { path: PathBuf, source_position: SourcePosition, context: String },
 
-    #[error("need to enter layout column explicitly using `column` command")]
-    NotInsideColumn,
+    #[error("error in frontmatter:\n\n{0}")]
+    InvalidFrontmatter(String),
+
+    #[error("need to enter layout column explicitly using `column` command\n\n{0}")]
+    NotInsideColumn(String),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -134,5 +135,142 @@ impl fmt::Display for FileSourcePosition {
         let file = self.file.display();
         let pos = &self.source_position;
         write!(f, "{file}:{pos}")
+    }
+}
+
+pub(super) trait FormatError {
+    fn format_error(self) -> String;
+}
+
+impl FormatError for String {
+    fn format_error(self) -> String {
+        TextStyle::default().fg_color(Color::Red).apply(&self, &Default::default()).to_string()
+    }
+}
+
+#[derive(Default)]
+pub(super) struct ErrorContextBuilder<'a> {
+    line: Option<usize>,
+    column: Option<usize>,
+    source_line: &'a str,
+    error: &'a str,
+    prefix_style: TextStyle,
+    error_style: TextStyle,
+}
+
+impl<'a> ErrorContextBuilder<'a> {
+    pub(super) fn new(source_line: &'a str, error: &'a str) -> Self {
+        Self {
+            line: None,
+            column: None,
+            source_line,
+            error,
+            prefix_style: TextStyle::default().fg_color(Color::Blue),
+            error_style: TextStyle::default().fg_color(Color::Red),
+        }
+    }
+
+    pub(super) fn position(mut self, position: SourcePosition) -> Self {
+        self.line = Some(position.start.line);
+        self.column = Some(position.start.column);
+        self
+    }
+
+    pub(super) fn column(mut self, column: usize) -> Self {
+        self.column = Some(column);
+        self
+    }
+
+    pub(super) fn build(self) -> String {
+        let Self { line, column, source_line, error, prefix_style, error_style } = self;
+        let (error_line_prefix, empty_line, source_line) = match line {
+            Some(line) => {
+                let line_number = line.to_string();
+                let empty_prefix = " ".repeat(line_number.len());
+                let error_line_prefix = format!("{line_number} | ");
+                let empty_line = format!("{empty_prefix} | ");
+                let source_line = source_line.lines().nth(line.saturating_sub(1)).unwrap_or_default();
+                (error_line_prefix, empty_line, source_line)
+            }
+            None => {
+                let prefix = " | ".to_string();
+                (prefix.clone(), prefix, source_line)
+            }
+        };
+        let column = column.map(|c| c.saturating_sub(1)).unwrap_or_default();
+        let capabilities = TerminalCapabilities::default();
+        let empty_line = prefix_style.apply(&empty_line, &capabilities).to_string();
+        let mut output = empty_line.clone();
+        output.push('\n');
+        let prefix = prefix_style.apply(&error_line_prefix, &capabilities).to_string();
+        output.push_str(&format!("{prefix}{source_line}\n"));
+
+        let indicator = format!("{}^ {error}", " ".repeat(column));
+        let indicator = error_style.apply(&indicator, &capabilities).to_string();
+        let indicator_line = format!("{empty_line}{indicator}");
+        output.push_str(&indicator_line);
+        output
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::markdown::elements::LineColumn;
+
+    trait ErrorContextBuilderExt {
+        fn into_lines(self) -> Vec<String>;
+    }
+
+    impl ErrorContextBuilderExt for ErrorContextBuilder<'_> {
+        fn into_lines(self) -> Vec<String> {
+            let error = self.build();
+            error.lines().map(ToString::to_string).collect()
+        }
+    }
+
+    fn make_builder<'a>(source_line: &'a str, error: &'a str) -> ErrorContextBuilder<'a> {
+        let mut builder = ErrorContextBuilder::new(source_line.into(), error.into());
+        builder.prefix_style = Default::default();
+        builder.error_style = Default::default();
+        builder
+    }
+
+    #[test]
+    fn position() {
+        let lines = make_builder("foo\nbear\ntar", "'a' not allowed")
+            .position(SourcePosition { start: LineColumn { line: 2, column: 3 } })
+            .into_lines();
+        let expected = &[
+            //
+            "  | ",
+            "2 | bear",
+            "  |   ^ 'a' not allowed",
+        ];
+        assert_eq!(&lines, expected);
+    }
+
+    #[test]
+    fn no_position() {
+        let lines = make_builder("bear", "'b' not allowed").into_lines();
+        let expected = &[
+            //
+            " | ",
+            " | bear",
+            " | ^ 'b' not allowed",
+        ];
+        assert_eq!(&lines, expected);
+    }
+
+    #[test]
+    fn column() {
+        let lines = make_builder("bear", "'e' not allowed").column(2).into_lines();
+        let expected = &[
+            //
+            " | ",
+            " | bear",
+            " |  ^ 'e' not allowed",
+        ];
+        assert_eq!(&lines, expected);
     }
 }
