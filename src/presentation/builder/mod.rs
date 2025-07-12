@@ -9,23 +9,20 @@ use crate::{
         elements::{Line, MarkdownElement, SourcePosition, Text},
         parse::MarkdownParser,
         text::WeightedLine,
-        text_style::{Color, Colors, TextStyle},
+        text_style::{Color, Colors},
     },
     presentation::{
         ChunkMutator, Modals, Presentation, PresentationState, RenderOperation, SlideBuilder, SlideChunk,
         builder::{
-            error::{BuildError, FileSourcePosition, InvalidPresentation},
+            error::{BuildError, ErrorContextBuilder, FileSourcePosition, InvalidPresentation},
             sources::MarkdownSources,
         },
     },
     render::operation::MarginProperties,
     resource::{ResourceBasePath, Resources},
-    terminal::{
-        capabilities::TerminalCapabilities,
-        image::{
-            Image,
-            printer::{ImageRegistry, ImageSpec, RegisterImageError},
-        },
+    terminal::image::{
+        Image,
+        printer::{ImageRegistry, ImageSpec, RegisterImageError},
     },
     theme::{
         Alignment, ElementType, PresentationTheme, ProcessingThemeError, ThemeOptions,
@@ -55,7 +52,6 @@ mod comment;
 mod frontmatter;
 mod heading;
 mod images;
-mod intro_slide;
 mod list;
 mod quote;
 mod snippet;
@@ -286,7 +282,8 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         let _guard = self.sources.enter(path).map_err(BuildError::EnterRoot)?;
         let contents = reader.read(path).map_err(|e| BuildError::ReadPresentation(path.into(), e))?;
         let elements = self.markdown_parser.parse(&contents).map_err(|error| {
-            let context = extract_error_context(&contents, error.sourcepos, error.kind.to_string());
+            let context =
+                ErrorContextBuilder::new(&contents, &error.kind.to_string()).position(error.sourcepos).build();
             BuildError::Parse { path: path.into(), error, context }
         })?;
         self.build_from_parsed(elements)
@@ -318,7 +315,18 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         }
         self.slide_state.needs_enter_column = false;
         let last_valid = matches!(last, RenderOperation::EnterColumn { .. } | RenderOperation::ExitLayout);
-        if last_valid { Ok(()) } else { Err(BuildError::NotInsideColumn) }
+        if last_valid {
+            Ok(())
+        } else {
+            let position = self.slide_state.last_comment_position.as_ref().expect("no last position");
+            let context = fs::read_to_string(&position.file)
+                .ok()
+                .map(|s| {
+                    ErrorContextBuilder::new(&s, "layout was created here").position(position.source_position).build()
+                })
+                .unwrap_or_default();
+            Err(BuildError::NotInsideColumn(context))
+        }
     }
 
     fn set_colors(&mut self, colors: Colors) {
@@ -405,7 +413,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         let source_position = self.sources.resolve_source_position(source_position);
         let context = fs::read_to_string(&source_position.file)
             .ok()
-            .map(|s| extract_error_context(&s, source_position.source_position, error.to_string()))
+            .map(|s| ErrorContextBuilder::new(&s, &error.to_string()).position(source_position.source_position).build())
             .unwrap_or_default();
 
         let FileSourcePosition { source_position, file } = source_position;
@@ -572,6 +580,7 @@ struct SlideState {
     font_size: Option<u8>,
     alignment: Option<Alignment>,
     skip_slide: bool,
+    last_comment_position: Option<FileSourcePosition>,
 }
 
 #[derive(Debug, Default)]
@@ -595,28 +604,6 @@ enum LastElement {
         last_index: usize,
     },
     Other,
-}
-
-pub(super) fn extract_error_context(s: &str, position: SourcePosition, error: String) -> String {
-    let index = position.start.line.saturating_sub(1);
-    let line_number_prefix = position.start.line.to_string();
-    let empty_prefix = " ".repeat(line_number_prefix.len());
-    let prefix_style = TextStyle::default().fg_color(Color::Blue);
-    let capabilities = TerminalCapabilities::default();
-    let empty_line = prefix_style.apply(&format!("{empty_prefix} |"), &capabilities).to_string();
-    let Some(line) = s.lines().nth(index) else {
-        return "".into();
-    };
-    let mut output = empty_line.clone();
-    output.push('\n');
-    let prefix = prefix_style.apply(&format!("{line_number_prefix} | "), &capabilities).to_string();
-    output.push_str(&format!("{prefix}{line}\n"));
-
-    let indicator = format!("{}^ {error}", " ".repeat(position.start.column.saturating_sub(1)));
-    let indicator = TextStyle::default().fg_color(Color::Red).apply(&indicator, &capabilities).to_string();
-    let indicator_line = format!("{empty_line} {indicator}");
-    output.push_str(&indicator_line);
-    output
 }
 
 #[cfg(test)]

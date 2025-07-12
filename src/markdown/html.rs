@@ -131,7 +131,7 @@ pub(crate) enum ParseHtmlError {
     #[error("invalid css attribute: {0}")]
     UnsupportedCssAttribute(String),
 
-    #[error("HTML can only contain span tags")]
+    #[error("HTML can only contain span and sup tags")]
     UnsupportedHtml,
 
     #[error("unsupported tag attribute: {0}")]

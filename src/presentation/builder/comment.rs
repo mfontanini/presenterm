@@ -24,10 +24,12 @@ impl PresentationBuilder<'_, '_> {
 
         if self.options.render_speaker_notes_only {
             self.process_comment_command_speaker_notes_mode(command);
-            Ok(())
         } else {
-            self.process_comment_command_presentation_mode(command, source_position)
+            self.process_comment_command_presentation_mode(command, source_position)?;
         }
+        let source_position = self.sources.resolve_source_position(source_position);
+        self.slide_state.last_comment_position = Some(source_position);
+        Ok(())
     }
 
     fn process_comment_command_presentation_mode(
