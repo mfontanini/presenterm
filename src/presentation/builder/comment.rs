@@ -27,8 +27,6 @@ impl PresentationBuilder<'_, '_> {
         } else {
             self.process_comment_command_presentation_mode(command, source_position)?;
         }
-        let source_position = self.sources.resolve_source_position(source_position);
-        self.slide_state.last_comment_position = Some(source_position);
         Ok(())
     }
 
@@ -47,6 +45,8 @@ impl PresentationBuilder<'_, '_> {
             CommentCommand::JumpToMiddle => self.chunk_operations.push(RenderOperation::JumpToVerticalCenter),
             CommentCommand::InitColumnLayout(columns) => {
                 self.validate_column_layout(&columns, source_position)?;
+                let resolved_position = self.sources.resolve_source_position(source_position);
+                self.slide_state.last_layout_comment = Some(resolved_position);
                 self.slide_state.layout = LayoutState::InLayout { columns_count: columns.len() };
                 self.chunk_operations.push(RenderOperation::InitColumnLayout { columns });
                 self.slide_state.needs_enter_column = true;

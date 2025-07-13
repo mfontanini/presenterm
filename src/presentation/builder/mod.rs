@@ -318,7 +318,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         if last_valid {
             Ok(())
         } else {
-            let position = self.slide_state.last_comment_position.as_ref().expect("no last position");
+            let position = self.slide_state.last_layout_comment.as_ref().expect("no last position");
             let context = fs::read_to_string(&position.file)
                 .ok()
                 .map(|s| {
@@ -580,7 +580,7 @@ struct SlideState {
     font_size: Option<u8>,
     alignment: Option<Alignment>,
     skip_slide: bool,
-    last_comment_position: Option<FileSourcePosition>,
+    last_layout_comment: Option<FileSourcePosition>,
 }
 
 #[derive(Debug, Default)]
