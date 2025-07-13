@@ -267,6 +267,17 @@ mermaid:
   scale: 2
 ```
 
+## D2 scaling
+
+[d2](https://d2lang.com/) graphs will use the default scaling when invoking the d2 CLI. If you'd like to change this 
+use:
+
+
+```yaml
+d2:
+  scale: 2
+```
+
 ## Enabling speaker note publishing
 
 If you don't want to run _presenterm_ with `--publish-speaker-notes` every time you want to publish speaker notes, you 
@@ -313,3 +324,18 @@ executed sequentially, you can use the `export.snippets` parameter:
 export:
   snippets: sequential
 ```
+
+## PDF font 
+
+The PDF export can be configured to use a specific font installed in your system. Use the following keys to do so:
+
+```yaml
+export:
+  pdf:
+    fonts:
+      normal: /usr/share/fonts/truetype/tlwg/TlwgMono.ttf
+      italic: /usr/share/fonts/truetype/tlwg/TlwgMono-Oblique.ttf
+      bold: /usr/share/fonts/truetype/tlwg/TlwgMono-Bold.ttf
+      bold_italic: /usr/share/fonts/truetype/tlwg/TlwgMono-BoldOblique.ttf
+```
+

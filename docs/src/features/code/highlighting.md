@@ -65,8 +65,6 @@ Code highlighting is supported for the following languages:
 Other languages that are supported are:
 
 * nushell, for which highlighting isn't supported but execution is.
-* rust-script, which is highlighted as rust but is executed via the [rust-script](https://rust-script.org/) tool,
-which lets you specify dependencies in your snippet.
 
 If there's a language that is not in this list and you would like it to be supported, please [create an 
 issue](https://github.com/mfontanini/presenterm/issues/new). If you'd also like code execution support, provide details 

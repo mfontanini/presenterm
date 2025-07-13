@@ -163,3 +163,14 @@ options:
 ---
 ```
 
+## list_item_newlines
+
+The option allows configuring the number of newlines in between list items, the default being `1`. This cam also be set 
+via the `list_item_newlines` comment command.
+
+```yaml
+---
+options:
+    list_item_newlines: 2
+---
+```

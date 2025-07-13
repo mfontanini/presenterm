@@ -1,3 +1,67 @@
+# v0.15.0 - 2025-07-13
+
+## Breaking changes
+
+* The behavior for "jump next fast" and "jump previous fast" keybindings (defaults to `n` and `p`) now jumps straight from one slide to the next/previous one ignoring pauses. Before this used to "reveal" all pauses when jumping forward before going to the next slide. This behavior was weird and unintuitive so now fast jumps go straight into the next/previous slides. The action of "showing all pauses on the current slide" can now be done by pressing `s` ([#678](https://github.com/mfontanini/presenterm/issues/678)).
+
+## New features
+
+* Allow specifying where a [snippet's execution output will go](https://mfontanini.github.io/presenterm/features/code/execution.html#output-placing) ([#658](https://github.com/mfontanini/presenterm/issues/658)).
+* Add `include` comment command to [import markdown files](https://mfontanini.github.io/presenterm/features/commands.html#including-external-markdown-files) ([#651](https://github.com/mfontanini/presenterm/issues/651)) ([#683](https://github.com/mfontanini/presenterm/issues/683)).
+* Allow [validating snippets without explicitly executing them](https://mfontanini.github.io/presenterm/features/code/execution.html#validating-snippets) by using `--validate-snippets` switch ([#645](https://github.com/mfontanini/presenterm/issues/645)) ([#637](https://github.com/mfontanini/presenterm/issues/637)).
+* Support iterm2 image protocol when running in tmux ([#661](https://github.com/mfontanini/presenterm/issues/661)).
+* Add support for [d2 diagrams](https://mfontanini.github.io/presenterm/features/code/d2.html) ([#657](https://github.com/mfontanini/presenterm/issues/657)).
+* Errors encountered when parsing markdown now always display the file, line, and column where the error was found, as well as the markdown line that caused the error ([#674](https://github.com/mfontanini/presenterm/issues/674)) ([#653](https://github.com/mfontanini/presenterm/issues/653)) ([#684](https://github.com/mfontanini/presenterm/issues/684)) ([#685](https://github.com/mfontanini/presenterm/issues/685)).
+* Superscript via `^this^` and `<sup>this</sup>` syntaxes is supported when using the kitty terminal. For other terminals we try to use unicode half block characters which cover a portion of the ASCII charset. ([#606](https://github.com/mfontanini/presenterm/issues/606))([#617](https://github.com/mfontanini/presenterm/issues/617) ) ([#665](https://github.com/mfontanini/presenterm/issues/665)).
+* Allow [alternative snippet executors](https://mfontanini.github.io/presenterm/features/code/execution.html#alternative-executors) for languages that support execution. This allows, for example, runnig rust code via `rust-script` or python code via `pytest` ([#614](https://github.com/mfontanini/presenterm/issues/614)).
+* Allow using env var `PRESENTERM_CONFIG_FILE` to point to the config file ([#663](https://github.com/mfontanini/presenterm/issues/663)) - thanks @Silver-Golden.
+* Set background color via OSC 11 to avoid having a colored edge around the presentation ([#623](https://github.com/mfontanini/presenterm/issues/623)) ([#624](https://github.com/mfontanini/presenterm/issues/624)) ([#627](https://github.com/mfontanini/presenterm/issues/627)).
+* Add support for markdown footnotes ([#616](https://github.com/mfontanini/presenterm/issues/616)).
+* Runtime errors are now centered rather than being left aligned with some fixed margin ([#638](https://github.com/mfontanini/presenterm/issues/638)).
+* Allow [configuring number of newlines](https://mfontanini.github.io/presenterm/features/commands.html#number-of-lines-in-between-list-items) in between list items ([#628](https://github.com/mfontanini/presenterm/issues/628)).
+* Allow 3 digit hex colors ([#609](https://github.com/mfontanini/presenterm/issues/609)) - thanks @peterc-s.
+* Allow [configuring font](https://mfontanini.github.io/presenterm/configuration/settings.html#pdf-font) used in PDF export ([#608](https://github.com/mfontanini/presenterm/issues/608)).
+* Added `uv` as an alternative executor for python code ([#662](https://github.com/mfontanini/presenterm/issues/662)) - thanks @JanNeuendorf.
+* Allow multiline slide titles ([#679](https://github.com/mfontanini/presenterm/issues/679)).
+* Add support for multiline slide titles ([#682](https://github.com/mfontanini/presenterm/issues/682)) - thanks @barr-israel.
+* Add support for multiline subtitle ([#680](https://github.com/mfontanini/presenterm/issues/680)) - thanks @barr-israel.
+* Add support for syntax highlighting and execution for F# ([#650](https://github.com/mfontanini/presenterm/issues/650)) - thanks @mnebes.
+* Use text style/colors in rust-script errors ([#644](https://github.com/mfontanini/presenterm/issues/644)).
+* Added `rust-script-pedantic` alternative executor for rust ([#640](https://github.com/mfontanini/presenterm/issues/640)).
+
+## Fixes
+
+* Consider rect start row when capping max terminal rows ([#656](https://github.com/mfontanini/presenterm/issues/656)).
+* Skip speaker notes slide on `skip_slide` ([#625](https://github.com/mfontanini/presenterm/issues/625)).
+* Don't loop on 0 bytes read when querying capabilities ([#620](https://github.com/mfontanini/presenterm/issues/620)).
+* Make code snippet language specifiers case insensitive ([#613](https://github.com/mfontanini/presenterm/issues/613)) - thanks @peterc-s.
+* Bump dependencies ([#681](https://github.com/mfontanini/presenterm/issues/681)) - thanks @barr-israel.
+
+## Chore
+
+* Refactored code to make it more easily testeable, and added lots of tests to ensure markdown is rendered as expected. This will hopefully reduce the number of errors found after each release ([#660](https://github.com/mfontanini/presenterm/issues/660)) ([#659](https://github.com/mfontanini/presenterm/issues/659)) ([#655](https://github.com/mfontanini/presenterm/issues/655)) ([#647](https://github.com/mfontanini/presenterm/issues/647)).
+* Bump rust version to 1.82 ([#611](https://github.com/mfontanini/presenterm/issues/611)).
+* Perform better validation around matching HTML tags ([#668](https://github.com/mfontanini/presenterm/issues/668)).
+* Don't run nightly job if the git hash hasn't changed ([#667](https://github.com/mfontanini/presenterm/issues/667)) ([#675](https://github.com/mfontanini/presenterm/issues/675)) ([#669](https://github.com/mfontanini/presenterm/issues/669)).
+* Display an error when using http(s) urls in image tags ([#666](https://github.com/mfontanini/presenterm/issues/666)).
+* Update Catppuccin themes to use palettes ([#672](https://github.com/mfontanini/presenterm/issues/672)) - thanks @jmcharter.
+
+## Docs
+
+* Add custom introduction slides example ([#633](https://github.com/mfontanini/presenterm/issues/633)).
+* Add mention of `winget` ([#621](https://github.com/mfontanini/presenterm/issues/621)) - thanks @DeveloperPaul123.
+* Fix incorrect note callout ([#610](https://github.com/mfontanini/presenterm/issues/610)) - thanks @Sacquer.
+* Add a note to export pdf using `uv` ([#646](https://github.com/mfontanini/presenterm/issues/646)) - thanks @PitiBouchon.
+* Clarify why no remote urls work with images ([#664](https://github.com/mfontanini/presenterm/issues/664)) - thanks @ryuheechul.
+
+## ❤️ Sponsors
+
+Thanks to the following users who supported _presenterm_ via a [github sponsorship](https://github.com/sponsors/mfontanini) in this release:
+
+* [@0atman](https://github.com/0atman)
+* [@orhun](https://github.com/orhun)
+* [@gwpl](https://github.com/gwpl)
+
 # v0.14.0 - 2025-05-17
 
 ## New features

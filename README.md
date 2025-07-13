@@ -30,7 +30,7 @@ Visit the [documentation][docs-introduction] to get started.
 
 # Features
 
-* Define your presentation in a single markdown file.
+* Presentations consist of one [or more][docs-include] markdown files.
 * [Images and animated gifs][docs-images] on terminals like _kitty_, _iterm2_, and _wezterm_.
 * [Customizable themes][docs-themes] including colors, margins, layout (left/center aligned content), footer for every 
   slide, etc. Several [built-in themes][docs-builtin-themes] can give your presentation the look you want without 
@@ -40,6 +40,7 @@ Visit the [documentation][docs-introduction] to get started.
 * [Selective/dynamic][docs-selective-highlight] code highlighting that only highlights portions of code at a time.
 * [Column layouts][docs-layout].
 * [mermaid graph rendering][docs-mermaid].
+* [d2 graph rendering][docs-d2].
 * [_LaTeX_ and _typst_ formula rendering][docs-latex].
 * [Introduction slide][docs-intro-slide] that displays the presentation title and your name.
 * [Slide titles][docs-slide-titles].
@@ -53,7 +54,7 @@ Visit the [documentation][docs-introduction] to get started.
 
 See the [introduction page][docs-introduction] to learn more.
 
-# Presenterm in action
+# presenterm in action
 
 Here are some talks and demos that feature _presenterm_:
 
@@ -73,6 +74,7 @@ Gave a talk using _presenterm_? We would love to feature it here! Open a PR or i
 [docs-font-sizes]: https://mfontanini.github.io/presenterm/features/introduction.html#font-sizes
 [docs-pauses]: https://mfontanini.github.io/presenterm/features/commands.html#pauses
 [docs-images]: https://mfontanini.github.io/presenterm/features/images.html
+[docs-include]: https://mfontanini.github.io/presenterm/features/commands.html#including-external-markdown-files
 [docs-themes]: https://mfontanini.github.io/presenterm/features/themes/introduction.html
 [docs-builtin-themes]: https://mfontanini.github.io/presenterm/features/themes/introduction.html#built-in-themes
 [docs-code-highlight]: https://mfontanini.github.io/presenterm/features/code/highlighting.html
@@ -81,6 +83,7 @@ Gave a talk using _presenterm_? We would love to feature it here! Open a PR or i
 [docs-slide-transitions]: https://mfontanini.github.io/presenterm/features/slide-transitions.html
 [docs-layout]: https://mfontanini.github.io/presenterm/features/layout.html
 [docs-mermaid]: https://mfontanini.github.io/presenterm/features/code/mermaid.html
+[docs-d2]: https://mfontanini.github.io/presenterm/features/code/d2.html
 [docs-latex]: https://mfontanini.github.io/presenterm/features/code/latex.html
 [docs-exports]: https://mfontanini.github.io/presenterm/features/exports.html
 [docs-key-bindings]: https://mfontanini.github.io/presenterm/configuration/settings.html#key-bindings
