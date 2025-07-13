@@ -30,6 +30,56 @@ code execution is supported.
 > Run code in presentations at your own risk! Especially if you're running someone else's presentation. Don't blindly 
 > enable snippet execution!
 
+### Output placing
+
+By default a snippet's output will always show up right below the snippet. However, if you wanted to show the output in 
+a different place in a slide (e.g. another column) or even in another slide you can do this by:
+
+1. Defining a snippet's identifier:
+
+~~~markdown
+```bash +exec +id:foo
+echo hellow world
+```
+~~~
+
+2. Referencing that identifier where you want the output to appear by using the `snippet_output` comment command:
+
+~~~markdown
+<!-- snippet_output: foo -->
+~~~
+
+A single snippet can be referenced multiple times in multiple slides, as long as the slide you're referencing it in 
+comes after the snippet. The snippet will only be executed once, and every `snippet_output` command will display that 
+single execution's output.
+
+### Validating snippets
+
+While you're developing your presentation you probably want to make sure the executable snippets you write in it are 
+correct and don't contain any syntax errors. While you can do this by constantly pressing `<c-e>` every time you change 
+a snippet, this is automatically done by _presenterm_ if you pass in the `--validate-snippets` flag.
+
+When you pass in this flag, _presenterm_ will:
+
+* Automatically run all `+exec`, `+exec_replace`, and `+validate` snippets as soon as your presentation starts. Note 
+that the `+validate` flag is a special one that doesn't make a snippet executable but still validates it by running it 
+during development.
+* Report an error if any of the snippets returns an exit code other than 0.
+* Re-run all snippets `+exec` and `+exec_repalce` snippets every time the presentation is reloaded.
+
+In case you expect a snippet to return an exit code other than 0, you can use the `+expect:failure` flag. This will 
+cause _presenterm_ to display an error if the snippet does not fail.
+
+For example, the following defines a snippet that's not executable but that will be validated if `--validate-snippets` 
+is passed in and will display an error if the snippet does not fail.
+
+```rust +validate +expect:failure
+fn main() {
+    let q = 42;
+    let w = q + "foo"; // oops
+}
+```
+
 ## Executing and replacing
 
 Similar to `+exec`, `+exec_replace` causes a snippet to be executable but:
@@ -43,7 +93,33 @@ This can be useful to run programs that generate some form of ASCII art that you
 
 Because of the risk involved in `+exec_replace`, where code gets automatically executed when running a presentation, 
 this requires users to explicitly opt in to it. This can be done by either passing in the `-X` command line parameter
-or setting the `snippet.exec_replace.enable` flag in your configuration file to `true`. 
+or setting the `snippet.exec_replace.enable` flag in your configuration file to `true`.
+
+## Alternative executors
+
+Some languages support alternative executors. For example, `rust` code can be ran via 
+[`rust-script`](https://rust-script.org/), which allows you to use external crates. These executors can be used by 
+specifying `:<executor-name>` after `+exec` or `+exec_replace`.
+
+For example, the following `rust` snippet will be executed using `rust-script`:
+
+~~~markdown
+```rust +exec:rust-script
+# //! ```cargo
+# //! [dependencies]
+# //! time = "0.1.25"
+# //! ```
+# // The lines above will be hidden
+fn main() {
+    println!("the time is {}", time::now().rfc822z());
+}
+```
+~~~
+
+The supported alternative executors are:
+
+* `rust-script` for `rust` snippets.
+* `pytest` and `uv` for `python` snippets.
 
 ## Code to image conversions
 
@@ -121,5 +197,5 @@ is loaded. The languages that currently support this are _mermaid_, _LaTeX_, and
 block is transformed into an image, allowing you to define formulas as text in your presentation. This can be done by 
 using the `+render` attribute on a code block.
 
-See the [LaTeX and typst](latex.md) and [mermaid](mermaid.md) docs for more information.
+See the [LaTeX and typst](latex.md), [mermaid](mermaid.md), and [d2](d2.md) docs for more information.
 

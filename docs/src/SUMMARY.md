@@ -13,6 +13,7 @@
         - [Execution](./features/code/execution.md)
         - [Mermaid diagrams](./features/code/mermaid.md)
         - [LaTeX and typst](./features/code/latex.md)
+        - [D2](./features/code/d2.md)
     - [Themes](./features/themes/introduction.md)
         - [Definition](./features/themes/definition.md)
     - [Exports](./features/exports.md)

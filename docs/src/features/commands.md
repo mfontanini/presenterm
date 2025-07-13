@@ -86,6 +86,34 @@ bullet point to appear only after you move to the next slide:
 * all at once
 ```
 
+## Number of lines in between list items
+
+The `list_item_newlines` option lets you configure the number of new lines in between list items in the remainder of a 
+slide. This can be helpful to "unpack" a list that only has a few entries and you want it to take up more space in a 
+slide. This can also be configured for all lists via the [`options.list_item_newlines` 
+option](../configuration/options.md#list_item_newlines).
+
+```markdown
+<!-- list_item_newlines: 2 -->
+
+* this
+* is
+* more
+* spaced
+```
+
+## Including external markdown files
+
+By using the `include` command you can include the contents of an external markdown file as if it was part of the 
+original presentation file:
+
+```markdown
+<!-- include: foo.md -->
+```
+
+Any files referenced by an included file will have their paths relative to that path. e.g. if you include `foo/bar.md` 
+and that file contains an image `tar.png`, that image will be looked up in `foo/tar.png`.
+
 ## No footer
 
 If you don't want the footer to show up in some particular slide for some reason, you can use the `no_footer` command:

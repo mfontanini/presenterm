@@ -470,6 +470,17 @@ echo hi
     }
 
     #[test]
+    fn validate() {
+        let input = "
+```bash +validate
+echo hi
+```";
+        let lines = Test::new(input).render().rows(4).columns(19).run_async_renders(false).into_lines();
+        let expected = &["                   ", "echo hi            ", "                   ", "                   "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
     fn exec_disabled() {
         let input = "
 ```bash +exec
