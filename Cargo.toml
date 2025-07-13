@@ -4,7 +4,7 @@ authors = ["Matias Fontanini"]
 description = "A terminal slideshow presentation tool"
 repository = "https://github.com/mfontanini/presenterm"
 license = "BSD-2-Clause"
-version = "0.14.0"
+version = "0.15.0"
 edition = "2021"
 
 [dependencies]
