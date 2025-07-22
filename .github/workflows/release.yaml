@@ -35,16 +35,6 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { OS: ubuntu-latest, TARGET: "x86_64-unknown-linux-gnu" }
-          - { OS: ubuntu-latest, TARGET: "x86_64-unknown-linux-musl" }
-          - { OS: ubuntu-latest, TARGET: "i686-unknown-linux-gnu" }
-          - { OS: ubuntu-latest, TARGET: "i686-unknown-linux-musl" }
-          - { OS: ubuntu-latest, TARGET: "armv5te-unknown-linux-gnueabi" }
-          - { OS: ubuntu-latest, TARGET: "armv7-unknown-linux-gnueabihf" }
-          - { OS: ubuntu-latest, TARGET: "aarch64-unknown-linux-gnu" }
-          - { OS: ubuntu-latest, TARGET: "aarch64-unknown-linux-musl" }
-          - { OS: macos-latest, TARGET: "x86_64-apple-darwin" }
-          - { OS: macos-latest, TARGET: "aarch64-apple-darwin" }
           - { OS: windows-latest, TARGET: "x86_64-pc-windows-msvc" }
           - { OS: windows-latest, TARGET: "i686-pc-windows-msvc" }
 
@@ -62,7 +52,7 @@ jobs:
           command: build
           toolchain: 1.82.0
           target: ${{ matrix.config.TARGET }}
-          args: "--locked --release"
+          args: "--locked --release --features sixel"
 
       - name: Prepare release assets
         shell: bash
@@ -86,29 +76,3 @@ jobs:
             shasum -a 512 presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.tar.gz \
               > presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.tar.gz.sha512
           fi
-
-      - name: Upload the release
-        uses: svenstaro/upload-release-action@e2a63377780a8bacc68dcac9b0979ee20ad5a791
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: presenterm-${{ env.RELEASE_VERSION }}-${{ matrix.config.TARGET }}.*
-          file_glob: true
-          overwrite: true
-          release_name: v${{ env.RELEASE_VERSION }}
-          tag: ${{ github.ref }}
-          body: |
-            ${{ needs.changelog.outputs.notes }}
-
-  publish-crates-io:
-    name: Publish on crates.io
-    needs: publish-github
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repository
-        uses: actions/checkout@v4
-
-      - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@1.82.0
-
-      - name: Publish
-        run: cargo publish --locked --token ${{ secrets.CARGO_TOKEN }}
