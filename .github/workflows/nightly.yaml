@@ -14,6 +14,7 @@ jobs:
     outputs:
       timestamp: ${{ steps.set.outputs.timestamp }}
       git_hash: ${{ steps.set.outputs.git_hash }}
+      latest_nightly_hash: ${{ steps.set.outputs.latest_nightly_hash }}
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
