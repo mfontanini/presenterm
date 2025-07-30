@@ -87,7 +87,7 @@ pub struct PresentationTheme {
 impl PresentationTheme {
     /// Construct a presentation from a path.
     pub(crate) fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, LoadThemeError> {
-        let contents = fs::read_to_string(&path)?;
+        let contents = fs::read_to_string(&path).map_err(|e| LoadThemeError::Reading(path.as_ref().into(), e))?;
         let theme = serde_yaml::from_str(&contents)
             .map_err(|e| LoadThemeError::Corrupted(path.as_ref().display().to_string(), e.into()))?;
         Ok(theme)
