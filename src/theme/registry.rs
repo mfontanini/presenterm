@@ -1,5 +1,9 @@
 use super::raw::PresentationTheme;
-use std::{collections::BTreeMap, fs, io, path::Path};
+use std::{
+    collections::BTreeMap,
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 include!(concat!(env!("OUT_DIR"), "/themes.rs"));
 
@@ -31,11 +35,10 @@ impl PresentationThemeRegistry {
         let mut dependencies = BTreeMap::new();
         for entry in handle {
             let entry = entry?;
-            let metadata = entry.metadata()?;
             let Some(file_name) = entry.file_name().to_str().map(ToOwned::to_owned) else {
                 continue;
             };
-            if metadata.is_file() && file_name.ends_with(".yaml") {
+            if file_name.ends_with(".yaml") {
                 let theme_name = file_name.trim_end_matches(".yaml");
                 if THEMES.contains_key(theme_name) {
                     return Err(LoadThemeError::Duplicate(theme_name.into()));
@@ -124,6 +127,9 @@ impl ThemeGraph {
 pub enum LoadThemeError {
     #[error(transparent)]
     Io(#[from] io::Error),
+
+    #[error("failed to read custom theme {0:?}: {1}")]
+    Reading(PathBuf, io::Error),
 
     #[error("theme '{0}' is corrupted: {1}")]
     Corrupted(String, Box<dyn std::error::Error>),
