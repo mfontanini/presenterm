@@ -673,7 +673,7 @@ checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 
 [[package]]
 name = "presenterm"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "anyhow",
  "base64",
