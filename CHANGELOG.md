@@ -1,3 +1,10 @@
+# v0.15.1 - 2025-08-01
+
+## Fixes
+
+* Disable OSC 11 when running in tmux ([#696](https://github.com/mfontanini/presenterm/issues/696)).
+* Follow custom theme symlinks ([#692](https://github.com/mfontanini/presenterm/issues/692)).
+
 # v0.15.0 - 2025-07-13
 
 ## Breaking changes
