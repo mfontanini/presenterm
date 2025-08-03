@@ -58,6 +58,7 @@ pub(crate) struct Terminal<I: TerminalWrite> {
     rows: u16,
     last_cleared_background_color: Option<Color>,
     background_color: Option<Color>,
+    osc11_background: bool,
 }
 
 impl<I: TerminalWrite> Terminal<I> {
@@ -71,6 +72,8 @@ impl<I: TerminalWrite> Terminal<I> {
             rows: u16::MAX,
             last_cleared_background_color: None,
             background_color: None,
+            // Only use OSC11 when outside of tmux temporarily since it somehow breaks under kitty
+            osc11_background: !TerminalEmulator::capabilities().tmux,
         })
     }
 
@@ -138,15 +141,17 @@ impl<I: TerminalWrite> Terminal<I> {
     }
 
     fn clear_screen(&mut self) -> io::Result<()> {
-        match (self.last_cleared_background_color, self.background_color) {
-            (_, Some(Color::Rgb { r, g, b })) => {
-                // Set background via OSC 11 if we have an RGB color
-                write!(self.writer, "\x1b]11;#{r:02x}{g:02x}{b:02x}\x1b\\")?;
-            }
-            // If it was RGB and it no longer is, or we have no background now, clear it.
-            (Some(Color::Rgb { .. }), Some(_)) | (_, None) => write!(self.writer, "\x1b]111\x1b\\")?,
-            _ => (),
-        };
+        if self.osc11_background {
+            match (self.last_cleared_background_color, self.background_color) {
+                (_, Some(Color::Rgb { r, g, b })) => {
+                    // Set background via OSC 11 if we have an RGB color
+                    write!(self.writer, "\x1b]11;#{r:02x}{g:02x}{b:02x}\x1b\\")?;
+                }
+                // If it was RGB and it no longer is, or we have no background now, clear it.
+                (Some(Color::Rgb { .. }), Some(_)) | (_, None) => write!(self.writer, "\x1b]111\x1b\\")?,
+                _ => (),
+            };
+        }
         self.last_cleared_background_color = self.background_color;
         self.writer.queue(terminal::Clear(terminal::ClearType::All))?;
         self.cursor_row = 0;
@@ -228,8 +233,10 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
 
 impl<I: TerminalWrite> Drop for Terminal<I> {
     fn drop(&mut self) {
-        if let Some(Color::Rgb { .. }) = self.background_color {
-            let _ = write!(self.writer, "\x1b]111\x1b\\");
+        if self.osc11_background {
+            if let Some(Color::Rgb { .. }) = self.background_color {
+                let _ = write!(self.writer, "\x1b]111\x1b\\");
+            }
         }
         self.writer.deinit();
     }
