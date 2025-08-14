@@ -55,7 +55,12 @@ jobs:
           EOL
           source ./.venv/bin/activate
           cargo run -- --export-pdf -c /tmp/config.yaml examples/demo.md
-          cargo run -- --export-html -c /tmp/config.yaml examples/demo.md
+
+      - name: Archive PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo.pdf
+          path: examples/demo.pdf
 
   nix-flake:
     name: Validate nix flake
