@@ -243,6 +243,14 @@ fn parse_color(color: syntect::highlighting::Color) -> Option<Color> {
             0x05 => Color::DarkMagenta,
             0x06 => Color::DarkCyan,
             0x07 => Color::Grey,
+            0x08 => Color::DarkGrey,
+            0x09 => Color::Red,
+            0x0a => Color::Green,
+            0x0b => Color::Yellow,
+            0x0c => Color::Blue,
+            0x0d => Color::Magenta,
+            0x0e => Color::Cyan,
+            0x0f => Color::White,
             n => Color::from_ansi(n)?,
         })
     } else if color.a == 1 {
