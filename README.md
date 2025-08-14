@@ -2,7 +2,7 @@ presenterm
 ===
 
 [![crates-badge]][crates-package] [![brew-badge]][brew-package] [![nix-badge]][nix-package] 
-[![arch-badge]][arch-package] [![scoop-badge]][scoop-package]
+[![arch-badge]][arch-package] [![scoop-badge]][scoop-package] [![winget-badge]][winget-package]
 
 [brew-badge]: https://img.shields.io/homebrew/v/presenterm
 [brew-package]: https://formulae.brew.sh/formula/presenterm
@@ -14,6 +14,8 @@ presenterm
 [arch-package]: https://archlinux.org/packages/extra/x86_64/presenterm/
 [scoop-badge]: https://img.shields.io/scoop/v/presenterm
 [scoop-package]: https://scoop.sh/#/apps?q=presenterm&id=a462290f824b50f180afbaa6d8c7c1e6e0952e3a
+[winget-badge]: https://img.shields.io/winget/v/mfontanini.presenterm
+[winget-package]: https://winstall.app/apps/mfontanini.presenterm
 
 _presenterm_ lets you create presentations in markdown format and run them from your terminal, with support for image 
 and animated gifs, highly customizable themes, code highlighting, exporting presentations into PDF format, and plenty of 
