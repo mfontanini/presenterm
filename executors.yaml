@@ -16,6 +16,11 @@ c:
     - ["gcc", "$pwd/snippet.c", "-fdiagnostics-color=always", "-o", "$pwd/snippet"]
     - ["$pwd/snippet"]
   hidden_line_prefix: "/// "
+elixir:
+  filename: snippet.exs
+  commands: 
+    - ["elixir", "$pwd/snippet.exs"]
+  hidden_line_prefix: "## "
 fish:
   filename: script.fish
   commands:
