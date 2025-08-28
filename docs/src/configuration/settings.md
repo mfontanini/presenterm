@@ -93,6 +93,29 @@ defaults:
     pause_after: true
 ```
 
+## Validate terminal overflows
+
+The `validate_overflows` property allows configuring whether _presenterm_ should make sure your presentation fits in the 
+current terminal screen. This allows knowing whether any lines are too long to fit in the screen without having to 
+scroll through every slide and manually check for that.
+
+When the presentation is first loaded, after the presentation file is modified (if in development mode), and when you 
+resize your terminal, _presenterm_ will make sure every slide in it fits. If any of them don't, an error will be 
+displayed and you will need to resize your terminal until the error goes away or you exit the program.
+
+This parameter supports multiple options:
+
+* `never`: the default, where overflows aren't validated at all.
+* `always`: overflow validation will always happen when running _presenterm_.
+* `when_presenting`: only perform validation when in present mode. That is, when you're running `presenterm -p`.
+* `when_developing`: only perform validation when running in development mode. That is, any time you're not using 
+`presenterm -p`.
+
+```yaml
+defaults:
+  validate_overflows: always
+```
+
 # Slide transitions
 
 Slide transitions allow animating your presentation every time you move from a slide to the next/previous one. The 
