@@ -417,6 +417,13 @@
             "$ref": "#/definitions/KeyBinding"
           }
         },
+        "toggle_layout_grid": {
+          "description": "The key binding to toggle the layout grid.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/KeyBinding"
+          }
+        },
         "toggle_slide_index": {
           "description": "The key binding to toggle the slide index modal.",
           "type": "array",

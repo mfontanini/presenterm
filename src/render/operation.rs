@@ -2,7 +2,7 @@ use super::properties::WindowSize;
 use crate::{
     markdown::{
         text::{WeightedLine, WeightedText},
-        text_style::{Color, Colors},
+        text_style::{Color, Colors, TextStyle},
     },
     terminal::image::Image,
     theme::{Alignment, Margin},
@@ -81,7 +81,7 @@ pub(crate) enum RenderOperation {
     ///
     /// The value for each column is the width of the column in column-unit units, where the entire
     /// screen contains `columns.sum()` column-units.
-    InitColumnLayout { columns: Vec<u8> },
+    InitColumnLayout { columns: Vec<u8>, grid: LayoutGrid },
 
     /// Enter a column in a column layout.
     ///
@@ -96,6 +96,13 @@ pub(crate) enum RenderOperation {
 
     /// Pop an `ApplyMargin` operation.
     PopMargin,
+}
+
+/// Grid options for a layout.
+#[derive(Copy, Clone, Debug)]
+pub(crate) enum LayoutGrid {
+    None,
+    Draw(TextStyle),
 }
 
 /// The properties of an image being rendered.

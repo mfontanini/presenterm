@@ -63,6 +63,15 @@ impl WindowSize {
         }
     }
 
+    /// Set the column count.
+    ///
+    /// This preserves the relationship between columns and pixels.
+    pub(crate) fn set_columns(&self, amount: u16) -> WindowSize {
+        let pixels_per_column = self.pixels_per_column();
+        let width = (pixels_per_column * amount as f64) as u16;
+        WindowSize { rows: self.rows, columns: amount, height: self.height, width }
+    }
+
     /// The number of pixels per column.
     pub(crate) fn pixels_per_column(&self) -> f64 {
         self.width as f64 / self.columns as f64

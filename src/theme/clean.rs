@@ -47,6 +47,7 @@ pub(crate) struct PresentationTheme {
     pub(crate) mermaid: MermaidStyle,
     pub(crate) d2: D2Style,
     pub(crate) modals: ModalStyle,
+    pub(crate) layout_grid: LayoutGridStyle,
     pub(crate) palette: ColorPalette,
 }
 
@@ -72,6 +73,7 @@ impl PresentationTheme {
             mermaid,
             d2,
             modals,
+            layout_grid,
             palette,
             extends: _,
         } = raw;
@@ -94,6 +96,7 @@ impl PresentationTheme {
             mermaid: MermaidStyle::new(mermaid),
             d2: D2Style::new(d2),
             modals: ModalStyle::new(modals, &default_style, &palette)?,
+            layout_grid: LayoutGridStyle::new(layout_grid, &default_style, &palette)?,
             palette,
         })
     }
@@ -709,6 +712,26 @@ impl ModalStyle {
         let mut selection_style = style.bold();
         selection_style.merge(&TextStyle::colored(selection_colors.resolve(palette)?));
         Ok(Self { style, selection_style })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct LayoutGridStyle {
+    pub(crate) style: TextStyle,
+}
+
+impl LayoutGridStyle {
+    fn new(
+        raw: &raw::LayoutGridStyle,
+        default_style: &DefaultStyle,
+        palette: &ColorPalette,
+    ) -> Result<Self, ProcessingThemeError> {
+        let raw::LayoutGridStyle { color } = raw;
+        let mut style = default_style.style;
+        if let Some(color) = color {
+            style.colors.foreground = color.resolve(palette)?;
+        }
+        Ok(Self { style })
     }
 }
 

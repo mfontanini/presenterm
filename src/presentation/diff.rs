@@ -77,7 +77,9 @@ impl ContentDiff for RenderOperation {
                 true
             }
             (RenderBlockLine(original), RenderBlockLine(updated)) if original != updated => true,
-            (InitColumnLayout { columns: original }, InitColumnLayout { columns: updated }) if original != updated => {
+            (InitColumnLayout { columns: original, .. }, InitColumnLayout { columns: updated, .. })
+                if original != updated =>
+            {
                 true
             }
             (EnterColumn { column: original }, EnterColumn { column: updated }) if original != updated => true,
@@ -120,7 +122,7 @@ mod test {
         },
         presentation::{Slide, SlideBuilder},
         render::{
-            operation::{AsRenderOperations, BlockLine, Pollable, RenderAsync, ToggleState},
+            operation::{AsRenderOperations, BlockLine, LayoutGrid, Pollable, RenderAsync, ToggleState},
             properties::WindowSize,
         },
         theme::{Alignment, Margin},
@@ -164,7 +166,7 @@ mod test {
     ))]
     #[case(RenderOperation::RenderDynamic(Rc::new(Dynamic)))]
     #[case(RenderOperation::RenderAsync(Rc::new(Dynamic)))]
-    #[case(RenderOperation::InitColumnLayout{ columns: vec![1, 2] })]
+    #[case(RenderOperation::InitColumnLayout{ columns: vec![1, 2], grid: LayoutGrid::None })]
     #[case(RenderOperation::EnterColumn{ column: 1 })]
     #[case(RenderOperation::ExitLayout)]
     fn same_not_modified(#[case] operation: RenderOperation) {
@@ -201,8 +203,8 @@ mod test {
 
     #[test]
     fn different_column_layout() {
-        let lhs = RenderOperation::InitColumnLayout { columns: vec![1, 2] };
-        let rhs = RenderOperation::InitColumnLayout { columns: vec![1, 3] };
+        let lhs = RenderOperation::InitColumnLayout { columns: vec![1, 2], grid: LayoutGrid::None };
+        let rhs = RenderOperation::InitColumnLayout { columns: vec![1, 3], grid: LayoutGrid::None };
         assert!(lhs.is_content_different(&rhs));
     }
 

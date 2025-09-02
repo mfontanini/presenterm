@@ -93,6 +93,7 @@ impl CommandKeyBindings {
             HardReload => Command::HardReload,
             ToggleSlideIndex => Command::ToggleSlideIndex,
             ToggleKeyBindingsConfig => Command::ToggleKeyBindingsConfig,
+            ToggleLayoutGrid => Command::ToggleLayoutGrid,
             CloseModal => Command::CloseModal,
             SkipPauses => Command::SkipPauses,
         };
@@ -124,22 +125,41 @@ impl TryFrom<KeyBindingsConfig> for CommandKeyBindings {
         if !config.go_to_slide.iter().all(|k| k.expects_number()) {
             return Err(KeyBindingsValidationError::Invalid("go_to_slide", "<number> matcher required"));
         }
+        let KeyBindingsConfig {
+            next,
+            next_fast,
+            previous,
+            previous_fast,
+            first_slide,
+            last_slide,
+            go_to_slide,
+            execute_code,
+            reload,
+            toggle_slide_index,
+            toggle_bindings,
+            toggle_layout_grid,
+            close_modal,
+            exit,
+            suspend,
+            skip_pauses,
+        } = config;
         let bindings: Vec<_> = iter::empty()
-            .chain(zip(CommandDiscriminants::Next, config.next))
-            .chain(zip(CommandDiscriminants::NextFast, config.next_fast))
-            .chain(zip(CommandDiscriminants::Previous, config.previous))
-            .chain(zip(CommandDiscriminants::PreviousFast, config.previous_fast))
-            .chain(zip(CommandDiscriminants::FirstSlide, config.first_slide))
-            .chain(zip(CommandDiscriminants::LastSlide, config.last_slide))
-            .chain(zip(CommandDiscriminants::GoToSlide, config.go_to_slide))
-            .chain(zip(CommandDiscriminants::Exit, config.exit))
-            .chain(zip(CommandDiscriminants::Suspend, config.suspend))
-            .chain(zip(CommandDiscriminants::HardReload, config.reload))
-            .chain(zip(CommandDiscriminants::ToggleSlideIndex, config.toggle_slide_index))
-            .chain(zip(CommandDiscriminants::ToggleKeyBindingsConfig, config.toggle_bindings))
-            .chain(zip(CommandDiscriminants::RenderAsyncOperations, config.execute_code))
-            .chain(zip(CommandDiscriminants::CloseModal, config.close_modal))
-            .chain(zip(CommandDiscriminants::SkipPauses, config.skip_pauses))
+            .chain(zip(CommandDiscriminants::Next, next))
+            .chain(zip(CommandDiscriminants::NextFast, next_fast))
+            .chain(zip(CommandDiscriminants::Previous, previous))
+            .chain(zip(CommandDiscriminants::PreviousFast, previous_fast))
+            .chain(zip(CommandDiscriminants::FirstSlide, first_slide))
+            .chain(zip(CommandDiscriminants::LastSlide, last_slide))
+            .chain(zip(CommandDiscriminants::GoToSlide, go_to_slide))
+            .chain(zip(CommandDiscriminants::Exit, exit))
+            .chain(zip(CommandDiscriminants::Suspend, suspend))
+            .chain(zip(CommandDiscriminants::HardReload, reload))
+            .chain(zip(CommandDiscriminants::ToggleSlideIndex, toggle_slide_index))
+            .chain(zip(CommandDiscriminants::ToggleKeyBindingsConfig, toggle_bindings))
+            .chain(zip(CommandDiscriminants::ToggleLayoutGrid, toggle_layout_grid))
+            .chain(zip(CommandDiscriminants::RenderAsyncOperations, execute_code))
+            .chain(zip(CommandDiscriminants::CloseModal, close_modal))
+            .chain(zip(CommandDiscriminants::SkipPauses, skip_pauses))
             .collect();
         Self::validate_conflicts(bindings.iter().map(|binding| &binding.0))?;
         Ok(Self { bindings })
