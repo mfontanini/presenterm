@@ -58,7 +58,7 @@ impl PresentationBuilder<'_, '_> {
         text.apply_style(&style.style);
 
         self.push_text(text, element_type);
-        self.push_line_breaks(self.slide_font_size() as usize);
+        self.push_line_break();
         Ok(())
     }
 }
@@ -158,6 +158,27 @@ bar
         let lines = Test::new(input).theme(theme).render().rows(10).columns(6).advances(1).into_lines();
         let expected =
             &["      ", "! A   ", "      ", "@@ B  ", "      ", "  C   ", "      ", "D     ", "      ", "E     "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn heading_font_size() {
+        let input = "
+<!-- font_size: 3 -->
+# hi
+<!-- font_size: 2 -->
+## bye
+";
+        let lines = Test::new(input).render().rows(6).columns(10).into_lines();
+        let expected = &[
+            //
+            "          ",
+            "h  i      ",
+            "          ",
+            "          ", // text end (3 rows)
+            "          ", // a single new line
+            "b y e     ", // the next text
+        ];
         assert_eq!(lines, expected);
     }
 }
