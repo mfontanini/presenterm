@@ -296,6 +296,7 @@ impl CoreComponents {
             pause_create_new_slide: false,
             list_item_newlines: config.options.list_item_newlines.map(Into::into).unwrap_or(1),
             validate_snippets: config.snippet.validate,
+            layout_grid: false,
         }
     }
 

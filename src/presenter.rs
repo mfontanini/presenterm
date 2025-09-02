@@ -259,6 +259,10 @@ impl<'a> Presenter<'a> {
                 }
                 return CommandSideEffect::Reload;
             }
+            Command::ToggleLayoutGrid => {
+                self.options.builder_options.layout_grid = !self.options.builder_options.layout_grid;
+                return CommandSideEffect::Reload;
+            }
             Command::Exit => return CommandSideEffect::Exit,
             Command::Suspend => return CommandSideEffect::Suspend,
             _ => (),
@@ -335,7 +339,12 @@ impl<'a> Presenter<'a> {
                 true
             }
             // These are handled above as they don't require the presentation
-            Command::Reload | Command::HardReload | Command::Exit | Command::Suspend | Command::Redraw => {
+            Command::Reload
+            | Command::HardReload
+            | Command::Exit
+            | Command::Suspend
+            | Command::Redraw
+            | Command::ToggleLayoutGrid => {
                 panic!("unreachable commands")
             }
         };

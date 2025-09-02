@@ -79,6 +79,10 @@ pub struct PresentationTheme {
     #[serde(default)]
     pub(crate) modals: ModalStyle,
 
+    /// The style for layouts.
+    #[serde(default)]
+    pub(crate) layout_grid: LayoutGridStyle,
+
     /// The color palette.
     #[serde(default)]
     pub(crate) palette: ColorPalette,
@@ -806,6 +810,14 @@ pub(crate) struct ModalStyle {
     /// The colors to use for selected lines.
     #[serde(default)]
     pub(crate) selection_colors: RawColors,
+}
+
+/// Layout grid style.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct LayoutGridStyle {
+    /// The color for layout grids.
+    #[serde(default)]
+    pub(crate) color: Option<RawColor>,
 }
 
 /// The color palette.

@@ -96,6 +96,9 @@ pub(crate) enum Command {
     /// Toggle the key bindings config view.
     ToggleKeyBindingsConfig,
 
+    /// Toggle layout grid.
+    ToggleLayoutGrid,
+
     /// Hide the currently open modal, if any.
     CloseModal,
 

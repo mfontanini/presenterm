@@ -1,7 +1,7 @@
 use crate::{
     markdown::elements::{MarkdownElement, SourcePosition},
     presentation::builder::{BuildResult, LayoutState, PresentationBuilder, error::InvalidPresentation},
-    render::operation::RenderOperation,
+    render::operation::{LayoutGrid, RenderOperation},
     theme::{Alignment, ElementType},
 };
 use serde::Deserialize;
@@ -48,7 +48,12 @@ impl PresentationBuilder<'_, '_> {
                 let resolved_position = self.sources.resolve_source_position(source_position);
                 self.slide_state.last_layout_comment = Some(resolved_position);
                 self.slide_state.layout = LayoutState::InLayout { columns_count: columns.len() };
-                self.chunk_operations.push(RenderOperation::InitColumnLayout { columns });
+                let grid = if self.options.layout_grid {
+                    LayoutGrid::Draw(self.theme.layout_grid.style)
+                } else {
+                    LayoutGrid::None
+                };
+                self.chunk_operations.push(RenderOperation::InitColumnLayout { columns, grid });
                 self.slide_state.needs_enter_column = true;
             }
             CommentCommand::ResetLayout => {
@@ -420,7 +425,7 @@ bar2
     }
 
     #[test]
-    fn unevevn_columns() {
+    fn uneven_columns() {
         let input = "
 <!-- column_layout: [2, 1] -->
 <!-- column: 0 -->
@@ -447,6 +452,31 @@ bar2
             "                        ",
             "————————————        ————",
             "                        ",
+        ];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn uneven_three_columns() {
+        let input = "
+<!-- column_layout: [1, 2, 1] -->
+<!-- column: 0 -->
+
+---
+
+<!-- column: 1 -->
+
+---
+
+<!-- column: 2 -->
+
+---
+";
+        let lines = Test::new(input).render().rows(2).columns(32).into_lines();
+        let expected = &[
+            //
+            "                                ",
+            "————      ————————————      ————",
         ];
         assert_eq!(lines, expected);
     }

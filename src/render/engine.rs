@@ -6,7 +6,7 @@ use crate::{
     markdown::{text::WeightedLine, text_style::Colors},
     render::{
         operation::{
-            AsRenderOperations, BlockLine, ImageRenderProperties, ImageSize, MarginProperties, RenderAsync,
+            AsRenderOperations, BlockLine, ImageRenderProperties, ImageSize, LayoutGrid, MarginProperties, RenderAsync,
             RenderOperation,
         },
         properties::WindowSize,
@@ -150,11 +150,11 @@ where
             RenderOperation::RenderBlockLine(operation) => self.render_block_line(operation),
             RenderOperation::RenderDynamic(generator) => self.render_dynamic(generator.as_ref()),
             RenderOperation::RenderAsync(generator) => self.render_async(generator.as_ref()),
-            RenderOperation::InitColumnLayout { columns } => self.init_column_layout(columns),
+            RenderOperation::InitColumnLayout { columns, grid } => self.init_column_layout(columns, *grid),
             RenderOperation::EnterColumn { column } => self.enter_column(*column),
             RenderOperation::ExitLayout => self.exit_layout(),
         }?;
-        if let LayoutState::EnteredColumn { column, columns } = &mut self.layout {
+        if let LayoutState::EnteredColumn { column, columns, .. } = &mut self.layout {
             columns[*column].current_row = self.terminal.cursor_row();
         };
         self.max_modified_row = self.max_modified_row.max(self.terminal.cursor_row());
@@ -360,61 +360,87 @@ where
         Ok(())
     }
 
-    fn init_column_layout(&mut self, columns: &[u8]) -> RenderResult {
+    fn init_column_layout(&mut self, widths: &[u8], grid: LayoutGrid) -> RenderResult {
         if !matches!(self.layout, LayoutState::Default) {
             self.exit_layout()?;
         }
-        let columns = columns
-            .iter()
-            .map(|width| Column { width: *width as u16, current_row: self.terminal.cursor_row() })
-            .collect();
-        self.layout = LayoutState::InitializedColumn { columns };
+        let current_row = self.terminal.cursor_row();
+        let rect = self.current_rect();
+        let total_units = widths.iter().copied().map(u16::from).sum::<u16>();
+        let total_columns = rect.dimensions.columns;
+        let unit_columns = total_columns as f64 / total_units as f64;
+        let mut columns = Vec::new();
+        let mut current_column = rect.start_column;
+        for width in widths {
+            let width = (f64::from(*width) * unit_columns) as u16;
+            let end_column = current_column + width;
+            columns.push(Column { start_column: current_column, end_column, current_row });
+            current_column = end_column;
+        }
+        self.layout = LayoutState::InitializedColumn { columns, grid, start_row: current_row };
         Ok(())
     }
 
     fn enter_column(&mut self, column_index: usize) -> RenderResult {
-        let columns = match mem::take(&mut self.layout) {
+        let (columns, grid, start_row) = match mem::take(&mut self.layout) {
             LayoutState::Default => return Err(RenderError::InvalidLayoutEnter),
             LayoutState::InitializedColumn { columns, .. } | LayoutState::EnteredColumn { columns, .. }
                 if column_index >= columns.len() =>
             {
                 return Err(RenderError::InvalidLayoutEnter);
             }
-            LayoutState::InitializedColumn { columns } => columns,
-            LayoutState::EnteredColumn { columns, .. } => {
+            LayoutState::InitializedColumn { columns, grid, start_row } => (columns, grid, start_row),
+            LayoutState::EnteredColumn { columns, grid, start_row, .. } => {
                 // Pop this one and start clean
                 self.pop_margin()?;
-                columns
+                (columns, grid, start_row)
             }
         };
-        let total_column_units: u16 = columns.iter().map(|c| c.width).sum();
-        let column_units_before: u16 = columns.iter().take(column_index).map(|c| c.width).sum();
+        let column = &columns[column_index];
         let current_rect = self.current_rect();
-        let unit_width = current_rect.dimensions.columns as f64 / total_column_units as f64;
-        let start_column = current_rect.start_column + (unit_width * column_units_before as f64) as u16;
-        let start_row = columns[column_index].current_row;
-        let new_column_count = (total_column_units - columns[column_index].width) * unit_width as u16;
+        let total_columns = column.end_column.saturating_sub(column.start_column);
         let new_size = current_rect
             .dimensions
-            .shrink_columns(new_column_count)
-            .shrink_rows(start_row.saturating_sub(current_rect.start_row));
-        let mut dimensions = WindowRect { dimensions: new_size, start_column, start_row };
-        // Shrink every column's right edge except for last
-        if column_index < columns.len() - 1 {
+            .set_columns(total_columns)
+            .shrink_rows(column.current_row.saturating_sub(current_rect.start_row));
+        let mut dimensions =
+            WindowRect { dimensions: new_size, start_column: column.start_column, start_row: column.current_row };
+
+        if column_index == 0 {
             dimensions = dimensions.shrink_right(self.options.column_layout_margin);
-        }
-        // Shrink every column's left edge except for first
-        if column_index > 0 {
+        } else if column_index == columns.len() - 1 {
             dimensions = dimensions.shrink_left(self.options.column_layout_margin);
+        } else {
+            let margin = self.options.column_layout_margin / 2;
+            dimensions = dimensions.shrink_left(margin).shrink_right(margin);
         }
 
         self.window_rects.push(dimensions);
-        self.terminal.execute(&TerminalCommand::MoveToRow(start_row))?;
-        self.layout = LayoutState::EnteredColumn { column: column_index, columns };
+        self.terminal.execute(&TerminalCommand::MoveToRow(column.current_row))?;
+        self.layout = LayoutState::EnteredColumn { column: column_index, columns, grid, start_row };
+
         Ok(())
     }
 
     fn exit_layout(&mut self) -> RenderResult {
+        match &self.layout {
+            LayoutState::Default => return Ok(()),
+            LayoutState::InitializedColumn { columns, grid, start_row }
+            | LayoutState::EnteredColumn { columns, grid, start_row, .. } => {
+                if let LayoutGrid::Draw(style) = grid {
+                    let style = *style;
+                    let max_row = columns.iter().map(|c| c.current_row).max().unwrap_or(0);
+                    for row in *start_row..=max_row {
+                        self.terminal.execute(&TerminalCommand::MoveToRow(row))?;
+                        for column in columns.iter().skip(1) {
+                            self.terminal.execute(&TerminalCommand::MoveToColumn(column.start_column))?;
+                            self.terminal.execute(&TerminalCommand::PrintText { content: "│", style })?;
+                        }
+                    }
+                    self.apply_colors()?;
+                }
+            }
+        };
         match &self.layout {
             LayoutState::Default | LayoutState::InitializedColumn { .. } => Ok(()),
             LayoutState::EnteredColumn { .. } => {
@@ -436,16 +462,22 @@ enum LayoutState {
     #[default]
     Default,
     InitializedColumn {
+        start_row: u16,
         columns: Vec<Column>,
+        grid: LayoutGrid,
     },
     EnteredColumn {
+        start_row: u16,
         column: usize,
         columns: Vec<Column>,
+        grid: LayoutGrid,
     },
 }
 
+#[derive(Debug)]
 struct Column {
-    width: u16,
+    start_column: u16,
+    end_column: u16,
     current_row: u16,
 }
 
@@ -676,7 +708,7 @@ mod tests {
     #[test]
     fn columns() {
         let ops = render(&[
-            RenderOperation::InitColumnLayout { columns: vec![1, 1] },
+            RenderOperation::InitColumnLayout { columns: vec![1, 1], grid: LayoutGrid::None },
             // print on column 0
             RenderOperation::EnterColumn { column: 0 },
             RenderOperation::RenderText { line: "A".into(), alignment: Alignment::Left { margin: Margin::Fixed(0) } },

@@ -145,6 +145,9 @@ mermaid:
 d2:
   theme: 4
 
+layout_grid:
+  color: palette:blue
+
 palette:
   colors:
     rosewater: "f2d5cf"

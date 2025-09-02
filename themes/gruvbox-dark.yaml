@@ -144,3 +144,6 @@ mermaid:
 
 d2:
   theme: 103
+
+layout_grid:
+  color: "83a598" 

@@ -476,6 +476,10 @@ pub struct KeyBindingsConfig {
     #[serde(default = "default_toggle_bindings_modal_bindings")]
     pub(crate) toggle_bindings: Vec<KeyBinding>,
 
+    /// The key binding to toggle the layout grid.
+    #[serde(default = "default_toggle_layout_grid")]
+    pub(crate) toggle_layout_grid: Vec<KeyBinding>,
+
     /// The key binding to close the currently open modal.
     #[serde(default = "default_close_modal_bindings")]
     pub(crate) close_modal: Vec<KeyBinding>,
@@ -507,6 +511,7 @@ impl Default for KeyBindingsConfig {
             reload: default_reload_bindings(),
             toggle_slide_index: default_toggle_index_bindings(),
             toggle_bindings: default_toggle_bindings_modal_bindings(),
+            toggle_layout_grid: default_toggle_layout_grid(),
             close_modal: default_close_modal_bindings(),
             exit: default_exit_bindings(),
             suspend: default_suspend_bindings(),
@@ -710,6 +715,10 @@ fn default_toggle_index_bindings() -> Vec<KeyBinding> {
 
 fn default_toggle_bindings_modal_bindings() -> Vec<KeyBinding> {
     make_keybindings(["?"])
+}
+
+fn default_toggle_layout_grid() -> Vec<KeyBinding> {
+    make_keybindings(["T"])
 }
 
 fn default_close_modal_bindings() -> Vec<KeyBinding> {
