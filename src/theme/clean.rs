@@ -224,9 +224,18 @@ impl HeadingStyle {
         palette: &ColorPalette,
         options: &ThemeOptions,
     ) -> Result<Self, ProcessingThemeError> {
-        let raw::HeadingStyle { alignment, prefix, colors, font_size } = raw;
+        let raw::HeadingStyle { alignment, prefix, colors, font_size, bold, underlined, italics } = raw;
         let alignment = alignment.clone().unwrap_or_default().into();
-        let style = TextStyle::colored(colors.resolve(palette)?).size(options.adjust_font_size(*font_size));
+        let mut style = TextStyle::colored(colors.resolve(palette)?).size(options.adjust_font_size(*font_size));
+        if bold.unwrap_or_default() {
+            style = style.bold();
+        }
+        if underlined.unwrap_or_default() {
+            style = style.underlined();
+        }
+        if italics.unwrap_or_default() {
+            style = style.italics();
+        }
         Ok(Self { alignment, prefix: prefix.clone(), style })
     }
 }

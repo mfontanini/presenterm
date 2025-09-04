@@ -186,6 +186,18 @@ pub(crate) struct HeadingStyle {
     /// The font size to be used if the terminal supports it.
     #[serde(default)]
     pub(crate) font_size: Option<u8>,
+
+    /// Whether the heading is bold.
+    #[serde(default)]
+    pub(crate) bold: Option<bool>,
+
+    /// Whether the heading is underlined.
+    #[serde(default)]
+    pub(crate) underlined: Option<bool>,
+
+    /// Whether the heading uses italics.
+    #[serde(default)]
+    pub(crate) italics: Option<bool>,
 }
 
 /// The style of a block quote.
