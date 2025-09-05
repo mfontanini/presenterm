@@ -8,6 +8,7 @@ the terminals where at least one of these is supported are:
 * [kitty](https://sw.kovidgoyal.net/kitty/)
 * [iterm2](https://iterm2.com/)
 * [WezTerm](https://wezfurlong.org/wezterm/index.html)
+* [ghostty](https://ghostty.org/)
 * [foot](https://codeberg.org/dnkl/foot)
 
 Sixel support is experimental so it needs to be explicitly enabled via the `sixel` configuration flag:
@@ -56,4 +57,3 @@ horizontally.
 By default the image protocol to be used will be automatically detected. In cases where this detection fails, you can 
 set it manually via the `--image-protocol` parameter or by setting it in the [config 
 file](../configuration/settings.md#preferred-image-protocol).
-

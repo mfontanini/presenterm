@@ -33,7 +33,7 @@ Visit the [documentation][docs-introduction] to get started.
 # Features
 
 * Presentations consist of one [or more][docs-include] markdown files.
-* [Images and animated gifs][docs-images] on terminals like _kitty_, _iterm2_, and _wezterm_.
+* [Images and animated gifs][docs-images] on terminals like _kitty_, _iterm2_, _wezterm_, _ghostty_ and _foot_.
 * [Customizable themes][docs-themes] including colors, margins, layout (left/center aligned content), footer for every 
   slide, etc. Several [built-in themes][docs-builtin-themes] can give your presentation the look you want without 
   having to define your own.
