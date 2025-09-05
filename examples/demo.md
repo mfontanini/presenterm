@@ -138,6 +138,7 @@ Images and animated gifs are supported in terminals such as:
 * iterm2
 * wezterm
 * ghostty
+* foot
 * Any sixel enabled terminal
 
 <!-- column_layout: [1, 3, 1] -->
