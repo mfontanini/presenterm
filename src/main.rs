@@ -5,7 +5,7 @@ use crate::{
     demo::ThemesDemo,
     export::exporter::Exporter,
     markdown::parse::MarkdownParser,
-    presentation::builder::{PresentationBuilderOptions, Themes},
+    presentation::builder::{CommentCommand, PresentationBuilderOptions, Themes},
     presenter::{PresentMode, Presenter, PresenterOptions},
     resource::Resources,
     terminal::{
@@ -139,6 +139,10 @@ struct Cli {
     /// Whether to validate snippets.
     #[clap(long)]
     validate_snippets: bool,
+
+    /// List all available comment commands.
+    #[clap(long, group = "target")]
+    list_comment_commands: bool,
 }
 
 fn create_splash() -> String {
@@ -387,6 +391,12 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         let theme_name =
             cli.theme.as_ref().or(config.defaults.theme.as_ref()).map(|s| s.as_str()).unwrap_or(DEFAULT_THEME);
         println!("{theme_name}");
+        return Ok(());
+    } else if cli.list_comment_commands {
+        let samples = CommentCommand::generate_samples();
+        for sample in samples {
+            println!("{}", sample);
+        }
         return Ok(());
     }
     // Disable this so we don't mess things up when generating PDFs

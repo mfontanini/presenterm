@@ -182,7 +182,7 @@ impl PresentationBuilder<'_, '_> {
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum CommentCommand {
+pub(crate) enum CommentCommand {
     Alignment(CommentCommandAlignment),
     Column(usize),
     EndSlide,
@@ -205,6 +205,34 @@ enum CommentCommand {
     SnippetOutput(String),
 }
 
+impl CommentCommand {
+    /// Generate sample comment strings for all available commands
+    pub(crate) fn generate_samples() -> Vec<String> {
+        vec![
+            format!("<!-- pause -->"),
+            format!("<!-- end_slide -->"),
+            format!("<!-- new_line -->"),
+            format!("<!-- new_lines: 2 -->"),
+            format!("<!-- jump_to_middle -->"),
+            format!("<!-- column_layout: [1, 2] -->"),
+            format!("<!-- column: 0 -->"),
+            format!("<!-- reset_layout -->"),
+            format!("<!-- incremental_lists: true -->"),
+            format!("<!-- incremental_lists: false -->"),
+            format!("<!-- no_footer -->"),
+            format!("<!-- font_size: 2 -->"),
+            format!("<!-- alignment: left -->"),
+            format!("<!-- alignment: center -->"),
+            format!("<!-- alignment: right -->"),
+            format!("<!-- skip_slide -->"),
+            format!("<!-- list_item_newlines: 2 -->"),
+            format!("<!-- include: file.md -->"),
+            format!("<!-- speaker_note: Your note here -->"),
+            format!("<!-- snippet_output: identifier -->"),
+        ]
+    }
+}
+
 impl FromStr for CommentCommand {
     type Err = CommandParseError;
 
@@ -219,7 +247,7 @@ impl FromStr for CommentCommand {
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum CommentCommandAlignment {
+pub(crate) enum CommentCommandAlignment {
     Left,
     Center,
     Right,
