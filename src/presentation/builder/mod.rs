@@ -49,6 +49,8 @@ use std::{
 pub(crate) mod error;
 
 mod comment;
+pub(crate) use comment::CommentCommand;
+
 mod frontmatter;
 mod heading;
 mod images;
