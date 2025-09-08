@@ -149,3 +149,71 @@ centered
 right aligned
 ```
 
+## Listing available comment commands
+
+The `--list-comment-commands` CLI option outputs all available comment commands to stdout, making it easy to discover and use them in external tools and editors.
+
+### Purpose
+
+This feature is designed to:
+- Provide a machine-readable list of all comment commands
+- Enable editor integrations for autocompletion and snippets
+- Allow validation of comment commands in external tools
+- Serve as a quick reference without consulting documentation
+
+### Usage
+
+```bash
+# List all available comment commands
+presenterm --list-comment-commands
+
+# Use with fzf for interactive selection
+presenterm --list-comment-commands | fzf
+
+# Pipe to grep to filter specific commands
+presenterm --list-comment-commands | grep alignment
+```
+
+### Output format
+
+Each command is output on a separate line with appropriate default values where applicable:
+
+```
+<!-- pause -->
+<!-- end_slide -->
+<!-- new_line -->
+<!-- new_lines: 2 -->
+<!-- jump_to_middle -->
+<!-- column_layout: [1, 2] -->
+<!-- column: 0 -->
+<!-- reset_layout -->
+<!-- incremental_lists: true -->
+<!-- incremental_lists: false -->
+<!-- no_footer -->
+<!-- font_size: 2 -->
+<!-- alignment: left -->
+<!-- alignment: center -->
+<!-- alignment: right -->
+<!-- skip_slide -->
+<!-- list_item_newlines: 2 -->
+<!-- include: file.md -->
+<!-- speaker_note: Your note here -->
+<!-- snippet_output: identifier -->
+```
+
+### Editor integration example: Vim
+
+For Vim users with fzf.vim installed, you can add this to your `.vimrc` to enable quick insertion of comment commands:
+
+```vim
+" Presenterm comment command helper
+if executable('presenterm') && executable('fzf')
+  inoremap <expr> <c-k> fzf#vim#complete(fzf#wrap({
+        \ 'source':  'presenterm --list-comment-commands',
+        \ 'options': '--header "Comment Command Selection" --no-hscroll',
+        \ 'reducer': { lines -> lines[0] } }))
+endif
+```
+
+With this configuration, pressing `Ctrl+K` in insert mode will open an fzf picker with all available comment commands, allowing you to quickly select and insert them into your presentation.
+
