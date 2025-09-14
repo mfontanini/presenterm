@@ -124,7 +124,7 @@ pub(crate) enum InvalidPresentation {
     SnippetAlreadyExists(String),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct FileSourcePosition {
     pub(crate) source_position: SourcePosition,
     pub(crate) file: PathBuf,
