@@ -445,8 +445,10 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
     fn push_pause(&mut self) {
         if self.options.pause_create_new_slide {
             let operations = self.chunk_operations.clone();
+            let slide_state = self.slide_state.clone();
             self.terminate_slide();
             self.chunk_operations = operations;
+            self.slide_state = slide_state;
             return;
         }
         self.slide_state.last_chunk_ended_in_list = matches!(self.slide_state.last_element, LastElement::List { .. });
@@ -570,7 +572,7 @@ impl PresentationReader for FilesystemPresentationReader {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct SlideState {
     ignore_element_line_break: bool,
     ignore_footer: bool,
@@ -587,7 +589,7 @@ struct SlideState {
     last_layout_comment: Option<FileSourcePosition>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 enum LayoutState {
     #[default]
     Default,
@@ -600,7 +602,7 @@ enum LayoutState {
     },
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 enum LastElement {
     #[default]
     None,

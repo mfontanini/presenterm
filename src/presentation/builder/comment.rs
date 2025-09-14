@@ -540,6 +540,22 @@ bye
     }
 
     #[test]
+    fn pause_layout_new_slide() {
+        let input = r"
+<!-- column_layout: [1, 1] -->
+<!-- column: 0 -->
+hi
+<!-- pause -->
+<!-- column: 1 -->
+bye
+";
+        let options = PresentationBuilderOptions { pause_create_new_slide: true, ..Default::default() };
+        let lines = Test::new(input).options(options).render().rows(3).columns(15).advances(1).into_lines();
+        let expected = &["               ", "hi         bye ", "               "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
     fn skip_slide() {
         let input = "
 hi
