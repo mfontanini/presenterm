@@ -242,6 +242,11 @@ impl SnippetParser {
                         attributes.execution = SnippetExec::Exec(spec);
                     }
                 }
+                AutoExec(spec) => {
+                    if !matches!(attributes.execution, SnippetExec::AcquireTerminal(_)) {
+                        attributes.execution = SnippetExec::AutoExec(spec);
+                    }
+                }
                 ExecReplace(spec) => {
                     attributes.representation = SnippetRepr::ExecReplace;
                     attributes.execution = SnippetExec::Exec(spec);
@@ -282,6 +287,7 @@ impl SnippetParser {
                 let attribute = match token {
                     "line_numbers" => SnippetAttribute::LineNumbers,
                     "exec" => SnippetAttribute::Exec(SnippetExecutorSpec::default()),
+                    "auto_exec" => SnippetAttribute::AutoExec(SnippetExecutorSpec::default()),
                     "exec_replace" => SnippetAttribute::ExecReplace(SnippetExecutorSpec::default()),
                     "validate" => SnippetAttribute::Validate(SnippetExecutorSpec::default()),
                     "image" => SnippetAttribute::Image,
@@ -294,6 +300,9 @@ impl SnippetParser {
                             .ok_or_else(|| SnippetBlockParseError::InvalidToken(Self::next_identifier(input).into()))?;
                         match attribute {
                             "exec" => SnippetAttribute::Exec(SnippetExecutorSpec::Alternative(parameter.to_string())),
+                            "auto_exec" => {
+                                SnippetAttribute::AutoExec(SnippetExecutorSpec::Alternative(parameter.to_string()))
+                            }
                             "exec_replace" => {
                                 SnippetAttribute::ExecReplace(SnippetExecutorSpec::Alternative(parameter.to_string()))
                             }
@@ -425,6 +434,7 @@ pub enum SnippetBlockParseError {
 enum SnippetAttribute {
     LineNumbers,
     Exec(SnippetExecutorSpec),
+    AutoExec(SnippetExecutorSpec),
     ExecReplace(SnippetExecutorSpec),
     Validate(SnippetExecutorSpec),
     Image,
@@ -686,6 +696,7 @@ pub(crate) enum SnippetExec {
     #[default]
     None,
     Exec(SnippetExecutorSpec),
+    AutoExec(SnippetExecutorSpec),
     AcquireTerminal(SnippetExecutorSpec),
     Validate(SnippetExecutorSpec),
 }
