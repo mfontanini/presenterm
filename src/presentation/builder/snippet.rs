@@ -67,19 +67,27 @@ impl PresentationBuilder<'_, '_> {
         let block_length = self.push_code_lines(&snippet);
         match snippet.attributes.execution.clone() {
             SnippetExec::None => Ok(()),
-            SnippetExec::Exec(_) | SnippetExec::AcquireTerminal(_) if !execution_allowed => {
-                let exec_type = match snippet.attributes.representation {
+            SnippetExec::Exec(_) | SnippetExec::AutoExec(_) | SnippetExec::AcquireTerminal(_) if !execution_allowed => {
+                let mut exec_type = match snippet.attributes.representation {
                     SnippetRepr::Image => ExecutionType::Image,
                     SnippetRepr::ExecReplace => ExecutionType::ExecReplace,
                     SnippetRepr::Render | SnippetRepr::Snippet => ExecutionType::Execute,
                 };
+                if matches!(snippet.attributes.execution, SnippetExec::AutoExec(_)) {
+                    exec_type = ExecutionType::ExecReplace;
+                }
                 self.push_execution_disabled_operation(exec_type);
                 Ok(())
             }
-            SnippetExec::Exec(spec) => {
+            SnippetExec::Exec(spec) | SnippetExec::AutoExec(spec) => {
+                let policy = if matches!(snippet.attributes.execution, SnippetExec::AutoExec(_)) {
+                    RenderAsyncStartPolicy::Automatic
+                } else {
+                    RenderAsyncStartPolicy::OnDemand
+                };
                 let executor = self.snippet_executor.language_executor(&snippet.language, &spec)?;
                 let alignment = self.code_style(&snippet).alignment;
-                let handle = SnippetHandle::new(snippet.clone(), executor, RenderAsyncStartPolicy::OnDemand);
+                let handle = SnippetHandle::new(snippet.clone(), executor, policy);
                 self.chunk_operations
                     .push(RenderOperation::RenderAsync(Rc::new(RunSnippetTrigger::new(handle.clone()))));
                 self.push_indicator(handle.clone(), block_length, alignment);
@@ -113,7 +121,10 @@ impl PresentationBuilder<'_, '_> {
 
     fn is_execution_allowed(&self, snippet: &Snippet) -> bool {
         match snippet.attributes.representation {
-            SnippetRepr::Snippet => self.options.enable_snippet_execution,
+            SnippetRepr::Snippet => match snippet.attributes.execution {
+                SnippetExec::AutoExec(_) => self.options.enable_snippet_execution_replace,
+                _ => self.options.enable_snippet_execution,
+            },
             SnippetRepr::Image | SnippetRepr::ExecReplace => self.options.enable_snippet_execution_replace,
             SnippetRepr::Render => true,
         }
@@ -361,7 +372,11 @@ impl AsRenderOperations for Differ {
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
-    use crate::{markdown::text_style::Color, presentation::builder::utils::Test, theme::raw};
+    use crate::{
+        markdown::text_style::Color,
+        presentation::builder::utils::{RunAsyncRendersPolicy, Test},
+        theme::raw,
+    };
     use rstest::rstest;
     use std::fs;
 
@@ -436,7 +451,16 @@ echo hi
 ```
 ---";
         let lines = Test::new(input).render().rows(7).columns(7).into_lines();
-        let expected = &["       ", "———————", "       ", "echo hi", "       ", "———————", "       "];
+        let expected = &[
+            //
+            "       ",
+            "———————",
+            "       ",
+            "echo hi",
+            "       ",
+            "———————",
+            "       ",
+        ];
         assert_eq!(lines, expected);
     }
 
@@ -454,7 +478,14 @@ echo hi
             ..Default::default()
         };
         let lines = Test::new(input).theme(theme).render().rows(5).columns(13).into_lines();
-        let expected = &["             ", "             ", "  echo hi    ", "             ", "             "];
+        let expected = &[
+            //
+            "             ",
+            "             ",
+            "  echo hi    ",
+            "             ",
+            "             ",
+        ];
         assert_eq!(lines, expected);
     }
 
@@ -464,8 +495,39 @@ echo hi
 ```bash +exec
 echo hi
 ```";
-        let lines = Test::new(input).render().rows(4).columns(19).run_async_renders(false).into_lines();
-        let expected = &["                   ", "echo hi            ", "                   ", "—— [not started] ——"];
+        let lines =
+            Test::new(input).render().rows(4).columns(19).run_async_renders(RunAsyncRendersPolicy::None).into_lines();
+        let expected = &[
+            //
+            "                   ",
+            "echo hi            ",
+            "                   ",
+            "—— [not started] ——",
+        ];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn exec_auto() {
+        let input = "
+```bash +auto_exec
+echo hi
+```";
+        let lines = Test::new(input)
+            .render()
+            .rows(6)
+            .columns(19)
+            .run_async_renders(RunAsyncRendersPolicy::OnlyAutomatic)
+            .into_lines();
+        let expected = &[
+            //
+            "                   ",
+            "echo hi            ",
+            "                   ",
+            "——— [finished] ————",
+            "                   ",
+            "hi                 ",
+        ];
         assert_eq!(lines, expected);
     }
 
@@ -475,7 +537,8 @@ echo hi
 ```bash +validate
 echo hi
 ```";
-        let lines = Test::new(input).render().rows(4).columns(19).run_async_renders(false).into_lines();
+        let lines =
+            Test::new(input).render().rows(4).columns(19).run_async_renders(RunAsyncRendersPolicy::None).into_lines();
         let expected = &["                   ", "echo hi            ", "                   ", "                   "];
         assert_eq!(lines, expected);
     }
@@ -649,9 +712,16 @@ echo hi
 echo hi
 ```
 <!-- snippet_output: foo -->";
-        let lines = Test::new(input).render().rows(4).columns(19).run_async_renders(false).into_lines();
+        let lines =
+            Test::new(input).render().rows(4).columns(19).run_async_renders(RunAsyncRendersPolicy::None).into_lines();
         // this should look exactly the same as if we hadn't detached the output
-        let expected = &["                   ", "echo hi            ", "                   ", "—— [not started] ——"];
+        let expected = &[
+            //
+            "                   ",
+            "echo hi            ",
+            "                   ",
+            "—— [not started] ——",
+        ];
         assert_eq!(lines, expected);
     }
 

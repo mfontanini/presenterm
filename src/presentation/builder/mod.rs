@@ -616,7 +616,7 @@ enum LastElement {
 pub(crate) mod utils {
     use super::*;
     use crate::{
-        render::{engine::RenderEngine, properties::WindowSize},
+        render::{engine::RenderEngine, operation::RenderAsyncStartPolicy, properties::WindowSize},
         terminal::virt::VirtualTerminal,
     };
     use std::{path::PathBuf, thread::sleep, time::Duration};
@@ -753,7 +753,7 @@ pub(crate) mod utils {
         presentation: Presentation,
         columns: Option<u16>,
         rows: Option<u16>,
-        run_async_renders: bool,
+        run_async_renders: RunAsyncRendersPolicy,
         background_maps: Vec<(Color, char)>,
         advances: Option<usize>,
     }
@@ -764,7 +764,7 @@ pub(crate) mod utils {
                 presentation,
                 columns: None,
                 rows: None,
-                run_async_renders: true,
+                run_async_renders: RunAsyncRendersPolicy::All,
                 background_maps: Default::default(),
                 advances: None,
             }
@@ -785,8 +785,8 @@ pub(crate) mod utils {
             self
         }
 
-        pub(crate) fn run_async_renders(mut self, value: bool) -> Self {
-            self.run_async_renders = value;
+        pub(crate) fn run_async_renders(mut self, policy: RunAsyncRendersPolicy) -> Self {
+            self.run_async_renders = policy;
             self
         }
 
@@ -812,13 +812,21 @@ pub(crate) mod utils {
             }
 
             let slide = presentation.current_slide_mut();
-            if run_async_renders {
-                for operation in slide.iter_operations_mut() {
-                    if let RenderOperation::RenderAsync(operation) = operation {
-                        let mut pollable = operation.pollable();
-                        while !pollable.poll().is_completed() {
-                            sleep(Duration::from_millis(1));
+            for operation in slide.iter_operations_mut() {
+                if let RenderOperation::RenderAsync(operation) = operation {
+                    let mut pollable = operation.pollable();
+                    let run = match &run_async_renders {
+                        RunAsyncRendersPolicy::None => false,
+                        RunAsyncRendersPolicy::All => true,
+                        RunAsyncRendersPolicy::OnlyAutomatic => {
+                            matches!(operation.start_policy(), RenderAsyncStartPolicy::Automatic)
                         }
+                    };
+                    if !run {
+                        continue;
+                    }
+                    while !pollable.poll().is_completed() {
+                        sleep(Duration::from_millis(1));
                     }
                 }
             }
@@ -849,5 +857,11 @@ pub(crate) mod utils {
             }
             (lines, styles)
         }
+    }
+
+    pub(crate) enum RunAsyncRendersPolicy {
+        None,
+        All,
+        OnlyAutomatic,
     }
 }
