@@ -49,9 +49,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         let mut text = item.contents.resolve(&self.theme.palette)?;
         let font_size = self.slide_font_size();
         for piece in &mut text.0 {
-            if piece.style.is_code() {
-                piece.style.colors = self.theme.inline_code.style.colors;
-            }
+            self.apply_theme_text_style(piece);
             piece.style = piece.style.size(font_size);
         }
         let alignment = self.slide_state.alignment.unwrap_or_default();

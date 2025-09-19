@@ -487,9 +487,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
     fn push_aligned_text(&mut self, mut block: Line, alignment: Alignment) {
         let default_font_size = self.slide_font_size();
         for chunk in &mut block.0 {
-            if chunk.style.is_code() {
-                chunk.style.colors = self.theme.inline_code.style.colors;
-            }
+            self.apply_theme_text_style(chunk);
             if default_font_size > 1 {
                 chunk.style = chunk.style.size(default_font_size);
             }
@@ -529,6 +527,12 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
 
         self.push_slide_prelude();
         self.slide_state = Default::default();
+    }
+
+    fn apply_theme_text_style(&self, text: &mut Text) {
+        if text.style.is_code() {
+            text.style.colors = self.theme.inline_code.style.colors;
+        }
     }
 
     fn is_chunk_empty(operations: &[RenderOperation]) -> bool {
