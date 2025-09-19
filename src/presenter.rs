@@ -165,8 +165,11 @@ impl<'a> Presenter<'a> {
                     CommandSideEffect::None => (),
                 };
             }
-            self.publish_event(SpeakerNotesEvent::GoToSlide {
-                slide: self.state.presentation().current_slide_index() as u32 + 1,
+            let slide_index = self.state.presentation().current_slide_index() as u32 + 1;
+            let slide = self.state.presentation().current_slide();
+            self.publish_event(SpeakerNotesEvent::GoTo {
+                slide: slide_index,
+                chunk: slide.current_chunk_index() as u32,
             })?;
         }
     }
@@ -310,6 +313,11 @@ impl<'a> Presenter<'a> {
             Command::FirstSlide => presentation.jump_first_slide(),
             Command::LastSlide => presentation.jump_last_slide(),
             Command::GoToSlide(number) => presentation.go_to_slide(number.saturating_sub(1) as usize),
+            Command::GoToSlideChunk { slide, chunk } => {
+                presentation.go_to_slide(slide.saturating_sub(1) as usize);
+                presentation.current_slide_mut().jump_chunk(chunk as usize);
+                true
+            }
             Command::RenderAsyncOperations => {
                 let pollables = Self::trigger_slide_async_renders(presentation);
                 if !pollables.is_empty() {

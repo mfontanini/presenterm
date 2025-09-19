@@ -68,7 +68,7 @@ impl SpeakerNotesEventListener {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "command")]
 pub(crate) enum SpeakerNotesEvent {
-    GoToSlide { slide: u32 },
+    GoTo { slide: u32, chunk: u32 },
     Exit,
 }
 

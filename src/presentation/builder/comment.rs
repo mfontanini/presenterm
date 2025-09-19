@@ -129,8 +129,10 @@ impl PresentationBuilder<'_, '_> {
                     self.push_text(line.into(), ElementType::Paragraph);
                     self.push_line_break();
                 }
+                self.push_line_break();
             }
             CommentCommand::EndSlide => self.terminate_slide(),
+            CommentCommand::Pause => self.push_pause(),
             CommentCommand::SkipSlide => self.slide_state.skip_slide = true,
             _ => {}
         }
@@ -621,8 +623,23 @@ hi
 <!-- speaker_note: bye -->
 ";
         let options = PresentationBuilderOptions { render_speaker_notes_only: true, ..Default::default() };
-        let lines = Test::new(input).options(options).render().rows(3).columns(3).into_lines();
-        let expected = &["   ", "hi ", "bye"];
+        let lines = Test::new(input).options(options).render().rows(4).columns(3).into_lines();
+        let expected = &["   ", "hi ", "   ", "bye"];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn speaker_notes_pause() {
+        let input = "
+<!-- speaker_note: hi -->
+
+<!-- pause -->
+
+<!-- speaker_note: bye -->
+";
+        let options = PresentationBuilderOptions { render_speaker_notes_only: true, ..Default::default() };
+        let lines = Test::new(input).options(options).render().rows(4).columns(3).advances(0).into_lines();
+        let expected = &["   ", "hi ", "   ", "   "];
         assert_eq!(lines, expected);
     }
 
