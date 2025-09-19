@@ -69,9 +69,7 @@ impl PresentationBuilder<'_, '_> {
             for text in &mut line.0 {
                 if text.style.colors.background.is_none() && text.style.colors.foreground.is_none() {
                     text.style.colors = base_colors;
-                    if text.style.is_code() {
-                        text.style.colors = self.theme.inline_code.style.colors;
-                    }
+                    self.apply_theme_text_style(text);
                 }
                 text.style = text.style.size(font_size);
             }
