@@ -96,6 +96,7 @@ impl CommandKeyBindings {
             ToggleLayoutGrid => Command::ToggleLayoutGrid,
             CloseModal => Command::CloseModal,
             SkipPauses => Command::SkipPauses,
+            GoToSlideChunk => panic!("go to slide chunk is not configurable"),
         };
         InputAction::Emit(command)
     }

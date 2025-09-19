@@ -268,15 +268,15 @@ impl Slide {
         self.chunks.iter()
     }
 
-    fn jump_chunk(&mut self, chunk_index: usize) {
+    pub(crate) fn current_chunk_index(&self) -> usize {
+        self.visible_chunks.saturating_sub(1)
+    }
+
+    pub(crate) fn jump_chunk(&mut self, chunk_index: usize) {
         self.visible_chunks = chunk_index.saturating_add(1).min(self.chunks.len());
         for chunk in self.chunks.iter().take(self.visible_chunks - 1) {
             chunk.apply_all_mutations();
         }
-    }
-
-    fn current_chunk_index(&self) -> usize {
-        self.visible_chunks.saturating_sub(1)
     }
 
     fn current_chunk(&self) -> &SlideChunk {
