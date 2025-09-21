@@ -13,7 +13,10 @@ impl PresentationBuilder<'_, '_> {
 
         let mut style = self.theme.slide_title.clone();
         self.push_line_breaks(style.padding_top as usize);
-        for (index, mut title_line) in text.into_iter().enumerate() {
+        for (index, title_line) in text.into_iter().enumerate() {
+            let mut title_line = title_line.resolve(&self.theme.palette)?;
+            self.slide_state.title.get_or_insert_with(|| title_line.clone());
+
             if let (prefix, 0) = (&style.prefix, index) {
                 if !prefix.is_empty() {
                     let mut prefix = prefix.clone();
@@ -21,8 +24,6 @@ impl PresentationBuilder<'_, '_> {
                     title_line.0.insert(0, Text::from(prefix));
                 }
             }
-            let mut title_line = title_line.resolve(&self.theme.palette)?;
-            self.slide_state.title.get_or_insert_with(|| title_line.clone());
             if let Some(font_size) = self.slide_state.font_size {
                 style.style = style.style.size(font_size);
             }
