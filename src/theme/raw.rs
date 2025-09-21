@@ -129,6 +129,10 @@ pub(crate) struct SlideTitleStyle {
     #[serde(default)]
     pub(crate) colors: RawColors,
 
+    /// The prefix to be added to the slide title.
+    #[serde(default)]
+    pub(crate) prefix: Option<String>,
+
     /// Whether to use bold font for slide titles.
     #[serde(default)]
     pub(crate) bold: Option<bool>,
