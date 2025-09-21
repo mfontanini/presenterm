@@ -105,6 +105,16 @@ where
         self.has_flag(TextFormatFlags::Code)
     }
 
+    /// Check whether this text is bold.
+    pub(crate) fn is_bold(&self) -> bool {
+        self.has_flag(TextFormatFlags::Bold)
+    }
+
+    /// Check whether this text is italics.
+    pub(crate) fn is_italics(&self) -> bool {
+        self.has_flag(TextFormatFlags::Italics)
+    }
+
     /// Merge this style with another one.
     pub(crate) fn merge(&mut self, other: &TextStyle<C>) {
         self.flags |= other.flags;

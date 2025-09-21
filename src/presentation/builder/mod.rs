@@ -531,7 +531,13 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
 
     fn apply_theme_text_style(&self, text: &mut Text) {
         if text.style.is_code() {
-            text.style.colors = self.theme.inline_code.style.colors;
+            text.style.merge(&self.theme.inline_code.style);
+        }
+        if text.style.is_bold() {
+            text.style.merge(&self.theme.bold.style);
+        }
+        if text.style.is_italics() {
+            text.style.merge(&self.theme.italics.style);
         }
     }
 

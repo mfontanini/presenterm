@@ -33,7 +33,15 @@ pub struct PresentationTheme {
 
     /// The style for inline code.
     #[serde(default)]
-    pub(crate) inline_code: InlineCodeStyle,
+    pub(crate) inline_code: ModifierStyle,
+
+    /// The style for bold text.
+    #[serde(default)]
+    pub(crate) bold: ModifierStyle,
+
+    /// The style for italics.
+    #[serde(default)]
+    pub(crate) italics: ModifierStyle,
 
     /// The style for a table.
     #[serde(default)]
@@ -692,9 +700,8 @@ pub(crate) struct ExecutionStatusBlockStyle {
     pub(crate) not_started: RawColors,
 }
 
-/// The style for inline code.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub(crate) struct InlineCodeStyle {
+pub(crate) struct ModifierStyle {
     /// The colors to be used.
     #[serde(default)]
     pub(crate) colors: RawColors,
