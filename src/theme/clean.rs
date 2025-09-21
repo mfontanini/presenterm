@@ -35,7 +35,9 @@ pub(crate) struct PresentationTheme {
     pub(crate) slide_title: SlideTitleStyle,
     pub(crate) code: CodeBlockStyle,
     pub(crate) execution_output: ExecutionOutputBlockStyle,
-    pub(crate) inline_code: InlineCodeStyle,
+    pub(crate) inline_code: ModifierStyle,
+    pub(crate) bold: ModifierStyle,
+    pub(crate) italics: ModifierStyle,
     pub(crate) table: Alignment,
     pub(crate) block_quote: BlockQuoteStyle,
     pub(crate) alert: AlertStyle,
@@ -62,6 +64,8 @@ impl PresentationTheme {
             code,
             execution_output,
             inline_code,
+            bold,
+            italics,
             table,
             block_quote,
             alert,
@@ -84,7 +88,9 @@ impl PresentationTheme {
             slide_title: SlideTitleStyle::new(slide_title, &palette, options)?,
             code: CodeBlockStyle::new(code),
             execution_output: ExecutionOutputBlockStyle::new(execution_output, &palette)?,
-            inline_code: InlineCodeStyle::new(inline_code, &palette)?,
+            inline_code: ModifierStyle::new(inline_code, &palette)?,
+            bold: ModifierStyle::new(bold, &palette)?,
+            italics: ModifierStyle::new(italics, &palette)?,
             table: table.clone().unwrap_or_default().into(),
             block_quote: BlockQuoteStyle::new(block_quote, &palette)?,
             alert: AlertStyle::new(alert, &palette)?,
@@ -626,13 +632,13 @@ impl ExecutionStatusBlockStyle {
 }
 
 #[derive(Clone, Debug, Default)]
-pub(crate) struct InlineCodeStyle {
+pub(crate) struct ModifierStyle {
     pub(crate) style: TextStyle,
 }
 
-impl InlineCodeStyle {
-    fn new(raw: &raw::InlineCodeStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
-        let raw::InlineCodeStyle { colors } = raw;
+impl ModifierStyle {
+    fn new(raw: &raw::ModifierStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
+        let raw::ModifierStyle { colors } = raw;
         let style = TextStyle::colored(colors.resolve(palette)?);
         Ok(Self { style })
     }
