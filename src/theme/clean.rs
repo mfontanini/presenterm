@@ -149,6 +149,7 @@ pub(crate) struct SlideTitleStyle {
     pub(crate) padding_top: u8,
     pub(crate) padding_bottom: u8,
     pub(crate) style: TextStyle,
+    pub(crate) prefix: String,
 }
 
 impl SlideTitleStyle {
@@ -167,6 +168,7 @@ impl SlideTitleStyle {
             italics,
             underlined,
             font_size,
+            prefix,
         } = raw;
         let colors = colors.resolve(palette)?;
         let mut style = TextStyle::colored(colors).size(options.adjust_font_size(*font_size));
@@ -185,6 +187,7 @@ impl SlideTitleStyle {
             padding_top: padding_top.unwrap_or_default(),
             padding_bottom: padding_bottom.unwrap_or_default(),
             style,
+            prefix: prefix.clone().unwrap_or_default(),
         })
     }
 }

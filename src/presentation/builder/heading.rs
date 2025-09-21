@@ -13,7 +13,14 @@ impl PresentationBuilder<'_, '_> {
 
         let mut style = self.theme.slide_title.clone();
         self.push_line_breaks(style.padding_top as usize);
-        for title_line in text {
+        for (index, mut title_line) in text.into_iter().enumerate() {
+            if let (prefix, 0) = (&style.prefix, index) {
+                if !prefix.is_empty() {
+                    let mut prefix = prefix.clone();
+                    prefix.push(' ');
+                    title_line.0.insert(0, Text::from(prefix));
+                }
+            }
             let mut title_line = title_line.resolve(&self.theme.palette)?;
             self.slide_state.title.get_or_insert_with(|| title_line.clone());
             if let Some(font_size) = self.slide_state.font_size {
@@ -99,29 +106,40 @@ hi
     }
 
     #[test]
+    fn slide_title_prefix() {
+        let input = "---
+theme:
+  override:
+    slide_title:
+      prefix: \"#\"
+---
+
+title
+===
+
+";
+        let lines = Test::new(input).render().rows(2).columns(7).into_lines();
+        let expected = &["       ", "# title"];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
     fn h1_slide_title() {
         let input = "---
 options:
   h1_slide_titles: true
+theme:
+  override:
+    slide_title:
+      separator: true
 ---
 
 # title
 
 hi
 ";
-        let color = Color::new(1, 1, 1);
-        let theme = raw::PresentationTheme {
-            slide_title: raw::SlideTitleStyle {
-                separator: true,
-                padding_top: Some(1),
-                padding_bottom: Some(1),
-                colors: raw::RawColors { foreground: None, background: Some(raw::RawColor::Color(color)) },
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-        let lines = Test::new(input).theme(theme).render().rows(8).columns(5).into_lines();
-        let expected = &["     ", "     ", "title", "     ", "—————", "     ", "hi   ", "     "];
+        let lines = Test::new(input).render().rows(6).columns(5).into_lines();
+        let expected = &["     ", "title", "—————", "     ", "hi   ", "     "];
         assert_eq!(lines, expected);
     }
 
