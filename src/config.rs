@@ -222,6 +222,9 @@ pub struct OptionsConfig {
     /// Assume snippets for these languages contain `+render` and render them automatically.
     #[serde(default)]
     pub auto_render_languages: Vec<SnippetLanguage>,
+
+    /// Whether the first `h1` header on a slide should be considered a slide title.
+    pub h1_slide_titles: Option<bool>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

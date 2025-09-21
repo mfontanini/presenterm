@@ -569,6 +569,13 @@
             "null"
           ]
         },
+        "h1_slide_titles": {
+          "description": "Whether the first `h1` header on a slide should be considered a slide title.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
         "image_attributes_prefix": {
           "description": "The prefix to use for image attributes.",
           "type": [
