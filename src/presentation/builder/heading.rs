@@ -38,6 +38,9 @@ impl PresentationBuilder<'_, '_> {
     }
 
     pub(crate) fn push_heading(&mut self, level: u8, text: Line<RawColor>) -> BuildResult {
+        if level == 1 && self.options.h1_slide_titles && self.slide_state.title.is_none() {
+            return self.push_slide_title(vec![text]);
+        }
         let mut text = text.resolve(&self.theme.palette)?;
         let (element_type, style) = match level {
             1 => (ElementType::Heading1, &self.theme.headings.h1),
@@ -76,6 +79,33 @@ mod tests {
         let input = "
 title
 ===
+
+hi
+";
+        let color = Color::new(1, 1, 1);
+        let theme = raw::PresentationTheme {
+            slide_title: raw::SlideTitleStyle {
+                separator: true,
+                padding_top: Some(1),
+                padding_bottom: Some(1),
+                colors: raw::RawColors { foreground: None, background: Some(raw::RawColor::Color(color)) },
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let lines = Test::new(input).theme(theme).render().rows(8).columns(5).into_lines();
+        let expected = &["     ", "     ", "title", "     ", "—————", "     ", "hi   ", "     "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn h1_slide_title() {
+        let input = "---
+options:
+  h1_slide_titles: true
+---
+
+# title
 
 hi
 ";

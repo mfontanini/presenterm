@@ -93,6 +93,7 @@ pub struct PresentationBuilderOptions {
     pub list_item_newlines: u8,
     pub validate_snippets: bool,
     pub layout_grid: bool,
+    pub h1_slide_titles: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -102,6 +103,7 @@ impl PresentationBuilderOptions {
         self.end_slide_shorthand = options.end_slide_shorthand.unwrap_or(self.end_slide_shorthand);
         self.strict_front_matter_parsing =
             options.strict_front_matter_parsing.unwrap_or(self.strict_front_matter_parsing);
+        self.h1_slide_titles = options.h1_slide_titles.unwrap_or(self.h1_slide_titles);
         if let Some(prefix) = options.command_prefix {
             self.command_prefix = prefix;
         }
@@ -140,6 +142,7 @@ impl Default for PresentationBuilderOptions {
             list_item_newlines: 1,
             validate_snippets: false,
             layout_grid: false,
+            h1_slide_titles: false,
         }
     }
 }

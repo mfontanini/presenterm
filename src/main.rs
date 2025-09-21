@@ -276,31 +276,29 @@ impl CoreComponents {
         force_default_theme: bool,
         render_speaker_notes_only: bool,
     ) -> PresentationBuilderOptions {
+        let options = &config.options;
         PresentationBuilderOptions {
             allow_mutations: true,
-            implicit_slide_ends: config.options.implicit_slide_ends.unwrap_or_default(),
-            command_prefix: config.options.command_prefix.clone().unwrap_or_default(),
-            image_attribute_prefix: config
-                .options
-                .image_attributes_prefix
-                .clone()
-                .unwrap_or_else(|| "image:".to_string()),
-            incremental_lists: config.options.incremental_lists.unwrap_or_default(),
+            implicit_slide_ends: options.implicit_slide_ends.unwrap_or_default(),
+            command_prefix: options.command_prefix.clone().unwrap_or_default(),
+            image_attribute_prefix: options.image_attributes_prefix.clone().unwrap_or_else(|| "image:".to_string()),
+            incremental_lists: options.incremental_lists.unwrap_or_default(),
             force_default_theme,
-            end_slide_shorthand: config.options.end_slide_shorthand.unwrap_or_default(),
+            end_slide_shorthand: options.end_slide_shorthand.unwrap_or_default(),
             print_modal_background: false,
-            strict_front_matter_parsing: config.options.strict_front_matter_parsing.unwrap_or(true),
+            strict_front_matter_parsing: options.strict_front_matter_parsing.unwrap_or(true),
             enable_snippet_execution: config.snippet.exec.enable,
             enable_snippet_execution_replace: config.snippet.exec_replace.enable,
             render_speaker_notes_only,
-            auto_render_languages: config.options.auto_render_languages.clone(),
+            auto_render_languages: options.auto_render_languages.clone(),
             theme_options: ThemeOptions { font_size_supported: TerminalEmulator::capabilities().font_size },
             pause_before_incremental_lists: config.defaults.incremental_lists.pause_before.unwrap_or(true),
             pause_after_incremental_lists: config.defaults.incremental_lists.pause_after.unwrap_or(true),
             pause_create_new_slide: false,
-            list_item_newlines: config.options.list_item_newlines.map(Into::into).unwrap_or(1),
+            list_item_newlines: options.list_item_newlines.map(Into::into).unwrap_or(1),
             validate_snippets: config.snippet.validate,
             layout_grid: false,
+            h1_slide_titles: options.h1_slide_titles.unwrap_or_default(),
         }
     }
 
