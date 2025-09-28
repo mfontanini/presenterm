@@ -47,12 +47,11 @@ use std::{
 };
 
 pub(crate) mod error;
-
-mod comment;
-pub(crate) use comment::CommentCommand;
+pub(crate) use html::CommentCommand;
 
 mod frontmatter;
 mod heading;
+mod html;
 mod images;
 mod list;
 mod quote;
@@ -282,6 +281,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         let slide_index = self.index_builder.build(&self.theme, self.presentation_state.clone());
         let modals = Modals { slide_index, bindings };
         let presentation = Presentation::new(slides, modals, self.presentation_state);
+        eprintln!("{presentation:?}");
         Ok(presentation)
     }
 
@@ -357,7 +357,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
     }
 
     fn process_element_for_presentation_mode(&mut self, element: MarkdownElement) -> BuildResult {
-        let should_clear_last = !matches!(element, MarkdownElement::List(_) | MarkdownElement::Comment { .. });
+        let should_clear_last = !matches!(element, MarkdownElement::List(_) | MarkdownElement::HtmlBlock { .. });
         match element {
             // This one is processed before everything else as it affects how the rest of the
             // elements is rendered.
@@ -369,7 +369,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             MarkdownElement::Snippet { info, code, source_position } => self.push_code(info, code, source_position)?,
             MarkdownElement::Table(table) => self.push_table(table)?,
             MarkdownElement::ThematicBreak => self.process_thematic_break(),
-            MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
+            MarkdownElement::HtmlBlock { block, source_position } => self.process_html_block(block, source_position)?,
             MarkdownElement::BlockQuote(lines) => self.push_block_quote(lines)?,
             MarkdownElement::Image { path, title, source_position } => {
                 self.push_image_from_path(path, title, source_position)?
@@ -388,7 +388,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
 
     fn process_element_for_speaker_notes_mode(&mut self, element: MarkdownElement) -> BuildResult {
         match element {
-            MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
+            MarkdownElement::HtmlBlock { block, source_position } => self.process_html_block(block, source_position)?,
             MarkdownElement::SetexHeading { text } => self.push_slide_title(text)?,
             MarkdownElement::ThematicBreak => {
                 if self.options.end_slide_shorthand {

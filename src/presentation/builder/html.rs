@@ -1,5 +1,8 @@
 use crate::{
-    markdown::elements::{MarkdownElement, SourcePosition},
+    markdown::{
+        elements::{MarkdownElement, SourcePosition},
+        html::block::HtmlBlock,
+    },
     presentation::builder::{BuildResult, LayoutState, PresentationBuilder, error::InvalidPresentation},
     render::operation::{LayoutGrid, RenderOperation},
     theme::{Alignment, ElementType},
@@ -8,7 +11,19 @@ use serde::Deserialize;
 use std::{fmt, num::NonZeroU8, path::PathBuf, str::FromStr};
 
 impl PresentationBuilder<'_, '_> {
-    pub(crate) fn process_comment(&mut self, comment: String, source_position: SourcePosition) -> BuildResult {
+    pub(crate) fn process_html_block(&mut self, block: HtmlBlock, source_position: SourcePosition) -> BuildResult {
+        match block {
+            HtmlBlock::Comment(comment) => self.process_comment(comment, source_position),
+            HtmlBlock::SpeakerNotes { lines } => {
+                if self.options.render_speaker_notes_only {
+                    self.process_speaker_notes(lines);
+                }
+                Ok(())
+            }
+        }
+    }
+
+    fn process_comment(&mut self, comment: String, source_position: SourcePosition) -> BuildResult {
         let comment = comment.trim();
         let trimmed_comment = comment.trim_start_matches(&self.options.command_prefix);
         let command = match trimmed_comment.parse::<CommentCommand>() {
@@ -125,17 +140,21 @@ impl PresentationBuilder<'_, '_> {
     fn process_comment_command_speaker_notes_mode(&mut self, comment_command: CommentCommand) {
         match comment_command {
             CommentCommand::SpeakerNote(note) => {
-                for line in note.lines() {
-                    self.push_text(line.into(), ElementType::Paragraph);
-                    self.push_line_break();
-                }
-                self.push_line_break();
+                self.process_speaker_notes(note.lines().map(ToString::to_string));
             }
             CommentCommand::EndSlide => self.terminate_slide(),
             CommentCommand::Pause => self.push_pause(),
             CommentCommand::SkipSlide => self.slide_state.skip_slide = true,
             _ => {}
         }
+    }
+
+    fn process_speaker_notes(&mut self, lines: impl IntoIterator<Item = String>) {
+        for line in lines {
+            self.push_text(line.into(), ElementType::Paragraph);
+            self.push_line_break();
+        }
+        self.push_line_break();
     }
 
     fn should_ignore_comment(&self, comment: &str) -> bool {
@@ -273,7 +292,10 @@ mod tests {
     use std::{fs, io::BufWriter};
 
     use super::*;
-    use crate::presentation::builder::{PresentationBuilderOptions, utils::Test};
+    use crate::{
+        markdown::html::block::HtmlBlock,
+        presentation::builder::{PresentationBuilderOptions, utils::Test},
+    };
     use image::{DynamicImage, ImageEncoder, codecs::png::PngEncoder};
     use rstest::rstest;
     use tempfile::tempdir;
@@ -313,7 +335,10 @@ mod tests {
     fn comment_prefix(#[case] comment: &str, #[case] should_work: bool) {
         let options = PresentationBuilderOptions { command_prefix: "cmd:".into(), ..Default::default() };
 
-        let element = MarkdownElement::Comment { comment: comment.into(), source_position: Default::default() };
+        let element = MarkdownElement::HtmlBlock {
+            block: HtmlBlock::Comment(comment.into()),
+            source_position: Default::default(),
+        };
         let result = Test::new(vec![element]).options(options).try_build();
         assert_eq!(result.is_ok(), should_work, "{result:?}");
     }
