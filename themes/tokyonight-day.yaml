@@ -1,0 +1,150 @@
+---
+default:
+  margin:
+    percent: 8
+  colors:
+    foreground: "3760bf"
+    background: "e1e2e7"
+
+slide_title:
+  alignment: center
+  padding_bottom: 1
+  padding_top: 1
+  colors:
+    foreground: "8c6c3e"
+  bold: true
+  font_size: 2
+
+code:
+  alignment: center
+  minimum_size: 50
+  minimum_margin:
+    percent: 8
+  theme_name: GitHub
+  padding:
+    horizontal: 2
+    vertical: 1
+
+execution_output:
+  colors:
+    foreground: "3760bf"
+    background: "2d2d2d"
+  status:
+    running:
+      foreground: "2e7de9"
+    success:
+      foreground: "587539"
+    failure:
+      foreground: "f52a65"
+    not_started:
+      foreground: "8c6c3e"
+  padding:
+    horizontal: 2
+    vertical: 1
+
+inline_code:
+  colors:
+    foreground: "587539"
+    background: "95b96e"
+
+intro_slide:
+  title:
+    alignment: center
+    colors:
+      foreground: "2e7de9"
+    font_size: 2
+  subtitle:
+    alignment: center
+    colors:
+      foreground: "b4b5b9"
+  event:
+    alignment: center
+    colors:
+      foreground: "2e7de9"
+  location:
+    alignment: center
+    colors:
+      foreground: "b4b5b9"
+  date:
+    alignment: center
+    colors:
+      foreground: "8c6c3e"
+  author:
+    alignment: center
+    colors:
+      foreground: "587539"
+    positioning: page_bottom
+  footer: false
+
+headings:
+  h1:
+    prefix: "██"
+    colors:
+      foreground: "587539"
+  h2:
+    prefix: "▓▓▓"
+    colors:
+      foreground: "f52a65"
+  h3:
+    prefix: "▒▒▒▒"
+    colors:
+      foreground: "2e7de9"
+  h4:
+    prefix: "░░░░░"
+    colors:
+      foreground: "9854f1"
+  h5:
+    prefix: "░░░░░░"
+    colors:
+      foreground: "9854f1"
+  h6:
+    prefix: "░░░░░░░"
+    colors:
+      foreground: "9854f1"
+
+block_quote:
+  prefix: "▍ "
+  colors:
+    foreground: "3760bf"
+    background: "545c7e"
+    prefix: "8c6c3e"
+
+alert:
+  prefix: "▍ "
+  base_colors:
+    foreground: "3760bf"
+    background: "545c7e"
+  styles:
+    note:
+      color: "2e7de9"
+    tip:
+      color: "587539"
+    important:
+      color: "9854f1"
+    warning:
+      color: "8c6c3e"
+    caution:
+      color: "f52a65"
+
+typst:
+  colors:
+    foreground: "3760bf"
+    background: "545c7e"
+
+footer:
+  style: template
+  right: "{current_slide} / {total_slides}"
+
+modals:
+  selection_colors:
+    foreground: "8c6c3e"
+
+mermaid:
+  background: transparent
+  theme: dark
+
+d2:
+  theme: 200
+
+layout_grid:
+  color: "2e7de9"
