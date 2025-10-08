@@ -46,7 +46,10 @@ impl PresentationBuilder<'_, '_> {
     }
 
     pub(crate) fn push_heading(&mut self, level: u8, text: Line<RawColor>) -> BuildResult {
-        if level == 1 && self.options.h1_slide_titles && self.slide_state.title.is_none() {
+        if level == 1
+            && self.options.h1_slide_titles
+            && (self.slide_state.title.is_none() || self.options.implicit_slide_ends)
+        {
             return self.push_slide_title(vec![text]);
         }
         let mut text = text.resolve(&self.theme.palette)?;
@@ -141,6 +144,31 @@ hi
 ";
         let lines = Test::new(input).render().rows(6).columns(5).into_lines();
         let expected = &["     ", "title", "—————", "     ", "hi   ", "     "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn h1_slide_title_implicit_slides() {
+        let input = "---
+options:
+  h1_slide_titles: true
+  implicit_slide_ends: true
+theme:
+  override:
+    slide_title:
+      separator: true
+---
+
+# title
+
+hi
+
+# other
+
+bye
+";
+        let lines = Test::new(input).render().rows(8).columns(5).into_lines();
+        let expected = &["     ", "title", "—————", "     ", "hi   ", "     ", "     ", "     "];
         assert_eq!(lines, expected);
     }
 
