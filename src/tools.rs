@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use std::{
     io::{self, Write},
+    path::Path,
     process::{Command, Output, Stdio},
 };
 
@@ -47,6 +48,11 @@ impl Tool {
 
     pub(crate) fn stdin(mut self, stdin: Vec<u8>) -> Self {
         self.stdin = Some(stdin);
+        self
+    }
+
+    pub(crate) fn current_dir(mut self, path: &Path) -> Self {
+        self.command.current_dir(path);
         self
     }
 
