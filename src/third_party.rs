@@ -216,13 +216,20 @@ impl Worker {
 
     pub(crate) fn render_d2(&self, input: String, style: &D2Style) -> Result<Image, ThirdPartyRenderError> {
         let snippet = ImageSnippet { snippet: input.clone(), source: SnippetSource::D2 };
-        let workdir = tempfile::Builder::default().prefix(".presenterm").tempdir()?;
-        let output_path = workdir.path().join("output.png");
-        let input_path = workdir.path().join("input.d2");
+
+        let random_id = fastrand::u16(..);
+        let input_filename = format!(".presenterm-input-{random_id}.d2");
+        let output_filename = format!(".presenterm-output-{random_id}.png");
+
+        let root_dir = Path::new(&self.shared.root_dir);
+        let input_path = root_dir.join(&input_filename);
+        let output_path = root_dir.join(&output_filename);
+
         fs::write(&input_path, input)?;
-        ThirdPartyTools::d2(&[
-            &input_path.to_string_lossy(),
-            &output_path.to_string_lossy(),
+
+        let result = ThirdPartyTools::d2(&[
+            &input_filename,
+            &output_filename,
             "--pad",
             "0",
             "--scale",
@@ -230,9 +237,18 @@ impl Worker {
             "--theme",
             &style.theme,
         ])
-        .run()?;
+        .current_dir(root_dir)
+        .run();
 
-        self.load_image(snippet, &output_path)
+        let image = match result {
+            Ok(_) => self.load_image(snippet, &output_path),
+            Err(e) => Err(e.into()),
+        };
+
+        let _ = fs::remove_file(&input_path);
+        let _ = fs::remove_file(&output_path);
+
+        image
     }
 
     fn do_render_typst(
