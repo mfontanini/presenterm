@@ -167,6 +167,7 @@ impl<'a> Presenter<'a> {
             }
             self.publish_event(SpeakerNotesEvent::GoToSlide {
                 slide: self.state.presentation().current_slide_index() as u32 + 1,
+                chunk: self.state.presentation().current_chunk() as u32,
             })?;
         }
     }
@@ -306,6 +307,11 @@ impl<'a> Presenter<'a> {
             Command::FirstSlide => presentation.jump_first_slide(),
             Command::LastSlide => presentation.jump_last_slide(),
             Command::GoToSlide(number) => presentation.go_to_slide(number.saturating_sub(1) as usize),
+            Command::GoToSlideChunk { slide, chunk } => {
+                presentation.go_to_slide(slide.saturating_sub(1) as usize);
+                presentation.jump_chunk(chunk as usize);
+                true
+            }
             Command::RenderAsyncOperations => {
                 let pollables = Self::trigger_slide_async_renders(presentation);
                 if !pollables.is_empty() {

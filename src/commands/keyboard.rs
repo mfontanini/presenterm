@@ -86,6 +86,9 @@ impl CommandKeyBindings {
                     MatchContext::Number(number) => Command::GoToSlide(number),
                 }
             }
+            GoToSlideChunk => {
+                return InputAction::Reset;
+            }
             RenderAsyncOperations => Command::RenderAsyncOperations,
             Exit => Command::Exit,
             Suspend => Command::Suspend,

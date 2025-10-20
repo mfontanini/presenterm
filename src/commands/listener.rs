@@ -30,7 +30,7 @@ impl CommandListener {
         if let Some(receiver) = &self.speaker_notes_event_listener {
             if let Some(msg) = receiver.try_recv()? {
                 let command = match msg {
-                    SpeakerNotesEvent::GoToSlide { slide } => Command::GoToSlide(slide),
+                    SpeakerNotesEvent::GoToSlide { slide, chunk } => Command::GoToSlideChunk { slide, chunk },
                     SpeakerNotesEvent::Exit => Command::Exit,
                 };
                 return Ok(Some(command));
@@ -72,6 +72,9 @@ pub(crate) enum Command {
 
     /// Go to one particular slide.
     GoToSlide(u32),
+
+    /// Go to one particular slide and chunk.
+    GoToSlideChunk { slide: u32, chunk: u32 },
 
     /// Render any async render operations in the current slide.
     RenderAsyncOperations,
