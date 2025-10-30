@@ -26,7 +26,7 @@ pub(crate) trait AnimateTransition {
 }
 
 pub(crate) trait AnimationFrame {
-    fn build_commands(&self) -> Vec<TerminalCommand>;
+    fn build_commands(&self) -> Vec<TerminalCommand<'_>>;
 }
 
 #[derive(Debug)]
@@ -64,7 +64,7 @@ impl From<&TerminalGrid> for LinesFrame {
 }
 
 impl AnimationFrame for LinesFrame {
-    fn build_commands(&self) -> Vec<TerminalCommand> {
+    fn build_commands(&self) -> Vec<TerminalCommand<'_>> {
         use TerminalCommand::*;
         let mut commands = vec![];
         if let Some(color) = self.background_color {

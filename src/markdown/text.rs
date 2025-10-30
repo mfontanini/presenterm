@@ -17,7 +17,7 @@ pub(crate) struct WeightedLine {
 
 impl WeightedLine {
     /// Split this line into chunks of at most `max_length` width.
-    pub(crate) fn split(&self, max_length: usize) -> SplitTextIter {
+    pub(crate) fn split(&self, max_length: usize) -> SplitTextIter<'_> {
         SplitTextIter::new(&self.text, max_length)
     }
 
@@ -91,7 +91,7 @@ pub(crate) struct WeightedText {
 }
 
 impl WeightedText {
-    fn to_ref(&self) -> WeightedTextRef {
+    fn to_ref(&self) -> WeightedTextRef<'_> {
         WeightedTextRef { text: &self.text.content, accumulators: &self.accumulators, style: self.text.style }
     }
 

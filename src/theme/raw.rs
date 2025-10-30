@@ -760,30 +760,6 @@ impl Default for Margin {
     }
 }
 
-/// An element type.
-#[derive(Clone, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum ElementType {
-    SlideTitle,
-    Heading1,
-    Heading2,
-    Heading3,
-    Heading4,
-    Heading5,
-    Heading6,
-    Paragraph,
-    List,
-    Code,
-    PresentationTitle,
-    PresentationSubTitle,
-    PresentationEvent,
-    PresentationLocation,
-    PresentationDate,
-    PresentationAuthor,
-    Table,
-    BlockQuote,
-}
-
 /// Where to position the author's name in the intro slide.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]

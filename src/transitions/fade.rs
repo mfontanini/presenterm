@@ -66,7 +66,7 @@ pub(crate) struct FadeCellsFrame {
 }
 
 impl AnimationFrame for FadeCellsFrame {
-    fn build_commands(&self) -> Vec<TerminalCommand> {
+    fn build_commands(&self) -> Vec<TerminalCommand<'_>> {
         let mut commands = Vec::new();
         for change in &self.changes {
             let Change { row, column, char_buffer, char_buffer_len, style } = change;
