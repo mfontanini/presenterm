@@ -33,6 +33,9 @@ impl PresentationBuilder<'_, '_> {
         if matches!(snippet.language, SnippetLanguage::File) {
             snippet = self.load_external_snippet(snippet, source_position)?;
         }
+        if self.theme.code.line_numbers {
+            snippet.attributes.line_numbers = true;
+        }
         if self.options.auto_render_languages.contains(&snippet.language) {
             snippet.attributes.representation = SnippetRepr::Render;
         }
@@ -434,6 +437,24 @@ language: bash
     fn line_numbers() {
         let input = "
 ```bash +line_numbers
+hi
+bye
+```";
+        let lines = Test::new(input).render().rows(4).columns(5).into_lines();
+        let expected = &["     ", "1 hi ", "2 bye", "     "];
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn line_numbers_via_theme() {
+        let input = "---
+theme:
+  override:
+    code:
+      line_numbers: true
+---
+
+```bash
 hi
 bye
 ```";

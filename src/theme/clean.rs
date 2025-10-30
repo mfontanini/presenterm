@@ -567,11 +567,12 @@ pub(crate) struct CodeBlockStyle {
     pub(crate) padding: PaddingRect,
     pub(crate) theme_name: String,
     pub(crate) background: bool,
+    pub(crate) line_numbers: bool,
 }
 
 impl CodeBlockStyle {
     fn new(raw: &raw::CodeBlockStyle) -> Self {
-        let raw::CodeBlockStyle { alignment, padding, theme_name, background } = raw;
+        let raw::CodeBlockStyle { alignment, padding, theme_name, background, line_numbers } = raw;
         let padding = PaddingRect {
             horizontal: padding.horizontal.unwrap_or_default(),
             vertical: padding.vertical.unwrap_or_default(),
@@ -581,6 +582,7 @@ impl CodeBlockStyle {
             padding,
             theme_name: theme_name.as_deref().unwrap_or(DEFAULT_CODE_HIGHLIGHT_THEME).to_string(),
             background: background.unwrap_or(true),
+            line_numbers: line_numbers.unwrap_or_default(),
         }
     }
 }

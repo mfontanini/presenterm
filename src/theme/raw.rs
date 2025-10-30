@@ -666,6 +666,10 @@ pub(crate) struct CodeBlockStyle {
 
     /// Whether to use the theme's background color.
     pub(crate) background: Option<bool>,
+
+    /// Whether to show line numbers in all code blocks.
+    #[serde(default)]
+    pub(crate) line_numbers: Option<bool>,
 }
 
 /// The style for the output of a code execution block.
