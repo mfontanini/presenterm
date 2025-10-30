@@ -3,7 +3,6 @@ use crate::{
     theme::{ColorPalette, raw::RawColor},
 };
 use crossterm::style::{ContentStyle, StyledContent, Stylize};
-use hex::FromHexError;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -398,12 +397,6 @@ impl From<Colors> for crossterm::style::Colors {
         let background = value.background.map(Color::into);
         Self { foreground, background }
     }
-}
-
-#[derive(thiserror::Error, Debug)]
-pub(crate) enum ParseColorError {
-    #[error("invalid hex color: {0}")]
-    Hex(#[from] FromHexError),
 }
 
 trait TryIntoSuperscript {

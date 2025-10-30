@@ -7,7 +7,7 @@ use crate::{
     render::operation::{BlockLine, RenderOperation},
 };
 
-impl<'a, 'b> PresentationBuilder<'a, 'b> {
+impl PresentationBuilder<'_, '_> {
     pub(crate) fn push_list(&mut self, list: Vec<ListItem>) -> BuildResult {
         let last_chunk_operation = self.slide_chunks.last().and_then(|chunk| chunk.iter_operations().last());
         // If the last chunk ended in a list, pop the newline so we get them all next to each

@@ -81,7 +81,7 @@ impl TerminalDrawer {
         RenderEngineOptions { max_size: self.options.max_size.clone(), ..Default::default() }
     }
 
-    fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<Terminal<Stdout>> {
+    fn create_engine(&mut self, dimensions: WindowSize) -> RenderEngine<'_, Terminal<Stdout>> {
         let options = self.render_engine_options();
         RenderEngine::new(&mut self.terminal, dimensions, options)
     }

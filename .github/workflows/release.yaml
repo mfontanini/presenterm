@@ -60,7 +60,7 @@ jobs:
         uses: houseabsolute/actions-rust-cross@a448c4b13769d56b63b035024fef8577e1d81915
         with:
           command: build
-          toolchain: 1.82.0
+          toolchain: 1.86.0
           target: ${{ matrix.config.TARGET }}
           args: "--locked --release"
 
@@ -108,7 +108,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@1.82.0
+        uses: dtolnay/rust-toolchain@1.86.0
 
       - name: Publish
         run: cargo publish --locked --token ${{ secrets.CARGO_TOKEN }}

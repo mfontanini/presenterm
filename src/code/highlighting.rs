@@ -93,7 +93,7 @@ pub(crate) struct SnippetHighlighter {
 
 impl SnippetHighlighter {
     /// Create a highlighter for a specific language.
-    pub(crate) fn language_highlighter(&self, language: &SnippetLanguage) -> LanguageHighlighter {
+    pub(crate) fn language_highlighter(&self, language: &SnippetLanguage) -> LanguageHighlighter<'_> {
         let extension = Self::language_extension(language);
         let syntax = SYNTAX_SET.find_syntax_by_extension(extension).unwrap();
         let highlighter = HighlightLines::new(syntax, &self.theme);
@@ -225,11 +225,6 @@ impl<'a> StyledTokens<'a> {
         Text::new(text, self.style)
     }
 }
-
-/// A theme could not be found.
-#[derive(Debug, thiserror::Error)]
-#[error("theme not found")]
-pub struct ThemeNotFound;
 
 // This code has been adapted from bat's: https://github.com/sharkdp/bat
 fn parse_color(color: syntect::highlighting::Color) -> Option<Color> {
