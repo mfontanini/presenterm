@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{markdown::html::HtmlTag, theme::raw::RawColor};
 use comrak::{
-    Arena, ComrakOptions,
+    Arena, Options,
     arena_tree::Node,
     format_commonmark,
     nodes::{
@@ -27,7 +27,7 @@ struct ParserOptions(comrak::Options<'static>);
 
 impl Default for ParserOptions {
     fn default() -> Self {
-        let mut options = ComrakOptions::default();
+        let mut options = Options::default();
         options.extension.front_matter_delimiter = Some("---".into());
         options.extension.table = true;
         options.extension.strikethrough = true;
@@ -448,7 +448,7 @@ impl<'a> InlinesParser<'a> {
                 // The image "title" contains inlines so we create a dummy paragraph node that
                 // contains it so we can flatten it back into text. We could walk the tree but this
                 // is good enough.
-                let mut buffer = Vec::new();
+                let mut buffer = String::new();
                 let paragraph =
                     self.arena.alloc(Node::new(RefCell::new(Ast::new(NodeValue::Paragraph, data.sourcepos.start))));
                 for child in node.children() {
@@ -457,7 +457,7 @@ impl<'a> InlinesParser<'a> {
                 format_commonmark(paragraph, &ParserOptions::default().0, &mut buffer)
                     .map_err(|e| ParseErrorKind::Internal(e.to_string()).with_sourcepos(data.sourcepos))?;
 
-                let title = String::from_utf8_lossy(&buffer).trim_end().to_string();
+                let title = buffer.trim_end().to_string();
                 self.inlines.push(Inline::Image { path: link.url.clone(), title });
             }
             NodeValue::Paragraph => {
@@ -675,6 +675,7 @@ impl Identifier for NodeValue {
             NodeValue::Subscript => "subscript",
             NodeValue::Raw(_) => "raw",
             NodeValue::Alert(_) => "alert",
+            NodeValue::Subtext => "subtext",
         }
     }
 }
