@@ -1,5 +1,8 @@
 use super::text_style::{Color, TextStyle, UndefinedPaletteColorError};
-use crate::theme::{ColorPalette, raw::RawColor};
+use crate::{
+    markdown::html::block::HtmlBlock,
+    theme::{ColorPalette, raw::RawColor},
+};
 use comrak::nodes::AlertType;
 use std::{fmt, iter, path::PathBuf, str::FromStr};
 use unicode_width::UnicodeWidthStr;
@@ -48,8 +51,8 @@ pub(crate) enum MarkdownElement {
     /// A thematic break.
     ThematicBreak,
 
-    /// An HTML comment.
-    Comment { comment: String, source_position: SourcePosition },
+    /// An HTML block.
+    HtmlBlock { block: HtmlBlock, source_position: SourcePosition },
 
     /// A block quote containing a list of lines.
     BlockQuote(Vec<Line<RawColor>>),

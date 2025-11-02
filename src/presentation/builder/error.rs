@@ -5,7 +5,7 @@ use crate::{
         parse::ParseError,
         text_style::{Color, TextStyle, UndefinedPaletteColorError},
     },
-    presentation::builder::{comment::CommandParseError, images::ImageAttributeError, sources::MarkdownSourceError},
+    presentation::builder::{html::CommandParseError, images::ImageAttributeError, sources::MarkdownSourceError},
     terminal::{capabilities::TerminalCapabilities, image::printer::RegisterImageError},
     theme::{ProcessingThemeError, registry::LoadThemeError},
     third_party::ThirdPartyRenderError,

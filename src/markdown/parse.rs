@@ -1,9 +1,14 @@
-use super::{
-    elements::{Line, ListItem, ListItemType, MarkdownElement, SourcePosition, Table, TableRow, Text},
-    html::{HtmlInline, HtmlParser, ParseHtmlError},
-    text_style::TextStyle,
+use crate::{
+    markdown::{
+        elements::{Line, ListItem, ListItemType, MarkdownElement, SourcePosition, Table, TableRow, Text},
+        html::{
+            HtmlInline, HtmlInlineTag, InlineHtmlParser, ParseInlineHtmlError,
+            block::{HtmlBlockParser, ParseHtmlBlockError},
+        },
+        text_style::TextStyle,
+    },
+    theme::raw::RawColor,
 };
-use crate::{markdown::html::HtmlTag, theme::raw::RawColor};
 use comrak::{
     Arena, Options,
     arena_tree::Node,
@@ -108,7 +113,7 @@ impl<'a> MarkdownParser<'a> {
             NodeValue::Table(_) => self.parse_table(node)?,
             NodeValue::CodeBlock(block) => Self::parse_code_block(block, data.sourcepos)?,
             NodeValue::ThematicBreak => MarkdownElement::ThematicBreak,
-            NodeValue::HtmlBlock(block) => self.parse_html_block(block, data.sourcepos)?,
+            NodeValue::HtmlBlock(block) => return self.parse_html_block(block, data.sourcepos),
             NodeValue::BlockQuote | NodeValue::MultilineBlockQuote(_) => self.parse_block_quote(node)?,
             NodeValue::Alert(alert) => self.parse_alert(alert, node)?,
             NodeValue::FootnoteDefinition(definition) => self.parse_footnote_definition(definition, node)?,
@@ -129,16 +134,15 @@ impl<'a> MarkdownParser<'a> {
         Ok(MarkdownElement::FrontMatter(contents.into()))
     }
 
-    fn parse_html_block(&self, block: &NodeHtmlBlock, sourcepos: Sourcepos) -> ParseResult<MarkdownElement> {
-        let block = block.literal.trim();
-        let start_tag = "<!--";
-        let end_tag = "-->";
-        if !block.starts_with(start_tag) || !block.ends_with(end_tag) {
-            return Err(ParseErrorKind::UnsupportedElement("html block").with_sourcepos(sourcepos));
-        }
-        let block = &block[start_tag.len()..];
-        let block = &block[0..block.len() - end_tag.len()];
-        Ok(MarkdownElement::Comment { comment: block.into(), source_position: sourcepos.into() })
+    fn parse_html_block(&self, block: &NodeHtmlBlock, sourcepos: Sourcepos) -> ParseResult<Vec<MarkdownElement>> {
+        let blocks = HtmlBlockParser
+            .parse(&block.literal)
+            .map_err(|e| ParseErrorKind::InvalidHtmlBlock(e).with_sourcepos(sourcepos))?;
+        let elements = blocks
+            .into_iter()
+            .map(|block| MarkdownElement::HtmlBlock { block, source_position: sourcepos.into() })
+            .collect();
+        Ok(elements)
     }
 
     fn parse_block_quote(&self, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
@@ -485,9 +489,9 @@ impl<'a> InlinesParser<'a> {
                 self.process_children(node, style)?;
             }
             NodeValue::HtmlInline(html) => {
-                let html_inline = HtmlParser::default()
+                let html_inline = InlineHtmlParser::default()
                     .parse(html)
-                    .map_err(|e| ParseErrorKind::InvalidHtml(e).with_sourcepos(data.sourcepos))?;
+                    .map_err(|e| ParseErrorKind::InvalidInlineHtml(e).with_sourcepos(data.sourcepos))?;
                 match html_inline {
                     HtmlInline::OpenTag { style, tag } => return Ok(Some(HtmlStyle::Add(style, tag))),
                     HtmlInline::CloseTag { tag } => return Ok(Some(HtmlStyle::Remove(tag))),
@@ -534,8 +538,8 @@ impl<'a> InlinesParser<'a> {
 }
 
 enum HtmlStyle {
-    Add(TextStyle<RawColor>, HtmlTag),
-    Remove(HtmlTag),
+    Add(TextStyle<RawColor>, HtmlInlineTag),
+    Remove(HtmlInlineTag),
 }
 
 enum Inline {
@@ -591,8 +595,11 @@ pub(crate) enum ParseErrorKind {
     /// We don't support external URLs in images.
     ExternalImageUrl,
 
-    /// Invalid HTML was found.
-    InvalidHtml(ParseHtmlError),
+    /// Invalid inline HTML was found.
+    InvalidInlineHtml(ParseInlineHtmlError),
+
+    /// An invalid HTML block.
+    InvalidHtmlBlock(ParseHtmlBlockError),
 
     /// HTML tag closed without having an open one.
     NoOpenTag,
@@ -613,7 +620,8 @@ impl Display for ParseErrorKind {
             }
             Self::ExternalImageUrl => write!(f, "external URLs are not supported in image tags"),
             Self::UnfencedCodeBlock => write!(f, "only fenced code blocks are supported"),
-            Self::InvalidHtml(inner) => write!(f, "invalid HTML: {inner}"),
+            Self::InvalidInlineHtml(inner) => write!(f, "invalid inline HTML: {inner}"),
+            Self::InvalidHtmlBlock(inner) => write!(f, "invalid HTML block: {inner}"),
             Self::NoOpenTag => write!(f, "closing tag without an open one"),
             Self::CloseTagMismatch => write!(f, "closing tag does not match last open one"),
             Self::Internal(message) => write!(f, "internal error: {message}"),
@@ -687,7 +695,7 @@ pub(crate) struct ParseInlinesError(String);
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::markdown::text_style::Color;
+    use crate::markdown::{html::block::HtmlBlock, text_style::Color};
     use rstest::rstest;
     use std::path::Path;
 
@@ -1002,7 +1010,9 @@ let q = 42;
 <!-- foo -->
 ",
         );
-        let MarkdownElement::Comment { comment, .. } = parsed else { panic!("not a comment: {parsed:?}") };
+        let MarkdownElement::HtmlBlock { block: HtmlBlock::Comment(comment), .. } = parsed else {
+            panic!("not a comment: {parsed:?}")
+        };
         assert_eq!(comment, " foo ");
     }
 
@@ -1123,7 +1133,7 @@ mom
 <!-- hello -->
 ",
         );
-        let MarkdownElement::Comment { source_position, .. } = &parsed[1] else { panic!("not a comment") };
+        let MarkdownElement::HtmlBlock { source_position, .. } = &parsed[1] else { panic!("not a comment") };
         assert_eq!(source_position.start.line, 6);
         assert_eq!(source_position.start.column, 1);
     }
@@ -1183,5 +1193,20 @@ this[^1]
 
         let MarkdownElement::Footnote(line) = &elements[1] else { panic!("not a footnote") };
         assert_eq!(line, &Line(vec![Text::new("1", TextStyle::default().superscript()), Text::from("ref")]));
+    }
+
+    #[test]
+    fn html_speaker_note() {
+        let input = r"
+<speaker-note>
+hi
+bye
+</speaker-note>
+        ";
+        let parsed = parse_single(input);
+        let MarkdownElement::HtmlBlock { block: HtmlBlock::SpeakerNotes { lines }, .. } = parsed else {
+            panic!("not a speaker note");
+        };
+        assert_eq!(lines, &["hi", "bye"]);
     }
 }
