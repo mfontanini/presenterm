@@ -246,7 +246,6 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             } else {
                 self.process_element_for_presentation_mode(element)?;
             }
-            self.validate_last_operation()?;
             if !self.slide_state.ignore_element_line_break {
                 self.push_line_break();
             }
@@ -383,6 +382,7 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         if should_clear_last {
             self.slide_state.last_element = LastElement::Other;
         }
+        self.validate_last_operation()?;
         Ok(())
     }
 

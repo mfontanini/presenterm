@@ -704,8 +704,10 @@ language: text
         fs::write(
             inner_path.join("second.md"),
             r"
+<!-- column_layout: [1] -->
+<!-- column: 0 -->
 second
-===
+<!-- reset_layout -->
 
 ![](img.png)
 ",
