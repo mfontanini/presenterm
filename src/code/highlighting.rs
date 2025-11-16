@@ -163,6 +163,7 @@ impl SnippetHighlighter {
             Terraform => "tf",
             Toml => "toml",
             TypeScript => "ts",
+            TypeScriptReact => "tsx",
             Typst => "txt",
             // default to plain text so we get the same look&feel
             Unknown(_) => "txt",
