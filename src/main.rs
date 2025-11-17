@@ -28,6 +28,7 @@ use directories::ProjectDirs;
 use export::exporter::OutputDirectory;
 use render::{engine::MaxSize, properties::WindowSize};
 use std::{
+    ascii::AsciiExt,
     env::{self, current_dir},
     io,
     path::{Path, PathBuf},
@@ -55,6 +56,7 @@ mod ui;
 mod utils;
 
 const DEFAULT_THEME: &str = "dark";
+const DEFAULT_THEME_DYNAMIC_DETECTION_TIMEOUT: u64 = 100;
 const DEFAULT_EXPORT_PIXELS_PER_COLUMN: u16 = 20;
 const DEFAULT_EXPORT_PIXELS_PER_ROW: u16 = DEFAULT_EXPORT_PIXELS_PER_COLUMN * 2;
 
@@ -316,10 +318,27 @@ impl CoreComponents {
         }
     }
 
+    fn get_theme_name(config: &Config, cli: &Cli) -> String {
+        if let Some(name) = cli.theme.as_ref() {
+            name.clone()
+        } else {
+            match &config.defaults.theme {
+                config::ThemeConfig::None => DEFAULT_THEME.into(),
+                config::ThemeConfig::Some(theme_name) => theme_name.clone(),
+                config::ThemeConfig::Dynamic { dark, light, timeout } => {
+                    let default_timeout = timeout.unwrap_or(DEFAULT_THEME_DYNAMIC_DETECTION_TIMEOUT);
+                    let timeout_duration = std::time::Duration::from_millis(default_timeout);
+                    let theme = termbg::theme(timeout_duration).unwrap();
+
+                    if theme == termbg::Theme::Dark { dark.clone() } else { light.clone() }
+                }
+            }
+        }
+    }
+
     fn load_default_theme(config: &Config, themes: &Themes, cli: &Cli) -> PresentationTheme {
-        let default_theme_name =
-            cli.theme.as_ref().or(config.defaults.theme.as_ref()).map(|s| s.as_str()).unwrap_or(DEFAULT_THEME);
-        let Some(default_theme) = themes.presentation.load_by_name(default_theme_name) else {
+        let default_theme_name = Self::get_theme_name(config, cli);
+        let Some(default_theme) = themes.presentation.load_by_name(default_theme_name.as_str()) else {
             let valid_themes = themes.presentation.theme_names().join(", ");
             let error_message = format!("invalid theme name, valid themes are: {valid_themes}");
             Cli::command().error(ErrorKind::InvalidValue, error_message).exit();
@@ -386,8 +405,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     } else if cli.current_theme {
         let Customizations { config, .. } =
             Customizations::load(cli.config_file.clone().map(PathBuf::from), &current_dir()?)?;
-        let theme_name =
-            cli.theme.as_ref().or(config.defaults.theme.as_ref()).map(|s| s.as_str()).unwrap_or(DEFAULT_THEME);
+        let theme_name = CoreComponents::get_theme_name(&config, &cli);
         println!("{theme_name}");
         return Ok(());
     } else if cli.list_comment_commands {

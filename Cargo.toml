@@ -37,6 +37,7 @@ unicode-width = "0.2"
 os_pipe = "1.1.5"
 libc = "0.2"
 vte = "0.15"
+termbg = "0.6.2"
 
 [dev-dependencies]
 rstest = { version = "0.26", default-features = false }
