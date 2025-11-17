@@ -328,9 +328,16 @@ impl CoreComponents {
                 config::ThemeConfig::Dynamic { dark, light, timeout } => {
                     let default_timeout = timeout.unwrap_or(DEFAULT_THEME_DYNAMIC_DETECTION_TIMEOUT);
                     let timeout_duration = std::time::Duration::from_millis(default_timeout);
-                    let theme = termbg::theme(timeout_duration).unwrap();
-
-                    if theme == termbg::Theme::Dark { dark.clone() } else { light.clone() }
+                    if let Ok(theme) = termbg::theme(timeout_duration) {
+                        if theme == termbg::Theme::Dark { dark.clone() } else { light.clone() }
+                    } else {
+                        Cli::command()
+                            .error(
+                                ErrorKind::Io,
+                                "terminal theme detection failed, unsupported terminal or timeout exceeded",
+                            )
+                            .exit();
+                    }
                 }
             }
         }
