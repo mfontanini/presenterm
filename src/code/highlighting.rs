@@ -115,6 +115,7 @@ impl SnippetHighlighter {
             Cpp => "cpp",
             Crontab => "crontab",
             Css => "css",
+            Dart => "dart",
             D2 => "txt",
             DLang => "d",
             Diff => "diff",
