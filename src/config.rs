@@ -90,7 +90,7 @@ pub enum ThemeConfig {
         dark: String,
         /// Light theme of ther presentation
         light: String,
-        /// Light/Dark detection timeout
+        /// Light/Dark detection timeout in ms
         #[cfg_attr(feature = "json-schema", validate(range(min = 1)))]
         timeout: Option<u64>,
     },
