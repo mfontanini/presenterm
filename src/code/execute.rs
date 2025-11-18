@@ -135,26 +135,56 @@ impl LanguageSnippetExecutor {
     pub(crate) fn execute_sync(&self, snippet: &Snippet) -> Result<(), CodeExecuteError> {
         let script_dir = self.write_snippet(snippet)?;
         let script_dir_path = script_dir.path().to_string_lossy();
-        for mut commands in self.config.commands.clone() {
-            for command in &mut commands {
-                *command = command.replace("$pwd", &script_dir_path);
-            }
-            let (command, args) = commands.split_first().expect("no commands");
-            let child = process::Command::new(command)
-                .args(args)
-                .envs(&self.config.environment)
-                .current_dir(&self.cwd)
-                .stderr(Stdio::piped())
-                .spawn()
-                .map_err(|e| CodeExecuteError::SpawnProcess(command.clone(), e))?;
-
-            let output = child.wait_with_output().map_err(CodeExecuteError::Waiting)?;
-            if !output.status.success() {
-                let error = String::from_utf8_lossy(&output.stderr).to_string();
-                return Err(CodeExecuteError::Running(error));
-            }
+        for commands in self.config.commands.clone() {
+            self.execute_command(commands, &script_dir_path)?;
         }
         Ok(())
+    }
+
+    /// Creates the necessary context to run this snippet in a PTY.
+    pub(crate) fn pty_execution_context(&self, snippet: &Snippet) -> Result<PtySnippetContext, CodeExecuteError> {
+        let script_dir = self.write_snippet(snippet)?;
+        let script_dir_path = script_dir.path().to_string_lossy();
+
+        // Run the first N-1 commands normally and assume the last one is the one that actually
+        // invokes the thing (e.g. rust snippet compilation happens here, snippet execution in PTY)
+        for commands in self.config.commands.iter().take(self.config.commands.len() - 1).cloned() {
+            self.execute_command(commands, &script_dir_path)?;
+        }
+        let mut commands = self.config.commands.last().cloned().unwrap();
+        for command in &mut commands {
+            *command = command.replace("$pwd", &script_dir_path);
+        }
+        let (command, args) = commands.split_first().expect("no commands");
+        let mut command = portable_pty::CommandBuilder::new(command);
+        command.args(args);
+        command.cwd(&self.cwd);
+        for (key, value) in &self.config.environment {
+            command.env(key, value);
+        }
+        Ok(PtySnippetContext { command, _temp: script_dir })
+    }
+
+    fn execute_command(&self, mut commands: Vec<String>, script_dir_path: &str) -> Result<(), CodeExecuteError> {
+        for command in &mut commands {
+            *command = command.replace("$pwd", script_dir_path);
+        }
+        let (command, args) = commands.split_first().expect("no commands");
+        let child = process::Command::new(command)
+            .args(args)
+            .envs(&self.config.environment)
+            .current_dir(&self.cwd)
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| CodeExecuteError::SpawnProcess(command.clone(), e))?;
+
+        let output = child.wait_with_output().map_err(CodeExecuteError::Waiting)?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            let error = String::from_utf8_lossy(&output.stderr).to_string();
+            Err(CodeExecuteError::Running(error))
+        }
     }
 
     fn write_snippet(&self, snippet: &Snippet) -> Result<TempDir, CodeExecuteError> {
@@ -167,6 +197,11 @@ impl LanguageSnippetExecutor {
         snippet_file.write_all(code.as_bytes()).map_err(CodeExecuteError::TempDir)?;
         Ok(script_dir)
     }
+}
+
+pub(crate) struct PtySnippetContext {
+    pub(crate) command: portable_pty::CommandBuilder,
+    _temp: TempDir,
 }
 
 /// An invalid executor was found.
@@ -328,7 +363,7 @@ pub(crate) struct ExecutionState {
 }
 
 /// The status of a process.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub(crate) enum ProcessStatus {
     #[default]
     Running,

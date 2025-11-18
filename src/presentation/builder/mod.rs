@@ -31,7 +31,7 @@ use crate::{
     },
     third_party::ThirdPartyRender,
     ui::{
-        execution::output::SnippetHandle,
+        execution::output::WrappedSnippetHandle,
         footer::{FooterGenerator, FooterVariables},
         modals::{IndexBuilder, KeyBindingsModalBuilder},
         separator::RenderSeparator,
@@ -171,7 +171,7 @@ pub(crate) struct PresentationBuilder<'a, 'b> {
     bindings_config: KeyBindingsConfig,
     slides_without_footer: HashSet<usize>,
     markdown_parser: &'a MarkdownParser<'b>,
-    executable_snippets: HashMap<String, SnippetHandle>,
+    executable_snippets: HashMap<String, WrappedSnippetHandle>,
     sources: MarkdownSources,
     options: PresentationBuilderOptions,
 }

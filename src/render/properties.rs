@@ -5,7 +5,7 @@ use std::io::{self, ErrorKind};
 ///
 /// This is the same as [crossterm::terminal::window_size] except with some added functionality,
 /// like implementing `Clone`.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct WindowSize {
     pub(crate) rows: u16,
     pub(crate) columns: u16,
