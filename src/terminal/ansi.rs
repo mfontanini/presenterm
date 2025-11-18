@@ -34,6 +34,88 @@ impl AnsiParser {
     }
 }
 
+#[derive(Default)]
+pub(crate) struct AnsiColorParser {
+    starting_style: TextStyle,
+}
+
+impl AnsiColorParser {
+    pub(crate) fn new(starting_style: TextStyle) -> Self {
+        Self { starting_style }
+    }
+
+    fn parse_8bit(value: u16) -> Option<Color> {
+        Color::from_8bit(value.try_into().unwrap_or(u8::MAX))
+    }
+
+    fn parse_color(iter: &mut ParamsIter) -> Option<Color> {
+        match iter.next()? {
+            [2] => {
+                let r = iter.next()?.first()?;
+                let g = iter.next()?.first()?;
+                let b = iter.next()?.first()?;
+                Self::try_build_rgb_color(*r, *g, *b)
+            }
+            [5] => {
+                let color = *iter.next()?.first()?;
+                Color::from_8bit(color.try_into().unwrap_or(u8::MAX))
+            }
+            _ => None,
+        }
+    }
+
+    fn try_build_rgb_color(r: u16, g: u16, b: u16) -> Option<Color> {
+        let r = r.try_into().ok()?;
+        let g = g.try_into().ok()?;
+        let b = b.try_into().ok()?;
+        Some(Color::new(r, g, b))
+    }
+
+    pub(crate) fn parse(self, mut codes: ParamsIter) -> TextStyle {
+        let mut style = self.starting_style;
+        loop {
+            let Some(&[next]) = codes.next() else {
+                break;
+            };
+            match next {
+                0 => style = Default::default(),
+                1 => style = style.bold(),
+                3 => style = style.italics(),
+                4 => style = style.underlined(),
+                9 => style = style.strikethrough(),
+                39 => {
+                    style.colors.foreground = None;
+                }
+                49 => {
+                    style.colors.background = None;
+                }
+                30..=37 => {
+                    if let Some(color) = Self::parse_8bit(next - 30) {
+                        style = style.fg_color(color);
+                    }
+                }
+                40..=47 => {
+                    if let Some(color) = Self::parse_8bit(next - 40) {
+                        style = style.bg_color(color);
+                    }
+                }
+                38 => {
+                    if let Some(color) = Self::parse_color(&mut codes) {
+                        style = style.fg_color(color);
+                    }
+                }
+                48 => {
+                    if let Some(color) = Self::parse_color(&mut codes) {
+                        style = style.bg_color(color);
+                    }
+                }
+                _ => (),
+            };
+        }
+        style
+    }
+}
+
 struct Handler {
     line: Line,
     pending_text: Text,
@@ -55,101 +137,6 @@ impl Handler {
             self.line.0.push(mem::take(&mut self.pending_text));
         }
     }
-
-    fn parse_standard_color(value: u16) -> Option<Color> {
-        let color = match value {
-            0 | 8 => Color::Black,
-            1 | 9 => Color::Red,
-            2 | 10 => Color::Green,
-            3 | 11 => Color::Yellow,
-            4 | 12 => Color::Blue,
-            5 | 13 => Color::Magenta,
-            6 | 14 => Color::Cyan,
-            7 | 15 => Color::White,
-            _ => return None,
-        };
-        Some(color)
-    }
-
-    fn parse_color(iter: &mut ParamsIter) -> Option<Color> {
-        match iter.next()? {
-            [2] => {
-                let r = iter.next()?.first()?;
-                let g = iter.next()?.first()?;
-                let b = iter.next()?.first()?;
-                Self::try_build_rgb_color(*r, *g, *b)
-            }
-            [5] => {
-                let color = *iter.next()?.first()?;
-                match color {
-                    0..=15 => Self::parse_standard_color(color),
-                    16..=231 => {
-                        let mapping = [0, 95, 95 + 40, 95 + 80, 95 + 120, 95 + 160];
-                        let mut value = color - 16;
-                        let b = (value % 6) as usize;
-                        value /= 6;
-                        let g = (value % 6) as usize;
-                        value /= 6;
-                        let r = (value % 6) as usize;
-                        Some(Color::new(mapping[r], mapping[g], mapping[b]))
-                    }
-                    _ => None,
-                }
-            }
-            _ => None,
-        }
-    }
-
-    fn try_build_rgb_color(r: u16, g: u16, b: u16) -> Option<Color> {
-        let r = r.try_into().ok()?;
-        let g = g.try_into().ok()?;
-        let b = b.try_into().ok()?;
-        Some(Color::new(r, g, b))
-    }
-
-    fn update_style(&self, mut codes: ParamsIter) -> TextStyle {
-        let mut style = self.style;
-        loop {
-            let Some(&[next]) = codes.next() else {
-                break;
-            };
-            match next {
-                0 => style = Default::default(),
-                1 => style = style.bold(),
-                3 => style = style.italics(),
-                4 => style = style.underlined(),
-                9 => style = style.strikethrough(),
-                39 => {
-                    style.colors.foreground = None;
-                }
-                49 => {
-                    style.colors.background = None;
-                }
-                30..=37 => {
-                    if let Some(color) = Self::parse_standard_color(next - 30) {
-                        style = style.fg_color(color);
-                    }
-                }
-                40..=47 => {
-                    if let Some(color) = Self::parse_standard_color(next - 40) {
-                        style = style.bg_color(color);
-                    }
-                }
-                38 => {
-                    if let Some(color) = Self::parse_color(&mut codes) {
-                        style = style.fg_color(color);
-                    }
-                }
-                48 => {
-                    if let Some(color) = Self::parse_color(&mut codes) {
-                        style = style.bg_color(color);
-                    }
-                }
-                _ => (),
-            };
-        }
-        style
-    }
 }
 
 impl Perform for Handler {
@@ -160,7 +147,7 @@ impl Perform for Handler {
     fn csi_dispatch(&mut self, params: &vte::Params, _intermediates: &[u8], _ignore: bool, action: char) {
         if action == 'm' {
             self.save_pending_text();
-            self.style = self.update_style(params.iter());
+            self.style = AnsiColorParser::new(self.style).parse(params.iter());
             self.pending_text.style = self.style;
         }
     }

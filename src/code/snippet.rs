@@ -247,6 +247,11 @@ impl SnippetParser {
                         attributes.execution = SnippetExec::AutoExec(spec);
                     }
                 }
+                ExecPty(spec) => {
+                    if !matches!(attributes.execution, SnippetExec::AcquireTerminal(_)) {
+                        attributes.execution = SnippetExec::ExecPty(spec);
+                    }
+                }
                 ExecReplace(spec) => {
                     attributes.representation = SnippetRepr::ExecReplace;
                     attributes.execution = SnippetExec::Exec(spec);
@@ -294,6 +299,7 @@ impl SnippetParser {
                     "render" => SnippetAttribute::Render,
                     "no_background" => SnippetAttribute::NoBackground,
                     "acquire_terminal" => SnippetAttribute::AcquireTerminal(SnippetExecutorSpec::default()),
+                    "pty" => SnippetAttribute::ExecPty(SnippetExecutorSpec::default()),
                     other => {
                         let (attribute, parameter) = other
                             .split_once(':')
@@ -306,6 +312,7 @@ impl SnippetParser {
                             "exec_replace" => {
                                 SnippetAttribute::ExecReplace(SnippetExecutorSpec::Alternative(parameter.to_string()))
                             }
+                            "pty" => SnippetAttribute::ExecPty(SnippetExecutorSpec::Alternative(parameter.to_string())),
                             "id" => SnippetAttribute::Id(parameter.to_string()),
                             "validate" => {
                                 SnippetAttribute::Validate(SnippetExecutorSpec::Alternative(parameter.to_string()))
@@ -436,6 +443,7 @@ enum SnippetAttribute {
     Exec(SnippetExecutorSpec),
     AutoExec(SnippetExecutorSpec),
     ExecReplace(SnippetExecutorSpec),
+    ExecPty(SnippetExecutorSpec),
     Validate(SnippetExecutorSpec),
     Image,
     Render,
@@ -697,6 +705,7 @@ pub(crate) enum SnippetExec {
     None,
     Exec(SnippetExecutorSpec),
     AutoExec(SnippetExecutorSpec),
+    ExecPty(SnippetExecutorSpec),
     AcquireTerminal(SnippetExecutorSpec),
     Validate(SnippetExecutorSpec),
 }
