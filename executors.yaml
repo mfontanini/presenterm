@@ -7,18 +7,31 @@ bash:
 c++:
   filename: snippet.cpp
   commands:
-    - ["g++", "-std=c++20", "-fdiagnostics-color=always", "$pwd/snippet.cpp", "-o", "$pwd/snippet"]
+    - [
+        "g++",
+        "-std=c++20",
+        "-fdiagnostics-color=always",
+        "$pwd/snippet.cpp",
+        "-o",
+        "$pwd/snippet",
+      ]
     - ["$pwd/snippet"]
   hidden_line_prefix: "/// "
 c:
   filename: snippet.c
   commands:
-    - ["gcc", "$pwd/snippet.c", "-fdiagnostics-color=always", "-o", "$pwd/snippet"]
+    - [
+        "gcc",
+        "$pwd/snippet.c",
+        "-fdiagnostics-color=always",
+        "-o",
+        "$pwd/snippet",
+      ]
     - ["$pwd/snippet"]
   hidden_line_prefix: "/// "
 elixir:
   filename: snippet.exs
-  commands: 
+  commands:
     - ["elixir", "$pwd/snippet.exs"]
   hidden_line_prefix: "## "
 fish:
@@ -44,9 +57,84 @@ java:
   hidden_line_prefix: "/// "
 js:
   filename: snippet.js
+  environment:
+    FORCE_COLOR: "true"
   commands:
     - ["node", "$pwd/snippet.js"]
   hidden_line_prefix: "/// "
+  alternative:
+    deno:
+      filename: "snippet.js"
+      environment:
+        FORCE_COLOR: "true"
+      commands:
+        - ["deno", "run", "-A", "$pwd/snippet.js"]
+    bun:
+      filename: "snippet.js"
+      environment:
+        FORCE_COLOR: "true"
+      commands:
+        - ["bun", "run", "$pwd/snippet.js"]
+jsx:
+  filename: snippet.jsx
+  environment:
+    FORCE_COLOR: "true"
+  commands:
+    - ["node", "$pwd/snippet.jsx"]
+  hidden_line_prefix: "/// "
+  alternative:
+    deno:
+      filename: "snippet.jsx"
+      environment:
+        FORCE_COLOR: "true"
+      commands:
+        - ["deno", "run", "-A", "$pwd/snippet.jsx"]
+    bun:
+      filename: "snippet.jsx"
+      environment:
+        FORCE_COLOR: "true"
+      commands:
+        - ["bun", "run", "$pwd/snippet.jsx"]
+ts:
+  filename: snippet.ts
+  environment:
+    FORCE_COLOR: "true"
+  commands:
+    - ["node", "$pwd/snippet.ts"]
+  hidden_line_prefix: "/// "
+  alternative:
+    deno:
+      filename: "snippet.ts"
+      environment:
+        FORCE_COLOR: "true"
+      commands:
+        - ["deno", "run", "-A", "$pwd/snippet.ts"]
+    bun:
+      filename: "snippet.ts"
+      environment:
+        FORCE_COLOR: "true"
+      commands:
+        - ["bun", "run", "$pwd/snippet.ts"]
+tsx:
+  filename: snippet.tsx
+  environment:
+    FORCE_COLOR: "true"
+  commands:
+    - ["node", "$pwd/snippet.tsx"]
+  hidden_line_prefix: "/// "
+  alternative:
+    deno:
+      filename: "snippet.tsx"
+      environment:
+        FORCE_COLOR: "true"
+      commands:
+        - ["deno", "run", "-A", "$pwd/snippet.tsx"]
+    bun:
+      filename: "snippet.tsx"
+      environment:
+        FORCE_COLOR: "true"
+      commands:
+        - ["bun", "run", "$pwd/snippet.tsx"]
 julia:
   filename: snippet.jl
   commands:
@@ -107,7 +195,16 @@ rust-script:
 rust:
   filename: snippet.rs
   commands:
-    - ["rustc", "--crate-name", "presenterm_snippet", "$pwd/snippet.rs", "-o", "$pwd/snippet", "--color", "always"]
+    - [
+        "rustc",
+        "--crate-name",
+        "presenterm_snippet",
+        "$pwd/snippet.rs",
+        "-o",
+        "$pwd/snippet",
+        "--color",
+        "always",
+      ]
     - ["$pwd/snippet"]
   hidden_line_prefix: "# "
   alternative:
