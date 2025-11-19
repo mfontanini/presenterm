@@ -1,7 +1,7 @@
 use crate::{
     code::{
         execute::{LanguageSnippetExecutor, ProcessStatus, PtySnippetContext},
-        snippet::Snippet,
+        snippet::{PtyArgs, Snippet},
     },
     markdown::{
         elements::Text,
@@ -14,7 +14,7 @@ use crate::{
         },
         properties::WindowSize,
     },
-    theme::ExecutionOutputBlockStyle,
+    theme::{Alignment, ExecutionOutputBlockStyle},
 };
 use portable_pty::{MasterPty, PtySize, native_pty_system};
 use std::{
@@ -24,6 +24,8 @@ use std::{
 };
 
 const OUTPUT_BOTTOM_MARGIN: f64 = 0.2;
+const DEFAULT_COLUMNS: u16 = 80;
+const DEFAULT_ROWS: u16 = 24;
 
 #[derive(Default, Debug)]
 enum State {
@@ -42,6 +44,7 @@ struct Inner {
     executor: LanguageSnippetExecutor,
     parser: vt100::Parser,
     size: WindowSize,
+    update_size: bool,
     policy: RenderAsyncStartPolicy,
     state: State,
 }
@@ -51,6 +54,8 @@ impl fmt::Debug for Inner {
         f.debug_struct("Inner")
             .field("snippet", &self.snippet)
             .field("executor", &self.executor)
+            .field("size", &self.size)
+            .field("update_size", &self.update_size)
             .field("parser", &"...")
             .field("policy", &self.policy)
             .field("state", &"...")
@@ -78,7 +83,7 @@ impl AsRenderOperations for PtySnippetOutputOperation {
             .shrink_rows((dimensions.rows as f64 * OUTPUT_BOTTOM_MARGIN) as u16 / self.font_size as u16)
             .shrink_columns(dimensions.columns - dimensions.columns / self.font_size as u16);
 
-        if inner.size != dimensions {
+        if inner.update_size && inner.size != dimensions {
             inner.size = dimensions;
             inner.parser.screen_mut().set_size(dimensions.rows, dimensions.columns);
         }
@@ -125,7 +130,10 @@ impl AsRenderOperations for PtySnippetOutputOperation {
                     text: line.into(),
                     block_length: columns,
                     block_color: None,
-                    alignment: Default::default(),
+                    alignment: Alignment::Center {
+                        minimum_margin: Default::default(),
+                        minimum_size: Default::default(),
+                    },
                 }),
                 RenderOperation::RenderLineBreak,
             ]);
@@ -272,10 +280,21 @@ fn parse_color(color: vt100::Color) -> Option<Color> {
 pub(crate) struct PtySnippetHandle(Arc<Mutex<Inner>>);
 
 impl PtySnippetHandle {
-    pub(crate) fn new(snippet: Snippet, executor: LanguageSnippetExecutor, policy: RenderAsyncStartPolicy) -> Self {
-        let size = WindowSize { columns: 80, rows: 24, height: 0, width: 0 };
+    pub(crate) fn new(
+        snippet: Snippet,
+        executor: LanguageSnippetExecutor,
+        policy: RenderAsyncStartPolicy,
+        args: PtyArgs,
+    ) -> Self {
+        let size = WindowSize {
+            columns: args.columns.unwrap_or(DEFAULT_COLUMNS),
+            rows: args.rows.unwrap_or(DEFAULT_ROWS),
+            height: 0,
+            width: 0,
+        };
+        let update_size = args.columns.is_none() || args.rows.is_none();
         let parser = vt100::Parser::new(size.rows, size.columns, 1000);
-        let inner = Inner { snippet, executor, parser, size, state: Default::default(), policy };
+        let inner = Inner { snippet, executor, parser, size, update_size, state: Default::default(), policy };
         Self(Arc::new(Mutex::new(inner)))
     }
 
