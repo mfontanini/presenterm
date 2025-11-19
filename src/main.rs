@@ -33,6 +33,7 @@ use std::{
     io,
     path::{Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 use terminal::emulator::TerminalEmulator;
 use theme::ThemeOptions;
@@ -318,7 +319,7 @@ impl CoreComponents {
         }
     }
 
-    fn get_theme_name(config: &Config, cli: &Cli) -> String {
+    fn theme_name(config: &Config, cli: &Cli) -> String {
         if let Some(name) = cli.theme.as_ref() {
             name.clone()
         } else {
@@ -327,7 +328,7 @@ impl CoreComponents {
                 config::ThemeConfig::Some(theme_name) => theme_name.clone(),
                 config::ThemeConfig::Dynamic { dark, light, timeout } => {
                     let default_timeout = timeout.unwrap_or(DEFAULT_THEME_DYNAMIC_DETECTION_TIMEOUT);
-                    let timeout_duration = std::time::Duration::from_millis(default_timeout);
+                    let timeout_duration = Duration::from_millis(default_timeout);
                     if let Ok(theme) = termbg::theme(timeout_duration) {
                         if theme == termbg::Theme::Dark { dark.clone() } else { light.clone() }
                     } else {
@@ -344,7 +345,7 @@ impl CoreComponents {
     }
 
     fn load_default_theme(config: &Config, themes: &Themes, cli: &Cli) -> PresentationTheme {
-        let default_theme_name = Self::get_theme_name(config, cli);
+        let default_theme_name = Self::theme_name(config, cli);
         let Some(default_theme) = themes.presentation.load_by_name(default_theme_name.as_str()) else {
             let valid_themes = themes.presentation.theme_names().join(", ");
             let error_message = format!("invalid theme name, valid themes are: {valid_themes}");
@@ -412,7 +413,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     } else if cli.current_theme {
         let Customizations { config, .. } =
             Customizations::load(cli.config_file.clone().map(PathBuf::from), &current_dir()?)?;
-        let theme_name = CoreComponents::get_theme_name(&config, &cli);
+        let theme_name = CoreComponents::theme_name(&config, &cli);
         println!("{theme_name}");
         return Ok(());
     } else if cli.list_comment_commands {

@@ -101,6 +101,7 @@ pub enum ThemeConfig {
 #[serde(deny_unknown_fields)]
 pub struct DefaultsConfig {
     /// The theme to use by default in every presentation unless overridden.
+    #[serde(default)]
     pub theme: ThemeConfig,
 
     /// Override the terminal font size when in windows or when using sixel.
