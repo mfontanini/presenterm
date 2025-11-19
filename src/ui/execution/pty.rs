@@ -23,7 +23,8 @@ use std::{
     thread,
 };
 
-const OUTPUT_BOTTOM_MARGIN: f64 = 0.2;
+const BOTTOM_MARGIN_RATIO: f64 = 0.2;
+const BOTTOM_MINIMUM_MARGIN: u16 = 7;
 const DEFAULT_COLUMNS: u16 = 80;
 const DEFAULT_ROWS: u16 = 24;
 
@@ -79,8 +80,9 @@ impl PtySnippetOutputOperation {
 impl AsRenderOperations for PtySnippetOutputOperation {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let mut inner = self.handle.0.lock().unwrap();
+        let vertical_padding = ((dimensions.rows as f64 * BOTTOM_MARGIN_RATIO) as u16).max(BOTTOM_MINIMUM_MARGIN);
         let dimensions = dimensions
-            .shrink_rows((dimensions.rows as f64 * OUTPUT_BOTTOM_MARGIN) as u16 / self.font_size as u16)
+            .shrink_rows(vertical_padding / self.font_size as u16)
             .shrink_columns(dimensions.columns - dimensions.columns / self.font_size as u16);
 
         if inner.update_size && inner.size != dimensions {
