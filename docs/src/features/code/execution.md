@@ -65,7 +65,7 @@ When you pass in this flag, _presenterm_ will:
 that the `+validate` flag is a special one that doesn't make a snippet executable but still validates it by running it 
 during development.
 * Report an error if any of the snippets returns an exit code other than 0.
-* Re-run all snippets `+exec` and `+exec_repalce` snippets every time the presentation is reloaded.
+* Re-run all snippets `+exec` and `+exec_replace` snippets every time the presentation is reloaded.
 
 In case you expect a snippet to return an exit code other than 0, you can use the `+expect:failure` flag. This will 
 cause _presenterm_ to display an error if the snippet does not fail.
