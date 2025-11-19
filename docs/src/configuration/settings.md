@@ -12,6 +12,16 @@ defaults:
   theme: light
 ```
 
+You can also set a dark and light theme independently, _presenterm_ will detect terminal theme on launch by fetching
+foreground and background color and pick the right theme:
+
+```yaml
+defaults:
+  theme:
+    light: light
+    dark: dark
+```
+
 ## Terminal font size
 
 This is a parameter that lets you explicitly set the terminal font size in use. This should not be used unless you are 
