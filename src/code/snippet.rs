@@ -246,10 +246,10 @@ impl SnippetParser {
                         ..Default::default()
                     }))?;
                 }
-                ExecPty(spec) => {
+                ExecPty(spec, args) => {
                     attributes.execution = attributes.execution.try_merge(SnippetExecution::Exec(SnippetExecArgs {
                         spec,
-                        pty: Some(Default::default()),
+                        pty: Some(args),
                         ..Default::default()
                     }))?;
                 }
@@ -314,7 +314,7 @@ impl SnippetParser {
                     "render" => SnippetAttribute::Render,
                     "no_background" => SnippetAttribute::NoBackground,
                     "acquire_terminal" => SnippetAttribute::AcquireTerminal(SnippetExecutorSpec::default()),
-                    "pty" => SnippetAttribute::ExecPty(SnippetExecutorSpec::default()),
+                    "pty" => SnippetAttribute::ExecPty(SnippetExecutorSpec::default(), Default::default()),
                     other => {
                         let (attribute, parameter) = other
                             .split_once(':')
@@ -351,6 +351,7 @@ impl SnippetParser {
                                     ));
                                 }
                             },
+                            "pty" => SnippetAttribute::ExecPty(SnippetExecutorSpec::default(), parameter.parse()?),
                             _ => return Err(SnippetBlockParseError::InvalidToken(Self::next_identifier(input).into())),
                         }
                     }
@@ -441,6 +442,9 @@ pub enum SnippetBlockParseError {
     #[error("invalid width: {0}")]
     InvalidWidth(PercentParseError),
 
+    #[error("invalid pty args, expected '<columns>:<rows>'")]
+    InvalidPtyArgs,
+
     #[error("duplicate attribute: {0}")]
     DuplicateAttribute(&'static str),
 
@@ -457,7 +461,7 @@ enum SnippetAttribute {
     Exec(SnippetExecutorSpec),
     AutoExec(SnippetExecutorSpec),
     ExecReplace(SnippetExecutorSpec),
-    ExecPty(SnippetExecutorSpec),
+    ExecPty(SnippetExecutorSpec, PtyArgs),
     Validate(SnippetExecutorSpec),
     Image,
     Render,
@@ -719,6 +723,19 @@ pub(crate) enum SnippetRepr {
 pub(crate) struct PtyArgs {
     pub(crate) columns: Option<u16>,
     pub(crate) rows: Option<u16>,
+}
+
+impl FromStr for PtyArgs {
+    type Err = SnippetBlockParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let Some((columns, rows)) = s.split_once(':') else {
+            return Err(SnippetBlockParseError::InvalidPtyArgs);
+        };
+        let columns = columns.parse().map_err(|_| SnippetBlockParseError::InvalidPtyArgs)?;
+        let rows = rows.parse().map_err(|_| SnippetBlockParseError::InvalidPtyArgs)?;
+        Ok(Self { columns: Some(columns), rows: Some(rows) })
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

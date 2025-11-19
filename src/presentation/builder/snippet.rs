@@ -3,9 +3,9 @@ use crate::{
     code::{
         execute::LanguageSnippetExecutor,
         snippet::{
-            ExternalFile, Highlight, HighlightContext, HighlightGroup, HighlightMutator, HighlightedLine, Snippet,
-            SnippetExecArgs, SnippetExecution, SnippetExecutorSpec, SnippetLanguage, SnippetLine, SnippetParser,
-            SnippetRepr, SnippetSplitter,
+            ExternalFile, Highlight, HighlightContext, HighlightGroup, HighlightMutator, HighlightedLine, PtyArgs,
+            Snippet, SnippetExecArgs, SnippetExecution, SnippetExecutorSpec, SnippetLanguage, SnippetLine,
+            SnippetParser, SnippetRepr, SnippetSplitter,
         },
     },
     markdown::elements::SourcePosition,
@@ -90,13 +90,15 @@ impl PresentationBuilder<'_, '_> {
                     SnippetRepr::Image => {
                         self.push_code_as_image(snippet, executor)?;
                     }
-                    SnippetRepr::ExecReplace => {
-                        if args.pty.is_some() {
-                            self.push_replace_pty_code_execution(snippet, executor)?;
-                        } else {
+                    SnippetRepr::ExecReplace => match &args.pty {
+                        Some(args) => {
+                            let args = args.clone();
+                            self.push_replace_pty_code_execution(snippet, executor, args)?;
+                        }
+                        None => {
                             self.push_replace_code_execution(snippet, executor)?;
                         }
-                    }
+                    },
                     SnippetRepr::AcquireTerminal => {
                         let block_length = self.push_code_lines(&snippet);
                         self.push_acquire_terminal_execution(snippet, block_length, executor)?;
@@ -108,8 +110,8 @@ impl PresentationBuilder<'_, '_> {
                         } else {
                             RenderAsyncStartPolicy::OnDemand
                         };
-                        let handle: WrappedSnippetHandle = match args.pty {
-                            Some(_) => PtySnippetHandle::new(snippet.clone(), executor, policy).into(),
+                        let handle: WrappedSnippetHandle = match &args.pty {
+                            Some(args) => PtySnippetHandle::new(snippet.clone(), executor, policy, args.clone()).into(),
                             None => SnippetHandle::new(snippet.clone(), executor, policy).into(),
                         };
                         self.chunk_operations.push(RenderOperation::RenderAsync(handle.build_trigger().into()));
@@ -189,8 +191,13 @@ impl PresentationBuilder<'_, '_> {
         self.push_code_execution(0, handle, alignment)
     }
 
-    fn push_replace_pty_code_execution(&mut self, snippet: Snippet, executor: LanguageSnippetExecutor) -> BuildResult {
-        let handle = PtySnippetHandle::new(snippet, executor, RenderAsyncStartPolicy::Automatic);
+    fn push_replace_pty_code_execution(
+        &mut self,
+        snippet: Snippet,
+        executor: LanguageSnippetExecutor,
+        args: PtyArgs,
+    ) -> BuildResult {
+        let handle = PtySnippetHandle::new(snippet, executor, RenderAsyncStartPolicy::Automatic, args);
         self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(RunPtySnippetTrigger::new(handle.clone()))));
         self.push_pty_code_execution(handle)
     }
