@@ -83,4 +83,8 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
       - name: Validate config file schema
-        run: ./scripts/validate-config-file-schema.sh
+        run: |
+          if ! ./scripts/validate-config-file-schema.sh; then
+            echo -e "\033[31;1mRun ./scripts/generate-config-file-schema.sh to regenerate JSON schema"
+            exit 1
+          fi
