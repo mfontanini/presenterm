@@ -4,8 +4,8 @@ use crate::{
         execute::LanguageSnippetExecutor,
         snippet::{
             ExternalFile, Highlight, HighlightContext, HighlightGroup, HighlightMutator, HighlightedLine, Snippet,
-            SnippetExec, SnippetExecutorSpec, SnippetLanguage, SnippetLine, SnippetParser, SnippetRepr,
-            SnippetSplitter,
+            SnippetExecArgs, SnippetExecution, SnippetExecutorSpec, SnippetLanguage, SnippetLine, SnippetParser,
+            SnippetRepr, SnippetSplitter,
         },
     },
     markdown::elements::SourcePosition,
@@ -38,12 +38,14 @@ impl PresentationBuilder<'_, '_> {
             snippet.attributes.line_numbers = true;
         }
         if self.options.auto_render_languages.contains(&snippet.language) {
-            snippet.attributes.representation = SnippetRepr::Render;
+            snippet.attributes.execution = SnippetExecution::Render;
         }
         // Ids can only be used in `+exec` snippets.
         if snippet.attributes.id.is_some()
-            && (!matches!(snippet.attributes.execution, SnippetExec::Exec(_) | SnippetExec::ExecPty(_))
-                || !matches!(snippet.attributes.representation, SnippetRepr::Snippet))
+            && !matches!(
+                snippet.attributes.execution,
+                SnippetExecution::Exec(SnippetExecArgs { repr: SnippetRepr::SnippetOutput, .. })
+            )
         {
             return Err(self.invalid_presentation(source_position, InvalidPresentation::SnippetIdNonExec));
         }
@@ -52,105 +54,92 @@ impl PresentationBuilder<'_, '_> {
         // Redraw slide if attributes change
         self.push_differ(format!("{:?}", snippet.attributes));
 
-        let execution_allowed = self.is_execution_allowed(&snippet);
-        match snippet.attributes.representation {
-            SnippetRepr::Render => return self.push_rendered_code(snippet, source_position),
-            SnippetRepr::Image => {
-                if execution_allowed {
-                    return self.push_code_as_image(snippet);
-                }
-            }
-            SnippetRepr::ExecReplace => {
-                if execution_allowed {
-                    return match snippet.attributes.execution {
-                        SnippetExec::ExecPty(_) => self.push_replace_pty_code_execution(snippet),
-                        _ => self.push_replace_code_execution(snippet),
-                    };
-                }
-            }
-            SnippetRepr::Snippet => (),
-        };
+        if let Some(spec) = &snippet.attributes.validate {
+            // Take the execution spec if we use the default one, otherwise use the one provided.
+            // This allows using `rust +exec:foo +validate` and using `foo` as the executor.
+            let spec = match (spec, &snippet.attributes.execution) {
+                (SnippetExecutorSpec::Default, SnippetExecution::Exec(args)) => &args.spec,
+                _ => spec,
+            };
+            let executor = self.snippet_executor.language_executor(&snippet.language, spec)?;
+            self.push_validator(&snippet, &executor);
+        }
 
-        let block_length = self.push_code_lines(&snippet);
-        match snippet.attributes.execution.clone() {
-            SnippetExec::None => Ok(()),
-            SnippetExec::Exec(_)
-            | SnippetExec::AutoExec(_)
-            | SnippetExec::AcquireTerminal(_)
-            | SnippetExec::ExecPty(_)
-                if !execution_allowed =>
-            {
-                let mut exec_type = match snippet.attributes.representation {
+        match &snippet.attributes.execution {
+            SnippetExecution::None => {
+                self.push_code_lines(&snippet);
+            }
+            SnippetExecution::Render => {
+                self.push_rendered_code(snippet, source_position)?;
+            }
+            SnippetExecution::Exec(args) if !self.is_execution_allowed(args) => {
+                self.push_code_lines(&snippet);
+                let mut exec_type = match args.repr {
                     SnippetRepr::Image => ExecutionType::Image,
                     SnippetRepr::ExecReplace => ExecutionType::ExecReplace,
-                    SnippetRepr::Render | SnippetRepr::Snippet => ExecutionType::Execute,
+                    SnippetRepr::SnippetOutput | SnippetRepr::AcquireTerminal => ExecutionType::Execute,
                 };
-                if matches!(snippet.attributes.execution, SnippetExec::AutoExec(_)) {
+                if args.auto {
                     exec_type = ExecutionType::ExecReplace;
                 }
                 self.push_execution_disabled_operation(exec_type);
-                Ok(())
             }
-            SnippetExec::ExecPty(spec) => {
-                let executor = self.snippet_executor.language_executor(&snippet.language, &spec)?;
-                let policy = if matches!(snippet.attributes.execution, SnippetExec::AutoExec(_)) {
-                    RenderAsyncStartPolicy::Automatic
-                } else {
-                    RenderAsyncStartPolicy::OnDemand
-                };
-                let handle = PtySnippetHandle::new(snippet.clone(), executor, policy);
-                let alignment = self.code_style(&snippet).alignment;
-                self.push_indicator(handle.clone(), block_length, alignment);
-                self.chunk_operations
-                    .push(RenderOperation::RenderAsync(Rc::new(RunPtySnippetTrigger::new(handle.clone()))));
+            SnippetExecution::Exec(args) => {
+                let executor = self.snippet_executor.language_executor(&snippet.language, &args.spec)?;
+                match args.repr {
+                    SnippetRepr::Image => {
+                        self.push_code_as_image(snippet, executor)?;
+                    }
+                    SnippetRepr::ExecReplace => {
+                        if args.pty.is_some() {
+                            self.push_replace_pty_code_execution(snippet, executor)?;
+                        } else {
+                            self.push_replace_code_execution(snippet, executor)?;
+                        }
+                    }
+                    SnippetRepr::AcquireTerminal => {
+                        let block_length = self.push_code_lines(&snippet);
+                        self.push_acquire_terminal_execution(snippet, block_length, executor)?;
+                    }
+                    SnippetRepr::SnippetOutput => {
+                        let block_length = self.push_code_lines(&snippet);
+                        let policy = if args.auto {
+                            RenderAsyncStartPolicy::Automatic
+                        } else {
+                            RenderAsyncStartPolicy::OnDemand
+                        };
+                        let handle: WrappedSnippetHandle = match args.pty {
+                            Some(_) => PtySnippetHandle::new(snippet.clone(), executor, policy).into(),
+                            None => SnippetHandle::new(snippet.clone(), executor, policy).into(),
+                        };
+                        self.chunk_operations.push(RenderOperation::RenderAsync(handle.build_trigger().into()));
 
-                match snippet.attributes.id.clone() {
-                    Some(id) => {
-                        if self.executable_snippets.insert(id.clone(), handle.into()).is_some() {
-                            return Err(self
-                                .invalid_presentation(source_position, InvalidPresentation::SnippetAlreadyExists(id)));
+                        let alignment = self.code_style(&snippet).alignment;
+                        self.push_indicator(handle.clone(), block_length, alignment);
+                        match snippet.attributes.id.clone() {
+                            Some(id) => {
+                                if self.executable_snippets.insert(id.clone(), handle).is_some() {
+                                    return Err(self.invalid_presentation(
+                                        source_position,
+                                        InvalidPresentation::SnippetAlreadyExists(id),
+                                    ));
+                                }
+                            }
+                            None => {
+                                self.push_line_break();
+                                match handle {
+                                    WrappedSnippetHandle::Normal(handle) => {
+                                        self.push_code_execution(block_length, handle, alignment)?;
+                                    }
+                                    WrappedSnippetHandle::Pty(handle) => self.push_pty_code_execution(handle)?,
+                                }
+                            }
                         }
-                        Ok(())
-                    }
-                    None => {
-                        self.push_line_break();
-                        self.push_pty_code_execution(handle)
                     }
                 }
             }
-            SnippetExec::Exec(spec) | SnippetExec::AutoExec(spec) => {
-                let policy = if matches!(snippet.attributes.execution, SnippetExec::AutoExec(_)) {
-                    RenderAsyncStartPolicy::Automatic
-                } else {
-                    RenderAsyncStartPolicy::OnDemand
-                };
-                let executor = self.snippet_executor.language_executor(&snippet.language, &spec)?;
-                let alignment = self.code_style(&snippet).alignment;
-                let handle = SnippetHandle::new(snippet.clone(), executor, policy);
-                self.chunk_operations
-                    .push(RenderOperation::RenderAsync(Rc::new(RunSnippetTrigger::new(handle.clone()))));
-                self.push_indicator(handle.clone(), block_length, alignment);
-                match snippet.attributes.id.clone() {
-                    Some(id) => {
-                        if self.executable_snippets.insert(id.clone(), handle.into()).is_some() {
-                            return Err(self
-                                .invalid_presentation(source_position, InvalidPresentation::SnippetAlreadyExists(id)));
-                        }
-                        Ok(())
-                    }
-                    None => {
-                        self.push_line_break();
-                        self.push_code_execution(block_length, handle, alignment)
-                    }
-                }
-            }
-            SnippetExec::AcquireTerminal(spec) => self.push_acquire_terminal_execution(snippet, block_length, &spec),
-            SnippetExec::Validate(spec) => {
-                let executor = self.snippet_executor.language_executor(&snippet.language, &spec)?;
-                self.push_validator(&snippet, &executor);
-                Ok(())
-            }
-        }
+        };
+        Ok(())
     }
 
     pub(crate) fn push_detached_code_execution(&mut self, handle: WrappedSnippetHandle) -> BuildResult {
@@ -163,14 +152,10 @@ impl PresentationBuilder<'_, '_> {
         }
     }
 
-    fn is_execution_allowed(&self, snippet: &Snippet) -> bool {
-        match snippet.attributes.representation {
-            SnippetRepr::Snippet => match snippet.attributes.execution {
-                SnippetExec::AutoExec(_) => self.options.enable_snippet_execution_replace,
-                _ => self.options.enable_snippet_execution,
-            },
+    fn is_execution_allowed(&self, args: &SnippetExecArgs) -> bool {
+        match args.repr {
+            SnippetRepr::SnippetOutput | SnippetRepr::AcquireTerminal => self.options.enable_snippet_execution,
             SnippetRepr::Image | SnippetRepr::ExecReplace => self.options.enable_snippet_execution_replace,
-            SnippetRepr::Render => true,
         }
     }
 
@@ -190,11 +175,7 @@ impl PresentationBuilder<'_, '_> {
         block_length
     }
 
-    fn push_replace_code_execution(&mut self, snippet: Snippet) -> BuildResult {
-        // TODO: representation and execution should probably be merged
-        let SnippetExec::Exec(spec) = snippet.attributes.execution.clone() else {
-            panic!("not an exec snippet");
-        };
+    fn push_replace_code_execution(&mut self, snippet: Snippet, executor: LanguageSnippetExecutor) -> BuildResult {
         let alignment = match self.code_style(&snippet).alignment {
             // If we're replacing the snippet output, we have center alignment and no background, use
             // center alignment but without any margins and minimum sizes so we truly center the output.
@@ -203,17 +184,12 @@ impl PresentationBuilder<'_, '_> {
             }
             other => other,
         };
-        let executor = self.snippet_executor.language_executor(&snippet.language, &spec)?;
         let handle = SnippetHandle::new(snippet, executor, RenderAsyncStartPolicy::Automatic);
         self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(RunSnippetTrigger::new(handle.clone()))));
         self.push_code_execution(0, handle, alignment)
     }
 
-    fn push_replace_pty_code_execution(&mut self, snippet: Snippet) -> BuildResult {
-        let SnippetExec::ExecPty(spec) = snippet.attributes.execution.clone() else {
-            panic!("not an exec pty snippet");
-        };
-        let executor = self.snippet_executor.language_executor(&snippet.language, &spec)?;
+    fn push_replace_pty_code_execution(&mut self, snippet: Snippet, executor: LanguageSnippetExecutor) -> BuildResult {
         let handle = PtySnippetHandle::new(snippet, executor, RenderAsyncStartPolicy::Automatic);
         self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(RunPtySnippetTrigger::new(handle.clone()))));
         self.push_pty_code_execution(handle)
@@ -331,10 +307,7 @@ impl PresentationBuilder<'_, '_> {
         self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(operation)));
     }
 
-    fn push_code_as_image(&mut self, snippet: Snippet) -> BuildResult {
-        let executor = self.snippet_executor.language_executor(&snippet.language, &Default::default())?;
-        self.push_validator(&snippet, &executor);
-
+    fn push_code_as_image(&mut self, snippet: Snippet, executor: LanguageSnippetExecutor) -> BuildResult {
         let operation =
             RunImageSnippet::new(snippet, executor, self.image_registry.clone(), self.theme.execution_output.status);
         let operation = RenderOperation::RenderAsync(Rc::new(operation));
@@ -346,9 +319,8 @@ impl PresentationBuilder<'_, '_> {
         &mut self,
         snippet: Snippet,
         block_length: u16,
-        spec: &SnippetExecutorSpec,
+        executor: LanguageSnippetExecutor,
     ) -> BuildResult {
-        let executor = self.snippet_executor.language_executor(&snippet.language, spec)?;
         let block_length = self.theme.code.alignment.adjust_size(block_length);
         let operation = RunAcquireTerminalSnippet::new(
             snippet,
@@ -374,10 +346,7 @@ impl PresentationBuilder<'_, '_> {
     }
 
     fn push_code_execution(&mut self, block_length: u16, handle: SnippetHandle, alignment: Alignment) -> BuildResult {
-        let executor = handle.executor();
         let snippet = handle.snippet();
-        self.push_validator(&snippet, &executor);
-
         let default_colors = self.theme.default_style.style.colors;
         let mut execution_output_style = self.theme.execution_output.clone();
         if snippet.attributes.no_background {
@@ -398,10 +367,7 @@ impl PresentationBuilder<'_, '_> {
     }
 
     fn push_pty_code_execution(&mut self, handle: PtySnippetHandle) -> BuildResult {
-        let executor = handle.executor();
         let snippet = handle.snippet();
-        self.push_validator(&snippet, &executor);
-
         let mut style = self.theme.execution_output.clone();
         if snippet.attributes.no_background {
             style.style.colors.background = None;

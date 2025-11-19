@@ -17,7 +17,7 @@ use crate::{
     terminal::ansi::AnsiParser,
     theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle},
     ui::{
-        execution::pty::PtySnippetHandle,
+        execution::pty::{PtySnippetHandle, RunPtySnippetTrigger},
         separator::{RenderSeparator, SeparatorWidth},
     },
 };
@@ -206,10 +206,6 @@ impl SnippetHandle {
         Self(Arc::new(Mutex::new(inner)))
     }
 
-    pub(crate) fn executor(&self) -> LanguageSnippetExecutor {
-        self.0.lock().unwrap().executor.clone()
-    }
-
     pub(crate) fn snippet(&self) -> Snippet {
         self.0.lock().unwrap().snippet.clone()
     }
@@ -259,6 +255,13 @@ impl WrappedSnippetHandle {
         match self {
             Self::Normal(handle) => handle.0.lock().unwrap().process_status,
             Self::Pty(handle) => handle.process_status(),
+        }
+    }
+
+    pub(crate) fn build_trigger(&self) -> Box<dyn RenderAsync> {
+        match self.clone() {
+            Self::Normal(handle) => Box::new(RunSnippetTrigger::new(handle)),
+            Self::Pty(handle) => Box::new(RunPtySnippetTrigger::new(handle)),
         }
     }
 }
@@ -326,7 +329,7 @@ mod tests {
     use crate::{
         code::{
             execute::SnippetExecutor,
-            snippet::{SnippetAttributes, SnippetExec, SnippetLanguage},
+            snippet::{SnippetAttributes, SnippetExecution, SnippetLanguage},
         },
         markdown::{
             elements::{Line, Text},
@@ -338,7 +341,10 @@ mod tests {
         let snippet = Snippet {
             contents: code.into(),
             language: SnippetLanguage::Bash,
-            attributes: SnippetAttributes { execution: SnippetExec::Exec(Default::default()), ..Default::default() },
+            attributes: SnippetAttributes {
+                execution: SnippetExecution::Exec(Default::default()),
+                ..Default::default()
+            },
         };
         let executor = SnippetExecutor::default().language_executor(&snippet.language, &Default::default()).unwrap();
         let policy = RenderAsyncStartPolicy::OnDemand;

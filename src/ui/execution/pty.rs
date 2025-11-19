@@ -279,10 +279,6 @@ impl PtySnippetHandle {
         Self(Arc::new(Mutex::new(inner)))
     }
 
-    pub(crate) fn executor(&self) -> LanguageSnippetExecutor {
-        self.0.lock().unwrap().executor.clone()
-    }
-
     pub(crate) fn snippet(&self) -> Snippet {
         self.0.lock().unwrap().snippet.clone()
     }

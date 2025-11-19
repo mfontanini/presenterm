@@ -209,7 +209,7 @@ impl SnippetParser {
     fn parse_block_info(input: &str) -> ParseResult<(SnippetLanguage, SnippetAttributes)> {
         let (language, input) = Self::parse_language(input);
         let attributes = Self::parse_attributes(input)?;
-        if attributes.width.is_some() && !matches!(attributes.representation, SnippetRepr::Render) {
+        if attributes.width.is_some() && !matches!(attributes.execution, SnippetExecution::Render) {
             return Err(SnippetBlockParseError::NotRenderSnippet("width"));
         }
         Ok((language, attributes))
@@ -233,43 +233,58 @@ impl SnippetParser {
             }
             use SnippetAttribute::*;
             match attribute {
-                ExecReplace(_) | Image | Render if attributes.representation != SnippetRepr::Snippet => {
-                    return Err(SnippetBlockParseError::MultipleRepresentation);
-                }
                 LineNumbers => attributes.line_numbers = true,
                 Exec(spec) => {
-                    if !matches!(attributes.execution, SnippetExec::AcquireTerminal(_)) {
-                        attributes.execution = SnippetExec::Exec(spec);
-                    }
+                    attributes.execution = attributes
+                        .execution
+                        .try_merge(SnippetExecution::Exec(SnippetExecArgs { spec, ..Default::default() }))?;
                 }
                 AutoExec(spec) => {
-                    if !matches!(attributes.execution, SnippetExec::AcquireTerminal(_)) {
-                        attributes.execution = SnippetExec::AutoExec(spec);
-                    }
+                    attributes.execution = attributes.execution.try_merge(SnippetExecution::Exec(SnippetExecArgs {
+                        spec,
+                        auto: true,
+                        ..Default::default()
+                    }))?;
                 }
                 ExecPty(spec) => {
-                    if !matches!(attributes.execution, SnippetExec::AcquireTerminal(_)) {
-                        attributes.execution = SnippetExec::ExecPty(spec);
-                    }
+                    attributes.execution = attributes.execution.try_merge(SnippetExecution::Exec(SnippetExecArgs {
+                        spec,
+                        pty: Some(Default::default()),
+                        ..Default::default()
+                    }))?;
                 }
                 ExecReplace(spec) => {
-                    attributes.representation = SnippetRepr::ExecReplace;
-                    attributes.execution = SnippetExec::Exec(spec);
+                    attributes.execution = attributes.execution.try_merge(SnippetExecution::Exec(SnippetExecArgs {
+                        spec,
+                        repr: SnippetRepr::ExecReplace,
+                        ..Default::default()
+                    }))?;
                 }
                 Id(id) => {
                     attributes.id = Some(id);
                 }
                 Validate(spec) => {
-                    if matches!(attributes.execution, SnippetExec::None) {
-                        attributes.execution = SnippetExec::Validate(spec);
+                    if attributes.validate.is_some() {
+                        return Err(SnippetBlockParseError::DuplicateAttribute("+validate"));
                     }
+                    attributes.validate = Some(spec);
                 }
                 Image => {
-                    attributes.representation = SnippetRepr::Image;
-                    attributes.execution = SnippetExec::Exec(Default::default());
+                    attributes.execution = attributes.execution.try_merge(SnippetExecution::Exec(SnippetExecArgs {
+                        repr: SnippetRepr::Image,
+                        ..Default::default()
+                    }))?;
                 }
-                Render => attributes.representation = SnippetRepr::Render,
-                AcquireTerminal(spec) => attributes.execution = SnippetExec::AcquireTerminal(spec),
+                Render => {
+                    attributes.execution = attributes.execution.try_merge(SnippetExecution::Render)?;
+                }
+                AcquireTerminal(spec) => {
+                    attributes.execution = attributes.execution.try_merge(SnippetExecution::Exec(SnippetExecArgs {
+                        spec,
+                        repr: SnippetRepr::AcquireTerminal,
+                        ..Default::default()
+                    }))?;
+                }
                 NoBackground => attributes.no_background = true,
                 HighlightedLines(lines) => attributes.highlight_groups = lines,
                 Width(width) => attributes.width = Some(width),
@@ -312,7 +327,6 @@ impl SnippetParser {
                             "exec_replace" => {
                                 SnippetAttribute::ExecReplace(SnippetExecutorSpec::Alternative(parameter.to_string()))
                             }
-                            "pty" => SnippetAttribute::ExecPty(SnippetExecutorSpec::Alternative(parameter.to_string())),
                             "id" => SnippetAttribute::Id(parameter.to_string()),
                             "validate" => {
                                 SnippetAttribute::Validate(SnippetExecutorSpec::Alternative(parameter.to_string()))
@@ -663,11 +677,8 @@ impl FromStr for SnippetLanguage {
 /// Attributes for code snippets.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct SnippetAttributes {
-    /// The way the snippet should be represented.
-    pub(crate) representation: SnippetRepr,
-
-    /// The way the snippet should be executed.
-    pub(crate) execution: SnippetExec,
+    /// The way the snippet should be executed, if any.
+    pub(crate) execution: SnippetExecution,
 
     /// Whether the snippet should show line numbers.
     pub(crate) line_numbers: bool,
@@ -683,6 +694,9 @@ pub(crate) struct SnippetAttributes {
     /// Whether to add no background to a snippet.
     pub(crate) no_background: bool,
 
+    /// The spec to use to validate this snippet.
+    pub(crate) validate: Option<SnippetExecutorSpec>,
+
     /// The expected execution result for a snippet.
     pub(crate) expected_execution_result: ExpectedSnippetExecutionResult,
 
@@ -693,21 +707,61 @@ pub(crate) struct SnippetAttributes {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) enum SnippetRepr {
     #[default]
-    Snippet,
+    SnippetOutput,
     Image,
-    Render,
     ExecReplace,
+    AcquireTerminal,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) enum SnippetExec {
+pub(crate) struct PtyArgs {
+    pub(crate) columns: Option<u16>,
+    pub(crate) rows: Option<u16>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SnippetExecArgs {
+    pub(crate) spec: SnippetExecutorSpec,
+    pub(crate) auto: bool,
+    pub(crate) pty: Option<PtyArgs>,
+    pub(crate) repr: SnippetRepr,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) enum SnippetExecution {
     #[default]
     None,
-    Exec(SnippetExecutorSpec),
-    AutoExec(SnippetExecutorSpec),
-    ExecPty(SnippetExecutorSpec),
-    AcquireTerminal(SnippetExecutorSpec),
-    Validate(SnippetExecutorSpec),
+    Render,
+    Exec(SnippetExecArgs),
+}
+
+impl SnippetExecution {
+    fn try_merge(self, other: SnippetExecution) -> ParseResult<Self> {
+        match (self, other) {
+            (Self::None, other) => Ok(other),
+            (Self::Render, Self::None) => Ok(Self::Render),
+            (Self::Render, Self::Render) => Err(SnippetBlockParseError::DuplicateAttribute("+render")),
+            (Self::Render, Self::Exec(_)) | (Self::Exec(_), Self::Render) => {
+                Err(SnippetBlockParseError::MultipleRepresentation)
+            }
+            (Self::Exec(mut ours), Self::Exec(theirs)) => {
+                let SnippetExecArgs { spec, auto, pty, repr } = theirs;
+                ours.auto = ours.auto || auto;
+                ours.pty = pty.or(ours.pty);
+                ours.spec = match ours.spec {
+                    SnippetExecutorSpec::Default => spec,
+                    SnippetExecutorSpec::Alternative(spec) => SnippetExecutorSpec::Alternative(spec),
+                };
+                ours.repr = match (ours.repr, repr) {
+                    (SnippetRepr::SnippetOutput, other) => other,
+                    (ours, SnippetRepr::SnippetOutput) => ours,
+                    _ => return Err(SnippetBlockParseError::MultipleRepresentation),
+                };
+                Ok(Self::Exec(ours))
+            }
+            (Self::Exec(args), Self::None) => Ok(Self::Exec(args)),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -805,30 +859,34 @@ mod test {
     #[test]
     fn one_attribute() {
         let attributes = parse_attributes("bash +exec");
-        assert_eq!(attributes.execution, SnippetExec::Exec(Default::default()));
+        assert_eq!(attributes.execution, SnippetExecution::Exec(Default::default()));
         assert!(!attributes.line_numbers);
     }
 
     #[test]
     fn two_attributes() {
         let attributes = parse_attributes("bash +exec +line_numbers");
-        assert_eq!(attributes.execution, SnippetExec::Exec(Default::default()));
+        assert_eq!(attributes.execution, SnippetExecution::Exec(Default::default()));
         assert!(attributes.line_numbers);
     }
 
     #[test]
     fn acquire_terminal() {
         let attributes = parse_attributes("bash +acquire_terminal +exec");
-        assert_eq!(attributes.execution, SnippetExec::AcquireTerminal(Default::default()));
-        assert_eq!(attributes.representation, SnippetRepr::Snippet);
+        assert_eq!(
+            attributes.execution,
+            SnippetExecution::Exec(SnippetExecArgs { repr: SnippetRepr::AcquireTerminal, ..Default::default() })
+        );
         assert!(!attributes.line_numbers);
     }
 
     #[test]
     fn image() {
         let attributes = parse_attributes("bash +image +exec");
-        assert_eq!(attributes.execution, SnippetExec::Exec(Default::default()));
-        assert_eq!(attributes.representation, SnippetRepr::Image);
+        assert_eq!(
+            attributes.execution,
+            SnippetExecution::Exec(SnippetExecArgs { repr: SnippetRepr::Image, ..Default::default() })
+        );
         assert!(!attributes.line_numbers);
     }
 
@@ -886,7 +944,7 @@ mod test {
     #[test]
     fn parse_width() {
         let attributes = parse_attributes("mermaid +width:50% +render");
-        assert_eq!(attributes.representation, SnippetRepr::Render);
+        assert_eq!(attributes.execution, SnippetExecution::Render);
         assert_eq!(attributes.width, Some(Percent(50)));
     }
 
@@ -945,13 +1003,21 @@ println!("Hello world");
     #[case::exec_replace_and_more("bash +exec_replace:foo +line_numbers", SnippetExecutorSpec::Alternative("foo".into()))]
     fn alternative_executor(#[case] input: &str, #[case] spec: SnippetExecutorSpec) {
         let attributes = parse_attributes(input);
-        assert_eq!(attributes.execution, SnippetExec::Exec(spec));
+        let SnippetExecution::Exec(args) = attributes.execution else { panic!("not an exec snippet") };
+        assert_eq!(args.spec, spec);
     }
 
     #[test]
     fn acquire_terminal_alternative() {
         let attributes = parse_attributes("bash +acquire_terminal:foo");
-        assert_eq!(attributes.execution, SnippetExec::AcquireTerminal(SnippetExecutorSpec::Alternative("foo".into())));
+        assert_eq!(
+            attributes.execution,
+            SnippetExecution::Exec(SnippetExecArgs {
+                spec: SnippetExecutorSpec::Alternative("foo".into()),
+                repr: SnippetRepr::AcquireTerminal,
+                ..Default::default()
+            })
+        );
     }
 
     #[rstest]
