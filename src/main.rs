@@ -28,7 +28,6 @@ use directories::ProjectDirs;
 use export::exporter::OutputDirectory;
 use render::{engine::MaxSize, properties::WindowSize};
 use std::{
-    ascii::AsciiExt,
     env::{self, current_dir},
     io,
     path::{Path, PathBuf},
