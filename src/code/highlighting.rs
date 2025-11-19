@@ -115,6 +115,7 @@ impl SnippetHighlighter {
             Cpp => "cpp",
             Crontab => "crontab",
             Css => "css",
+            Dart => "dart",
             D2 => "txt",
             DLang => "d",
             Diff => "diff",
@@ -163,6 +164,7 @@ impl SnippetHighlighter {
             Terraform => "tf",
             Toml => "toml",
             TypeScript => "ts",
+            TypeScriptReact => "tsx",
             Typst => "txt",
             // default to plain text so we get the same look&feel
             Unknown(_) => "txt",

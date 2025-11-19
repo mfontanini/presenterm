@@ -16,7 +16,10 @@ use crate::{
     },
     terminal::ansi::AnsiParser,
     theme::{Alignment, ExecutionOutputBlockStyle, ExecutionStatusBlockStyle},
-    ui::separator::{RenderSeparator, SeparatorWidth},
+    ui::{
+        execution::pty::{PtySnippetHandle, RunPtySnippetTrigger},
+        separator::{RenderSeparator, SeparatorWidth},
+    },
 };
 use std::{
     io::BufRead,
@@ -150,7 +153,7 @@ impl Pollable for OperationPollable {
         // Pull data out of the process' output and drop the handle state.
         let mut state = handle.state.lock().unwrap();
         let ExecutionState { output, status } = &mut *state;
-        let status = status.clone();
+        let status = *status;
 
         let modified = output.len() != self.last_length;
         let mut lines = Vec::new();
@@ -203,10 +206,6 @@ impl SnippetHandle {
         Self(Arc::new(Mutex::new(inner)))
     }
 
-    pub(crate) fn executor(&self) -> LanguageSnippetExecutor {
-        self.0.lock().unwrap().executor.clone()
-    }
-
     pub(crate) fn snippet(&self) -> Snippet {
         self.0.lock().unwrap().snippet.clone()
     }
@@ -245,16 +244,50 @@ pub(crate) struct ExecIndicatorStyle {
     pub(crate) alignment: Alignment,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) enum WrappedSnippetHandle {
+    Normal(SnippetHandle),
+    Pty(PtySnippetHandle),
+}
+
+impl WrappedSnippetHandle {
+    pub(crate) fn process_status(&self) -> Option<ProcessStatus> {
+        match self {
+            Self::Normal(handle) => handle.0.lock().unwrap().process_status,
+            Self::Pty(handle) => handle.process_status(),
+        }
+    }
+
+    pub(crate) fn build_trigger(&self) -> Box<dyn RenderAsync> {
+        match self.clone() {
+            Self::Normal(handle) => Box::new(RunSnippetTrigger::new(handle)),
+            Self::Pty(handle) => Box::new(RunPtySnippetTrigger::new(handle)),
+        }
+    }
+}
+
+impl From<SnippetHandle> for WrappedSnippetHandle {
+    fn from(handle: SnippetHandle) -> Self {
+        Self::Normal(handle)
+    }
+}
+
+impl From<PtySnippetHandle> for WrappedSnippetHandle {
+    fn from(handle: PtySnippetHandle) -> Self {
+        Self::Pty(handle)
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct ExecIndicator {
-    handle: SnippetHandle,
+    handle: WrappedSnippetHandle,
     separator_width: SeparatorWidth,
     theme: ExecutionStatusBlockStyle,
     font_size: u8,
 }
 
 impl ExecIndicator {
-    pub(crate) fn new(handle: SnippetHandle, style: ExecIndicatorStyle) -> Self {
+    pub(crate) fn new<T: Into<WrappedSnippetHandle>>(handle: T, style: ExecIndicatorStyle) -> Self {
         let ExecIndicatorStyle { theme, block_length, font_size, alignment } = style;
         let block_length = alignment.adjust_size(block_length);
         let separator_width = match &alignment {
@@ -265,14 +298,14 @@ impl ExecIndicator {
                 SeparatorWidth::Fixed(block_length.max(MINIMUM_SEPARATOR_WIDTH * font_size as u16))
             }
         };
+        let handle = handle.into();
         Self { handle, separator_width, theme, font_size }
     }
 }
 
 impl AsRenderOperations for ExecIndicator {
     fn as_render_operations(&self, _dimensions: &WindowSize) -> Vec<RenderOperation> {
-        let inner = self.handle.0.lock().unwrap();
-        let status = &inner.process_status;
+        let status = self.handle.process_status();
         let description = match status {
             Some(ProcessStatus::Running) => Text::new("running", self.theme.running_style),
             Some(ProcessStatus::Success) => Text::new("finished", self.theme.success_style),
@@ -296,7 +329,7 @@ mod tests {
     use crate::{
         code::{
             execute::SnippetExecutor,
-            snippet::{SnippetAttributes, SnippetExec, SnippetLanguage},
+            snippet::{SnippetAttributes, SnippetExecution, SnippetLanguage},
         },
         markdown::{
             elements::{Line, Text},
@@ -308,7 +341,10 @@ mod tests {
         let snippet = Snippet {
             contents: code.into(),
             language: SnippetLanguage::Bash,
-            attributes: SnippetAttributes { execution: SnippetExec::Exec(Default::default()), ..Default::default() },
+            attributes: SnippetAttributes {
+                execution: SnippetExecution::Exec(Default::default()),
+                ..Default::default()
+            },
         };
         let executor = SnippetExecutor::default().language_executor(&snippet.language, &Default::default()).unwrap();
         let policy = RenderAsyncStartPolicy::OnDemand;

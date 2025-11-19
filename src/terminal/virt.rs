@@ -14,6 +14,7 @@ use crate::{
     },
     terminal::printer::TerminalCommand,
 };
+use core::fmt;
 use std::{collections::HashMap, io};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -194,6 +195,20 @@ impl VirtualTerminal {
             }
         };
         Ok(())
+    }
+}
+
+impl fmt::Debug for VirtualTerminal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VirtualTerminal")
+            .field("row", &self.row)
+            .field("column", &self.column)
+            .field("colors", &self.colors)
+            .field("background_color", &self.background_color)
+            .field("images", &self.images)
+            .field("row_heights", &self.row_heights)
+            .field("image_behavior", &self.image_behavior)
+            .finish()
     }
 }
 

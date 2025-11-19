@@ -311,6 +311,30 @@ impl Color {
         Self::Rgb { r, g, b }
     }
 
+    pub(crate) fn from_8bit(color: u8) -> Option<Self> {
+        match color {
+            0 | 8 => Self::Black.into(),
+            1 | 9 => Self::Red.into(),
+            2 | 10 => Self::Green.into(),
+            3 | 11 => Self::Yellow.into(),
+            4 | 12 => Self::Blue.into(),
+            5 | 13 => Self::Magenta.into(),
+            6 | 14 => Self::Cyan.into(),
+            7 | 15 => Self::White.into(),
+            16..=231 => {
+                let mapping = [0, 95, 95 + 40, 95 + 80, 95 + 120, 95 + 160];
+                let mut value = color - 16;
+                let b = (value % 6) as usize;
+                value /= 6;
+                let g = (value % 6) as usize;
+                value /= 6;
+                let r = (value % 6) as usize;
+                Some(Self::new(mapping[r], mapping[g], mapping[b]))
+            }
+            _ => None,
+        }
+    }
+
     pub(crate) fn as_rgb(&self) -> Option<(u8, u8, u8)> {
         match self {
             Self::Rgb { r, g, b } => Some((*r, *g, *b)),
