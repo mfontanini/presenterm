@@ -121,9 +121,10 @@
         },
         "theme": {
           "description": "The theme to use by default in every presentation unless overridden.",
-          "type": [
-            "string",
-            "null"
+          "allOf": [
+            {
+              "$ref": "#/definitions/ThemeConfig"
+            }
           ]
         },
         "validate_overflows": {
@@ -977,6 +978,45 @@
         }
       },
       "additionalProperties": false
+    },
+    "ThemeConfig": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "description": "Theme of the presentation",
+          "type": "string"
+        },
+        {
+          "description": "Automatic dark/light theme switch based on the terminal background luminance",
+          "type": "object",
+          "required": [
+            "dark",
+            "light"
+          ],
+          "properties": {
+            "dark": {
+              "description": "Dark theme of the presentation",
+              "type": "string"
+            },
+            "light": {
+              "description": "Light theme of ther presentation",
+              "type": "string"
+            },
+            "timeout": {
+              "description": "Light/Dark detection timeout in ms",
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 1.0
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "TypstConfig": {
       "type": "object",

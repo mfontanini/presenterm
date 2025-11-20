@@ -74,12 +74,35 @@ pub enum ConfigLoadError {
     Invalid(#[from] serde_yaml::Error),
 }
 
+#[derive(Clone, Debug, Deserialize, Default)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+#[serde(untagged)]
+#[cfg_attr(feature = "json-schema", schemars(with = "ThemeConfigSchema"))]
+pub enum ThemeConfig {
+    #[default]
+    None,
+    /// Theme of the presentation
+    Some(String),
+    /// Automatic dark/light theme switch based on the terminal background luminance
+    Dynamic {
+        /// Dark theme of the presentation
+        dark: String,
+        /// Light theme of ther presentation
+        light: String,
+        /// Light/Dark detection timeout in ms
+        #[cfg_attr(feature = "json-schema", validate(range(min = 1)))]
+        timeout: Option<u64>,
+    },
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct DefaultsConfig {
     /// The theme to use by default in every presentation unless overridden.
-    pub theme: Option<String>,
+    #[serde(default)]
+    pub theme: ThemeConfig,
 
     /// Override the terminal font size when in windows or when using sixel.
     #[serde(default = "default_terminal_font_size")]
