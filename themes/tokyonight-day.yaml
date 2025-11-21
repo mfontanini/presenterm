@@ -106,14 +106,14 @@ block_quote:
   prefix: "▍ "
   colors:
     foreground: "3760bf"
-    background: "545c7e"
+    background: "d4d6e4"
     prefix: "8c6c3e"
 
 alert:
   prefix: "▍ "
   base_colors:
     foreground: "3760bf"
-    background: "545c7e"
+    background: "d4d6e4"
   styles:
     note:
       color: "2e7de9"
