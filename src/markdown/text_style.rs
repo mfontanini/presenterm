@@ -313,14 +313,22 @@ impl Color {
 
     pub(crate) fn from_8bit(color: u8) -> Option<Self> {
         match color {
-            0 | 8 => Self::Black.into(),
-            1 | 9 => Self::Red.into(),
-            2 | 10 => Self::Green.into(),
-            3 | 11 => Self::Yellow.into(),
-            4 | 12 => Self::Blue.into(),
-            5 | 13 => Self::Magenta.into(),
-            6 | 14 => Self::Cyan.into(),
-            7 | 15 => Self::White.into(),
+            0 => Self::Black.into(),
+            1 => Self::DarkRed.into(),
+            2 => Self::DarkGreen.into(),
+            3 => Self::DarkYellow.into(),
+            4 => Self::DarkBlue.into(),
+            5 => Self::DarkMagenta.into(),
+            6 => Self::DarkCyan.into(),
+            7 => Self::Grey.into(),
+            8 => Self::DarkGrey.into(),
+            9 => Self::Red.into(),
+            10 => Self::Green.into(),
+            11 => Self::Yellow.into(),
+            12 => Self::Blue.into(),
+            13 => Self::Magenta.into(),
+            14 => Self::Cyan.into(),
+            15 => Self::White.into(),
             16..=231 => {
                 let mapping = [0, 95, 95 + 40, 95 + 80, 95 + 120, 95 + 160];
                 let mut value = color - 16;
