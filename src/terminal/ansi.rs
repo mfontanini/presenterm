@@ -169,11 +169,11 @@ mod tests {
     )]
     #[case::standard_foreground1(
         "\x1b[38;5;1mhi", 
-        Line::from(Text::new("hi", TextStyle::default().fg_color(Color::Red)))
+        Line::from(Text::new("hi", TextStyle::default().fg_color(Color::DarkRed)))
     )]
     #[case::standard_foreground2(
         "\x1b[31mhi", 
-        Line::from(Text::new("hi", TextStyle::default().fg_color(Color::Red)))
+        Line::from(Text::new("hi", TextStyle::default().fg_color(Color::DarkRed)))
     )]
     #[case::rgb_foreground(
         "\x1b[38;2;3;4;5mhi", 
@@ -181,11 +181,11 @@ mod tests {
     )]
     #[case::standard_background1(
         "\x1b[48;5;1mhi", 
-        Line::from(Text::new("hi", TextStyle::default().bg_color(Color::Red)))
+        Line::from(Text::new("hi", TextStyle::default().bg_color(Color::DarkRed)))
     )]
     #[case::standard_background2(
         "\x1b[41mhi", 
-        Line::from(Text::new("hi", TextStyle::default().bg_color(Color::Red)))
+        Line::from(Text::new("hi", TextStyle::default().bg_color(Color::DarkRed)))
     )]
     #[case::rgb_background(
         "\x1b[48;2;3;4;5mhi", 

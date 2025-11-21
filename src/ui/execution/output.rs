@@ -361,7 +361,7 @@ mod tests {
 
         // Expect to see the output lines
         let inner = handle.0.lock().unwrap();
-        let line = Line::from(Text::new("hi mom", TextStyle::default().fg_color(Color::Red).bold()));
+        let line = Line::from(Text::new("hi mom", TextStyle::default().fg_color(Color::DarkRed).bold()));
         assert_eq!(inner.output_lines, vec![line]);
     }
 
