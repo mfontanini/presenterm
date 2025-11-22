@@ -88,7 +88,7 @@ impl SnippetLine {
         block_style: &CodeBlockStyle,
         font_size: u8,
     ) -> WeightedLine {
-        let mut line = code_highlighter.highlight_line(&self.code, block_style);
+        let mut line = code_highlighter.style_line(&self.code, block_style);
         line.apply_style(&TextStyle::default().size(font_size));
         line.into()
     }
