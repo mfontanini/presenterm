@@ -35,6 +35,7 @@ pub(crate) struct PresentationTheme {
     pub(crate) slide_title: SlideTitleStyle,
     pub(crate) code: CodeBlockStyle,
     pub(crate) execution_output: ExecutionOutputBlockStyle,
+    pub(crate) pty_output: PtyOutputBlockStyle,
     pub(crate) inline_code: ModifierStyle,
     pub(crate) bold: ModifierStyle,
     pub(crate) italics: ModifierStyle,
@@ -63,6 +64,7 @@ impl PresentationTheme {
             slide_title,
             code,
             execution_output,
+            pty_output,
             inline_code,
             bold,
             italics,
@@ -88,6 +90,7 @@ impl PresentationTheme {
             slide_title: SlideTitleStyle::new(slide_title, &palette, options)?,
             code: CodeBlockStyle::new(code),
             execution_output: ExecutionOutputBlockStyle::new(execution_output, &palette)?,
+            pty_output: PtyOutputBlockStyle::new(pty_output, &palette)?,
             inline_code: ModifierStyle::new(inline_code, &palette)?,
             bold: ModifierStyle::new(bold, &palette)?,
             italics: ModifierStyle::new(italics, &palette)?,
@@ -633,6 +636,53 @@ impl ExecutionStatusBlockStyle {
         let failure_style = TextStyle::colored(failure.resolve(palette)?);
         let not_started_style = TextStyle::colored(not_started.resolve(palette)?);
         Ok(Self { running_style, success_style, failure_style, not_started_style })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct PtyOutputBlockStyle {
+    pub(crate) style: TextStyle,
+    pub(crate) standby: PtyStandbyStyle,
+}
+
+impl PtyOutputBlockStyle {
+    fn new(raw: &raw::PtyOutputBlockStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
+        let raw::PtyOutputBlockStyle { colors, standby } = raw;
+        let colors = colors.resolve(palette)?;
+        let style = TextStyle::colored(colors);
+        let standby = match standby {
+            Some(raw::PtyStandbyStyle::LargePlay) => PtyStandbyStyle::LargePlay,
+            None => Default::default(),
+        };
+        Ok(Self { style, standby })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) enum PtyStandbyStyle {
+    #[default]
+    LargePlay,
+}
+
+impl PtyStandbyStyle {
+    pub(crate) fn as_lines(&self) -> &[&str] {
+        match self {
+            Self::LargePlay => &[
+                "⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣤⣶⣶⣶⣶⣤⣤⣄⡀⠀⠀⠀⠀⠀⠀⠀",
+                "⠀⠀⠀⠀⢀⣤⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣤⡀⠀⠀⠀⠀",
+                "⠀⠀⠀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⠀⠀⠀",
+                "⠀⢀⣾⣿⣿⣿⣿⣿⣿⣿⡿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⡀⠀",
+                "⠀⣾⣿⣿⣿⣿⣿⣿⣿⣿⡇⠈⠙⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⠀",
+                "⢠⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠈⠻⢿⣿⣿⣿⣿⣿⣿⣿⣿⡄",
+                "⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⣉⣿⣿⣿⣿⣿⣿⣿⡇",
+                "⠘⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⢀⣴⣾⣿⣿⣿⣿⣿⣿⣿⣿⠃",
+                "⠀⢿⣿⣿⣿⣿⣿⣿⣿⣿⡇⢀⣠⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠀",
+                "⠀⠈⢿⣿⣿⣿⣿⣿⣿⣿⣷⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠁⠀",
+                "⠀⠀⠀⠻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠟⠀⠀⠀",
+                "⠀⠀⠀⠀⠈⠛⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠛⠁⠀⠀⠀⠀",
+                "⠀⠀⠀⠀⠀⠀⠀⠈⠙⠛⠛⠿⠿⠿⠿⠛⠛⠋⠁⠀⠀⠀⠀⠀⠀⠀",
+            ],
+        }
     }
 }
 
