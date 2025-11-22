@@ -197,7 +197,14 @@ impl PresentationBuilder<'_, '_> {
         executor: LanguageSnippetExecutor,
         args: PtyArgs,
     ) -> BuildResult {
-        let handle = PtySnippetHandle::new(snippet, executor, RenderAsyncStartPolicy::Automatic, args);
+        let standby = args.standby;
+        let policy = if standby { RenderAsyncStartPolicy::OnDemand } else { RenderAsyncStartPolicy::Automatic };
+        let handle = PtySnippetHandle::new(snippet, executor, policy, args);
+        // If we're using standby mode we still need a trigger
+        if standby {
+            self.chunk_operations
+                .push(RenderOperation::RenderAsync(WrappedSnippetHandle::from(handle.clone()).build_trigger().into()));
+        }
         self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(RunPtySnippetTrigger::new(handle.clone()))));
         self.push_pty_code_execution(handle)
     }
@@ -375,18 +382,11 @@ impl PresentationBuilder<'_, '_> {
 
     fn push_pty_code_execution(&mut self, handle: PtySnippetHandle) -> BuildResult {
         let snippet = handle.snippet();
-        let mut style = self.theme.execution_output.clone();
+        let mut style = self.theme.pty_output.clone();
         if snippet.attributes.no_background {
             style.style.colors.background = None;
-            style.padding = Default::default();
         }
-        let operation = PtySnippetOutputOperation::new(
-            handle,
-            style,
-            // execution_output_style,
-            // block_length,
-            self.slide_font_size(),
-        );
+        let operation = PtySnippetOutputOperation::new(handle, style, self.slide_font_size());
         let operation = RenderOperation::RenderDynamic(Rc::new(operation));
         self.chunk_operations.push(operation);
         Ok(())

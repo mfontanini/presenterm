@@ -4,7 +4,7 @@ use crate::{
         snippet::{PtyArgs, Snippet},
     },
     markdown::{
-        elements::Text,
+        elements::{Line, Text},
         text_style::{Color, TextStyle},
     },
     render::{
@@ -14,14 +14,15 @@ use crate::{
         },
         properties::WindowSize,
     },
-    theme::{Alignment, ExecutionOutputBlockStyle},
+    theme::{Alignment, PtyOutputBlockStyle},
 };
 use portable_pty::{MasterPty, PtySize, native_pty_system};
 use std::{
-    fmt, io, mem,
+    fmt, io, iter, mem,
     sync::{Arc, Mutex},
     thread,
 };
+use unicode_width::UnicodeWidthStr;
 
 const BOTTOM_MARGIN_RATIO: f64 = 0.2;
 const BOTTOM_MINIMUM_MARGIN: u16 = 7;
@@ -46,6 +47,7 @@ struct Inner {
     parser: vt100::Parser,
     size: WindowSize,
     update_size: bool,
+    standby: bool,
     policy: RenderAsyncStartPolicy,
     state: State,
 }
@@ -57,6 +59,7 @@ impl fmt::Debug for Inner {
             .field("executor", &self.executor)
             .field("size", &self.size)
             .field("update_size", &self.update_size)
+            .field("standby", &self.standby)
             .field("parser", &"...")
             .field("policy", &self.policy)
             .field("state", &"...")
@@ -67,13 +70,26 @@ impl fmt::Debug for Inner {
 #[derive(Debug)]
 pub(crate) struct PtySnippetOutputOperation {
     handle: PtySnippetHandle,
-    style: ExecutionOutputBlockStyle,
+    style: PtyOutputBlockStyle,
     font_size: u8,
 }
 
 impl PtySnippetOutputOperation {
-    pub(crate) fn new(handle: PtySnippetHandle, style: ExecutionOutputBlockStyle, font_size: u8) -> Self {
+    pub(crate) fn new(handle: PtySnippetHandle, style: PtyOutputBlockStyle, font_size: u8) -> Self {
         Self { handle, style, font_size }
+    }
+
+    fn standby_row(&self, row: u16, dimensions: &WindowSize) -> Line {
+        let lines = self.style.standby.as_lines();
+        let start_index = (dimensions.rows / 2).saturating_sub(lines.len() as u16 / 2);
+        if row < start_index || row >= start_index + lines.len() as u16 {
+            "".into()
+        } else {
+            let index = (row - start_index) as usize;
+            let padding = usize::from(dimensions.columns / 2).saturating_sub(lines[index].width() / 2);
+            let line: String = iter::repeat_n(' ', padding).chain(lines[index].chars()).collect();
+            Text::new(line, self.style.style).into()
+        }
     }
 }
 
@@ -85,12 +101,34 @@ impl AsRenderOperations for PtySnippetOutputOperation {
             .shrink_rows(vertical_padding / self.font_size as u16)
             .shrink_columns(dimensions.columns - dimensions.columns / self.font_size as u16);
 
-        if inner.update_size && inner.size != dimensions {
+        if inner.update_size && inner.size != dimensions && dimensions.rows > 0 {
             inner.size = dimensions;
             inner.parser.screen_mut().set_size(dimensions.rows, dimensions.columns);
         }
         if matches!(inner.state, State::Initial) {
-            return Vec::new();
+            let mut operations = Vec::new();
+            if inner.standby {
+                let dimensions = inner.size;
+                for row in 0..dimensions.rows {
+                    let line = self.standby_row(row, &dimensions);
+                    operations.extend([
+                        RenderOperation::RenderBlockLine(BlockLine {
+                            prefix: "".into(),
+                            right_padding_length: 0,
+                            repeat_prefix_on_wrap: false,
+                            text: line.into(),
+                            block_length: dimensions.columns,
+                            block_color: self.style.style.colors.background,
+                            alignment: Alignment::Center {
+                                minimum_margin: Default::default(),
+                                minimum_size: Default::default(),
+                            },
+                        }),
+                        RenderOperation::RenderLineBreak,
+                    ]);
+                }
+            }
+            return operations;
         }
 
         let screen = inner.parser.screen();
@@ -296,7 +334,16 @@ impl PtySnippetHandle {
         };
         let update_size = args.columns.is_none() || args.rows.is_none();
         let parser = vt100::Parser::new(size.rows, size.columns, 1000);
-        let inner = Inner { snippet, executor, parser, size, update_size, state: Default::default(), policy };
+        let inner = Inner {
+            snippet,
+            executor,
+            parser,
+            size,
+            update_size,
+            standby: args.standby,
+            state: Default::default(),
+            policy,
+        };
         Self(Arc::new(Mutex::new(inner)))
     }
 

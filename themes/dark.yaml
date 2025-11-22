@@ -42,6 +42,11 @@ execution_output:
     horizontal: 2
     vertical: 1
 
+pty_output:
+  colors:
+    foreground: palette:white
+    background: palette:black
+
 inline_code:
   colors:
     foreground: "04de20"

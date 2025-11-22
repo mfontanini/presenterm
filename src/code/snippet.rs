@@ -442,7 +442,7 @@ pub enum SnippetBlockParseError {
     #[error("invalid width: {0}")]
     InvalidWidth(PercentParseError),
 
-    #[error("invalid pty args, expected '<columns>:<rows>'")]
+    #[error("invalid pty args, expected '[standby:]<columns>:<rows>'")]
     InvalidPtyArgs,
 
     #[error("duplicate attribute: {0}")]
@@ -725,18 +725,35 @@ pub(crate) enum SnippetRepr {
 pub(crate) struct PtyArgs {
     pub(crate) columns: Option<u16>,
     pub(crate) rows: Option<u16>,
+    pub(crate) standby: bool,
 }
 
 impl FromStr for PtyArgs {
     type Err = SnippetBlockParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut standby = false;
+        let s = match s.strip_prefix("standby") {
+            Some(rest) => {
+                let rest = match rest.get(..1) {
+                    Some(":") => &rest[1..],
+                    Some(_) => return Err(SnippetBlockParseError::InvalidPtyArgs),
+                    None => rest,
+                };
+                standby = true;
+                rest
+            }
+            None => s,
+        };
+        if s.is_empty() {
+            return Ok(Self { standby, ..Default::default() });
+        }
         let Some((columns, rows)) = s.split_once(':') else {
             return Err(SnippetBlockParseError::InvalidPtyArgs);
         };
         let columns = columns.parse().map_err(|_| SnippetBlockParseError::InvalidPtyArgs)?;
         let rows = rows.parse().map_err(|_| SnippetBlockParseError::InvalidPtyArgs)?;
-        Ok(Self { columns: Some(columns), rows: Some(rows) })
+        Ok(Self { columns: Some(columns), rows: Some(rows), standby })
     }
 }
 
