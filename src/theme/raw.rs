@@ -31,6 +31,10 @@ pub struct PresentationTheme {
     #[serde(default)]
     pub(crate) execution_output: ExecutionOutputBlockStyle,
 
+    /// The style for the pty output of a piece of code.
+    #[serde(default)]
+    pub(crate) pty_output: PtyOutputBlockStyle,
+
     /// The style for inline code.
     #[serde(default)]
     pub(crate) inline_code: ModifierStyle,
@@ -686,6 +690,25 @@ pub(crate) struct ExecutionOutputBlockStyle {
     /// The padding.
     #[serde(default)]
     pub(crate) padding: PaddingRect,
+}
+
+/// The style for the output of a code execution block running in pty mode.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct PtyOutputBlockStyle {
+    /// The colors to be used for the output pane.
+    #[serde(default)]
+    pub(crate) colors: RawColors,
+
+    /// The style for the standby state.
+    #[serde(default)]
+    pub(crate) standby: Option<PtyStandbyStyle>,
+}
+
+/// The style for the standby state.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) enum PtyStandbyStyle {
+    /// Show a play icon.
+    LargePlay,
 }
 
 /// The style for the status of a code execution block.

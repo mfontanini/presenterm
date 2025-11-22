@@ -42,6 +42,11 @@ execution_output:
     horizontal: 2
     vertical: 1
 
+pty_output:
+  colors:
+    foreground: palette:text
+    background: palette:surface0
+
 inline_code:
   colors:
     foreground: palette:green
