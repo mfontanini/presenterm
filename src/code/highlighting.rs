@@ -97,7 +97,7 @@ impl SnippetHighlighter {
         let extension = Self::language_extension(language);
         let syntax = SYNTAX_SET.find_syntax_by_extension(extension).unwrap();
         let highlighter = HighlightLines::new(syntax, &self.theme);
-        LanguageHighlighter { highlighter }
+        LanguageHighlighter::new(language.clone(), highlighter)
     }
 
     fn language_extension(language: &SnippetLanguage) -> &'static str {
@@ -186,15 +186,28 @@ impl Default for SnippetHighlighter {
 }
 
 pub(crate) struct LanguageHighlighter<'a> {
+    language: SnippetLanguage,
     highlighter: HighlightLines<'a>,
+    parse_started: bool,
 }
 
-impl LanguageHighlighter<'_> {
-    pub(crate) fn highlight_line(&mut self, line: &str, block_style: &CodeBlockStyle) -> Line {
-        self.style_line(line, block_style)
+impl<'a> LanguageHighlighter<'a> {
+    fn new(language: SnippetLanguage, highlighter: HighlightLines<'a>) -> Self {
+        Self { language, highlighter, parse_started: false }
     }
 
     pub(crate) fn style_line(&mut self, line: &str, block_style: &CodeBlockStyle) -> Line {
+        if !self.parse_started {
+            let line = line.trim();
+            if !line.is_empty() {
+                self.parse_started = true;
+                // Parse a fake "<?php" line if PHP code doesn't start with one so highlighting
+                // looks good.
+                if matches!(self.language, SnippetLanguage::Php) && !line.starts_with("<?php") {
+                    self.highlighter.highlight_line("<?php\n", &SYNTAX_SET).unwrap();
+                }
+            }
+        }
         let texts: Vec<_> = self
             .highlighter
             .highlight_line(line, &SYNTAX_SET)
