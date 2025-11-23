@@ -236,6 +236,11 @@ pwsh:
   commands:
     - ["pwsh", "$pwd/script.ps1"]
   hidden_line_prefix: "/// "
+wsl:
+  filename: script.sh
+  commands:
+    - ["wsl", "$(wslpath -u '$pwd')/script.sh"]
+  hidden_line_prefix: "/// "
 csharp:
   filename: snippet.cs
   commands:

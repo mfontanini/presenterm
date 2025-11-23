@@ -612,7 +612,7 @@ impl FromStr for SnippetLanguage {
             "ada" => Ada,
             "asp" => Asp,
             "awk" => Awk,
-            "bash" => Bash,
+            "bash" | "wsl" => Bash,
             "c" => C,
             "cmake" => CMake,
             "crontab" => Crontab,
