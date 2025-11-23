@@ -231,6 +231,11 @@ zsh:
   commands:
     - ["zsh", "$pwd/script.sh"]
   hidden_line_prefix: "/// "
+pwsh:
+  filename: script.ps1
+  commands:
+    - ["pwsh", "$pwd/script.ps1"]
+  hidden_line_prefix: "/// "
 csharp:
   filename: snippet.cs
   commands:

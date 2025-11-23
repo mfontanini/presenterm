@@ -147,6 +147,7 @@ impl SnippetHighlighter {
             OCaml => "ml",
             Perl => "pl",
             Php => "php",
+            PowerShell => "ps1",
             Protobuf => "proto",
             Puppet => "pp",
             Python => "py",
