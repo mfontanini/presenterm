@@ -5,7 +5,7 @@ use crate::{
     },
     presentation::builder::{BuildResult, PresentationBuilder},
     render::operation::{BlockLine, RenderOperation},
-    theme::{Alignment, raw::RawColor},
+    theme::{Alignment, ElementType, raw::RawColor},
 };
 use comrak::nodes::AlertType;
 use unicode_width::UnicodeWidthStr;
@@ -19,7 +19,7 @@ impl PresentationBuilder<'_, '_> {
             prefix,
             self.theme.block_quote.base_style.colors,
             prefix_style,
-            self.theme.block_quote.alignment,
+            self.theme.alignment(&ElementType::BlockQuote),
         )
     }
 
