@@ -165,12 +165,15 @@ impl<'a> Presenter<'a> {
                     CommandSideEffect::None => (),
                 };
             }
-            let slide_index = self.state.presentation().current_slide_index() as u32 + 1;
-            let slide = self.state.presentation().current_slide();
-            self.publish_event(SpeakerNotesEvent::GoTo {
-                slide: slide_index,
-                chunk: slide.current_chunk_index() as u32,
-            })?;
+
+            if !matches!(self.state, PresenterState::Failure { .. }) {
+                let slide_index = self.state.presentation().current_slide_index() as u32 + 1;
+                let slide = self.state.presentation().current_slide();
+                self.publish_event(SpeakerNotesEvent::GoTo {
+                    slide: slide_index,
+                    chunk: slide.current_chunk_index() as u32,
+                })?;
+            }
         }
     }
 
