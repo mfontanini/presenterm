@@ -121,7 +121,7 @@ impl PresentationTheme {
             Heading4 => self.headings.h4.alignment,
             Heading5 => self.headings.h5.alignment,
             Heading6 => self.headings.h6.alignment,
-            Paragraph => Some(self.default_style.alignment),
+            Paragraph | List => Some(self.default_style.alignment),
             PresentationTitle => self.intro_slide.title.alignment,
             PresentationSubTitle => self.intro_slide.subtitle.alignment,
             PresentationEvent => self.intro_slide.event.alignment,
@@ -721,6 +721,7 @@ pub(crate) enum ElementType {
     PresentationAuthor,
     Table,
     BlockQuote,
+    List,
 }
 
 #[derive(Clone, Debug)]

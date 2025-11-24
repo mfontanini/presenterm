@@ -5,6 +5,7 @@ use crate::{
     },
     presentation::builder::{BuildResult, LastElement, PresentationBuilder},
     render::operation::{BlockLine, RenderOperation},
+    theme::ElementType,
 };
 
 impl PresentationBuilder<'_, '_> {
@@ -52,7 +53,7 @@ impl PresentationBuilder<'_, '_> {
             self.apply_theme_text_style(piece);
             piece.style = piece.style.size(font_size);
         }
-        let alignment = self.slide_state.alignment.unwrap_or_default();
+        let alignment = self.slide_state.alignment.unwrap_or(self.theme.alignment(&ElementType::List));
         self.chunk_operations.push(RenderOperation::RenderBlockLine(BlockLine {
             prefix: prefix.into(),
             right_padding_length: 0,
