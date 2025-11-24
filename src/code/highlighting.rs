@@ -171,6 +171,7 @@ impl SnippetHighlighter {
             Unknown(_) => "txt",
             Verilog => "v",
             Vue => "vue",
+            Wsl => "sh",
             Xml => "xml",
             Yaml => "yaml",
             Zsh => "sh",
