@@ -22,6 +22,24 @@ use tempfile::TempDir;
 static EXECUTORS: Lazy<BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>> =
     Lazy::new(|| serde_yaml::from_slice(include_bytes!("../../executors.yaml")).expect("executors.yaml is broken"));
 
+/// Strip verbatim UNC prefix when drive letters
+#[cfg(windows)]
+fn strip_drive_unc_prefix(path: &Path) -> String {
+    // Convert to string (lossy if needed)
+    let path_str = path.to_string_lossy();
+
+    // If it starts with \\?\ and the next part looks like a drive letter, strip it
+    if let Some(rest) = path_str.strip_prefix(r"\\?\") {
+        if rest.len() >= 2 && rest.as_bytes()[1] == b':' {
+            // Example: \\?\C:\foo -> C:\foo
+            return rest.to_string();
+        }
+    }
+
+    // Otherwise, return the original string unchanged
+    path_str.into_owned()
+}
+
 /// Allows executing code.
 pub struct SnippetExecutor {
     executors: BTreeMap<SnippetLanguage, LanguageSnippetExecutionConfig>,
@@ -308,6 +326,10 @@ impl CommandsRunner {
         let (reader, writer) = os_pipe::pipe().map_err(CodeExecuteError::Pipe)?;
         let writer_clone = writer.try_clone().map_err(CodeExecuteError::Pipe)?;
         let script_dir = self.script_directory.path().to_string_lossy();
+
+        #[cfg(windows)]
+        let cwd = strip_drive_unc_prefix(cwd);
+
         for command in &mut commands {
             *command = command.replace("$pwd", &script_dir);
         }

@@ -236,6 +236,11 @@ pwsh:
   commands:
     - ["pwsh", "$pwd/script.ps1"]
   hidden_line_prefix: "/// "
+cmd:
+  filename: script.cmd
+  commands:
+    - ["cmd", "/q", "/c", "$pwd/script.cmd"]
+  hidden_line_prefix: "/// "
 wsl:
   filename: script.sh
   commands:

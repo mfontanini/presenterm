@@ -613,6 +613,7 @@ impl FromStr for SnippetLanguage {
             "asp" => Asp,
             "awk" => Awk,
             "bash" | "wsl" => Bash,
+            "bat" | "cmd" => BatchFile,
             "c" => C,
             "cmake" => CMake,
             "crontab" => Crontab,

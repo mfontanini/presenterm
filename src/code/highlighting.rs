@@ -107,7 +107,7 @@ impl SnippetHighlighter {
             Asp => "asa",
             Awk => "awk",
             Bash => "sh",
-            BatchFile => "bat",
+            BatchFile => "cmd",
             C => "c",
             CMake => "cmake",
             CSharp => "cs",
