@@ -350,6 +350,10 @@ pub(crate) struct DefaultStyle {
     /// The colors to be used.
     #[serde(default)]
     pub(crate) colors: RawColors,
+
+    /// The alignment for all elements.
+    #[serde(flatten, default)]
+    pub(crate) alignment: Option<Alignment>,
 }
 
 /// A simple style.
