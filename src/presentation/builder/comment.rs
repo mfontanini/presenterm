@@ -16,6 +16,8 @@ impl PresentationBuilder<'_, '_> {
             Err(error) => {
                 // If we failed to parse this, make sure we shouldn't have ignored it
                 if self.should_ignore_comment(comment) {
+                    // Ignored comments should not add line breaks
+                    self.slide_state.ignore_element_line_break = true;
                     return Ok(());
                 }
                 return Err(self.invalid_presentation(source_position, error));
@@ -149,7 +151,27 @@ impl PresentationBuilder<'_, '_> {
         } else {
             // Ignore vim-like code folding tags
             let comment = comment.trim();
-            comment == "{{{" || comment == "}}}"
+            if comment == "{{{" || comment == "}}}" {
+                return true;
+            }
+            
+            // Ignore user comments with // prefix
+            // e.g., <!-- // This is a comment -->
+            let trimmed_comment = comment.trim_start_matches(&self.options.command_prefix).trim();
+            if trimmed_comment.starts_with("//") {
+                return true;
+            }
+            
+            // Ignore user comments with Comment: prefix (case-insensitive)
+            // e.g., <!-- Comment: This is a comment -->
+            if trimmed_comment.len() >= 8 {
+                let prefix = &trimmed_comment[..8];
+                if prefix.eq_ignore_ascii_case("comment:") {
+                    return true;
+                }
+            }
+            
+            false
         }
     }
 
@@ -301,6 +323,11 @@ mod tests {
     #[case::many_close_braces("}}}")]
     #[case::vim_command("vim: hi")]
     #[case::padded_vim_command("vim: hi")]
+    #[case::double_slash("// This is a user comment")]
+    #[case::double_slash_padded("  // This is a padded comment  ")]
+    #[case::comment_colon("Comment: This is a user comment")]
+    #[case::comment_colon_lowercase("comment: This is also a user comment")]
+    #[case::comment_colon_mixedcase("CoMmEnT: Mixed case comment")]
     fn ignore_comments(#[case] comment: &str) {
         let input = format!("<!-- {comment} -->");
         Test::new(input).build();
