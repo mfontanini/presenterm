@@ -36,6 +36,7 @@ impl Default for ParserOptions {
         options.extension.wikilinks_title_before_pipe = true;
         options.extension.superscript = true;
         options.extension.footnotes = true;
+        options.parse.leave_footnote_definitions = true;
         Self(options)
     }
 }
@@ -44,13 +45,13 @@ impl Default for ParserOptions {
 ///
 /// This takes the contents of a markdown file and parses it into a list of [MarkdownElement].
 pub struct MarkdownParser<'a> {
-    arena: &'a Arena<AstNode<'a>>,
+    arena: &'a Arena<'a>,
     options: comrak::Options<'static>,
 }
 
 impl<'a> MarkdownParser<'a> {
     /// Construct a new markdown parser.
-    pub fn new(arena: &'a Arena<AstNode<'a>>) -> Self {
+    pub fn new(arena: &'a Arena<'a>) -> Self {
         Self { arena, options: ParserOptions::default().0 }
     }
 
@@ -363,13 +364,13 @@ enum StringifyImages {
 struct InlinesParser<'a> {
     inlines: Vec<Inline>,
     pending_text: Vec<Text<RawColor>>,
-    arena: &'a Arena<AstNode<'a>>,
+    arena: &'a Arena<'a>,
     soft_break: SoftBreak,
     stringify_images: StringifyImages,
 }
 
 impl<'a> InlinesParser<'a> {
-    fn new(arena: &'a Arena<AstNode<'a>>, soft_break: SoftBreak, stringify_images: StringifyImages) -> Self {
+    fn new(arena: &'a Arena<'a>, soft_break: SoftBreak, stringify_images: StringifyImages) -> Self {
         Self { inlines: Vec::new(), pending_text: Vec::new(), arena, soft_break, stringify_images }
     }
 
@@ -676,6 +677,7 @@ impl Identifier for NodeValue {
             NodeValue::Raw(_) => "raw",
             NodeValue::Alert(_) => "alert",
             NodeValue::Subtext => "subtext",
+            NodeValue::Highlight => "highlight",
         }
     }
 }
@@ -1174,9 +1176,11 @@ mom
 this[^1]
 
 [^1]: ref
+
+abc
         ";
         let elements = parse_all(input);
-        assert_eq!(elements.len(), 2);
+        assert_eq!(elements.len(), 3);
 
         let MarkdownElement::Paragraph(line) = &elements[0] else { panic!("not a paragraph") };
         assert_eq!(line, &[Line(vec![Text::from("this"), Text::new("1", TextStyle::default().superscript())])]);
