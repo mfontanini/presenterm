@@ -82,15 +82,15 @@ pub enum ConfigLoadError {
 pub enum ThemeConfig {
     #[default]
     None,
-    /// Theme of the presentation
+    /// Theme of the presentation.
     Some(String),
-    /// Automatic dark/light theme switch based on the terminal background luminance
+    /// Automatic dark/light theme switch based on the terminal background luminance.
     Dynamic {
-        /// Dark theme of the presentation
+        /// Dark theme of the presentation.
         dark: String,
-        /// Light theme of ther presentation
+        /// Light theme of the presentation.
         light: String,
-        /// Light/Dark detection timeout in ms
+        /// Light/Dark detection timeout in ms.
         #[cfg_attr(feature = "json-schema", validate(range(min = 1)))]
         timeout: Option<u64>,
     },
