@@ -24,8 +24,6 @@ use std::{
 };
 use unicode_width::UnicodeWidthStr;
 
-const BOTTOM_MARGIN_RATIO: f64 = 0.2;
-const BOTTOM_MINIMUM_MARGIN: u16 = 7;
 const DEFAULT_COLUMNS: u16 = 80;
 const DEFAULT_ROWS: u16 = 24;
 
@@ -85,12 +83,12 @@ impl PtySnippetOutputOperation {
         let lines = self.style.standby.as_lines();
         let start_index = (dimensions.rows / 2).saturating_sub(lines.len() as u16 / 2);
         if row < start_index || row >= start_index + lines.len() as u16 {
-            "".into()
+            Text::new("", TextStyle::default().size(self.font_size)).into()
         } else {
             let index = (row - start_index) as usize;
             let padding = usize::from(dimensions.columns / 2).saturating_sub(lines[index].width() / 2);
             let line: String = iter::repeat_n(' ', padding).chain(lines[index].chars()).collect();
-            Text::new(line, self.style.style).into()
+            Text::new(line, self.style.style.size(self.font_size)).into()
         }
     }
 }
@@ -98,9 +96,8 @@ impl PtySnippetOutputOperation {
 impl AsRenderOperations for PtySnippetOutputOperation {
     fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
         let mut inner = self.handle.0.lock().unwrap();
-        let vertical_padding = ((dimensions.rows as f64 * BOTTOM_MARGIN_RATIO) as u16).max(BOTTOM_MINIMUM_MARGIN);
         let dimensions = dimensions
-            .shrink_rows(vertical_padding / self.font_size as u16)
+            .shrink_rows(dimensions.rows - dimensions.rows / self.font_size as u16)
             .shrink_columns(dimensions.columns - dimensions.columns / self.font_size as u16);
 
         if inner.update_size && inner.expected_size != dimensions && dimensions.rows > 0 {

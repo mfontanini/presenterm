@@ -170,6 +170,11 @@ where
         &self.current_rect().dimensions
     }
 
+    fn current_available_dimensions(&self) -> WindowSize {
+        let rect = self.current_rect();
+        rect.dimensions.shrink_rows(self.terminal.cursor_row())
+    }
+
     fn clear_screen(&mut self) -> RenderResult {
         let current = self.current_rect().clone();
         self.terminal.execute(&TerminalCommand::ClearScreen)?;
@@ -345,7 +350,7 @@ where
     }
 
     fn render_dynamic(&mut self, generator: &dyn AsRenderOperations) -> RenderResult {
-        let operations = generator.as_render_operations(self.current_dimensions());
+        let operations = generator.as_render_operations(&self.current_available_dimensions());
         for operation in operations {
             self.render_one(&operation)?;
         }
@@ -353,7 +358,7 @@ where
     }
 
     fn render_async(&mut self, generator: &dyn RenderAsync) -> RenderResult {
-        let operations = generator.as_render_operations(self.current_dimensions());
+        let operations = generator.as_render_operations(&self.current_available_dimensions());
         for operation in operations {
             self.render_one(&operation)?;
         }
