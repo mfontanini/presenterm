@@ -45,7 +45,8 @@ struct Inner {
     snippet: Snippet,
     executor: LanguageSnippetExecutor,
     parser: vt100::Parser,
-    size: WindowSize,
+    expected_size: WindowSize,
+    actual_size: WindowSize,
     update_size: bool,
     standby: bool,
     policy: RenderAsyncStartPolicy,
@@ -57,7 +58,8 @@ impl fmt::Debug for Inner {
         f.debug_struct("Inner")
             .field("snippet", &self.snippet)
             .field("executor", &self.executor)
-            .field("size", &self.size)
+            .field("expected_size", &self.expected_size)
+            .field("actual_size", &self.actual_size)
             .field("update_size", &self.update_size)
             .field("standby", &self.standby)
             .field("parser", &"...")
@@ -101,14 +103,14 @@ impl AsRenderOperations for PtySnippetOutputOperation {
             .shrink_rows(vertical_padding / self.font_size as u16)
             .shrink_columns(dimensions.columns - dimensions.columns / self.font_size as u16);
 
-        if inner.update_size && inner.size != dimensions && dimensions.rows > 0 {
-            inner.size = dimensions;
+        if inner.update_size && inner.expected_size != dimensions && dimensions.rows > 0 {
+            inner.expected_size = dimensions;
             inner.parser.screen_mut().set_size(dimensions.rows, dimensions.columns);
         }
         if matches!(inner.state, State::Initial) {
             let mut operations = Vec::new();
             if inner.standby {
-                let dimensions = inner.size;
+                let dimensions = inner.expected_size;
                 for row in 0..dimensions.rows {
                     let line = self.standby_row(row, &dimensions);
                     operations.extend([
@@ -211,10 +213,12 @@ impl OperationPollable {
 impl Pollable for OperationPollable {
     fn poll(&mut self) -> PollableState {
         let mut inner = self.handle.0.lock().unwrap();
-        let current_size = inner.size;
+        let expected_size = inner.expected_size;
+        let actual_size = inner.actual_size;
+        inner.actual_size = expected_size;
         match &mut inner.state {
             State::Initial => match inner.executor.pty_execution_context(&inner.snippet) {
-                Ok(ctx) => match Self::spawn(ctx, inner.size, self.handle.clone()) {
+                Ok(ctx) => match Self::spawn(ctx, expected_size, self.handle.clone()) {
                     Ok(pty) => {
                         inner.state = State::Running { pty, dirty: true };
                         PollableState::Modified
@@ -230,17 +234,16 @@ impl Pollable for OperationPollable {
                 }
             },
             State::Running { dirty, pty } => {
-                if let Ok(size) = pty._master.get_size() {
-                    if size.rows != current_size.rows || size.cols != current_size.columns {
-                        let size = PtySize {
-                            rows: current_size.rows,
-                            cols: current_size.columns,
-                            pixel_width: 0,
-                            pixel_height: 0,
-                        };
-                        let _ = pty._master.resize(size);
-                    }
+                if actual_size != expected_size {
+                    let size = PtySize {
+                        rows: expected_size.rows,
+                        cols: expected_size.columns,
+                        pixel_width: 0,
+                        pixel_height: 0,
+                    };
+                    let _ = pty._master.resize(size);
                 }
+
                 if mem::take(dirty) { PollableState::Modified } else { PollableState::Unmodified }
             }
             State::ProcessTerminated(status) => {
@@ -326,19 +329,20 @@ impl PtySnippetHandle {
         policy: RenderAsyncStartPolicy,
         args: PtyArgs,
     ) -> Self {
-        let size = WindowSize {
+        let expected_size = WindowSize {
             columns: args.columns.unwrap_or(DEFAULT_COLUMNS),
             rows: args.rows.unwrap_or(DEFAULT_ROWS),
             height: 0,
             width: 0,
         };
         let update_size = args.columns.is_none() || args.rows.is_none();
-        let parser = vt100::Parser::new(size.rows, size.columns, 1000);
+        let parser = vt100::Parser::new(expected_size.rows, expected_size.columns, 1000);
         let inner = Inner {
             snippet,
             executor,
             parser,
-            size,
+            expected_size,
+            actual_size: expected_size,
             update_size,
             standby: args.standby,
             state: Default::default(),
