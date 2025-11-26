@@ -133,6 +133,7 @@ impl AsRenderOperations for PtySnippetOutputOperation {
         let screen = inner.parser.screen();
         let (rows, columns) = screen.size();
         let mut operations = vec![];
+        let cursor_position = if screen.hide_cursor() { None } else { Some(screen.cursor_position()) };
 
         for row in 0..rows {
             let mut line = Vec::new();
@@ -147,7 +148,17 @@ impl AsRenderOperations for PtySnippetOutputOperation {
                 if style.colors.background.is_none() {
                     style.colors.background = self.style.style.colors.background;
                 }
-                let contents = cell.contents();
+                let (contents, style) = match cursor_position == Some((row, column)) {
+                    true => {
+                        let contents = cell.contents();
+                        if contents.is_empty() {
+                            (self.style.cursor.symbol.as_str(), style)
+                        } else {
+                            (contents, self.style.cursor.highlight_style)
+                        }
+                    }
+                    false => (cell.contents(), style),
+                };
                 if current_style != style && !current_text.is_empty() {
                     line.push(Text::new(mem::take(&mut current_text), current_style));
                 }

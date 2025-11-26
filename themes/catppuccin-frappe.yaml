@@ -46,6 +46,10 @@ pty_output:
   colors:
     foreground: palette:text
     background: palette:surface0
+  cursor:
+    highlight_colors:
+      foreground: palette:surface0
+      background: palette:text
 
 inline_code:
   colors:

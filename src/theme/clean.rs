@@ -18,6 +18,7 @@ const DEFAULT_TYPST_VERTICAL_MARGIN: u16 = 7;
 const DEFAULT_MERMAID_THEME: &str = "default";
 const DEFAULT_MERMAID_BACKGROUND: &str = "transparent";
 const DEFAULT_D2_THEME: u32 = 0;
+const DEFAULT_PTY_CURSOR_SYMBOL: char = '█';
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ThemeOptions {
@@ -647,18 +648,35 @@ impl ExecutionStatusBlockStyle {
 pub(crate) struct PtyOutputBlockStyle {
     pub(crate) style: TextStyle,
     pub(crate) standby: PtyStandbyStyle,
+    pub(crate) cursor: PtyCursorStyle,
 }
 
 impl PtyOutputBlockStyle {
     fn new(raw: &raw::PtyOutputBlockStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
-        let raw::PtyOutputBlockStyle { colors, standby } = raw;
+        let raw::PtyOutputBlockStyle { colors, standby, cursor } = raw;
         let colors = colors.resolve(palette)?;
         let style = TextStyle::colored(colors);
         let standby = match standby {
             Some(raw::PtyStandbyStyle::LargePlay) => PtyStandbyStyle::LargePlay,
             None => Default::default(),
         };
-        Ok(Self { style, standby })
+        let cursor = PtyCursorStyle::new(cursor, palette)?;
+        Ok(Self { style, standby, cursor })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct PtyCursorStyle {
+    pub(crate) symbol: String,
+    pub(crate) highlight_style: TextStyle,
+}
+
+impl PtyCursorStyle {
+    fn new(raw: &raw::PtyCursorStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
+        let raw::PtyCursorStyle { symbol, highlight_colors } = raw;
+        let symbol = symbol.unwrap_or(DEFAULT_PTY_CURSOR_SYMBOL).to_string();
+        let highlight_style = TextStyle::colored(highlight_colors.resolve(palette)?);
+        Ok(Self { symbol, highlight_style })
     }
 }
 
