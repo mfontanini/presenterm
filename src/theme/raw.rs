@@ -706,6 +706,21 @@ pub(crate) struct PtyOutputBlockStyle {
     /// The style for the standby state.
     #[serde(default)]
     pub(crate) standby: Option<PtyStandbyStyle>,
+
+    #[serde(default)]
+    pub(crate) cursor: PtyCursorStyle,
+}
+
+/// The style for a PTY's cursor.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct PtyCursorStyle {
+    /// The symbol to use on the cursor.
+    #[serde(default)]
+    pub(crate) symbol: Option<char>,
+
+    /// The colors used when the cursor is on top of non empty cells.
+    #[serde(default)]
+    pub(crate) highlight_colors: RawColors,
 }
 
 /// The style for the standby state.

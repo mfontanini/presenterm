@@ -46,6 +46,10 @@ pty_output:
   colors:
     foreground: "212529"
     background: "e9ecef"
+  cursor:
+    highlight_colors:
+      foreground: "e9ecef"
+      background: "212529"
 
 inline_code:
   colors:

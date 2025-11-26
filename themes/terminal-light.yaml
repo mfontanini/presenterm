@@ -45,6 +45,10 @@ execution_output:
 pty_output:
   colors:
     foreground: black
+  cursor:
+    highlight_colors:
+      foreground: white
+      background: black
 
 inline_code:
   colors:
