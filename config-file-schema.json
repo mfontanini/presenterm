@@ -987,11 +987,11 @@
           "type": "null"
         },
         {
-          "description": "Theme of the presentation",
+          "description": "Theme of the presentation.",
           "type": "string"
         },
         {
-          "description": "Automatic dark/light theme switch based on the terminal background luminance",
+          "description": "Automatic dark/light theme switch based on the terminal background luminance.",
           "type": "object",
           "required": [
             "dark",
@@ -999,15 +999,15 @@
           ],
           "properties": {
             "dark": {
-              "description": "Dark theme of the presentation",
+              "description": "Dark theme of the presentation.",
               "type": "string"
             },
             "light": {
-              "description": "Light theme of ther presentation",
+              "description": "Light theme of the presentation.",
               "type": "string"
             },
             "timeout": {
-              "description": "Light/Dark detection timeout in ms",
+              "description": "Light/Dark detection timeout in ms.",
               "type": [
                 "integer",
                 "null"
