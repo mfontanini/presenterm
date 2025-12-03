@@ -6,6 +6,9 @@ Starting on version 0.10.0, _presenterm_ allows presentations to define speaker 
 which you will present like you usually do.
 * Another instance should be started using the `--listen-speaker-notes` parameter. This instance will only display 
 speaker notes in the presentation and will automatically change slides whenever the main instance does so.
+* Optionally, you can start another instance using the `--mirror-main-slide` parameter. This instance will display the
+main slide content (what the audience sees) and will automatically follow the main instance. This is useful when the
+speaker cannot directly see the projected screen.
 
 For example:
 
@@ -15,6 +18,9 @@ presenterm demo.md --publish-speaker-notes
 
 # In another shell: start the speaker notes instance
 presenterm demo.md --listen-speaker-notes
+
+# Optionally, in a third shell: mirror the main slide for the speaker
+presenterm demo.md --mirror-main-slide
 ```
 
 [![asciicast](https://asciinema.org/a/ETusvlmHuHrcLKzwa0CMQRX2J.svg)](https://asciinema.org/a/ETusvlmHuHrcLKzwa0CMQRX2J)
