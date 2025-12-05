@@ -64,6 +64,7 @@ Here are some talks and demos that feature _presenterm_:
 - [7 Rust Terminal Tools That You Should Use][rust-terminal-tools] by [Orhun Parmaksız][orhun-github]
 - [Renaissance of Terminal User Interfaces with Rust][renaissance-tui] by [Orhun Parmaksız][orhun-github]
 - [Using Nix on Apple Silicon and declarative development environments][NiXOS-and-Dev] by [pwnwriter][pwnwriter-github]
+- [Hayasen: A Robust Embedded Rust Library which supports multiple sensors][hayasen] by [Vaishnav-Sabari-Girish][vaishnav]
 
 Gave a talk using _presenterm_? We would love to feature it here! Open a PR or issue to get it added.
 
@@ -99,3 +100,5 @@ Gave a talk using _presenterm_? We would love to feature it here! Open a PR or i
 [orhun-github]: https://github.com/orhun
 [NiXOS-and-Dev]: https://github.com/pwnwriter/PTN11
 [pwnwriter-github]: https://github.com/pwnwriter
+[hayasen]: https://github.com/Vaishnav-Sabari-Girish/rust_bangalore_oct_2025
+[vaishnav]: https://github.com/Vaishnav-Sabari-Girish
