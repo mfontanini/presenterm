@@ -14,7 +14,7 @@ use crate::{
         operation::{AsRenderOperations, RenderAsyncStartPolicy, RenderOperation},
         properties::WindowSize,
     },
-    theme::{Alignment, CodeBlockStyle},
+    theme::{Alignment, CodeBlockStyle, CodeBlockStyleBackground},
     third_party::ThirdPartyRenderRequest,
     ui::execution::{
         RunAcquireTerminalSnippet, RunImageSnippet, SnippetExecutionDisabledOperation, SnippetOutputOperation,
@@ -302,7 +302,7 @@ impl PresentationBuilder<'_, '_> {
     fn code_style(&self, snippet: &Snippet) -> CodeBlockStyle {
         let mut style = self.theme.code.clone();
         if snippet.attributes.no_background {
-            style.background = false;
+            style.background = CodeBlockStyleBackground::Enabled(false);
         }
         style
     }

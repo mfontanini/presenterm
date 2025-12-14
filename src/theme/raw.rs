@@ -657,6 +657,19 @@ pub(crate) enum ParseFooterTemplateError {
     UnsupportedVariable(String),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub(crate) enum CodeBlockStyleBackground {
+    Color(RawColor),
+    Enabled(bool),
+}
+
+impl Default for CodeBlockStyleBackground {
+    fn default() -> Self {
+        CodeBlockStyleBackground::Enabled(true)
+    }
+}
+
 /// The style for a piece of code.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub(crate) struct CodeBlockStyle {
@@ -673,7 +686,7 @@ pub(crate) struct CodeBlockStyle {
     pub(crate) theme_name: Option<String>,
 
     /// Whether to use the theme's background color.
-    pub(crate) background: Option<bool>,
+    pub(crate) background: Option<CodeBlockStyleBackground>,
 
     /// Whether to show line numbers in all code blocks.
     #[serde(default)]
@@ -1074,5 +1087,62 @@ mod test {
         let color = RawColor::from_str(input).expect("failed to parse");
         let RawColor::Palette(name) = color else { panic!("not a palette color") };
         assert_eq!(name, expected);
+    }
+
+    #[test]
+    fn code_block_background_serde() {
+        let bg_true: CodeBlockStyleBackground = serde_yaml::from_str("true").unwrap();
+        assert!(matches!(bg_true, CodeBlockStyleBackground::Enabled(true)));
+
+        let bg_false: CodeBlockStyleBackground = serde_yaml::from_str("false").unwrap();
+        assert!(matches!(bg_false, CodeBlockStyleBackground::Enabled(false)));
+
+        let bg_color: CodeBlockStyleBackground = serde_yaml::from_str("\"2e3440\"").unwrap();
+        assert!(
+            matches!(bg_color, CodeBlockStyleBackground::Color(RawColor::Color(_))),
+            "Expected Color variant with hex color"
+        );
+
+        let bg_palette: CodeBlockStyleBackground = serde_yaml::from_str("\"palette:surface0\"").unwrap();
+        assert!(
+            matches!(bg_palette, CodeBlockStyleBackground::Color(RawColor::Palette(ref name)) if name == "surface0"),
+            "Expected Color variant with palette color 'surface0'"
+        );
+    }
+
+    #[test]
+    fn code_block_background_default() {
+        let default = CodeBlockStyleBackground::default();
+        assert!(matches!(default, CodeBlockStyleBackground::Enabled(true)));
+    }
+
+    #[test]
+    fn code_block_style_with_background() {
+        let yaml = r#"
+theme_name: "base16-mocha.dark"
+background: false
+"#;
+        let style: CodeBlockStyle = serde_yaml::from_str(yaml).unwrap();
+        assert!(matches!(style.background, Some(CodeBlockStyleBackground::Enabled(false))));
+
+        let yaml = r##"
+theme_name: "Catppuccin Mocha"
+background: "2e3440"
+"##;
+        let style: CodeBlockStyle = serde_yaml::from_str(yaml).unwrap();
+        assert!(
+            matches!(style.background, Some(CodeBlockStyleBackground::Color(RawColor::Color(_)))),
+            "Expected Color variant with hex color"
+        );
+
+        let yaml = r##"
+theme_name: "Catppuccin Frappe"
+background: "palette:surface0"
+"##;
+        let style: CodeBlockStyle = serde_yaml::from_str(yaml).unwrap();
+        assert!(
+            matches!(style.background, Some(CodeBlockStyleBackground::Color(RawColor::Palette(ref name))) if name == "surface0"),
+            "Expected Palette variant with 'surface0'"
+        );
     }
 }
