@@ -4,12 +4,8 @@ use crate::terminal::{
     },
     printer::{TerminalCommand, TerminalIo},
 };
+use icy_sixel::encoder::{EncodeOptions, sixel_encode};
 use image::{DynamicImage, GenericImageView, RgbaImage, imageops::FilterType};
-use sixel_rs::{
-    encoder::{Encoder, QuickFrameBuilder},
-    optflags::EncodePolicy,
-    sys::PixelFormat,
-};
 use std::fs;
 
 pub(crate) struct SixelImage(DynamicImage);
@@ -56,24 +52,15 @@ impl PrintImage for SixelPrinter {
         // We're already positioned in the right place but we may not have flushed that yet.
         terminal.execute(&TerminalCommand::Flush)?;
 
-        let encoder = Encoder::new().map_err(|e| PrintImageError::other(format!("creating sixel encoder: {e:?}")))?;
-        encoder
-            .set_encode_policy(EncodePolicy::Fast)
-            .map_err(|e| PrintImageError::other(format!("setting encoder policy: {e:?}")))?;
-
         // This check was taken from viuer: it seems to be a bug in xterm
         let width = (options.column_width * options.columns).min(1000);
         let height = options.row_height * options.rows;
         let image = image.0.resize_exact(width as u32, height as u32, FilterType::Triangle);
         let bytes = image.into_rgba8().into_raw();
 
-        let frame = QuickFrameBuilder::new()
-            .width(width as usize)
-            .height(height as usize)
-            .format(PixelFormat::RGBA8888)
-            .pixels(bytes);
-
-        encoder.encode_bytes(frame).map_err(|e| PrintImageError::other(format!("encoding sixel image: {e:?}")))?;
+        let content = sixel_encode(&bytes, width as usize, height as usize, &EncodeOptions::default())
+            .map_err(|e| PrintImageError::other(format!("encoding sixel image: {e:?}")))?;
+        terminal.execute(&TerminalCommand::PrintText { content: &content, style: Default::default() })?;
         Ok(())
     }
 }
