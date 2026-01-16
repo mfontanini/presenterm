@@ -127,6 +127,7 @@ impl SnippetHighlighter {
             File => "txt",
             Fish => "fish",
             FSharp => "fsx",
+            GdScript => "gd",
             Go => "go",
             GraphQL => "graphql",
             Haskell => "hs",
