@@ -377,6 +377,14 @@ impl SlideChunk {
             mutator.apply_all_mutations();
         }
     }
+
+    pub(crate) fn apply_background_color(&mut self, bg_color: crate::markdown::text_style::Color) {
+        for op in &mut self.operations {
+            if let RenderOperation::SetColors(colors) = op {
+                colors.background = Some(bg_color);
+            }
+        }
+    }
 }
 
 pub(crate) trait ChunkMutator: Debug {

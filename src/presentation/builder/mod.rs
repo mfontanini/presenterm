@@ -340,12 +340,10 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
     }
 
     fn apply_slide_background_color(&mut self) {
-        if let Some(bg_color) = self.slide_state.background_color {
-            let style = self.theme.default_style.style;
-            let colors = Colors { background: Some(bg_color), foreground: style.colors.foreground };
-            self.set_colors(colors);
-            self.chunk_operations.push(RenderOperation::ClearScreen);
-        }
+        // We only store the background color here; it will be applied retroactively
+        // to the slide's initial SetColors operation when the slide is terminated.
+        // This ensures the entire slide has the background color, regardless of
+        // where the command appears in the slide content.
     }
 
     fn push_slide_prelude(&mut self) {
@@ -518,8 +516,23 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
     }
 
     fn terminate_slide(&mut self) {
-        let operations = mem::take(&mut self.chunk_operations);
+        let mut operations = mem::take(&mut self.chunk_operations);
         let mutators = mem::take(&mut self.chunk_mutators);
+
+        // Apply background color to all SetColors operations in the current chunk
+        // so the entire slide uses the custom background
+        if let Some(bg_color) = self.slide_state.background_color {
+            for op in &mut operations {
+                if let RenderOperation::SetColors(colors) = op {
+                    colors.background = Some(bg_color);
+                }
+            }
+            // Also apply to any previously created chunks (from pause commands)
+            for chunk in &mut self.slide_chunks {
+                chunk.apply_background_color(bg_color);
+            }
+        }
+
         // Don't allow a last empty pause in slide since it adds nothing
         if self.slide_chunks.is_empty() || !Self::is_chunk_empty(&operations) {
             self.slide_chunks.push(SlideChunk::new(operations, mutators));
