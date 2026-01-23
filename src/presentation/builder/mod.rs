@@ -339,6 +339,15 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         self.chunk_operations.push(RenderOperation::SetColors(colors));
     }
 
+    fn apply_slide_background_color(&mut self) {
+        if let Some(bg_color) = self.slide_state.background_color {
+            let style = self.theme.default_style.style;
+            let colors = Colors { background: Some(bg_color), foreground: style.colors.foreground };
+            self.set_colors(colors);
+            self.chunk_operations.push(RenderOperation::ClearScreen);
+        }
+    }
+
     fn push_slide_prelude(&mut self) {
         let style = self.theme.default_style.style;
         self.set_colors(style.colors);
@@ -600,6 +609,7 @@ struct SlideState {
     alignment: Option<Alignment>,
     skip_slide: bool,
     last_layout_comment: Option<FileSourcePosition>,
+    background_color: Option<Color>,
 }
 
 #[derive(Clone, Debug, Default)]
