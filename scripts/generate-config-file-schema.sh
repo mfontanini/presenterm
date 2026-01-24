@@ -10,7 +10,7 @@ docker run \
   --rm \
   -v "${root_dir}:/tmp/workspace" \
   -w "/tmp/workspace" \
-  rust:1.86 \
+  rust:1.90 \
   cargo run --features json-schema -q -- --generate-config-file-schema >"${current_schema}"
 
 cp "$current_schema" "${root_dir}/config-file-schema.json"
