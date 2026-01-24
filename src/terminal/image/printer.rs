@@ -62,6 +62,19 @@ pub(crate) enum TerminalImage {
     Sixel(super::protocols::sixel::SixelImage),
 }
 
+impl fmt::Debug for TerminalImage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Kitty(_) => f.debug_tuple("Kitty").finish(),
+            Self::Iterm(_) => f.debug_tuple("Iterm").finish(),
+            Self::Ascii(_) => f.debug_tuple("Ascii").finish(),
+            Self::Raw(_) => f.debug_tuple("Raw").finish(),
+            #[cfg(feature = "sixel")]
+            Self::Sixel(_) => f.debug_tuple("Sixel").finish(),
+        }
+    }
+}
+
 impl ImageProperties for TerminalImage {
     fn dimensions(&self) -> (u32, u32) {
         match self {
