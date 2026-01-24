@@ -465,6 +465,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             resources,
             third_party,
             code_executor,
+            printer,
             themes,
             builder_options,
             dimensions,
