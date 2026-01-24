@@ -339,13 +339,6 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         self.chunk_operations.push(RenderOperation::SetColors(colors));
     }
 
-    fn apply_slide_background_color(&mut self) {
-        // We only store the background color here; it will be applied retroactively
-        // to the slide's initial SetColors operation when the slide is terminated.
-        // This ensures the entire slide has the background color, regardless of
-        // where the command appears in the slide content.
-    }
-
     fn push_slide_prelude(&mut self) {
         let style = self.theme.default_style.style;
         self.set_colors(style.colors);

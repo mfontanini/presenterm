@@ -121,7 +121,6 @@ impl PresentationBuilder<'_, '_> {
                     .resolve(&self.theme.palette)
                     .map_err(|e| self.invalid_presentation(source_position, InvalidPresentation::InvalidColor(e)))?;
                 self.slide_state.background_color = color;
-                self.apply_slide_background_color();
             }
         };
         // Don't push line breaks for any comments.
