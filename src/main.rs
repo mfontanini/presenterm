@@ -308,13 +308,7 @@ impl CoreComponents {
         if cli.export_pdf | cli.export_html {
             GraphicsMode::Raw
         } else {
-            let protocol = cli.image_protocol.as_ref().unwrap_or(&config.defaults.image_protocol);
-            match GraphicsMode::try_from(protocol) {
-                Ok(mode) => mode,
-                Err(_) => Cli::command()
-                    .error(ErrorKind::InvalidValue, "sixel support was not enabled during compilation")
-                    .exit(),
-            }
+            cli.image_protocol.as_ref().unwrap_or(&config.defaults.image_protocol).into()
         }
     }
 

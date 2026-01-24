@@ -276,7 +276,7 @@
           ]
         },
         {
-          "description": "Use the sixel protocol. Note that this requires compiling presenterm using the --features sixel flag.",
+          "description": "Use the sixel protocol.",
           "type": "string",
           "enum": [
             "sixel"

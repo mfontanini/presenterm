@@ -415,21 +415,16 @@ pub enum ImageProtocol {
     /// different hosts and therefore can only communicate via terminal escape codes.
     KittyRemote,
 
-    /// Use the sixel protocol. Note that this requires compiling presenterm using the --features
-    /// sixel flag.
+    /// Use the sixel protocol.
     Sixel,
 
     /// The default image protocol to use when no other is specified.
     AsciiBlocks,
 }
 
-pub struct SixelUnsupported;
-
-impl TryFrom<&ImageProtocol> for GraphicsMode {
-    type Error = SixelUnsupported;
-
-    fn try_from(protocol: &ImageProtocol) -> Result<Self, Self::Error> {
-        let mode = match protocol {
+impl From<&ImageProtocol> for GraphicsMode {
+    fn from(protocol: &ImageProtocol) -> Self {
+        match protocol {
             ImageProtocol::Auto => {
                 let emulator = TerminalEmulator::detect();
                 emulator.preferred_protocol()
@@ -439,12 +434,8 @@ impl TryFrom<&ImageProtocol> for GraphicsMode {
             ImageProtocol::KittyLocal => GraphicsMode::Kitty { mode: KittyMode::Local },
             ImageProtocol::KittyRemote => GraphicsMode::Kitty { mode: KittyMode::Remote },
             ImageProtocol::AsciiBlocks => GraphicsMode::AsciiBlocks,
-            #[cfg(feature = "sixel")]
             ImageProtocol::Sixel => GraphicsMode::Sixel,
-            #[cfg(not(feature = "sixel"))]
-            ImageProtocol::Sixel => return Err(SixelUnsupported),
-        };
-        Ok(mode)
+        }
     }
 }
 

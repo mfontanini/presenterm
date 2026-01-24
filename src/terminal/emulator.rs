@@ -55,7 +55,6 @@ impl TerminalEmulator {
             GraphicsMode::Iterm2Multipart,
             GraphicsMode::Kitty { mode: KittyMode::Local },
             GraphicsMode::Kitty { mode: KittyMode::Remote },
-            #[cfg(feature = "sixel")]
             GraphicsMode::Sixel,
             GraphicsMode::AsciiBlocks,
         ];
@@ -103,9 +102,7 @@ impl TerminalEmulator {
             (GraphicsMode::Iterm2Multipart, Self::Iterm2) => true,
             // All terminals support ascii protocol
             (GraphicsMode::AsciiBlocks, _) => true,
-            #[cfg(feature = "sixel")]
             (GraphicsMode::Sixel, Self::Foot | Self::Yaft | Self::Mlterm) => true,
-            #[cfg(feature = "sixel")]
             (GraphicsMode::Sixel, Self::St | Self::Xterm | Self::Unknown) => capabilities.sixel,
             _ => false,
         }

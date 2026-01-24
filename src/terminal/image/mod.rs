@@ -43,7 +43,6 @@ impl Image {
                     TerminalImage::Kitty(image) => DynamicImage::from(image.as_rgba8()).into(),
                     TerminalImage::Iterm(image) => DynamicImage::from(image.as_rgba8()).into(),
                     TerminalImage::Raw(_) => unreachable!("raw is only used for exports"),
-                    #[cfg(feature = "sixel")]
                     TerminalImage::Sixel(image) => DynamicImage::from(image.as_rgba8()).into(),
                 };
                 *ascii_image = Some(image.clone());
