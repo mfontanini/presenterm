@@ -116,7 +116,7 @@ impl PresentationBuilder<'_, '_> {
                 self.push_detached_code_execution(handle)?;
                 return Ok(());
             }
-            CommentCommand::BackgroundColor(color) => {
+            CommentCommand::SlideBackgroundColor(color) => {
                 let color = color
                     .resolve(&self.theme.palette)
                     .map_err(|e| self.invalid_presentation(source_position, InvalidPresentation::InvalidColor(e)))?;
@@ -192,7 +192,7 @@ impl PresentationBuilder<'_, '_> {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum CommentCommand {
     Alignment(CommentCommandAlignment),
-    BackgroundColor(RawColor),
+    SlideBackgroundColor(RawColor),
     Column(usize),
     EndSlide,
     FontSize(u8),
@@ -238,7 +238,7 @@ impl CommentCommand {
             format!("<!-- include: file.md -->"),
             format!("<!-- speaker_note: Your note here -->"),
             format!("<!-- snippet_output: identifier -->"),
-            format!("<!-- background_color: ff0000 -->"),
+            format!("<!-- slide_background_color: ff0000 -->"),
         ]
     }
 }
@@ -304,11 +304,11 @@ mod tests {
     }
 
     #[rstest]
-    #[case::hex("background_color: ff0000")]
-    #[case::named("background_color: red")]
+    #[case::hex("slide_background_color: ff0000")]
+    #[case::named("slide_background_color: red")]
     fn background_color_parsing(#[case] input: &str) {
         let parsed: CommentCommand = input.parse().expect("deserialization failed");
-        assert!(matches!(parsed, CommentCommand::BackgroundColor(_)));
+        assert!(matches!(parsed, CommentCommand::SlideBackgroundColor(_)));
     }
 
     #[rstest]
@@ -784,7 +784,7 @@ hi
         use crate::markdown::text_style::Color;
 
         let input = "
-<!-- background_color: ff0000 -->
+<!-- slide_background_color: ff0000 -->
 
 hello
 ";
@@ -808,7 +808,7 @@ hello
     #[test]
     fn background_color_invalid() {
         let input = "
-<!-- background_color: palette:undefined_color -->
+<!-- slide_background_color: palette:undefined_color -->
 
 hello
 ";
