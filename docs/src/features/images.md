@@ -11,16 +11,6 @@ the terminals where at least one of these is supported are:
 * [ghostty](https://ghostty.org/)
 * [foot](https://codeberg.org/dnkl/foot)
 
-Sixel support is experimental so it needs to be explicitly enabled via the `sixel` configuration flag:
-
-```bash
-cargo build --release --features sixel
-```
-
-> [!note]
-> This feature flag is only needed if your terminal emulator _only_ supports sixel. Many terminals support the kitty or 
-> iterm2 protocols so using this flag is often not required to get images to render successfully.
-
 ---
 
 Things you should know when using image tags in your presentation's markdown are:

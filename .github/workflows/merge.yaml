@@ -20,7 +20,7 @@ jobs:
           components: clippy
 
       - name: Run cargo check
-        run: cargo check --features sixel
+        run: cargo check
 
       - name: Run cargo test
         run: cargo test

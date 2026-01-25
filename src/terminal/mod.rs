@@ -11,11 +11,8 @@ pub(crate) use printer::{Terminal, TerminalWrite, should_hide_cursor};
 pub enum GraphicsMode {
     Iterm2,
     Iterm2Multipart,
-    Kitty {
-        mode: image::protocols::kitty::KittyMode,
-    },
+    Kitty { mode: image::protocols::kitty::KittyMode },
     AsciiBlocks,
     Raw,
-    #[cfg(feature = "sixel")]
     Sixel,
 }

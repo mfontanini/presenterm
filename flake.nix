@@ -3,7 +3,7 @@
 
   inputs = {
     flakebox = {
-      url = "github:rustshop/flakebox?rev=47f7fe6aa0951ee984800f3e339c0c54f4a4e862";
+      url = "github:rustshop/flakebox?rev=62af969ab344229d2a0d585a482293b3f186b221";
     };
 
     flake-utils.url = "github:numtide/flake-utils";
@@ -13,8 +13,9 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         projectName = "presenterm";
+        pkgs = flakebox.inputs.nixpkgs.legacyPackages.${system};
 
-        flakeboxLib = flakebox.lib.${system} {
+        flakeboxLib = flakebox.lib.mkLib pkgs {
           config = {
             github.ci.buildOutputs = [ ".#ci.${projectName}" ];
           };
