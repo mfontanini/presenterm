@@ -338,11 +338,14 @@ pub struct MermaidConfig {
     /// The scaling parameter to be used in the mermaid CLI.
     #[serde(default = "default_mermaid_scale")]
     pub scale: u32,
+
+    /// A path to a pupeteer JSON configuration file to be used by the `mmdc` tool.
+    pub pupeteer_config_path: Option<String>,
 }
 
 impl Default for MermaidConfig {
     fn default() -> Self {
-        Self { scale: default_mermaid_scale() }
+        Self { scale: default_mermaid_scale(), pupeteer_config_path: None }
     }
 }
 
