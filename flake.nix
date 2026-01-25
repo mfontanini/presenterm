@@ -13,8 +13,9 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         projectName = "presenterm";
+        pkgs = flakebox.inputs.nixpkgs.legacyPackages.${system};
 
-        flakeboxLib = flakebox.lib.${system} {
+        flakeboxLib = flakebox.lib.mkLib pkgs {
           config = {
             github.ci.buildOutputs = [ ".#ci.${projectName}" ];
           };
