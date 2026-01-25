@@ -18,6 +18,7 @@
         flakeboxLib = flakebox.lib.mkLib pkgs {
           config = {
             github.ci.buildOutputs = [ ".#ci.${projectName}" ];
+            rust.rustfmt.enable = false;
           };
         };
 
