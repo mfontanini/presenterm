@@ -536,6 +536,13 @@
     "MermaidConfig": {
       "type": "object",
       "properties": {
+        "config_path": {
+          "description": "A path to a mermaid JSON configuration file to be used by the `mmdc` tool.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "pupeteer_config_path": {
           "description": "A path to a pupeteer JSON configuration file to be used by the `mmdc` tool.",
           "type": [

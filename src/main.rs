@@ -255,6 +255,7 @@ impl CoreComponents {
             typst_ppi: config.typst.ppi.to_string(),
             mermaid_scale: config.mermaid.scale.to_string(),
             mermaid_pupeteer_file: config.mermaid.pupeteer_config_path.clone(),
+            mermaid_config_file: config.mermaid.config_path.clone(),
             d2_scale: config.d2.scale.map(|s| s.to_string()).unwrap_or_else(|| "-1".to_string()),
             threads: config.snippet.render.threads,
         };
