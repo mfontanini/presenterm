@@ -341,11 +341,14 @@ pub struct MermaidConfig {
 
     /// A path to a pupeteer JSON configuration file to be used by the `mmdc` tool.
     pub pupeteer_config_path: Option<String>,
+
+    /// A path to a mermaid JSON configuration file to be used by the `mmdc` tool.
+    pub config_path: Option<String>,
 }
 
 impl Default for MermaidConfig {
     fn default() -> Self {
-        Self { scale: default_mermaid_scale(), pupeteer_config_path: None }
+        Self { scale: default_mermaid_scale(), pupeteer_config_path: None, config_path: None }
     }
 }
 
