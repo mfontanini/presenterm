@@ -182,7 +182,6 @@ impl Customizations {
             Err(_) => {
                 #[cfg(target_os = "macos")]
                 if let Ok(home) = env::var("HOME") {
-                    println!("running on mac");
                     let xdg_path = Path::new(&home).join(".config").join("presenterm");
                     if xdg_path.exists() {
                         println!("Using Home config");
