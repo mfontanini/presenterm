@@ -53,7 +53,7 @@ impl FooterGenerator {
         ]);
     }
 
-    fn push_image(&self, image: &Image, alignment: Alignment, operations: &mut Vec<RenderOperation>) {
+    fn push_image(&self, image: &Image, alignment: Alignment, height: u16, operations: &mut Vec<RenderOperation>) {
         let mut properties = ImageRenderProperties::default();
 
         operations.push(RenderOperation::ApplyMargin(MarginProperties {
@@ -73,7 +73,7 @@ impl FooterGenerator {
         };
         operations.extend([
             // Start printing the image at the top of the footer rect
-            RenderOperation::JumpToRow { index: 0 },
+            RenderOperation::JumpToBottomRow { index: height / 2 },
             RenderOperation::RenderImage(image.clone(), properties),
             RenderOperation::PopMargin,
         ]);
@@ -101,12 +101,10 @@ impl AsRenderOperations for FooterGenerator {
                 for (content, alignment) in [left, center, right].iter().zip(alignments) {
                     if let Some(content) = content {
                         match content {
-                            RenderedFooterContent::Line(line) => {
-                                Self::render_line(line, alignment, *height, &mut operations);
-                            }
-                            RenderedFooterContent::Image(image) => {
-                                self.push_image(image, alignment, &mut operations);
-                            }
+                            RenderedFooterContent::Line(line) =>
+                                Self::render_line(line, alignment, *height, &mut operations),
+                            RenderedFooterContent::Image(image) =>
+                                self.push_image(image, alignment, *height, &mut operations),
                         };
                     }
                 }
