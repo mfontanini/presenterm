@@ -943,12 +943,18 @@ impl FromStr for RawColor {
             // Fallback to hex-encoded rgb
             _ => {
                 let hex = match input.len() {
-                    6 => input.to_string(),
                     3 => input.chars().flat_map(|c| [c, c]).collect::<String>(),
+                    6 => input.to_string(),
+                    8 => input.to_string(),
                     len => return Err(ParseColorError::InvalidHexLength(len)),
                 };
-                let values = <[u8; 3]>::from_hex(hex)?;
-                Color::Rgb { r: values[0], g: values[1], b: values[2] }.into()
+                if hex.len() == 6 {
+                    let values = <[u8; 3]>::from_hex(hex)?;
+                    Color::Rgb { r: values[0], g: values[1], b: values[2] }.into()
+                } else {
+                    let values = <[u8; 4]>::from_hex(hex)?;
+                    Color::Rgba { r: values[0], g: values[1], b: values[2], a: values[3] }.into()
+                }
             }
         };
         Ok(output)
@@ -960,6 +966,7 @@ impl fmt::Display for RawColor {
         use Color::*;
         match self {
             Self::Color(Rgb { r, g, b }) => write!(f, "{}", hex::encode([*r, *g, *b])),
+            Self::Color(Rgba { r, g, b, a }) => write!(f, "{}", hex::encode([*r, *g, *b, *a])),
             Self::Color(Black) => write!(f, "black"),
             Self::Color(White) => write!(f, "white"),
             Self::Color(Grey) => write!(f, "grey"),
@@ -1058,6 +1065,9 @@ mod test {
 
         let short_color: RawColor = "ded".parse().unwrap();
         assert_eq!(short_color.to_string(), "ddeedd");
+
+        let rgba_color: RawColor = "beefff42".parse().unwrap();
+        assert_eq!(rgba_color.to_string(), "beefff42");
     }
 
     #[rstest]
