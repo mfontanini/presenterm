@@ -44,6 +44,7 @@ impl PresentationBuilder<'_, '_> {
             CommentCommand::NewLines(count) => {
                 self.push_line_breaks(count as usize * self.slide_font_size() as usize);
             }
+            CommentCommand::Comment(_) => {}
             CommentCommand::JumpToMiddle => self.chunk_operations.push(RenderOperation::JumpToVerticalCenter),
             CommentCommand::InitColumnLayout(columns) => {
                 self.validate_column_layout(&columns, source_position)?;
@@ -154,23 +155,14 @@ impl PresentationBuilder<'_, '_> {
             if comment == "{{{" || comment == "}}}" {
                 return true;
             }
-            
+
             // Ignore user comments with // prefix
             // e.g., <!-- // This is a comment -->
             let trimmed_comment = comment.trim_start_matches(&self.options.command_prefix).trim();
             if trimmed_comment.starts_with("//") {
                 return true;
             }
-            
-            // Ignore user comments with Comment: prefix (case-insensitive)
-            // e.g., <!-- Comment: This is a comment -->
-            if trimmed_comment.len() >= 8 {
-                let prefix = &trimmed_comment[..8];
-                if prefix.eq_ignore_ascii_case("comment:") {
-                    return true;
-                }
-            }
-            
+
             false
         }
     }
@@ -227,6 +219,7 @@ pub(crate) enum CommentCommand {
     SkipSlide,
     SpeakerNote(String),
     SnippetOutput(String),
+    Comment(String),
 }
 
 impl CommentCommand {
@@ -312,6 +305,7 @@ mod tests {
     #[case::incremental_lists("newlines: 2", CommentCommand::NewLines(2))]
     #[case::incremental_lists("new_line", CommentCommand::NewLine)]
     #[case::incremental_lists("newline", CommentCommand::NewLine)]
+    #[case::comment("comment: This is a user comment", CommentCommand::Comment("This is a user comment".into()))]
     fn command_formatting(#[case] input: &str, #[case] expected: CommentCommand) {
         let parsed: CommentCommand = input.parse().expect("deserialization failed");
         assert_eq!(parsed, expected);
@@ -325,9 +319,7 @@ mod tests {
     #[case::padded_vim_command("vim: hi")]
     #[case::double_slash("// This is a user comment")]
     #[case::double_slash_padded("  // This is a padded comment  ")]
-    #[case::comment_colon("Comment: This is a user comment")]
-    #[case::comment_colon_lowercase("comment: This is also a user comment")]
-    #[case::comment_colon_mixedcase("CoMmEnT: Mixed case comment")]
+    #[case::comment_colon("comment: This is a user comment")]
     fn ignore_comments(#[case] comment: &str) {
         let input = format!("<!-- {comment} -->");
         Test::new(input).build();

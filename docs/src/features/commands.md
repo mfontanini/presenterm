@@ -157,7 +157,7 @@ be ignored during presentation rendering can be added using these formats:
 
 ```markdown
 <!-- // This is a user comment -->
-<!-- Comment: This is also a user comment which won't be rendered-->
+<!-- comment: This is also a user comment which won't be rendered -->
 ```
 These comments are completely invisible during presentation and useful for:
 
@@ -235,4 +235,3 @@ endif
 ```
 
 With this configuration, pressing `Ctrl+K` in insert mode will open an fzf picker with all available comment commands, allowing you to quickly select and insert them into your presentation.
-

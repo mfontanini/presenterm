@@ -5,9 +5,6 @@ author: Matias
 
 Customizability
 ---
-<!-- Comment: You can add comments like this that won't show up in the presentation -->
-<!-- // This is another way to add comments! -->
-
 _presenterm_ allows configuring almost anything about your presentation:
 
 * The colors used.
