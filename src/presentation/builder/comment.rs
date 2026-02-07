@@ -152,18 +152,7 @@ impl PresentationBuilder<'_, '_> {
         } else {
             // Ignore vim-like code folding tags
             let comment = comment.trim();
-            if comment == "{{{" || comment == "}}}" {
-                return true;
-            }
-
-            // Ignore user comments with // prefix
-            // e.g., <!-- // This is a comment -->
-            let trimmed_comment = comment.trim_start_matches(&self.options.command_prefix).trim();
-            if trimmed_comment.starts_with("//") {
-                return true;
-            }
-
-            false
+            comment == "{{{" || comment == "}}}" || comment.starts_with("//")
         }
     }
 
