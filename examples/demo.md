@@ -5,7 +5,6 @@ author: Matias
 
 Customizability
 ---
-
 _presenterm_ allows configuring almost anything about your presentation:
 
 * The colors used.

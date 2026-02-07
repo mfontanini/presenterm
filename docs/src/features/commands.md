@@ -149,6 +149,25 @@ centered
 right aligned
 ```
 
+
+## User comments
+
+User comments such as personal notes, TODOs, and other documentation that will
+be ignored during presentation rendering can be added using these formats:
+
+```markdown
+<!-- // This is a user comment -->
+<!-- comment: This is also a user comment which won't be rendered -->
+```
+These comments are completely invisible during presentation and useful for:
+
+- Personal notes and reminders
+- TODO items and planning notes
+- Source references and attribution
+
+
+
+
 ## Listing available comment commands
 
 The `--list-comment-commands` CLI option outputs all available comment commands to stdout, making it easy to discover and use them in external tools and editors.
@@ -216,4 +235,3 @@ endif
 ```
 
 With this configuration, pressing `Ctrl+K` in insert mode will open an fzf picker with all available comment commands, allowing you to quickly select and insert them into your presentation.
-

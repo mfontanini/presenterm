@@ -16,6 +16,8 @@ impl PresentationBuilder<'_, '_> {
             Err(error) => {
                 // If we failed to parse this, make sure we shouldn't have ignored it
                 if self.should_ignore_comment(comment) {
+                    // Ignored comments should not add line breaks
+                    self.slide_state.ignore_element_line_break = true;
                     return Ok(());
                 }
                 return Err(self.invalid_presentation(source_position, error));
@@ -42,6 +44,7 @@ impl PresentationBuilder<'_, '_> {
             CommentCommand::NewLines(count) => {
                 self.push_line_breaks(count as usize * self.slide_font_size() as usize);
             }
+            CommentCommand::Comment(_) => {}
             CommentCommand::JumpToMiddle => self.chunk_operations.push(RenderOperation::JumpToVerticalCenter),
             CommentCommand::InitColumnLayout(columns) => {
                 self.validate_column_layout(&columns, source_position)?;
@@ -149,7 +152,7 @@ impl PresentationBuilder<'_, '_> {
         } else {
             // Ignore vim-like code folding tags
             let comment = comment.trim();
-            comment == "{{{" || comment == "}}}"
+            comment == "{{{" || comment == "}}}" || comment.starts_with("//")
         }
     }
 
@@ -205,6 +208,7 @@ pub(crate) enum CommentCommand {
     SkipSlide,
     SpeakerNote(String),
     SnippetOutput(String),
+    Comment(String),
 }
 
 impl CommentCommand {
@@ -290,6 +294,7 @@ mod tests {
     #[case::incremental_lists("newlines: 2", CommentCommand::NewLines(2))]
     #[case::incremental_lists("new_line", CommentCommand::NewLine)]
     #[case::incremental_lists("newline", CommentCommand::NewLine)]
+    #[case::comment("comment: This is a user comment", CommentCommand::Comment("This is a user comment".into()))]
     fn command_formatting(#[case] input: &str, #[case] expected: CommentCommand) {
         let parsed: CommentCommand = input.parse().expect("deserialization failed");
         assert_eq!(parsed, expected);
@@ -301,6 +306,9 @@ mod tests {
     #[case::many_close_braces("}}}")]
     #[case::vim_command("vim: hi")]
     #[case::padded_vim_command("vim: hi")]
+    #[case::double_slash("// This is a user comment")]
+    #[case::double_slash_padded("  // This is a padded comment  ")]
+    #[case::comment_colon("comment: This is a user comment")]
     fn ignore_comments(#[case] comment: &str) {
         let input = format!("<!-- {comment} -->");
         Test::new(input).build();
