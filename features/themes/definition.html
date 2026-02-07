@@ -1,0 +1,581 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Definition - presenterm documentation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">presenterm documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/mfontanini/presenterm" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <style>
+.mdbook-alerts {
+  padding: 8px 16px;
+  margin-bottom: 16px;
+  border-left: 0.25em solid var(--mdbook-alerts-color);
+}
+
+.mdbook-alerts > *:first-child {
+  margin-top: 0;
+}
+
+.mdbook-alerts > *:last-child {
+  margin-bottom: 0;
+}
+
+.mdbook-alerts-title {
+  display: flex;
+  font-weight: 600;
+  align-items: center;
+  line-height: 1;
+  color: var(--mdbook-alerts-color);
+  text-transform: capitalize;
+}
+
+.mdbook-alerts-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.2em;
+  background-color: currentColor;
+  -webkit-mask: no-repeat center / 100%;
+  mask: no-repeat center / 100%;
+  -webkit-mask-image: var(--mdbook-alerts-icon);
+  mask-image: var(--mdbook-alerts-icon);
+}
+
+.mdbook-alerts-note {
+  --mdbook-alerts-color: rgb(9, 105, 218);
+  /* https://icon-sets.iconify.design/material-symbols/info-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M12 17q.425 0 .713-.288T13 16v-4q0-.425-.288-.712T12 11q-.425 0-.712.288T11 12v4q0 .425.288.713T12 17m0-8q.425 0 .713-.288T13 8q0-.425-.288-.712T12 7q-.425 0-.712.288T11 8q0 .425.288.713T12 9m0 13q-2.075 0-3.9-.788t-3.175-2.137q-1.35-1.35-2.137-3.175T2 12q0-2.075.788-3.9t2.137-3.175q1.35-1.35 3.175-2.137T12 2q2.075 0 3.9.788t3.175 2.137q1.35 1.35 2.138 3.175T22 12q0 2.075-.788 3.9t-2.137 3.175q-1.35 1.35-3.175 2.138T12 22m0-2q3.35 0 5.675-2.325T20 12q0-3.35-2.325-5.675T12 4Q8.65 4 6.325 6.325T4 12q0 3.35 2.325 5.675T12 20m0-8"%2F%3E%3C%2Fsvg%3E');
+}
+
+.mdbook-alerts-tip {
+  --mdbook-alerts-color: rgb(26, 127, 55);
+  /* https://icon-sets.iconify.design/material-symbols/lightbulb-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M12 22q-.825 0-1.412-.587T10 20h4q0 .825-.587 1.413T12 22m-3-3q-.425 0-.712-.288T8 18q0-.425.288-.712T9 17h6q.425 0 .713.288T16 18q0 .425-.288.713T15 19zm-.75-3q-1.725-1.025-2.738-2.75T4.5 9.5q0-3.125 2.188-5.312T12 2q3.125 0 5.313 2.188T19.5 9.5q0 2.025-1.012 3.75T15.75 16zm.6-2h6.3q1.125-.8 1.738-1.975T17.5 9.5q0-2.3-1.6-3.9T12 4Q9.7 4 8.1 5.6T6.5 9.5q0 1.35.613 2.525T8.85 14M12 14"%2F%3E%3C%2Fsvg%3E');
+}
+
+.mdbook-alerts-important {
+  --mdbook-alerts-color: rgb(130, 80, 223);
+  /* https://icon-sets.iconify.design/material-symbols/chat-info-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M12 7q.425 0 .713-.288T13 6q0-.425-.288-.712T12 5q-.425 0-.712.288T11 6q0 .425.288.713T12 7m0 8q.425 0 .713-.288T13 14v-4q0-.425-.288-.712T12 9q-.425 0-.712.288T11 10v4q0 .425.288.713T12 15m-6 3l-2.3 2.3q-.475.475-1.088.213T2 19.575V4q0-.825.588-1.412T4 2h16q.825 0 1.413.588T22 4v12q0 .825-.587 1.413T20 18zm-.85-2H20V4H4v13.125zM4 16V4z"%2F%3E%3C%2Fsvg%3E');
+}
+
+.mdbook-alerts-warning {
+  --mdbook-alerts-color: rgb(154, 103, 0);
+  /* https://icon-sets.iconify.design/material-symbols/warning-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M2.725 21q-.275 0-.5-.137t-.35-.363q-.125-.225-.137-.488t.137-.512l9.25-16q.15-.25.388-.375T12 3q.25 0 .488.125t.387.375l9.25 16q.15.25.138.513t-.138.487q-.125.225-.35.363t-.5.137zm1.725-2h15.1L12 6zM12 18q.425 0 .713-.288T13 17q0-.425-.288-.712T12 16q-.425 0-.712.288T11 17q0 .425.288.713T12 18m0-3q.425 0 .713-.288T13 14v-3q0-.425-.288-.712T12 10q-.425 0-.712.288T11 11v3q0 .425.288.713T12 15m0-2.5"%2F%3E%3C%2Fsvg%3E');
+}
+
+.mdbook-alerts-caution {
+  --mdbook-alerts-color: rgb(207, 34, 46);
+  /* https://icon-sets.iconify.design/material-symbols/brightness-alert-outline-rounded/ */
+  --mdbook-alerts-icon: url('data:image/svg+xml,%3Csvg xmlns="http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg" width="24" height="24" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M12 17q.425 0 .713-.288T13 16q0-.425-.288-.712T12 15q-.425 0-.712.288T11 16q0 .425.288.713T12 17m0-4q.425 0 .713-.288T13 12V8q0-.425-.288-.712T12 7q-.425 0-.712.288T11 8v4q0 .425.288.713T12 13m-3.35 7H6q-.825 0-1.412-.587T4 18v-2.65L2.075 13.4q-.275-.3-.425-.662T1.5 12q0-.375.15-.737t.425-.663L4 8.65V6q0-.825.588-1.412T6 4h2.65l1.95-1.925q.3-.275.663-.425T12 1.5q.375 0 .738.15t.662.425L15.35 4H18q.825 0 1.413.588T20 6v2.65l1.925 1.95q.275.3.425.663t.15.737q0 .375-.15.738t-.425.662L20 15.35V18q0 .825-.587 1.413T18 20h-2.65l-1.95 1.925q-.3.275-.662.425T12 22.5q-.375 0-.737-.15t-.663-.425zm.85-2l2.5 2.5l2.5-2.5H18v-3.5l2.5-2.5L18 9.5V6h-3.5L12 3.5L9.5 6H6v3.5L3.5 12L6 14.5V18zm2.5-6"%2F%3E%3C%2Fsvg%3E');
+}
+
+</style>
+<h1 id="theme-definition"><a class="header" href="#theme-definition">Theme definition</a></h1>
+<p>This section goes through the structure of the theme files. Have a look at some of the <a href="https://github.com/mfontanini/presenterm/tree/master/themes">existing
+themes</a> to have an idea of how to structure themes.</p>
+<h2 id="root-elements"><a class="header" href="#root-elements">Root elements</a></h2>
+<p>The root attributes on the theme yaml files specify either:</p>
+<ul>
+<li>A specific type of element in the input markdown or rendered presentation. That is, the slide title, headings, footer,
+etc.</li>
+<li>A default to be applied as a fallback if no specific style is specified for a particular element.</li>
+</ul>
+<h2 id="alignment"><a class="header" href="#alignment">Alignment</a></h2>
+<p><em>presenterm</em> uses the notion of alignment, just like you would have in a GUI editor, to align text to the left, center,
+or right. You probably want most elements to be aligned left, <em>some</em> to be aligned on the center, and probably none to
+the right (but hey, you're free to do so!).</p>
+<p>The following elements support alignment:</p>
+<ul>
+<li>Code blocks.</li>
+<li>Slide titles.</li>
+<li>The title, subtitle, and author elements in the intro slide.</li>
+<li>Tables.</li>
+</ul>
+<h3 id="leftright-alignment"><a class="header" href="#leftright-alignment">Left/right alignment</a></h3>
+<p>Left and right alignments take a margin property which specifies the number of columns to keep between the text and the
+left/right terminal screen borders.</p>
+<p>The margin can be specified in two ways:</p>
+<h4 id="fixed"><a class="header" href="#fixed">Fixed</a></h4>
+<p>A specific number of characters regardless of the terminal size.</p>
+<pre><code class="language-yaml">alignment: left
+margin:
+  fixed: 5
+</code></pre>
+<h4 id="percent"><a class="header" href="#percent">Percent</a></h4>
+<p>A percentage over the total number of columns in the terminal.</p>
+<pre><code class="language-yaml">alignment: left
+margin:
+  percent: 8
+</code></pre>
+<p>Percent alignment tends to look a bit nicer as it won't change the presentation's look as much when the terminal size
+changes.</p>
+<h3 id="center-alignment"><a class="header" href="#center-alignment">Center alignment</a></h3>
+<p>Center alignment has 2 properties:</p>
+<ul>
+<li><code>minimum_size</code> which specifies the minimum size you want that element to have. This is normally useful for code blocks
+as they have a predefined background which you likely want to extend slightly beyond the end of the code on the right.</li>
+<li><code>minimum_margin</code> which specifies the minimum margin you want, using the same structure as <code>margin</code> for left/right
+alignment. This doesn't play very well with <code>minimum_size</code> but in isolation it specifies the minimum number of columns
+you want to the left and right of your text.</li>
+</ul>
+<h2 id="colors"><a class="header" href="#colors">Colors</a></h2>
+<p>Every element can have its own background/foreground color using hex notation:</p>
+<pre><code class="language-yaml">default:
+  colors:
+    foreground: "ff0000"
+    background: "00ff00"
+</code></pre>
+<h2 id="default-style"><a class="header" href="#default-style">Default style</a></h2>
+<p>The default style specifies:</p>
+<ul>
+<li>The margin to be applied to all slides.</li>
+<li>The colors to be used for all text.</li>
+</ul>
+<pre><code class="language-yaml">default:
+  margin:
+    percent: 8
+  colors:
+    foreground: "e6e6e6"
+    background: "040312"
+</code></pre>
+<h2 id="intro-slide"><a class="header" href="#intro-slide">Intro slide</a></h2>
+<p>The introductory slide will be rendered if you specify a title, subtitle, or author in the presentation's front matter.
+This lets you have a less markdown-looking introductory slide that stands out so that it doesn't end up looking too
+monotonous:</p>
+<pre><code class="language-yaml">---
+title: Presenting from my terminal
+sub_title: Like it's 1990
+author: John Doe
+---
+</code></pre>
+<p>The theme can specify:</p>
+<ul>
+<li>For the title and subtitle, the alignment and colors.</li>
+<li>For the author, the alignment, colors, and positioning (<code>page_bottom</code> and <code>below_title</code>). The first one will push it
+to the bottom of the screen while the second one will put it right below the title (or subtitle if there is one)</li>
+</ul>
+<p>For example:</p>
+<pre><code class="language-yaml">intro_slide:
+  title:
+    alignment: left
+    margin:
+      percent: 8
+  author:
+    colors:
+      foreground: black
+    positioning: below_title
+</code></pre>
+<h2 id="footer"><a class="header" href="#footer">Footer</a></h2>
+<p>The footer currently comes in 3 flavors:</p>
+<h3 id="template-footers"><a class="header" href="#template-footers">Template footers</a></h3>
+<p>A template footer lets you put text on the left, center and/or right of the screen. The template strings
+can reference <code>{current_slide}</code> and <code>{total_slides}</code> which will be replaced with the current and total number of slides.</p>
+<p>Besides those special variables, any of the attributes defined in the front matter can also be used:</p>
+<ul>
+<li><code>title</code>.</li>
+<li><code>sub_title</code>.</li>
+<li><code>event</code>.</li>
+<li><code>location</code>.</li>
+<li><code>date</code>.</li>
+<li><code>author</code>.</li>
+</ul>
+<p>Strings used in template footers can contain arbitrary markdown, including <code>span</code> tags that let you use colored text. A
+<code>height</code> attribute allows specifying how tall, in terminal rows, the footer is. The text in the footer will always be
+placed at the center of the footer area. The default footer height is 2.</p>
+<pre><code class="language-yaml">footer:
+  style: template
+  left: "My **name** is {author}"
+  center: "_@myhandle_"
+  right: "{current_slide} / {total_slides}"
+  height: 3
+</code></pre>
+<p>Do note that:</p>
+<ul>
+<li>Only existing attributes in the front matter can be referenced. That is, if you use <code>{date}</code> but the <code>date</code> isn't set,
+an error will be shown.</li>
+<li>Similarly, referencing unsupported variables (e.g. <code>{potato}</code>) will cause an error to be displayed. If you'd like the
+<code>{}</code> characters to be used in contexts where you don't want to reference a variable, you will need to escape them by
+using another brace. e.g. <code>{{potato}} farms</code> will be displayed as <code>{potato} farms</code>.</li>
+</ul>
+<h4 id="footer-images"><a class="header" href="#footer-images">Footer images</a></h4>
+<p>Besides text, images can also be used in the left/center/right positions. This can be done by specifying an <code>image</code> key
+under each of those attributes:</p>
+<pre><code class="language-yaml">footer:
+  style: template
+  left:
+    image: potato.png
+  center:
+    image: banana.png
+  right:
+    image: apple.png
+  # The height of the footer to adjust image sizes
+  height: 5
+</code></pre>
+<p>Images will be looked up:</p>
+<ul>
+<li>First, relative to the presentation file just like any other image.</li>
+<li>If the image is not found, it will be looked up relative to the themes directory. e.g. <code>~/.config/presenterm/themes</code>.
+This allows you to define a custom theme in your themes directory that points to a local image within that same
+location.</li>
+</ul>
+<p>Images will preserve their aspect ratio and expand vertically to take up as many terminal rows as <code>footer.height</code>
+specifies. This parameter should be adjusted accordingly if taller-than-wider images are used in a footer.</p>
+<p>See the <a href="https://github.com/mfontanini/presenterm/blob/master/examples/footer.md">footer example</a> as a showcase of how a
+footer can contain images and colored text.</p>
+<p><img src="../../assets/example-footer.png" alt="" /></p>
+<h3 id="progress-bar-footers"><a class="header" href="#progress-bar-footers">Progress bar footers</a></h3>
+<p>A progress bar that will advance as you move in your presentation. This will by default use a block-looking character to
+draw the progress bar but you can customize it:</p>
+<pre><code class="language-yaml">footer:
+  style: progress_bar
+
+  # Optional!
+  character: 🚀
+</code></pre>
+<h3 id="none"><a class="header" href="#none">None</a></h3>
+<p>No footer at all!</p>
+<pre><code class="language-yaml">footer:
+  style: empty
+</code></pre>
+<h2 id="slide-title"><a class="header" href="#slide-title">Slide title</a></h2>
+<p>Slide titles, as specified by using a setext header, has the following properties:</p>
+<ul>
+<li><code>padding_top</code> which specifies the number of rows you want as padding before the text.</li>
+<li><code>padding_bottom</code> which specifies the number of rows you want as padding after the text.</li>
+<li><code>separator</code> which specifies whether you want a horizontal ruler after the text (and the <code>padding_bottom</code>):</li>
+</ul>
+<pre><code class="language-yaml">slide_title:
+  padding_bottom: 1
+  padding_top: 1
+  separator: true
+</code></pre>
+<h2 id="headings"><a class="header" href="#headings">Headings</a></h2>
+<p>Every header type (h1 through h6) can have its own style composed of:</p>
+<ul>
+<li>The prefix you want to use.</li>
+<li>The colors, just like any other element:</li>
+</ul>
+<pre><code class="language-yaml">headings:
+  h1:
+    prefix: "██"
+    colors:
+      foreground: "rgb_(48,133,195)"
+  h2:
+    prefix: "▓▓▓"
+    colors:
+      foreground: "rgb_(168,223,142)"
+</code></pre>
+<h2 id="code-blocks"><a class="header" href="#code-blocks">Code blocks</a></h2>
+<p>The syntax highlighting for code blocks is done via the <a href="https://github.com/trishume/syntect">syntect</a> crate. The list
+of all the supported built-in <em>syntect</em> themes is the following:</p>
+<ul>
+<li>base16-ocean.dark</li>
+<li>base16-eighties.dark</li>
+<li>base16-mocha.dark</li>
+<li>base16-ocean.light</li>
+<li>InspiredGitHub</li>
+<li>Solarized (dark)</li>
+<li>Solarized (light)</li>
+</ul>
+<p>Besides those and thanks to the work done on the awesome <a href="https://github.com/sharkdp/bat">bat tool</a>, <em>presenterm</em> has
+access to not only the built-in <em>syntect</em>'s built-in themes but also the ones in <em>bat</em>. Run <code>bat --list-themes</code> to see a
+list of all of them.</p>
+<p>Code blocks can also have an optional vertical and horizontal padding so your code is not too close to its bounding
+rectangle:</p>
+<pre><code class="language-yaml">code:
+  theme_name: base16-eighties.dark
+  padding:
+    horizontal: 2
+    vertical: 1
+</code></pre>
+<h4 id="custom-highlighting-themes"><a class="header" href="#custom-highlighting-themes">Custom highlighting themes</a></h4>
+<p>Besides the built-in highlighting themes, you can drop any <code>.tmTheme</code> theme in the <code>themes/highlighting</code> directory under
+your <a href="../../configuration/introduction.html">configuration directory</a> (e.g. <code>~/.config/presenterm/themes/highlighting</code> in
+Linux) and they will be loaded automatically when <em>presenterm</em> starts.</p>
+<h2 id="block-quotes"><a class="header" href="#block-quotes">Block quotes</a></h2>
+<p>For block quotes you can specify a string to use as a prefix in every line of quoted text:</p>
+<pre><code class="language-yaml">block_quote:
+  prefix: "▍ "
+</code></pre>
+<h2 id="mermaid"><a class="header" href="#mermaid">Mermaid</a></h2>
+<p>The <a href="https://mermaid.js.org/">mermaid</a> graphs can be customized using the following parameters:</p>
+<ul>
+<li><code>mermaid.background</code> the background color passed to the CLI (e.g., <code>transparent</code>, <code>red</code>, <code>#F0F0F0</code>).</li>
+<li><code>mermaid.theme</code> the <a href="https://mermaid.js.org/config/theming.html#available-themes">mermaid theme</a> to use.</li>
+</ul>
+<pre><code class="language-yaml">mermaid:
+  background: transparent
+  theme: dark
+</code></pre>
+<h2 id="alerts"><a class="header" href="#alerts">Alerts</a></h2>
+<p>GitHub style markdown alerts can be styled by setting the <code>alert</code> key:</p>
+<pre><code class="language-yaml">alert:
+  # the base colors used in all text in an alert
+  base_colors:
+    foreground: red
+    background: black
+
+  # the prefix used in every line in the alert
+  prefix: "▍ "
+
+  # the style for each alert type
+  styles:
+    note:
+      color: blue
+      title: Note
+      icon: I
+    tip:
+      color: green
+      title: Tip
+      icon: T
+    important:
+      color: cyan
+      title: Important
+      icon: I
+    warning:
+      color: orange
+      title: Warning
+      icon: W
+    caution:
+      color: red
+      title: Caution
+      icon: C
+</code></pre>
+<h2 id="extending-themes"><a class="header" href="#extending-themes">Extending themes</a></h2>
+<p>Custom themes can extend other custom or built in themes. This means it will inherit all the properties of the theme
+being extended by default.</p>
+<p>For example:</p>
+<pre><code class="language-yaml">extends: dark
+default:
+  colors:
+    background: "000000"
+</code></pre>
+<p>This theme extends the built in <em>dark</em> theme and overrides the background color. This is useful if you find yourself
+<em>almost</em> liking a built in theme but there's only some properties you don't like.</p>
+<h2 id="color-palette"><a class="header" href="#color-palette">Color palette</a></h2>
+<p>Every theme can define a color palette, which includes a list of pre-defined colors and a list of background/foreground
+pairs called "classes". Colors and classes can be used when styling text via <code>&lt;span&gt;</code> HTML tags, whereas colors can also
+be used inside themes to avoid duplicating the same colors all over the theme definition.</p>
+<p>A palette can de defined as follows:</p>
+<pre><code class="language-yaml">palette:
+  colors:
+    red: "f78ca2"
+    purple: "986ee2"
+  classes:
+    foo:
+      foreground: "ff0000"
+      background: "00ff00"
+</code></pre>
+<p>Any palette color can be referenced using either <code>palette:&lt;name&gt;</code> or <code>p:&lt;name&gt;</code>. This means now any part of the theme
+can use <code>p:red</code> and <code>p:purple</code> where a color is required.</p>
+<p>Similarly, these colors can be used in <code>span</code> tags like:</p>
+<pre><code class="language-html">&lt;span style="color: palette:red"&gt;this is red&lt;/span&gt;
+
+&lt;span class="foo"&gt;this is foo-colored&lt;/span&gt;
+</code></pre>
+<p>These colors can used anywhere in your presentation as well as in other places such as in
+<a href="#template-footers">template footers</a> and <a href="../introduction.html#introduction-slide">introduction slides</a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../features/themes/introduction.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../features/exports.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../features/themes/introduction.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../features/exports.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
