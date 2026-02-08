@@ -89,7 +89,7 @@ impl PresentationTheme {
         let default_style = DefaultStyle::new(default_style, &palette)?;
         Ok(Self {
             slide_title: SlideTitleStyle::new(slide_title, &palette, options)?,
-            code: CodeBlockStyle::new(code),
+            code: CodeBlockStyle::new(code, &palette)?,
             execution_output: ExecutionOutputBlockStyle::new(execution_output, &palette)?,
             pty_output: PtyOutputBlockStyle::new(pty_output, &palette)?,
             inline_code: ModifierStyle::new(inline_code, &palette)?,
@@ -569,29 +569,45 @@ impl FooterContent {
     }
 }
 
+#[derive(Clone, Debug)]
+pub(crate) enum CodeBlockStyleBackground {
+    Color(Option<Color>),
+    Enabled(bool),
+}
+
+impl Default for CodeBlockStyleBackground {
+    fn default() -> Self {
+        CodeBlockStyleBackground::Enabled(true)
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub(crate) struct CodeBlockStyle {
     pub(crate) alignment: Alignment,
     pub(crate) padding: PaddingRect,
     pub(crate) theme_name: String,
-    pub(crate) background: bool,
+    pub(crate) background: CodeBlockStyleBackground,
     pub(crate) line_numbers: bool,
 }
 
 impl CodeBlockStyle {
-    fn new(raw: &raw::CodeBlockStyle) -> Self {
+    fn new(raw: &raw::CodeBlockStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
         let raw::CodeBlockStyle { alignment, padding, theme_name, background, line_numbers } = raw;
         let padding = PaddingRect {
             horizontal: padding.horizontal.unwrap_or_default(),
             vertical: padding.vertical.unwrap_or_default(),
         };
-        Self {
+        let background = match background.clone().unwrap_or_default() {
+            raw::CodeBlockStyleBackground::Color(color) => CodeBlockStyleBackground::Color(color.resolve(palette)?),
+            raw::CodeBlockStyleBackground::Enabled(enabled) => CodeBlockStyleBackground::Enabled(enabled),
+        };
+        Ok(Self {
             alignment: alignment.clone().unwrap_or_default().into(),
             padding,
             theme_name: theme_name.as_deref().unwrap_or(DEFAULT_CODE_HIGHLIGHT_THEME).to_string(),
-            background: background.unwrap_or(true),
+            background,
             line_numbers: line_numbers.unwrap_or_default(),
-        }
+        })
     }
 }
 
@@ -705,6 +721,105 @@ impl PtyStandbyStyle {
                 "⠀⠀⠀⠀⠀⠀⠀⠈⠙⠛⠛⠿⠿⠿⠿⠛⠛⠋⠁⠀⠀⠀⠀⠀⠀⠀",
             ],
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::theme::raw;
+
+    #[test]
+    fn code_block_style_background_enabled() {
+        let palette = ColorPalette::default();
+
+        let raw = raw::CodeBlockStyle {
+            alignment: None,
+            padding: Default::default(),
+            theme_name: Some("test".to_string()),
+            background: Some(raw::CodeBlockStyleBackground::Enabled(true)),
+            line_numbers: None,
+        };
+
+        let style = CodeBlockStyle::new(&raw, &palette).unwrap();
+        assert!(matches!(style.background, CodeBlockStyleBackground::Enabled(true)));
+    }
+
+    #[test]
+    fn code_block_style_background_disabled() {
+        let palette = ColorPalette::default();
+
+        let raw = raw::CodeBlockStyle {
+            alignment: None,
+            padding: Default::default(),
+            theme_name: None,
+            background: Some(raw::CodeBlockStyleBackground::Enabled(false)),
+            line_numbers: None,
+        };
+
+        let style = CodeBlockStyle::new(&raw, &palette).unwrap();
+        assert!(matches!(style.background, CodeBlockStyleBackground::Enabled(false)));
+    }
+
+    #[test]
+    fn code_block_style_background_color() {
+        let palette = ColorPalette::default();
+
+        let raw = raw::CodeBlockStyle {
+            alignment: None,
+            padding: Default::default(),
+            theme_name: None,
+            background: Some(raw::CodeBlockStyleBackground::Color(raw::RawColor::Color(Color::new(46, 52, 64)))),
+            line_numbers: None,
+        };
+
+        let style = CodeBlockStyle::new(&raw, &palette).unwrap();
+        assert!(
+            matches!(
+                style.background,
+                CodeBlockStyleBackground::Color(Some(color)) if color == Color::new(46, 52, 64)
+            ),
+            "Expected Color variant with specific color Color::new(46, 52, 64)"
+        );
+    }
+
+    #[test]
+    fn code_block_style_background_palette_color() {
+        let mut palette = ColorPalette::default();
+        palette.colors.insert("surface0".to_string(), Color::new(49, 50, 68));
+
+        let raw = raw::CodeBlockStyle {
+            alignment: None,
+            padding: Default::default(),
+            theme_name: None,
+            background: Some(raw::CodeBlockStyleBackground::Color(raw::RawColor::Palette("surface0".to_string()))),
+            line_numbers: None,
+        };
+
+        let style = CodeBlockStyle::new(&raw, &palette).unwrap();
+        assert!(
+            matches!(
+                style.background,
+                CodeBlockStyleBackground::Color(Some(color)) if color == Color::new(49, 50, 68)
+            ),
+            "Expected Color variant with palette color Color::new(49, 50, 68)"
+        );
+    }
+
+    #[test]
+    fn code_block_style_background_default() {
+        let palette = ColorPalette::default();
+
+        let raw = raw::CodeBlockStyle {
+            alignment: None,
+            padding: Default::default(),
+            theme_name: None,
+            background: None,
+            line_numbers: None,
+        };
+
+        let style = CodeBlockStyle::new(&raw, &palette).unwrap();
+        assert!(matches!(style.background, CodeBlockStyleBackground::Enabled(true)));
     }
 }
 

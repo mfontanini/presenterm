@@ -277,6 +277,24 @@ code:
     vertical: 1
 ```
 
+#### Background
+
+By default the code block background comes from theme given theme, but you're able to override it or disable it completely:
+
+```yaml
+code:
+  # Use the theme's default background color (the default)
+  background: true
+
+  # Disable the background (transparent)
+  background: false
+
+  # Use a specific color
+  background: "898989"
+```
+
+This is particularly useful when combining presentation themes with code highlighting themes that have matching or conflicting backgrounds. For example, you might want to use a Catppuccin presentation theme with a Catppuccin code highlighting theme, but override the background to avoid having identical colors.
+
 #### Custom highlighting themes
 
 Besides the built-in highlighting themes, you can drop any `.tmTheme` theme in the `themes/highlighting` directory under 
