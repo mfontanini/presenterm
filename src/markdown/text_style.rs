@@ -505,7 +505,7 @@ mod tests {
     #[case::strikethrough(TextStyle::default().strikethrough(), &[TextAttribute::Strikethrough])]
     #[case::underlined(TextStyle::default().underlined(), &[TextAttribute::Underlined])]
     #[case::bg_color(TextStyle::default().bg_color(Color::Red), &[TextAttribute::BackgroundColor(Color::Red)])]
-    #[case::bg_color(TextStyle::default().fg_color(Color::Red), &[TextAttribute::ForegroundColor(Color::Red)])]
+    #[case::fg_color(TextStyle::default().fg_color(Color::Red), &[TextAttribute::ForegroundColor(Color::Red)])]
     #[case::all(
         TextStyle::default().bold().code().italics().strikethrough().underlined().bg_color(Color::Black).fg_color(Color::Red),
         &[
