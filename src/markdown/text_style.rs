@@ -115,11 +115,14 @@ where
     }
 
     /// Merge this style with another one.
+    ///
+    /// If `other` defines a background or foreground color, that overwrites the respective color
+    /// in `self`.
     pub(crate) fn merge(&mut self, other: &TextStyle<C>) {
         self.flags |= other.flags;
         self.size = self.size.max(other.size);
-        self.colors.background = self.colors.background.clone().or(other.colors.background.clone());
-        self.colors.foreground = self.colors.foreground.clone().or(other.colors.foreground.clone());
+        self.colors.background = other.colors.background.clone().or(self.colors.background.clone());
+        self.colors.foreground = other.colors.foreground.clone().or(self.colors.foreground.clone());
     }
 
     /// Return a new style merged with the one passed in.
@@ -502,7 +505,7 @@ mod tests {
     #[case::strikethrough(TextStyle::default().strikethrough(), &[TextAttribute::Strikethrough])]
     #[case::underlined(TextStyle::default().underlined(), &[TextAttribute::Underlined])]
     #[case::bg_color(TextStyle::default().bg_color(Color::Red), &[TextAttribute::BackgroundColor(Color::Red)])]
-    #[case::bg_color(TextStyle::default().fg_color(Color::Red), &[TextAttribute::ForegroundColor(Color::Red)])]
+    #[case::fg_color(TextStyle::default().fg_color(Color::Red), &[TextAttribute::ForegroundColor(Color::Red)])]
     #[case::all(
         TextStyle::default().bold().code().italics().strikethrough().underlined().bg_color(Color::Black).fg_color(Color::Red),
         &[
@@ -517,5 +520,31 @@ mod tests {
     fn iterate_attributes(#[case] style: TextStyle, #[case] expected: &[TextAttribute]) {
         let attrs: Vec<_> = style.iter_attributes().collect();
         assert_eq!(attrs, expected);
+    }
+
+    #[rstest]
+    #[case::fg_color(
+        TextStyle::default().bold().fg_color(Color::Red),
+        TextStyle::default().fg_color(Color::Blue),
+        TextStyle::default().bold().fg_color(Color::Blue)
+    )]
+    #[case::fg_color(
+        TextStyle::default().fg_color(Color::Red),
+        TextStyle::default().bold().fg_color(Color::Blue),
+        TextStyle::default().bold().fg_color(Color::Blue)
+    )]
+    #[case::bg_color(
+        TextStyle::default().bold().bg_color(Color::Yellow),
+        TextStyle::default().bg_color(Color::Green),
+        TextStyle::default().bold().bg_color(Color::Green)
+    )]
+    #[case::bg_color(
+        TextStyle::default().bg_color(Color::Yellow),
+        TextStyle::default().bold().bg_color(Color::Green),
+        TextStyle::default().bold().bg_color(Color::Green)
+    )]
+    fn merge_overwrites_colors(#[case] mut some: TextStyle, #[case] other: TextStyle, #[case] output: TextStyle) {
+        some.merge(&other);
+        assert_eq!(some, output);
     }
 }

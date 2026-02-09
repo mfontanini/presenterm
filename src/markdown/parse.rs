@@ -525,7 +525,7 @@ impl<'a> InlinesParser<'a> {
                     }
                 };
                 style = base_style.clone();
-                for html_style in html_styles.iter().rev() {
+                for html_style in html_styles.iter() {
                     style.merge(&html_style.0);
                 }
             }
