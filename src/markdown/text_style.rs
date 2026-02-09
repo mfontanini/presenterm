@@ -115,11 +115,14 @@ where
     }
 
     /// Merge this style with another one.
+    ///
+    /// If `other` defines a background or foreground color, that overwrites the respective color
+    /// in `self`.
     pub(crate) fn merge(&mut self, other: &TextStyle<C>) {
         self.flags |= other.flags;
         self.size = self.size.max(other.size);
-        self.colors.background = self.colors.background.clone().or(other.colors.background.clone());
-        self.colors.foreground = self.colors.foreground.clone().or(other.colors.foreground.clone());
+        self.colors.background = other.colors.background.clone().or(self.colors.background.clone());
+        self.colors.foreground = other.colors.foreground.clone().or(self.colors.foreground.clone());
     }
 
     /// Return a new style merged with the one passed in.
