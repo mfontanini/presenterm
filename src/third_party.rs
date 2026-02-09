@@ -299,8 +299,8 @@ impl Worker {
     }
 
     fn as_typst_color(color: &Color) -> Result<String, ThirdPartyRenderError> {
-        match color.as_rgb() {
-            Some((r, g, b)) => Ok(format!("rgb(\"#{r:02x}{g:02x}{b:02x}\")")),
+        match color.as_rgba() {
+            Some((r, g, b, a)) => Ok(format!("rgb(\"#{r:02x}{g:02x}{b:02x}{a:02x}\")")),
             None => Err(ThirdPartyRenderError::UnsupportedColor(RawColor::from(*color).to_string())),
         }
     }
@@ -427,5 +427,22 @@ impl Pollable for OperationPollable {
             }
             RenderResult::Pending => PollableState::Unmodified,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_typst_color() {
+        let rgb = Worker::as_typst_color(&Color::Rgb { r: 19, g: 57, b: 72 });
+        assert!(rgb.is_ok());
+        assert_eq!("rgb(\"#133948ff\")".to_string(), rgb.unwrap());
+        let rgba = Worker::as_typst_color(&Color::Rgba { r: 102, g: 2, b: 37, a: 24 });
+        assert!(rgba.is_ok());
+        assert_eq!("rgb(\"#66022518\")".to_string(), rgba.unwrap());
+        let err = Worker::as_typst_color(&Color::Red);
+        assert!(err.is_err());
     }
 }

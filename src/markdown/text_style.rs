@@ -304,6 +304,7 @@ pub(crate) enum Color {
     White,
     Grey,
     Rgb { r: u8, g: u8, b: u8 },
+    Rgba { r: u8, g: u8, b: u8, a: u8 },
 }
 
 impl Color {
@@ -346,6 +347,15 @@ impl Color {
     pub(crate) fn as_rgb(&self) -> Option<(u8, u8, u8)> {
         match self {
             Self::Rgb { r, g, b } => Some((*r, *g, *b)),
+            Self::Rgba { r, g, b, .. } => Some((*r, *g, *b)),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_rgba(&self) -> Option<(u8, u8, u8, u8)> {
+        match self {
+            Self::Rgb { r, g, b } => Some((*r, *g, *b, u8::MAX)),
+            Self::Rgba { r, g, b, a } => Some((*r, *g, *b, *a)),
             _ => None,
         }
     }
@@ -387,6 +397,7 @@ impl From<Color> for crossterm::style::Color {
             Color::White => C::White,
             Color::Grey => C::Grey,
             Color::Rgb { r, g, b } => C::Rgb { r, g, b },
+            Color::Rgba { r, g, b, .. } => C::Rgb { r, g, b },
         }
     }
 }
@@ -517,5 +528,21 @@ mod tests {
     fn iterate_attributes(#[case] style: TextStyle, #[case] expected: &[TextAttribute]) {
         let attrs: Vec<_> = style.iter_attributes().collect();
         assert_eq!(attrs, expected);
+    }
+
+    #[rstest]
+    #[case::constant(Color::Green, None)]
+    #[case::rgb(Color::Rgb { r: 12, g: 38, b: 42 }, Some((12, 38, 42)))]
+    #[case::rgba(Color::Rgba { r: 12, g: 38, b: 42, a: 72 }, Some((12, 38, 42)))]
+    fn as_rgb(#[case] color: Color, #[case] expected: Option<(u8, u8, u8)>) {
+        assert_eq!(color.as_rgb(), expected);
+    }
+
+    #[rstest]
+    #[case::constant(Color::Green, None)]
+    #[case::rgb(Color::Rgb { r: 12, g: 38, b: 42 }, Some((12, 38, 42, 255)))]
+    #[case::rgba(Color::Rgba { r: 12, g: 38, b: 42, a: 72 }, Some((12, 38, 42, 72)))]
+    fn as_rgba(#[case] color: Color, #[case] expected: Option<(u8, u8, u8, u8)>) {
+        assert_eq!(color.as_rgba(), expected);
     }
 }
