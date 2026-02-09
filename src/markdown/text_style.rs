@@ -521,4 +521,30 @@ mod tests {
         let attrs: Vec<_> = style.iter_attributes().collect();
         assert_eq!(attrs, expected);
     }
+
+    #[rstest]
+    #[case::fg_color(
+        TextStyle::default().bold().fg_color(Color::Red),
+        TextStyle::default().fg_color(Color::Blue),
+        TextStyle::default().bold().fg_color(Color::Blue)
+    )]
+    #[case::fg_color(
+        TextStyle::default().fg_color(Color::Red),
+        TextStyle::default().bold().fg_color(Color::Blue),
+        TextStyle::default().bold().fg_color(Color::Blue)
+    )]
+    #[case::bg_color(
+        TextStyle::default().bold().bg_color(Color::Yellow),
+        TextStyle::default().bg_color(Color::Green),
+        TextStyle::default().bold().bg_color(Color::Green)
+    )]
+    #[case::bg_color(
+        TextStyle::default().bg_color(Color::Yellow),
+        TextStyle::default().bold().bg_color(Color::Green),
+        TextStyle::default().bold().bg_color(Color::Green)
+    )]
+    fn merge_overwrites_colors(#[case] mut some: TextStyle, #[case] other: TextStyle, #[case] output: TextStyle) {
+        some.merge(&other);
+        assert_eq!(some, output);
+    }
 }
