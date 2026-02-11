@@ -2,7 +2,7 @@ use crate::{
     markdown::elements::{MarkdownElement, SourcePosition},
     presentation::builder::{BuildResult, LayoutState, PresentationBuilder, error::InvalidPresentation},
     render::operation::{LayoutGrid, RenderOperation},
-    theme::{Alignment, ElementType},
+    theme::{Alignment, ElementType, raw::RawColor},
 };
 use serde::Deserialize;
 use std::{fmt, num::NonZeroU8, path::PathBuf, str::FromStr};
@@ -119,6 +119,12 @@ impl PresentationBuilder<'_, '_> {
                 self.push_detached_code_execution(handle)?;
                 return Ok(());
             }
+            CommentCommand::SlideBackgroundColor(color) => {
+                let color = color
+                    .resolve(&self.theme.palette)
+                    .map_err(|e| self.invalid_presentation(source_position, InvalidPresentation::InvalidColor(e)))?;
+                self.slide_state.background_color = color;
+            }
         };
         // Don't push line breaks for any comments.
         self.slide_state.ignore_element_line_break = true;
@@ -189,6 +195,7 @@ impl PresentationBuilder<'_, '_> {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum CommentCommand {
     Alignment(CommentCommandAlignment),
+    SlideBackgroundColor(RawColor),
     Column(usize),
     EndSlide,
     FontSize(u8),
@@ -235,6 +242,7 @@ impl CommentCommand {
             format!("<!-- include: file.md -->"),
             format!("<!-- speaker_note: Your note here -->"),
             format!("<!-- snippet_output: identifier -->"),
+            format!("<!-- slide_background_color: ff0000 -->"),
         ]
     }
 }
@@ -298,6 +306,14 @@ mod tests {
     fn command_formatting(#[case] input: &str, #[case] expected: CommentCommand) {
         let parsed: CommentCommand = input.parse().expect("deserialization failed");
         assert_eq!(parsed, expected);
+    }
+
+    #[rstest]
+    #[case::hex("slide_background_color: ff0000")]
+    #[case::named("slide_background_color: red")]
+    fn background_color_parsing(#[case] input: &str) {
+        let parsed: CommentCommand = input.parse().expect("deserialization failed");
+        assert!(matches!(parsed, CommentCommand::SlideBackgroundColor(_)));
     }
 
     #[rstest]
@@ -769,5 +785,41 @@ hi
 
         let err = Test::new(input).resources_path(path).expect_invalid();
         assert!(err.to_string().contains("was already imported"), "{err:?}");
+    }
+
+    #[test]
+    fn background_color() {
+        use crate::markdown::text_style::Color;
+
+        let input = "
+<!-- slide_background_color: ff0000 -->
+
+hello
+";
+        let (lines, styles) = Test::new(input)
+            .render()
+            .rows(4)
+            .columns(10)
+            .map_background(Color::Rgb { r: 255, g: 0, b: 0 }, 'R')
+            .into_parts();
+
+        // Find the line containing "hello" and verify it has red background
+        let hello_line_idx = lines.iter().position(|l| l.contains("hello")).expect("hello not found");
+        assert!(
+            styles[hello_line_idx].starts_with("RRRRR"),
+            "Expected text to have red background.\nLines: {:?}\nStyles: {:?}",
+            lines,
+            styles
+        );
+    }
+
+    #[test]
+    fn background_color_invalid() {
+        let input = "
+<!-- slide_background_color: palette:undefined_color -->
+
+hello
+";
+        Test::new(input).expect_invalid();
     }
 }

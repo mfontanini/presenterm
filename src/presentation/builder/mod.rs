@@ -509,8 +509,23 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
     }
 
     fn terminate_slide(&mut self) {
-        let operations = mem::take(&mut self.chunk_operations);
+        let mut operations = mem::take(&mut self.chunk_operations);
         let mutators = mem::take(&mut self.chunk_mutators);
+
+        // Apply background color to all SetColors operations in the current chunk
+        // so the entire slide uses the custom background
+        if let Some(bg_color) = self.slide_state.background_color {
+            for op in &mut operations {
+                if let RenderOperation::SetColors(colors) = op {
+                    colors.background = Some(bg_color);
+                }
+            }
+            // Also apply to any previously created chunks (from pause commands)
+            for chunk in &mut self.slide_chunks {
+                chunk.apply_background_color(bg_color);
+            }
+        }
+
         // Don't allow a last empty pause in slide since it adds nothing
         if self.slide_chunks.is_empty() || !Self::is_chunk_empty(&operations) {
             self.slide_chunks.push(SlideChunk::new(operations, mutators));
@@ -600,6 +615,7 @@ struct SlideState {
     alignment: Option<Alignment>,
     skip_slide: bool,
     last_layout_comment: Option<FileSourcePosition>,
+    background_color: Option<Color>,
 }
 
 #[derive(Clone, Debug, Default)]
