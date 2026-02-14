@@ -138,6 +138,10 @@ struct Cli {
     #[clap(short, long, group = "speaker-notes")]
     listen_speaker_notes: bool,
 
+    /// Whether to mirror the main slide being presented.
+    #[clap(short = 'M', long, group = "speaker-notes")]
+    mirror_main_slide: bool,
+
     /// Whether to validate snippets.
     #[clap(long)]
     validate_snippets: bool,
@@ -359,15 +363,14 @@ impl SpeakerNotesComponents {
     fn new(cli: &Cli, config: &Config, path: &Path) -> anyhow::Result<Self> {
         let full_presentation_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
         let publish_speaker_notes =
-            cli.publish_speaker_notes || (config.speaker_notes.always_publish && !cli.listen_speaker_notes);
+            cli.publish_speaker_notes || (config.speaker_notes.always_publish && !cli.listen_speaker_notes && !cli.mirror_main_slide);
         let events_publisher = publish_speaker_notes
             .then(|| {
                 SpeakerNotesEventPublisher::new(config.speaker_notes.publish_address, full_presentation_path.clone())
             })
             .transpose()
             .map_err(|e| anyhow!("failed to create speaker notes publisher: {e}"))?;
-        let events_listener = cli
-            .listen_speaker_notes
+        let events_listener = (cli.listen_speaker_notes || cli.mirror_main_slide)
             .then(|| SpeakerNotesEventListener::new(config.speaker_notes.listen_address, full_presentation_path))
             .transpose()
             .map_err(|e| anyhow!("failed to create speaker notes listener: {e}"))?;
