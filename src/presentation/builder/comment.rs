@@ -61,7 +61,7 @@ impl PresentationBuilder<'_, '_> {
             }
             CommentCommand::ResetLayout => {
                 self.slide_state.layout = LayoutState::Default;
-                self.chunk_operations.extend([RenderOperation::ExitLayout, RenderOperation::RenderLineBreak]);
+                self.chunk_operations.push(RenderOperation::ExitLayout);
             }
             CommentCommand::Column(column) => {
                 let (current_column, columns_count) = match self.slide_state.layout {
@@ -179,8 +179,13 @@ impl PresentationBuilder<'_, '_> {
             if let MarkdownElement::FrontMatter(_) = element {
                 return Err(self.invalid_presentation(source_position, InvalidPresentation::IncludeFrontMatter));
             }
+            self.slide_state.ignore_element_line_break = false;
             self.process_element_for_presentation_mode(element)?;
+            if !self.slide_state.ignore_element_line_break {
+                self.push_line_break();
+            }
         }
+        self.slide_state.ignore_element_line_break = true;
         Ok(())
     }
 }
@@ -697,6 +702,8 @@ hola
 first
 ===
 
+foo
+
 ![](inner/img.png)
 
 <!-- include: inner/second.md -->
@@ -730,15 +737,19 @@ hi
 <!-- include: first.md -->
         ";
 
-        let lines = Test::new(input).resources_path(path).render().rows(10).columns(12).into_lines();
+        let lines = Test::new(input).resources_path(path).render().rows(14).columns(12).into_lines();
         let expected = &[
             "            ",
             "hi          ",
             "            ",
             "first       ",
             "            ",
+            "foo         ",
+            "            ",
+            "            ",
             "            ",
             "second      ",
+            "            ",
             "            ",
             "            ",
             "a           ",
