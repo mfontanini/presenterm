@@ -122,6 +122,9 @@ pub(crate) enum InvalidPresentation {
 
     #[error("snippet id '{0}' already exists")]
     SnippetAlreadyExists(String),
+
+    #[error("invalid color: {0}")]
+    InvalidColor(#[from] UndefinedPaletteColorError),
 }
 
 #[derive(Clone, Debug)]
