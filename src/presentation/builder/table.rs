@@ -10,7 +10,11 @@ impl PresentationBuilder<'_, '_> {
         let widths: Vec<_> = (0..table.columns())
             .map(|column| table.iter_column(column).map(|text| text.width()).max().unwrap_or(0))
             .collect();
+        let incremental = self.slide_state.incremental_tables.unwrap_or(self.options.incremental_tables);
         let flattened_header = self.prepare_table_row(table.header, &widths)?;
+        if incremental && self.options.pause_before_incremental_tables {
+            self.push_pause();
+        }
         self.push_text(flattened_header, ElementType::Table);
         self.push_line_break();
 
@@ -33,9 +37,15 @@ impl PresentationBuilder<'_, '_> {
         self.push_line_break();
 
         for row in table.rows {
+            if incremental {
+                self.push_pause();
+            }
             let flattened_row = self.prepare_table_row(row, &widths)?;
             self.push_text(flattened_row, ElementType::Table);
             self.push_line_break();
+        }
+        if incremental && self.options.pause_after_incremental_tables {
+            self.push_pause();
         }
         Ok(())
     }

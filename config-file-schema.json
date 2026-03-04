@@ -78,7 +78,15 @@
           "description": "The configuration for lists when incremental lists are enabled.",
           "allOf": [
             {
-              "$ref": "#/definitions/IncrementalListsConfig"
+              "$ref": "#/definitions/IncrementalElementConfig"
+            }
+          ]
+        },
+        "incremental_tables": {
+          "description": "The configuration for tables when incremental tables are enabled.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/IncrementalElementConfig"
             }
           ]
         },
@@ -291,12 +299,12 @@
         }
       ]
     },
-    "IncrementalListsConfig": {
-      "description": "The configuration for lists when incremental lists are enabled.",
+    "IncrementalElementConfig": {
+      "description": "The configuration for incrementally shown elements.",
       "type": "object",
       "properties": {
         "pause_after": {
-          "description": "Whether to pause after a list ends.",
+          "description": "Whether to pause after.",
           "default": null,
           "type": [
             "boolean",
@@ -304,7 +312,7 @@
           ]
         },
         "pause_before": {
-          "description": "Whether to pause before a list begins.",
+          "description": "Whether to pause before.",
           "default": null,
           "type": [
             "boolean",
@@ -607,6 +615,13 @@
         },
         "incremental_lists": {
           "description": "Show all lists incrementally, by implicitly adding pauses in between elements.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "incremental_tables": {
+          "description": "Show all tables incrementally, by implicitly adding pauses in between rows.",
           "type": [
             "boolean",
             "null"
