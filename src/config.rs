@@ -137,7 +137,11 @@ pub struct DefaultsConfig {
 
     /// The configuration for lists when incremental lists are enabled.
     #[serde(default)]
-    pub incremental_lists: IncrementalListsConfig,
+    pub incremental_lists: IncrementalElementConfig,
+
+    /// The configuration for tables when incremental tables are enabled.
+    #[serde(default)]
+    pub incremental_tables: IncrementalElementConfig,
 }
 
 impl Default for DefaultsConfig {
@@ -152,20 +156,21 @@ impl Default for DefaultsConfig {
             max_rows: default_u16_max(),
             max_rows_alignment: Default::default(),
             incremental_lists: Default::default(),
+            incremental_tables: Default::default(),
         }
     }
 }
 
-/// The configuration for lists when incremental lists are enabled.
+/// The configuration for incrementally shown elements.
 #[derive(Clone, Debug, Default, Deserialize)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
-pub struct IncrementalListsConfig {
-    /// Whether to pause before a list begins.
+pub struct IncrementalElementConfig {
+    /// Whether to pause before.
     #[serde(default)]
     pub pause_before: Option<bool>,
 
-    /// Whether to pause after a list ends.
+    /// Whether to pause after.
     #[serde(default)]
     pub pause_after: Option<bool>,
 }
@@ -232,6 +237,9 @@ pub struct OptionsConfig {
 
     /// Show all lists incrementally, by implicitly adding pauses in between elements.
     pub incremental_lists: Option<bool>,
+
+    /// Show all tables incrementally, by implicitly adding pauses in between rows.
+    pub incremental_tables: Option<bool>,
 
     /// The number of newlines in between list items.
     pub list_item_newlines: Option<NonZeroU8>,

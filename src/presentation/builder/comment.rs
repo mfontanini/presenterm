@@ -6,6 +6,7 @@ use crate::{
 };
 use serde::Deserialize;
 use std::{fmt, num::NonZeroU8, path::PathBuf, str::FromStr};
+use strum::{EnumDiscriminants, EnumIter};
 
 impl PresentationBuilder<'_, '_> {
     pub(crate) fn process_comment(&mut self, comment: String, source_position: SourcePosition) -> BuildResult {
@@ -81,6 +82,9 @@ impl PresentationBuilder<'_, '_> {
             }
             CommentCommand::IncrementalLists(value) => {
                 self.slide_state.incremental_lists = Some(value);
+            }
+            CommentCommand::IncrementalTables(value) => {
+                self.slide_state.incremental_tables = Some(value);
             }
             CommentCommand::NoFooter => {
                 self.slide_state.ignore_footer = true;
@@ -190,7 +194,8 @@ impl PresentationBuilder<'_, '_> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, EnumDiscriminants)]
+#[strum_discriminants(derive(EnumIter))]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum CommentCommand {
     Alignment(CommentCommandAlignment),
@@ -199,6 +204,7 @@ pub(crate) enum CommentCommand {
     FontSize(u8),
     Include(PathBuf),
     IncrementalLists(bool),
+    IncrementalTables(bool),
     #[serde(rename = "column_layout")]
     InitColumnLayout(Vec<u8>),
     JumpToMiddle,
@@ -218,29 +224,41 @@ pub(crate) enum CommentCommand {
 
 impl CommentCommand {
     /// Generate sample comment strings for all available commands
-    pub(crate) fn generate_samples() -> Vec<String> {
-        vec![
-            format!("<!-- pause -->"),
-            format!("<!-- end_slide -->"),
-            format!("<!-- new_line -->"),
-            format!("<!-- new_lines: 2 -->"),
-            format!("<!-- jump_to_middle -->"),
-            format!("<!-- column_layout: [1, 2] -->"),
-            format!("<!-- column: 0 -->"),
-            format!("<!-- reset_layout -->"),
-            format!("<!-- incremental_lists: true -->"),
-            format!("<!-- incremental_lists: false -->"),
-            format!("<!-- no_footer -->"),
-            format!("<!-- font_size: 2 -->"),
-            format!("<!-- alignment: left -->"),
-            format!("<!-- alignment: center -->"),
-            format!("<!-- alignment: right -->"),
-            format!("<!-- skip_slide -->"),
-            format!("<!-- list_item_newlines: 2 -->"),
-            format!("<!-- include: file.md -->"),
-            format!("<!-- speaker_note: Your note here -->"),
-            format!("<!-- snippet_output: identifier -->"),
-        ]
+    pub(crate) fn generate_samples() -> Vec<&'static str> {
+        use strum::IntoEnumIterator;
+
+        CommentCommandDiscriminants::iter()
+            .flat_map(|variant| {
+                use CommentCommandDiscriminants::*;
+                match variant {
+                    Alignment => {
+                        vec!["<!-- alignment: left -->", "<!-- alignment: center -->", "<!-- alignment: right -->"]
+                    }
+                    Column => vec!["<!-- column: 0 -->"],
+                    EndSlide => vec!["<!-- end_slide -->"],
+                    FontSize => vec!["<!-- font_size: 2 -->"],
+                    Include => vec!["<!-- include: file.md -->"],
+                    IncrementalLists => {
+                        vec!["<!-- incremental_lists: true -->", "<!-- incremental_lists: false -->"]
+                    }
+                    IncrementalTables => {
+                        vec!["<!-- incremental_tables: true -->", "<!-- incremental_tables: false -->"]
+                    }
+                    InitColumnLayout => vec!["<!-- column_layout: [1, 2] -->"],
+                    JumpToMiddle => vec!["<!-- jump_to_middle -->"],
+                    ListItemNewlines => vec!["<!-- list_item_newlines: 2 -->"],
+                    NewLine => vec!["<!-- new_line -->"],
+                    NewLines => vec!["<!-- new_lines: 2 -->"],
+                    NoFooter => vec!["<!-- no_footer -->"],
+                    Pause => vec!["<!-- pause -->"],
+                    ResetLayout => vec!["<!-- reset_layout -->"],
+                    SkipSlide => vec!["<!-- skip_slide -->"],
+                    SpeakerNote => vec!["<!-- speaker_note: Your note here -->"],
+                    SnippetOutput => vec!["<!-- snippet_output: identifier -->"],
+                    Comment => vec!["<!-- comment: hi mom -->"],
+                }
+            })
+            .collect()
     }
 }
 

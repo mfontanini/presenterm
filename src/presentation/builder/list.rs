@@ -28,18 +28,18 @@ impl PresentationBuilder<'_, '_> {
         let block_length =
             list.iter().map(|l| self.list_item_prefix(l).width() + l.contents.width()).max().unwrap_or_default() as u16;
         let block_length = block_length * self.slide_font_size() as u16;
-        let incremental_lists = self.slide_state.incremental_lists.unwrap_or(self.options.incremental_lists);
+        let incremental = self.slide_state.incremental_lists.unwrap_or(self.options.incremental_lists);
         let iter = ListIterator::new(list, start_index);
-        if incremental_lists && self.options.pause_before_incremental_lists {
+        if incremental && self.options.pause_before_incremental_lists {
             self.push_pause();
         }
         for (index, item) in iter.enumerate() {
-            if index > 0 && incremental_lists {
+            if index > 0 && incremental {
                 self.push_pause();
             }
             self.push_list_item(item.index, item.item, block_length)?;
         }
-        if incremental_lists && self.options.pause_after_incremental_lists {
+        if incremental && self.options.pause_after_incremental_lists {
             self.push_pause();
         }
         Ok(())

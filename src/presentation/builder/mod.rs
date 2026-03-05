@@ -78,6 +78,7 @@ pub struct PresentationBuilderOptions {
     pub command_prefix: String,
     pub image_attribute_prefix: String,
     pub incremental_lists: bool,
+    pub incremental_tables: bool,
     pub force_default_theme: bool,
     pub end_slide_shorthand: bool,
     pub print_modal_background: bool,
@@ -89,6 +90,8 @@ pub struct PresentationBuilderOptions {
     pub theme_options: ThemeOptions,
     pub pause_before_incremental_lists: bool,
     pub pause_after_incremental_lists: bool,
+    pub pause_before_incremental_tables: bool,
+    pub pause_after_incremental_tables: bool,
     pub pause_create_new_slide: bool,
     pub list_item_newlines: u8,
     pub validate_snippets: bool,
@@ -100,6 +103,7 @@ impl PresentationBuilderOptions {
     fn merge(&mut self, options: OptionsConfig) {
         self.implicit_slide_ends = options.implicit_slide_ends.unwrap_or(self.implicit_slide_ends);
         self.incremental_lists = options.incremental_lists.unwrap_or(self.incremental_lists);
+        self.incremental_tables = options.incremental_tables.unwrap_or(self.incremental_tables);
         self.end_slide_shorthand = options.end_slide_shorthand.unwrap_or(self.end_slide_shorthand);
         self.strict_front_matter_parsing =
             options.strict_front_matter_parsing.unwrap_or(self.strict_front_matter_parsing);
@@ -127,6 +131,7 @@ impl Default for PresentationBuilderOptions {
             command_prefix: String::default(),
             image_attribute_prefix: "image:".to_string(),
             incremental_lists: false,
+            incremental_tables: false,
             force_default_theme: false,
             end_slide_shorthand: false,
             print_modal_background: false,
@@ -138,6 +143,8 @@ impl Default for PresentationBuilderOptions {
             theme_options: ThemeOptions { font_size_supported: false },
             pause_before_incremental_lists: true,
             pause_after_incremental_lists: true,
+            pause_before_incremental_tables: true,
+            pause_after_incremental_tables: true,
             pause_create_new_slide: false,
             list_item_newlines: 1,
             validate_snippets: false,
@@ -593,6 +600,7 @@ struct SlideState {
     last_chunk_ended_in_list: bool,
     last_element: LastElement,
     incremental_lists: Option<bool>,
+    incremental_tables: Option<bool>,
     list_item_newlines: Option<u8>,
     layout: LayoutState,
     title: Option<Line>,
