@@ -166,7 +166,7 @@ mod test {
     ))]
     #[case(RenderOperation::RenderDynamic(Rc::new(Dynamic)))]
     #[case(RenderOperation::RenderAsync(Rc::new(Dynamic)))]
-    #[case(RenderOperation::InitColumnLayout{ columns: vec![1, 2], grid: LayoutGrid::None })]
+    #[case(RenderOperation::InitColumnLayout{ columns: vec![1, 2], grid: LayoutGrid::None, margin: Default::default() })]
     #[case(RenderOperation::EnterColumn{ column: 1 })]
     #[case(RenderOperation::ExitLayout)]
     fn same_not_modified(#[case] operation: RenderOperation) {
@@ -203,8 +203,16 @@ mod test {
 
     #[test]
     fn different_column_layout() {
-        let lhs = RenderOperation::InitColumnLayout { columns: vec![1, 2], grid: LayoutGrid::None };
-        let rhs = RenderOperation::InitColumnLayout { columns: vec![1, 3], grid: LayoutGrid::None };
+        let lhs = RenderOperation::InitColumnLayout {
+            columns: vec![1, 2],
+            grid: LayoutGrid::None,
+            margin: Default::default(),
+        };
+        let rhs = RenderOperation::InitColumnLayout {
+            columns: vec![1, 3],
+            grid: LayoutGrid::None,
+            margin: Default::default(),
+        };
         assert!(lhs.is_content_different(&rhs));
     }
 
