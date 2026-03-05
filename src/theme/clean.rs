@@ -44,6 +44,7 @@ pub(crate) struct PresentationTheme {
     pub(crate) block_quote: BlockQuoteStyle,
     pub(crate) alert: AlertStyle,
     pub(crate) default_style: DefaultStyle,
+    pub(crate) column_layout: ColumnLayoutStyle,
     pub(crate) headings: HeadingStyles,
     pub(crate) intro_slide: IntroSlideStyle,
     pub(crate) footer: FooterStyle,
@@ -73,6 +74,7 @@ impl PresentationTheme {
             block_quote,
             alert,
             default_style,
+            column_layout,
             headings,
             intro_slide,
             footer,
@@ -99,6 +101,7 @@ impl PresentationTheme {
             block_quote: BlockQuoteStyle::new(block_quote, &palette)?,
             alert: AlertStyle::new(alert, &palette)?,
             default_style: default_style.clone(),
+            column_layout: ColumnLayoutStyle::new(column_layout),
             headings: HeadingStyles::new(headings, &palette, options)?,
             intro_slide: IntroSlideStyle::new(intro_slide, &palette, options)?,
             footer: FooterStyle::new(&footer.clone().unwrap_or_default(), &palette, resources)?,
@@ -467,6 +470,19 @@ impl DefaultStyle {
         let style = TextStyle::colored(colors.resolve(palette)?);
         let alignment = alignment.clone().unwrap_or_default().into();
         Ok(Self { margin, style, alignment })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ColumnLayoutStyle {
+    pub(crate) margin: Margin,
+}
+
+impl ColumnLayoutStyle {
+    fn new(raw: &raw::ColumnLayoutStyle) -> Self {
+        let raw::ColumnLayoutStyle { margin } = raw;
+        let margin = margin.unwrap_or_default();
+        Self { margin }
     }
 }
 

@@ -63,6 +63,10 @@ pub struct PresentationTheme {
     #[serde(rename = "default", default)]
     pub(crate) default_style: DefaultStyle,
 
+    /// The style for column layouts.
+    #[serde(default)]
+    pub(crate) column_layout: ColumnLayoutStyle,
+
     //// The style of all headings.
     #[serde(default)]
     pub(crate) headings: HeadingStyles,
@@ -354,6 +358,14 @@ pub(crate) struct DefaultStyle {
     /// The alignment for all elements.
     #[serde(flatten, default)]
     pub(crate) alignment: Option<Alignment>,
+}
+
+/// The column layout style.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub(crate) struct ColumnLayoutStyle {
+    /// The margin in between two columns.
+    #[serde(default, with = "serde_yaml::with::singleton_map")]
+    pub(crate) margin: Option<Margin>,
 }
 
 /// A simple style.

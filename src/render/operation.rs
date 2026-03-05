@@ -84,7 +84,7 @@ pub(crate) enum RenderOperation {
     ///
     /// The value for each column is the width of the column in column-unit units, where the entire
     /// screen contains `columns.sum()` column-units.
-    InitColumnLayout { columns: Vec<u8>, grid: LayoutGrid },
+    InitColumnLayout { columns: Vec<u8>, grid: LayoutGrid, margin: Margin },
 
     /// Enter a column in a column layout.
     ///

@@ -57,7 +57,11 @@ impl PresentationBuilder<'_, '_> {
                 } else {
                     LayoutGrid::None
                 };
-                self.chunk_operations.push(RenderOperation::InitColumnLayout { columns, grid });
+                self.chunk_operations.push(RenderOperation::InitColumnLayout {
+                    columns,
+                    grid,
+                    margin: self.theme.column_layout.margin,
+                });
                 self.slide_state.needs_enter_column = true;
             }
             CommentCommand::ResetLayout => {
@@ -297,12 +301,11 @@ impl fmt::Display for CommandParseError {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, io::BufWriter};
-
     use super::*;
     use crate::presentation::builder::{PresentationBuilderOptions, utils::Test};
     use image::{DynamicImage, ImageEncoder, codecs::png::PngEncoder};
     use rstest::rstest;
+    use std::{fs, io::BufWriter};
     use tempfile::tempdir;
 
     #[rstest]
@@ -416,7 +419,14 @@ mod tests {
 
     #[test]
     fn columns() {
-        let input = "
+        let input = "---
+theme:
+  override:
+    column_layout:
+      margin:
+        fixed: 2
+---
+
 <!-- column_layout: [1, 1] -->
 <!-- column: 0 -->
 foo1
@@ -433,15 +443,15 @@ bar2
 
 ---
 ";
-        let lines = Test::new(input).render().rows(7).columns(24).into_lines();
+        let lines = Test::new(input).render().rows(7).columns(20).into_lines();
         let expected = &[
-            "                        ",
-            "foo1            bar1    ",
-            "                        ",
-            "foo2            bar2    ",
-            "                        ",
-            "————————        ————————",
-            "                        ",
+            "                    ",
+            "foo1        bar1    ",
+            "                    ",
+            "foo2        bar2    ",
+            "                    ",
+            "————————    ————————",
+            "                    ",
         ];
         assert_eq!(lines, expected);
     }
@@ -449,7 +459,14 @@ bar2
     #[test]
     fn columns_back_and_forth() {
         // this is the same as the above but we run back and forth between the columns
-        let input = "
+        let input = "---
+theme:
+  override:
+    column_layout:
+      margin:
+        fixed: 2
+---
+
 <!-- column_layout: [1, 1] -->
 
 <!-- column: 0 -->
@@ -472,22 +489,29 @@ bar2
 
 ---
 ";
-        let lines = Test::new(input).render().rows(7).columns(24).into_lines();
+        let lines = Test::new(input).render().rows(7).columns(20).into_lines();
         let expected = &[
-            "                        ",
-            "foo1            bar1    ",
-            "                        ",
-            "foo2            bar2    ",
-            "                        ",
-            "————————        ————————",
-            "                        ",
+            "                    ",
+            "foo1        bar1    ",
+            "                    ",
+            "foo2        bar2    ",
+            "                    ",
+            "————————    ————————",
+            "                    ",
         ];
         assert_eq!(lines, expected);
     }
 
     #[test]
     fn uneven_columns() {
-        let input = "
+        let input = "---
+theme:
+  override:
+    column_layout:
+      margin:
+        fixed: 4
+---
+
 <!-- column_layout: [2, 1] -->
 <!-- column: 0 -->
 foo1
@@ -519,7 +543,14 @@ bar2
 
     #[test]
     fn uneven_three_columns() {
-        let input = "
+        let input = "---
+theme:
+  override:
+    column_layout:
+      margin:
+        fixed: 4
+---
+
 <!-- column_layout: [1, 2, 1] -->
 <!-- column: 0 -->
 
@@ -574,7 +605,14 @@ bye
 
     #[test]
     fn pause_layout_new_slide() {
-        let input = r"
+        let input = r"---
+theme:
+  override:
+    column_layout:
+      margin:
+        fixed: 4
+---
+
 <!-- column_layout: [1, 1] -->
 <!-- column: 0 -->
 hi

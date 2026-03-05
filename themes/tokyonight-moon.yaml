@@ -6,6 +6,10 @@ default:
     foreground: "c8d3f5"
     background: "222436"
 
+column_layout:
+  margin:
+    fixed: 4
+
 slide_title:
   alignment: center
   padding_bottom: 1
