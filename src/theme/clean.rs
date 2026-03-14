@@ -88,7 +88,7 @@ impl PresentationTheme {
         } = raw;
 
         let palette = ColorPalette::try_from(palette)?;
-        let default_style = DefaultStyle::new(default_style, &palette)?;
+        let default_style = DefaultStyle::new(default_style, &palette, resources)?;
         Ok(Self {
             slide_title: SlideTitleStyle::new(slide_title, &palette, options)?,
             code: CodeBlockStyle::new(code),
@@ -149,6 +149,9 @@ pub(crate) enum ProcessingThemeError {
 
     #[error("invalid footer image: {0}")]
     FooterImage(RegisterImageError),
+
+    #[error("invalid background image: {0}")]
+    BackgroundImage(RegisterImageError),
 }
 
 #[derive(Clone, Debug)]
@@ -456,20 +459,65 @@ impl AuthorStyle {
     }
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct BackgroundImage {
+    pub(crate) image: Image,
+    pub(crate) fit: raw::BackgroundImageFit,
+    pub(crate) source: Option<image::DynamicImage>,
+}
+
 #[derive(Clone, Debug, Default)]
 pub(crate) struct DefaultStyle {
     pub(crate) margin: Margin,
     pub(crate) style: TextStyle,
     pub(crate) alignment: Alignment,
+    pub(crate) background_image: Option<BackgroundImage>,
 }
 
 impl DefaultStyle {
-    fn new(raw: &raw::DefaultStyle, palette: &ColorPalette) -> Result<Self, ProcessingThemeError> {
-        let raw::DefaultStyle { margin, colors, alignment } = raw;
+    fn new(
+        raw: &raw::DefaultStyle,
+        palette: &ColorPalette,
+        resources: &Resources,
+    ) -> Result<Self, ProcessingThemeError> {
+        let raw::DefaultStyle { margin, colors, alignment, background_image } = raw;
         let margin = margin.unwrap_or_default();
         let style = TextStyle::colored(colors.resolve(palette)?);
         let alignment = alignment.clone().unwrap_or_default().into();
-        Ok(Self { margin, style, alignment })
+        let background_image = background_image
+            .as_ref()
+            .map(|bg| -> Result<_, ProcessingThemeError> {
+                let opacity = bg.opacity.unwrap_or(100).min(100);
+                let fit = bg.fit.clone().unwrap_or_default();
+                let is_cover = matches!(fit, raw::BackgroundImageFit::Cover);
+
+                let (image, source) = if opacity < 100 || is_cover {
+                    let path = resources.resolve_theme_image_path(&bg.path);
+                    let data = std::fs::read(&path).map_err(|e| {
+                        ProcessingThemeError::BackgroundImage(RegisterImageError::Io(e))
+                    })?;
+                    let mut dynamic = image::load_from_memory(&data).map_err(|e| {
+                        ProcessingThemeError::BackgroundImage(RegisterImageError::Io(
+                            std::io::Error::new(std::io::ErrorKind::InvalidData, e),
+                        ))
+                    })?;
+                    if opacity < 100 {
+                        crate::terminal::image::apply_opacity(&mut dynamic, opacity);
+                    }
+                    let source = if is_cover { Some(dynamic.clone()) } else { None };
+                    let image = resources
+                        .register_generated_image(dynamic)
+                        .map_err(ProcessingThemeError::BackgroundImage)?;
+                    (image, source)
+                } else {
+                    let image =
+                        resources.theme_image(&bg.path).map_err(ProcessingThemeError::BackgroundImage)?;
+                    (image, None)
+                };
+                Ok(BackgroundImage { image, fit, source })
+            })
+            .transpose()?;
+        Ok(Self { margin, style, alignment, background_image })
     }
 }
 

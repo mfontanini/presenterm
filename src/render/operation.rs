@@ -5,7 +5,7 @@ use crate::{
         text_style::{Color, Colors, TextStyle},
     },
     terminal::image::Image,
-    theme::{Alignment, Margin},
+    theme::{Alignment, Margin, raw::BackgroundImageFit},
 };
 use std::{
     fmt::Debug,
@@ -146,6 +146,19 @@ pub(crate) enum ImageSize {
     WidthScaled {
         ratio: f64,
     },
+    Stretch,
+    Cover,
+    Contain,
+}
+
+impl From<BackgroundImageFit> for ImageSize {
+    fn from(fit: BackgroundImageFit) -> Self {
+        match fit {
+            BackgroundImageFit::Stretch => Self::Stretch,
+            BackgroundImageFit::Cover => Self::Cover,
+            BackgroundImageFit::Contain => Self::Contain,
+        }
+    }
 }
 
 /// Slide properties, set on initialization.

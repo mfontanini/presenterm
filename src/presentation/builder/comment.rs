@@ -2,7 +2,7 @@ use crate::{
     markdown::elements::{MarkdownElement, SourcePosition},
     presentation::builder::{BuildResult, LayoutState, PresentationBuilder, error::InvalidPresentation},
     render::operation::{LayoutGrid, RenderOperation},
-    theme::{Alignment, ElementType},
+    theme::{Alignment, ElementType, raw},
 };
 use serde::Deserialize;
 use std::{fmt, num::NonZeroU8, path::PathBuf, str::FromStr};
@@ -40,6 +40,9 @@ impl PresentationBuilder<'_, '_> {
     ) -> BuildResult {
         match command {
             CommentCommand::Pause => self.push_pause(),
+            CommentCommand::BgImage(cmd) => {
+                self.set_slide_background_image(cmd, source_position)?;
+            }
             CommentCommand::EndSlide => self.terminate_slide(),
             CommentCommand::NewLine => self.push_line_breaks(self.slide_font_size() as usize),
             CommentCommand::NewLines(count) => {
@@ -203,6 +206,7 @@ impl PresentationBuilder<'_, '_> {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum CommentCommand {
     Alignment(CommentCommandAlignment),
+    BgImage(BgImageCommand),
     Column(usize),
     EndSlide,
     FontSize(u8),
@@ -226,6 +230,13 @@ pub(crate) enum CommentCommand {
     Comment(String),
 }
 
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub(crate) struct BgImageCommand {
+    pub(crate) path: PathBuf,
+    pub(crate) fit: Option<raw::BackgroundImageFit>,
+    pub(crate) opacity: Option<u8>,
+}
+
 impl CommentCommand {
     /// Generate sample comment strings for all available commands
     pub(crate) fn generate_samples() -> Vec<&'static str> {
@@ -238,6 +249,7 @@ impl CommentCommand {
                     Alignment => {
                         vec!["<!-- alignment: left -->", "<!-- alignment: center -->", "<!-- alignment: right -->"]
                     }
+                    BgImage => vec!["<!-- bg_image: {path: bg.png} -->", "<!-- bg_image: {path: bg.png, fit: cover, opacity: 80} -->"],
                     Column => vec!["<!-- column: 0 -->"],
                     EndSlide => vec!["<!-- end_slide -->"],
                     FontSize => vec!["<!-- font_size: 2 -->"],
@@ -321,6 +333,8 @@ mod tests {
     #[case::incremental_lists("new_line", CommentCommand::NewLine)]
     #[case::incremental_lists("newline", CommentCommand::NewLine)]
     #[case::comment("comment: This is a user comment", CommentCommand::Comment("This is a user comment".into()))]
+    #[case::bg_image("bg_image: {path: bg.png}", CommentCommand::BgImage(BgImageCommand { path: "bg.png".into(), fit: None, opacity: None }))]
+    #[case::bg_image_with_options("bg_image: {path: bg.png, fit: contain, opacity: 80}", CommentCommand::BgImage(BgImageCommand { path: "bg.png".into(), fit: Some(raw::BackgroundImageFit::Contain), opacity: Some(80) }))]
     fn command_formatting(#[case] input: &str, #[case] expected: CommentCommand) {
         let parsed: CommentCommand = input.parse().expect("deserialization failed");
         assert_eq!(parsed, expected);

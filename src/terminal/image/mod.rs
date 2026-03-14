@@ -74,3 +74,18 @@ pub(crate) enum ImageSource {
     Filesystem(PathBuf),
     Generated,
 }
+
+pub(crate) fn apply_opacity(image: &mut DynamicImage, opacity: u8) {
+    let factor = opacity as f32 / 100.0;
+    if let Some(rgba) = image.as_mut_rgba8() {
+        for pixel in rgba.pixels_mut() {
+            pixel[3] = (pixel[3] as f32 * factor).round() as u8;
+        }
+    } else {
+        let mut rgba = image.to_rgba8();
+        for pixel in rgba.pixels_mut() {
+            pixel[3] = (pixel[3] as f32 * factor).round() as u8;
+        }
+        *image = DynamicImage::from(rgba);
+    }
+}

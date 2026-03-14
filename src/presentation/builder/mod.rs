@@ -350,16 +350,78 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         let style = self.theme.default_style.style;
         self.set_colors(style.colors);
 
+        self.chunk_operations.push(RenderOperation::ClearScreen);
+        let bg_slot = images::BackgroundImageSlot::new();
+        if let Some(bg) = &self.theme.default_style.background_image {
+            if let Some(source) = &bg.source {
+                bg_slot.set_cover(source.clone(), self.image_registry.clone());
+            } else {
+                bg_slot.set_static(bg.image.clone(), bg.fit.clone());
+            }
+        }
+        self.slide_state.background_image_slot = Some(bg_slot.clone());
+        self.chunk_operations.push(RenderOperation::RenderDynamic(Rc::new(bg_slot)));
+
         let footer_height = self.theme.footer.height();
-        self.chunk_operations.extend([
-            RenderOperation::ClearScreen,
-            RenderOperation::ApplyMargin(MarginProperties {
-                horizontal: self.theme.default_style.margin,
-                top: 0,
-                bottom: footer_height,
-            }),
-        ]);
+        self.chunk_operations.push(RenderOperation::ApplyMargin(MarginProperties {
+            horizontal: self.theme.default_style.margin,
+            top: 0,
+            bottom: footer_height,
+        }));
         self.push_line_break();
+    }
+
+    fn set_slide_background_image(
+        &mut self,
+        cmd: comment::BgImageCommand,
+        source_position: SourcePosition,
+    ) -> BuildResult {
+        let Some(slot) = &self.slide_state.background_image_slot else {
+            return Ok(());
+        };
+        let base_path = self.resource_base_path();
+        let opacity = cmd.opacity.unwrap_or(100).min(100);
+        let fit = cmd.fit.unwrap_or_default();
+        let is_cover = matches!(fit, raw::BackgroundImageFit::Cover);
+
+        if opacity < 100 || is_cover {
+            let path = self.resources.resolve_path(&cmd.path, &base_path);
+            let data = std::fs::read(&path).map_err(|e| {
+                self.invalid_presentation(
+                    source_position,
+                    InvalidPresentation::LoadImage { path: cmd.path.clone(), error: e.to_string() },
+                )
+            })?;
+            let mut dynamic = image::load_from_memory(&data).map_err(|e| {
+                self.invalid_presentation(
+                    source_position,
+                    InvalidPresentation::LoadImage { path: cmd.path.clone(), error: e.to_string() },
+                )
+            })?;
+            if opacity < 100 {
+                crate::terminal::image::apply_opacity(&mut dynamic, opacity);
+            }
+            if is_cover {
+                slot.set_cover(dynamic, self.image_registry.clone());
+            } else {
+                let image = self.image_registry.register(ImageSpec::Generated(dynamic)).map_err(|e| {
+                    self.invalid_presentation(
+                        source_position,
+                        InvalidPresentation::LoadImage { path: cmd.path, error: e.to_string() },
+                    )
+                })?;
+                slot.set_static(image, fit);
+            }
+        } else {
+            let image = self.resources.image(&cmd.path, &base_path).map_err(|e| {
+                self.invalid_presentation(
+                    source_position,
+                    InvalidPresentation::LoadImage { path: cmd.path, error: e.to_string() },
+                )
+            })?;
+            slot.set_static(image, fit);
+        }
+        Ok(())
     }
 
     fn process_element_for_presentation_mode(&mut self, element: MarkdownElement) -> BuildResult {
@@ -608,6 +670,7 @@ struct SlideState {
     alignment: Option<Alignment>,
     skip_slide: bool,
     last_layout_comment: Option<FileSourcePosition>,
+    background_image_slot: Option<images::BackgroundImageSlot>,
 }
 
 #[derive(Clone, Debug, Default)]
