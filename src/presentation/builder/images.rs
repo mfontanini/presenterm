@@ -5,7 +5,7 @@ use crate::{
         error::{BuildError, InvalidPresentation},
     },
     render::{
-        operation::{AsRenderOperations, ImagePosition, ImageRenderProperties, ImageSize, RenderOperation},
+        operation::{AsRenderOperations, ImageRenderProperties, ImageSize, RenderOperation},
         properties::WindowSize,
     },
     terminal::image::{
@@ -82,13 +82,12 @@ impl PresentationBuilder<'_, '_> {
 pub(crate) struct CoverImageRenderer {
     source: DynamicImage,
     registry: ImageRegistry,
-    z_index: i32,
     cache: RefCell<Option<(u16, u16, Image)>>,
 }
 
 impl CoverImageRenderer {
-    fn new(source: DynamicImage, registry: ImageRegistry, z_index: i32) -> Self {
-        Self { source, registry, z_index, cache: RefCell::new(None) }
+    fn new(source: DynamicImage, registry: ImageRegistry) -> Self {
+        Self { source, registry, cache: RefCell::new(None) }
     }
 
     fn crop_to_aspect(&self, dimensions: &WindowSize) -> DynamicImage {
@@ -140,16 +139,7 @@ impl AsRenderOperations for CoverImageRenderer {
             }
         };
 
-        vec![RenderOperation::RenderImage(
-            image,
-            ImageRenderProperties {
-                z_index: self.z_index,
-                size: ImageSize::Stretch,
-                restore_cursor: true,
-                background_color: None,
-                position: ImagePosition::Cursor,
-            },
-        )]
+        vec![RenderOperation::RenderImage(image, ImageRenderProperties::background(ImageSize::Stretch))]
     }
 }
 
@@ -182,7 +172,7 @@ impl BackgroundImageSlot {
     }
 
     pub(crate) fn set_cover(&self, source: DynamicImage, registry: ImageRegistry) {
-        let renderer = CoverImageRenderer::new(source, registry, -1);
+        let renderer = CoverImageRenderer::new(source, registry);
         *self.inner.borrow_mut() = Some(BackgroundImageOp::Cover(renderer));
     }
 }
@@ -198,16 +188,7 @@ impl AsRenderOperations for BackgroundImageSlot {
         match &*self.inner.borrow() {
             None => Vec::new(),
             Some(BackgroundImageOp::Static(image, size)) => {
-                vec![RenderOperation::RenderImage(
-                    image.clone(),
-                    ImageRenderProperties {
-                        z_index: -1,
-                        size: size.clone(),
-                        restore_cursor: true,
-                        background_color: None,
-                        position: ImagePosition::Cursor,
-                    },
-                )]
+                vec![RenderOperation::RenderImage(image.clone(), ImageRenderProperties::background(size.clone()))]
             }
             Some(BackgroundImageOp::Cover(renderer)) => renderer.as_render_operations(dimensions),
         }

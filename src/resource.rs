@@ -102,6 +102,10 @@ impl Resources {
         inner.themes_path.join(path)
     }
 
+    pub(crate) fn load_dynamic_image(&self, path: &Path) -> Result<image::DynamicImage, RegisterImageError> {
+        image::open(path).map_err(RegisterImageError::Image)
+    }
+
     /// Register a generated (in-memory) image.
     pub(crate) fn register_generated_image(
         &self,

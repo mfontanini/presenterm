@@ -486,38 +486,31 @@ impl DefaultStyle {
         let alignment = alignment.clone().unwrap_or_default().into();
         let background_image = background_image
             .as_ref()
-            .map(|bg| -> Result<_, ProcessingThemeError> {
-                let opacity = bg.opacity.unwrap_or(100).min(100);
-                let fit = bg.fit.clone().unwrap_or_default();
-                let is_cover = matches!(fit, raw::BackgroundImageFit::Cover);
-
-                let (image, source) = if opacity < 100 || is_cover {
-                    let path = resources.resolve_theme_image_path(&bg.path);
-                    let data = std::fs::read(&path).map_err(|e| {
-                        ProcessingThemeError::BackgroundImage(RegisterImageError::Io(e))
-                    })?;
-                    let mut dynamic = image::load_from_memory(&data).map_err(|e| {
-                        ProcessingThemeError::BackgroundImage(RegisterImageError::Io(
-                            std::io::Error::new(std::io::ErrorKind::InvalidData, e),
-                        ))
-                    })?;
-                    if opacity < 100 {
-                        crate::terminal::image::apply_opacity(&mut dynamic, opacity);
-                    }
-                    let source = if is_cover { Some(dynamic.clone()) } else { None };
-                    let image = resources
-                        .register_generated_image(dynamic)
-                        .map_err(ProcessingThemeError::BackgroundImage)?;
-                    (image, source)
-                } else {
-                    let image =
-                        resources.theme_image(&bg.path).map_err(ProcessingThemeError::BackgroundImage)?;
-                    (image, None)
-                };
-                Ok(BackgroundImage { image, fit, source })
-            })
+            .map(|bg| Self::load_background_image(bg, resources))
             .transpose()?;
         Ok(Self { margin, style, alignment, background_image })
+    }
+
+    fn load_background_image(
+        bg: &raw::BackgroundImage,
+        resources: &Resources,
+    ) -> Result<BackgroundImage, ProcessingThemeError> {
+        let opacity = bg.opacity.unwrap_or(100).min(100);
+        let fit = bg.fit.clone().unwrap_or_default();
+        let is_cover = matches!(fit, raw::BackgroundImageFit::Cover);
+        if opacity >= 100 && !is_cover {
+            let image = resources.theme_image(&bg.path).map_err(ProcessingThemeError::BackgroundImage)?;
+            return Ok(BackgroundImage { image, fit, source: None });
+        }
+        let path = resources.resolve_theme_image_path(&bg.path);
+        let mut dynamic =
+            resources.load_dynamic_image(&path).map_err(ProcessingThemeError::BackgroundImage)?;
+        if opacity < 100 {
+            crate::terminal::image::apply_opacity(&mut dynamic, opacity);
+        }
+        let source = if is_cover { Some(dynamic.clone()) } else { None };
+        let image = resources.register_generated_image(dynamic).map_err(ProcessingThemeError::BackgroundImage)?;
+        Ok(BackgroundImage { image, fit, source })
     }
 }
 

@@ -383,42 +383,26 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         let opacity = cmd.opacity.unwrap_or(100).min(100);
         let fit = cmd.fit.unwrap_or_default();
         let is_cover = matches!(fit, raw::BackgroundImageFit::Cover);
-
-        if opacity < 100 || is_cover {
-            let path = self.resources.resolve_path(&cmd.path, &base_path);
-            let data = std::fs::read(&path).map_err(|e| {
-                self.invalid_presentation(
-                    source_position,
-                    InvalidPresentation::LoadImage { path: cmd.path.clone(), error: e.to_string() },
-                )
-            })?;
-            let mut dynamic = image::load_from_memory(&data).map_err(|e| {
-                self.invalid_presentation(
-                    source_position,
-                    InvalidPresentation::LoadImage { path: cmd.path.clone(), error: e.to_string() },
-                )
-            })?;
-            if opacity < 100 {
-                crate::terminal::image::apply_opacity(&mut dynamic, opacity);
-            }
-            if is_cover {
-                slot.set_cover(dynamic, self.image_registry.clone());
-            } else {
-                let image = self.image_registry.register(ImageSpec::Generated(dynamic)).map_err(|e| {
-                    self.invalid_presentation(
-                        source_position,
-                        InvalidPresentation::LoadImage { path: cmd.path, error: e.to_string() },
-                    )
-                })?;
-                slot.set_static(image, fit);
-            }
+        let load_err = |e: &dyn std::fmt::Display| {
+            self.invalid_presentation(
+                source_position,
+                InvalidPresentation::LoadImage { path: cmd.path.clone(), error: e.to_string() },
+            )
+        };
+        if opacity >= 100 && !is_cover {
+            let image = self.resources.image(&cmd.path, &base_path).map_err(|e| load_err(&e))?;
+            slot.set_static(image, fit);
+            return Ok(());
+        }
+        let path = self.resources.resolve_path(&cmd.path, &base_path);
+        let mut dynamic = self.resources.load_dynamic_image(&path).map_err(|e| load_err(&e))?;
+        if opacity < 100 {
+            crate::terminal::image::apply_opacity(&mut dynamic, opacity);
+        }
+        if is_cover {
+            slot.set_cover(dynamic, self.image_registry.clone());
         } else {
-            let image = self.resources.image(&cmd.path, &base_path).map_err(|e| {
-                self.invalid_presentation(
-                    source_position,
-                    InvalidPresentation::LoadImage { path: cmd.path, error: e.to_string() },
-                )
-            })?;
+            let image = self.image_registry.register(ImageSpec::Generated(dynamic)).map_err(|e| load_err(&e))?;
             slot.set_static(image, fit);
         }
         Ok(())

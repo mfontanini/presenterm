@@ -14,6 +14,7 @@ use std::{
 };
 
 const DEFAULT_IMAGE_Z_INDEX: i32 = -2;
+const BACKGROUND_IMAGE_Z_INDEX: i32 = -3;
 
 /// A line of preformatted text to be rendered.
 #[derive(Clone, Debug, PartialEq)]
@@ -126,6 +127,18 @@ impl Default for ImageRenderProperties {
             restore_cursor: false,
             background_color: None,
             position: ImagePosition::Center,
+        }
+    }
+}
+
+impl ImageRenderProperties {
+    pub(crate) fn background(size: ImageSize) -> Self {
+        Self {
+            z_index: BACKGROUND_IMAGE_Z_INDEX,
+            size,
+            restore_cursor: true,
+            background_color: None,
+            position: ImagePosition::Cursor,
         }
     }
 }

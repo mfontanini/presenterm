@@ -752,6 +752,59 @@ hola
         assert_eq!(lines, expected);
     }
 
+    fn write_test_png(dir: &std::path::Path, name: &str) {
+        let image = DynamicImage::new_rgba8(2, 2);
+        let file = fs::File::create(dir.join(name)).expect("failed to create image file");
+        let mut buffer = BufWriter::new(file);
+        PngEncoder::new(&mut buffer)
+            .write_image(image.as_bytes(), 2, 2, image.color().into())
+            .expect("failed to encode png");
+    }
+
+    #[test]
+    fn bg_image_comment_loads_png() {
+        let dir = tempdir().expect("failed to create tempdir");
+        write_test_png(dir.path(), "bg.png");
+
+        let input = "<!-- bg_image: {path: bg.png, fit: stretch} -->\nhello";
+        Test::new(input).resources_path(dir.path()).build();
+    }
+
+    #[test]
+    fn bg_image_comment_cover_mode() {
+        let dir = tempdir().expect("failed to create tempdir");
+        write_test_png(dir.path(), "bg.png");
+
+        let input = "<!-- bg_image: {path: bg.png, fit: cover} -->\nhello";
+        Test::new(input).resources_path(dir.path()).build();
+    }
+
+    #[test]
+    fn bg_image_comment_with_opacity() {
+        let dir = tempdir().expect("failed to create tempdir");
+        write_test_png(dir.path(), "bg.png");
+
+        let input = "<!-- bg_image: {path: bg.png, opacity: 50} -->\nhello";
+        Test::new(input).resources_path(dir.path()).build();
+    }
+
+    #[test]
+    fn bg_image_comment_missing_file() {
+        let dir = tempdir().expect("failed to create tempdir");
+
+        let input = "<!-- bg_image: {path: missing.png} -->\nhello";
+        Test::new(input).resources_path(dir.path()).expect_invalid();
+    }
+
+    #[test]
+    fn theme_background_image_stretch() {
+        let dir = tempdir().expect("failed to create tempdir");
+        write_test_png(dir.path(), "bg.png");
+
+        let input = "---\ntheme:\n  override:\n    default:\n      background_image:\n        path: bg.png\n        fit: stretch\n---\nhello";
+        Test::new(input).resources_path(dir.path()).build();
+    }
+
     #[test]
     fn include() {
         let dir = tempdir().expect("failed to created tempdir");
