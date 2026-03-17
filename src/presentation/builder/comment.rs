@@ -761,12 +761,28 @@ hola
             .expect("failed to encode png");
     }
 
+    fn write_test_svg(dir: &std::path::Path, name: &str) {
+        let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+            <rect width="100" height="100" fill="blue"/>
+        </svg>"#;
+        fs::write(dir.join(name), svg).unwrap();
+    }
+
     #[test]
     fn bg_image_comment_loads_png() {
         let dir = tempdir().expect("failed to create tempdir");
         write_test_png(dir.path(), "bg.png");
 
         let input = "<!-- bg_image: {path: bg.png, fit: stretch} -->\nhello";
+        Test::new(input).resources_path(dir.path()).build();
+    }
+
+    #[test]
+    fn bg_image_comment_loads_svg() {
+        let dir = tempdir().expect("failed to create tempdir");
+        write_test_svg(dir.path(), "bg.svg");
+
+        let input = "<!-- bg_image: {path: bg.svg, fit: stretch} -->\nhello";
         Test::new(input).resources_path(dir.path()).build();
     }
 
@@ -789,6 +805,15 @@ hola
     }
 
     #[test]
+    fn bg_image_comment_svg_cover() {
+        let dir = tempdir().expect("failed to create tempdir");
+        write_test_svg(dir.path(), "bg.svg");
+
+        let input = "<!-- bg_image: {path: bg.svg, fit: cover} -->\nhello";
+        Test::new(input).resources_path(dir.path()).build();
+    }
+
+    #[test]
     fn bg_image_comment_missing_file() {
         let dir = tempdir().expect("failed to create tempdir");
 
@@ -802,6 +827,15 @@ hola
         write_test_png(dir.path(), "bg.png");
 
         let input = "---\ntheme:\n  override:\n    default:\n      background_image:\n        path: bg.png\n        fit: stretch\n---\nhello";
+        Test::new(input).resources_path(dir.path()).build();
+    }
+
+    #[test]
+    fn theme_background_image_svg() {
+        let dir = tempdir().expect("failed to create tempdir");
+        write_test_svg(dir.path(), "bg.svg");
+
+        let input = "---\ntheme:\n  override:\n    default:\n      background_image:\n        path: bg.svg\n        fit: stretch\n---\nhello";
         Test::new(input).resources_path(dir.path()).build();
     }
 

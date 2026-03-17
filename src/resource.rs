@@ -103,6 +103,9 @@ impl Resources {
     }
 
     pub(crate) fn load_dynamic_image(&self, path: &Path) -> Result<image::DynamicImage, RegisterImageError> {
+        if path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("svg")) {
+            return crate::terminal::image::printer::rasterize_svg(path);
+        }
         image::open(path).map_err(RegisterImageError::Image)
     }
 
