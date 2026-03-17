@@ -1,8 +1,19 @@
 document.addEventListener('DOMContentLoaded', function() {
   const allLines = document.querySelectorAll('body > div');
   const pageBreakMarkers = document.querySelectorAll('.container');
-  let currentPageIndex = 0;
 
+  function getCurrentPageIndex() {
+    const hash = window.location.hash;
+    const match = hash.match(/^#slide-(\d+)$/);
+    if (match) {
+      const idx = parseInt(match[1], 10);
+      const max = pageBreakMarkers.length;
+      if (idx >= 0 && idx < max) return idx;
+    }
+    return 0;
+  }
+
+  let currentPageIndex = getCurrentPageIndex();
 
   function showCurrentPage() {
     allLines.forEach((line) => {
@@ -10,8 +21,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     allLines[currentPageIndex].classList.remove('hidden');
+    history.replaceState(null, '', '#slide-' + currentPageIndex);
   }
-
 
   function scaler() {
     var w = document.documentElement.clientWidth;
