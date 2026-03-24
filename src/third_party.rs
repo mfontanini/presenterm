@@ -1,6 +1,6 @@
 use crate::{
     ImageRegistry,
-    config::{default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
+    config::{default_mermaid_cli, default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
     markdown::{
         elements::{Line, Percent, Text},
         text_style::{Color, TextStyle},
@@ -30,6 +30,7 @@ use std::{
 
 pub struct ThirdPartyConfigs {
     pub typst_ppi: String,
+    pub mermaid_cli: String,
     pub mermaid_scale: String,
     pub mermaid_puppeteer_file: Option<String>,
     pub mermaid_config_file: Option<String>,
@@ -67,6 +68,7 @@ impl ThirdPartyRender {
 impl Default for ThirdPartyRender {
     fn default() -> Self {
         let config = ThirdPartyConfigs {
+            mermaid_cli: default_mermaid_cli(),
             typst_ppi: default_typst_ppi().to_string(),
             mermaid_scale: default_mermaid_scale().to_string(),
             mermaid_puppeteer_file: None,
@@ -222,7 +224,7 @@ impl Worker {
             args.extend(&["-c", path]);
         }
 
-        ThirdPartyTools::mermaid(&args).run()?;
+        ThirdPartyTools::mermaid(&self.shared.config.mermaid_cli, &args).run()?;
 
         self.load_image(snippet, &output_path)
     }

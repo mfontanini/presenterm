@@ -253,6 +253,7 @@ impl CoreComponents {
         );
         let third_party_config = ThirdPartyConfigs {
             typst_ppi: config.typst.ppi.to_string(),
+            mermaid_cli: config.mermaid.cli.clone(),
             mermaid_scale: config.mermaid.scale.to_string(),
             mermaid_puppeteer_file: config.mermaid.puppeteer_config_path.clone(),
             mermaid_config_file: config.mermaid.config_path.clone(),

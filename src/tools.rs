@@ -17,9 +17,8 @@ impl ThirdPartyTools {
         Tool::new("typst", args)
     }
 
-    pub(crate) fn mermaid(args: &[&str]) -> Tool {
-        let mmdc = if cfg!(windows) { "mmdc.cmd" } else { "mmdc" };
-        Tool::new(mmdc, args)
+    pub(crate) fn mermaid(binary: &str, args: &[&str]) -> Tool {
+        Tool::new(binary, args)
     }
 
     pub(crate) fn d2(args: &[&str]) -> Tool {
@@ -32,16 +31,18 @@ impl ThirdPartyTools {
 }
 
 pub(crate) struct Tool {
-    command_name: &'static str,
+    command_name: String,
     command: Command,
     stdin: Option<Vec<u8>>,
     max_error_lines: usize,
 }
 
 impl Tool {
-    fn new(command_name: &'static str, args: &[&str]) -> Self {
+    fn new(command_name: &str, args: &[&str]) -> Self {
         let mut command = Command::new(command_name);
         command.args(args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+
+        let command_name = command_name.to_string();
         Self { command_name, command, stdin: None, max_error_lines: DEFAULT_MAX_ERROR_LINES }
     }
 
@@ -87,9 +88,10 @@ impl Tool {
             stdin
                 .write_all(data)
                 .and_then(|_| stdin.flush())
-                .map_err(|error| Communication { command: self.command_name, error })?;
+                .map_err(|error| Communication { command: self.command_name.clone(), error })?;
         }
-        let output = child.wait_with_output().map_err(|error| Communication { command: self.command_name, error })?;
+        let output =
+            child.wait_with_output().map_err(|error| Communication { command: self.command_name.clone(), error })?;
         self.validate_output(&output)?;
         Ok(output)
     }
@@ -107,14 +109,14 @@ impl Tool {
 #[derive(Debug, thiserror::Error)]
 pub enum ExecutionError {
     #[error("spawning '{command}' failed: {error}")]
-    Spawn { command: &'static str, error: io::Error },
+    Spawn { command: String, error: io::Error },
 
     #[error("spawning '{command}' failed (is '{command}' installed?)")]
-    SpawnNotFound { command: &'static str },
+    SpawnNotFound { command: String },
 
     #[error("communicating with '{command}' failed: {error}")]
-    Communication { command: &'static str, error: io::Error },
+    Communication { command: String, error: io::Error },
 
     #[error("'{command}' execution failed: \n{stderr}")]
-    Execution { command: &'static str, stderr: String },
+    Execution { command: String, stderr: String },
 }
