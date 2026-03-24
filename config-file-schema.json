@@ -544,6 +544,11 @@
     "MermaidConfig": {
       "type": "object",
       "properties": {
+        "cli": {
+          "description": "The application to use to generate diagrams.",
+          "default": "mmdc",
+          "type": "string"
+        },
         "config_path": {
           "description": "A path to a mermaid JSON configuration file to be used by the `mmdc` tool.",
           "type": [
