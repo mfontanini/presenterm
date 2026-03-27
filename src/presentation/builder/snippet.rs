@@ -49,6 +49,11 @@ impl PresentationBuilder<'_, '_> {
         {
             return Err(self.invalid_presentation(source_position, InvalidPresentation::SnippetIdNonExec));
         }
+        // Register the snippet ID even when execution is disabled so it can be referenced
+        // by `<!-- snippet_output: foo -->` in non-execution mode.
+        if let Some(id) = &snippet.attributes.id {
+            self.snippet_ids.insert(id.clone());
+        }
 
         self.push_differ(snippet.contents.clone());
         // Redraw slide if attributes change
