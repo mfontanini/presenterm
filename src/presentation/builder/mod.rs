@@ -37,6 +37,7 @@ use crate::{
         separator::RenderSeparator,
     },
 };
+use std::collections::HashSet;
 use image::DynamicImage;
 use std::{
     collections::{HashMap, HashSet},
