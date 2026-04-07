@@ -422,8 +422,8 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }
         return Ok(());
     }
-    // Disable this so we don't mess things up when generating PDFs
-    if cli.export_pdf {
+    // Disable this so we don't mess things up when exporting.
+    if cli.export_pdf || cli.export_html {
         TerminalEmulator::disable_capability_detection();
     }
 
@@ -457,7 +457,16 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 height: dimensions.rows * DEFAULT_EXPORT_PIXELS_PER_ROW,
                 width: dimensions.columns * DEFAULT_EXPORT_PIXELS_PER_COLUMN,
             },
-            None => WindowSize::current(config.defaults.terminal_font_size)?,
+            None => {
+                const DEFAULT_EXPORT_ROWS: u16 = 40;
+                const DEFAULT_EXPORT_COLUMNS: u16 = 120;
+                WindowSize {
+                    rows: DEFAULT_EXPORT_ROWS,
+                    columns: DEFAULT_EXPORT_COLUMNS,
+                    height: DEFAULT_EXPORT_ROWS * DEFAULT_EXPORT_PIXELS_PER_ROW,
+                    width: DEFAULT_EXPORT_COLUMNS * DEFAULT_EXPORT_PIXELS_PER_COLUMN,
+                }
+            }
         };
         let exporter = Exporter::new(
             parser,
