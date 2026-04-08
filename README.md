@@ -60,6 +60,8 @@ See the [introduction page][docs-introduction] to learn more.
 
 Here are some talks and demos that feature _presenterm_:
 
+- [If it can compute, it can run Ratatui][it-can-run-ratatui] by [Orhun Parmaksız][orhun-github]
+- [Building Embedded TUIs with Rust & Ratatui][building-embedded-tuis] by [Orhun Parmaksız][orhun-github]
 - [Bringing Terminal Aesthetics to the Web With Rust][bringing-terminal-aesthetics] by [Orhun Parmaksız][orhun-github]
 - [7 Rust Terminal Tools That You Should Use][rust-terminal-tools] by [Orhun Parmaksız][orhun-github]
 - [Renaissance of Terminal User Interfaces with Rust][renaissance-tui] by [Orhun Parmaksız][orhun-github]
@@ -96,6 +98,8 @@ Gave a talk using _presenterm_? We would love to feature it here! Open a PR or i
 [bat]: https://github.com/sharkdp/bat
 [syntect]: https://github.com/trishume/syntect
 [bringing-terminal-aesthetics]: https://www.youtube.com/watch?v=iepbyYrF_YQ
+[building-embedded-tuis]: https://www.youtube.com/watch?v=F04kQMKwrwQ
+[it-can-run-ratatui]: https://www.youtube.com/watch?v=btqNDDuZ3cI
 [rust-terminal-tools]: https://www.youtube.com/watch?v=ATiKwUiqnAU
 [renaissance-tui]: https://www.youtube.com/watch?v=hWG51Mc1DlM
 [orhun-github]: https://github.com/orhun
