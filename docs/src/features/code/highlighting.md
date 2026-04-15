@@ -64,7 +64,6 @@ Code highlighting is supported for the following languages:
 | terraform   |                   |
 | typescript  |         ✓         |
 | tsx         |         ✓         |
-| typst       |                   |
 | verilog     |                   |
 | vue         |                   |
 | wsl         |         ✓         |
