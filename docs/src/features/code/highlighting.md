@@ -8,7 +8,7 @@ Code highlighting is supported for the following languages:
 | asp         |                   |
 | awk         |                   |
 | bash        |         ✓         |
-| batchfile   |         ✓         |
+| cmd         |         ✓         |
 | C           |         ✓         |
 | cmake       |                   |
 | crontab     |                   |
@@ -63,6 +63,7 @@ Code highlighting is supported for the following languages:
 | toml        |                   |
 | terraform   |                   |
 | typescript  |         ✓         |
+| tsx         |         ✓         |
 | typst       |                   |
 | verilog     |                   |
 | vue         |                   |
