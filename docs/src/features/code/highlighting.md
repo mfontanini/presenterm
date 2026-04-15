@@ -2,65 +2,75 @@
 
 Code highlighting is supported for the following languages:
 
-| Language   | Execution support |
-|------------|-------------------|
-| ada        |                   |
-| asp        |                   |
-| awk        |                   |
-| bash       |         ✓         |
-| batchfile  |                   |
-| C          |         ✓         |
-| cmake      |                   |
-| crontab    |                   |
-| C#         |         ✓         |
-| clojure    |                   |
-| C++        |         ✓         |
-| CSS        |                   |
-| D          |                   |
-| diff       |                   |
-| docker     |                   |
-| dotenv     |                   |
-| elixir     |                   |
-| elm        |                   |
-| erlang     |                   |
-| fish       |         ✓         |
-| F#         |         ✓         |
-| go         |         ✓         |
-| haskell    |         ✓         |
-| HTML       |                   |
-| java       |         ✓         |
-| javascript |         ✓         |
-| json       |                   |
-| julia      |         ✓         |
-| kotlin     |         ✓         |
-| latex      |                   |
-| lua        |         ✓         |
-| makefile   |                   |
-| markdown   |                   |
-| nix        |                   |
-| ocaml      |                   |
-| perl       |         ✓         |
-| php        |         ✓         |
-| protobuf   |                   |
-| puppet     |                   |
-| python     |         ✓         |
-| R          |         ✓         |
-| ruby       |         ✓         |
-| rust       |         ✓         |
-| scala      |                   |
-| shell      |         ✓         |
-| sql        |                   |
-| swift      |                   |
-| svelte     |                   |
-| tcl        |                   |
-| toml       |                   |
-| terraform  |                   |
-| typescript |                   |
-| xml        |                   |
-| yaml       |                   |
-| vue        |                   |
-| zig        |                   |
-| zsh        |         ✓         |
+| Language    | Execution support |
+|-------------|-------------------|
+| ada         |                   |
+| asp         |                   |
+| awk         |                   |
+| bash        |         ✓         |
+| batchfile   |         ✓         |
+| C           |         ✓         |
+| cmake       |                   |
+| crontab     |                   |
+| C#          |         ✓         |
+| clojure     |                   |
+| C++         |         ✓         |
+| CSS         |                   |
+| D           |                   |
+| dart        |                   |
+| diff        |                   |
+| docker      |                   |
+| dotenv      |                   |
+| elixir      |         ✓         |
+| elm         |                   |
+| erlang      |                   |
+| fish        |         ✓         |
+| F#          |         ✓         |
+| gdscript    |                   |
+| go          |         ✓         |
+| graphql     |                   |
+| haskell     |         ✓         |
+| HTML        |                   |
+| java        |         ✓         |
+| javascript  |         ✓         |
+| json        |                   |
+| jsonnet     |         ✓         |
+| julia       |         ✓         |
+| kotlin      |         ✓         |
+| latex       |                   |
+| lua         |         ✓         |
+| makefile    |                   |
+| markdown    |                   |
+| nix         |                   |
+| ocaml       |                   |
+| perl        |         ✓         |
+| php         |         ✓         |
+| powershell  |         ✓         |
+| protobuf    |                   |
+| puppet      |                   |
+| python      |         ✓         |
+| R           |         ✓         |
+| racket      |                   |
+| ruby        |         ✓         |
+| rust        |         ✓         |
+| rust-script |         ✓         |
+| scala       |                   |
+| shell       |         ✓         |
+| sql         |                   |
+| swift       |                   |
+| svelte      |                   |
+| tcl         |                   |
+| toml        |                   |
+| terraform   |                   |
+| typescript  |         ✓         |
+| typst       |                   |
+| verilog     |                   |
+| vue         |                   |
+| wsl         |         ✓         |
+| xml         |                   |
+| yaml        |                   |
+| zig         |                   |
+| zsh         |         ✓         |
 
 Other languages that are supported are:
 
