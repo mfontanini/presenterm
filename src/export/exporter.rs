@@ -137,8 +137,8 @@ impl<'a> Exporter<'a> {
         let mut render = ExportRenderer::new(self.dimensions, output_directory, renderer);
         Self::log("waiting for images to be generated and code to be executed, if any...")?;
         match self.snippet_policy {
-            SnippetsExportPolicy::Parallel => Self::wait_async_renders_parallel(&mut presentation),
-            SnippetsExportPolicy::Sequential => Self::wait_async_renders_sequential(&mut presentation),
+            SnippetsExportPolicy::Parallel => Self::wait_async_renders_parallel(&mut presentation)?,
+            SnippetsExportPolicy::Sequential => Self::wait_async_renders_sequential(&mut presentation)?,
         };
 
         for (index, slide) in presentation.into_slides().into_iter().enumerate() {
@@ -216,7 +216,7 @@ impl<'a> Exporter<'a> {
         Ok(())
     }
 
-    fn wait_async_renders_parallel(presentation: &mut Presentation) {
+    fn wait_async_renders_parallel(presentation: &mut Presentation) -> Result<(), ExportError> {
         let poller = Poller::launch();
         let mut pollables = Vec::new();
         for (index, slide) in presentation.iter_slides().enumerate() {
@@ -231,7 +231,13 @@ impl<'a> Exporter<'a> {
 
         // Poll until they're all done
         for mut pollable in pollables {
-            while let PollableState::Unmodified | PollableState::Modified = pollable.poll() {}
+            loop {
+                match pollable.poll() {
+                    PollableState::Unmodified | PollableState::Modified => continue,
+                    PollableState::Done => break,
+                    PollableState::Failed { error } => return Err(ExportError::RenderAsync(error)),
+                }
+            }
         }
 
         // Replace render asyncs with new operations that contains the replaced image
@@ -245,9 +251,10 @@ impl<'a> Exporter<'a> {
                 }
             }
         }
+        Ok(())
     }
 
-    fn wait_async_renders_sequential(presentation: &mut Presentation) {
+    fn wait_async_renders_sequential(presentation: &mut Presentation) -> Result<(), ExportError> {
         let poller = Poller::launch();
         for (index, slide) in presentation.iter_slides_mut().enumerate() {
             for op in slide.iter_operations_mut() {
@@ -257,7 +264,13 @@ impl<'a> Exporter<'a> {
 
                     // Poll until it's done
                     let mut pollable = inner.pollable();
-                    while let PollableState::Unmodified | PollableState::Modified = pollable.poll() {}
+                    loop {
+                        match pollable.poll() {
+                            PollableState::Unmodified | PollableState::Modified => continue,
+                            PollableState::Done => break,
+                            PollableState::Failed { error } => return Err(ExportError::RenderAsync(error)),
+                        }
+                    }
 
                     // Replace it with its contents
                     let window_size = WindowSize { rows: 0, columns: 0, width: 0, height: 0 };
@@ -266,6 +279,7 @@ impl<'a> Exporter<'a> {
                 }
             }
         }
+        Ok(())
     }
 
     fn validate_weasyprint_exists() -> Result<(), ExportError> {
@@ -322,6 +336,9 @@ pub enum ExportError {
 
     #[error(transparent)]
     Execution(#[from] ExecutionError),
+
+    #[error("async render failed: {0}")]
+    RenderAsync(String),
 
     #[error("weasyprint not found")]
     WeasyprintMissing,
