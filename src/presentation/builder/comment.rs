@@ -121,10 +121,13 @@ impl PresentationBuilder<'_, '_> {
                 return Ok(());
             }
             CommentCommand::SnippetOutput(id) => {
-                let handle = self.executable_snippets.get(&id).cloned().ok_or_else(|| {
-                    self.invalid_presentation(source_position, InvalidPresentation::UndefinedSnippetId(id))
-                })?;
-                self.push_detached_code_execution(handle)?;
+                // Ignore this if execution is disabled
+                if self.options.enable_snippet_execution {
+                    let handle = self.executable_snippets.get(&id).cloned().ok_or_else(|| {
+                        self.invalid_presentation(source_position, InvalidPresentation::UndefinedSnippetId(id))
+                    })?;
+                    self.push_detached_code_execution(handle)?;
+                }
                 return Ok(());
             }
         };
