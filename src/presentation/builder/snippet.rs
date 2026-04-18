@@ -272,9 +272,10 @@ impl PresentationBuilder<'_, '_> {
             let mut highlighter = self.highlighter.language_highlighter(&SnippetLanguage::Rust);
             highlighter.style_line("//", &style).0.first().expect("no styles").style.size(font_size)
         };
-        let groups = match self.options.allow_mutations {
-            true => code.attributes.highlight_groups.clone(),
-            false => vec![HighlightGroup::new(vec![Highlight::All])],
+        let groups = if self.options.allow_mutations || code.attributes.highlight_groups.len() == 1 {
+            code.attributes.highlight_groups.clone()
+        } else {
+            vec![HighlightGroup::new(vec![Highlight::All])]
         };
         let context =
             Rc::new(RefCell::new(HighlightContext { groups, current: 0, block_length, alignment: style.alignment }));
