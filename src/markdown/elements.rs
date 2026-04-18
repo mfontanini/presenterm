@@ -216,26 +216,42 @@ pub(crate) enum ListItemType {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Table {
     /// The table's header.
-    pub(crate) header: TableRow,
+    pub(crate) columns: Vec<TableColumn>,
 
     /// All of the rows in this table, excluding the header.
     pub(crate) rows: Vec<TableRow>,
 }
 
 impl Table {
-    /// gets the number of columns in this table.
+    /// Gets the number of columns in this table.
     pub(crate) fn columns(&self) -> usize {
-        self.header.0.len()
+        self.columns.len()
     }
 
     /// Iterates all the text entries in a column.
     ///
     /// This includes the header.
     pub(crate) fn iter_column(&self, column: usize) -> impl Iterator<Item = &Line<RawColor>> {
-        let header_element = &self.header.0[column];
+        let header_element = &self.columns[column].text;
         let row_elements = self.rows.iter().map(move |row| &row.0[column]);
         iter::once(header_element).chain(row_elements)
     }
+}
+
+/// The alignment for a table column.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum TableColumnAlignment {
+    #[default]
+    Left,
+    Center,
+    Right,
+}
+
+/// A table Header.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct TableColumn {
+    pub(crate) text: Line<RawColor>,
+    pub(crate) alignment: TableColumnAlignment,
 }
 
 /// A table row.

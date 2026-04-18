@@ -1,7 +1,7 @@
 use crate::{
-    markdown::elements::{Line, Table, TableRow, Text},
+    markdown::elements::{Line, Table, TableColumnAlignment, Text},
     presentation::builder::{BuildResult, PresentationBuilder, error::BuildError},
-    theme::ElementType,
+    theme::{ElementType, raw::RawColor},
 };
 use std::iter;
 
@@ -11,7 +11,10 @@ impl PresentationBuilder<'_, '_> {
             .map(|column| table.iter_column(column).map(|text| text.width()).max().unwrap_or(0))
             .collect();
         let incremental = self.slide_state.incremental_tables.unwrap_or(self.options.incremental_tables);
-        let flattened_header = self.prepare_table_row(table.header, &widths)?;
+        let alignments: Vec<_> = table.columns.iter().map(|c| c.alignment).collect();
+        let column_texts = table.columns.into_iter().map(|c| c.text);
+        let flattened_header =
+            self.prepare_table_row(column_texts, iter::repeat(TableColumnAlignment::Center), &widths)?;
         if incremental && self.options.pause_before_incremental_tables {
             self.push_pause();
         }
@@ -40,7 +43,7 @@ impl PresentationBuilder<'_, '_> {
             if incremental {
                 self.push_pause();
             }
-            let flattened_row = self.prepare_table_row(row, &widths)?;
+            let flattened_row = self.prepare_table_row(row.0, alignments.iter().copied(), &widths)?;
             self.push_text(flattened_row, ElementType::Table);
             self.push_line_break();
         }
@@ -50,20 +53,41 @@ impl PresentationBuilder<'_, '_> {
         Ok(())
     }
 
-    fn prepare_table_row(&self, row: TableRow, widths: &[usize]) -> Result<Line, BuildError> {
+    fn prepare_table_row<I, A>(&self, texts: I, alignments: A, widths: &[usize]) -> Result<Line, BuildError>
+    where
+        I: IntoIterator<Item = Line<RawColor>>,
+        A: IntoIterator<Item = TableColumnAlignment>,
+    {
         let mut flattened_row = Line(Vec::new());
-        for (column, text) in row.0.into_iter().enumerate() {
+        for (column, (text, alignment)) in texts.into_iter().zip(alignments).enumerate() {
             let text = text.resolve(&self.theme.palette)?;
             if column > 0 {
                 flattened_row.0.push(Text::from(" │ "));
             }
             let text_length = text.width();
-            flattened_row.0.extend(text.0.into_iter());
-
             let cell_width = widths[column];
-            if text_length < cell_width {
-                let padding = " ".repeat(cell_width - text_length);
-                flattened_row.0.push(Text::from(padding));
+            let padding = cell_width.saturating_sub(text_length);
+            if padding == 0 {
+                flattened_row.0.extend(text.0.into_iter());
+            } else {
+                match alignment {
+                    TableColumnAlignment::Left => {
+                        flattened_row.0.extend(text.0.into_iter());
+                        flattened_row.0.push(Text::from(" ".repeat(padding)));
+                    }
+                    TableColumnAlignment::Center => {
+                        let padding_after = padding / 2;
+                        let padding_before = padding_after + (padding % 2);
+                        flattened_row.0.push(Text::from(" ".repeat(padding_before)));
+                        flattened_row.0.extend(text.0.into_iter());
+                        flattened_row.0.push(Text::from(" ".repeat(padding_after)));
+                    }
+                    TableColumnAlignment::Right => {
+                        let padding = " ".repeat(padding);
+                        flattened_row.0.push(Text::from(padding));
+                        flattened_row.0.extend(text.0.into_iter());
+                    }
+                }
             }
         }
         Ok(flattened_row)
@@ -77,19 +101,79 @@ mod tests {
     #[test]
     fn table() {
         let input = "
-| Name   | Taste  |
-| ------ | ------ |
-| Potato | Great  |
-| Carrot | Yuck   |
+| Name       | Taste  |
+| ---------- | ------ |
+| Potatooo   | Great  |
+| Carrot     | Yuck   |
 ";
-        let lines = Test::new(input).render().rows(6).columns(22).into_lines();
+        let lines = Test::new(input).render().rows(6).columns(18).into_lines();
         let expected_lines = &[
-            "                      ",
-            "Name   │ Taste        ",
-            "───────┼──────        ",
-            "Potato │ Great        ",
-            "Carrot │ Yuck         ",
-            "                      ",
+            "                  ",
+            "  Name   │ Taste  ",
+            "─────────┼──────  ",
+            "Potatooo │ Great  ",
+            "Carrot   │ Yuck   ",
+            "                  ",
+        ];
+        assert_eq!(lines, expected_lines);
+    }
+
+    #[test]
+    fn table_left_aligned() {
+        let input = "
+| Name       | Taste  |
+| :--------- | ------ |
+| Potatooo   | Great  |
+| Carrot     | Yuck   |
+";
+        let lines = Test::new(input).render().rows(6).columns(18).into_lines();
+        let expected_lines = &[
+            "                  ",
+            "  Name   │ Taste  ",
+            "─────────┼──────  ",
+            "Potatooo │ Great  ",
+            "Carrot   │ Yuck   ",
+            "                  ",
+        ];
+        assert_eq!(lines, expected_lines);
+    }
+
+    #[test]
+    fn table_center_aligned() {
+        let input = "
+| Name       | Taste  |
+| :--------: | ------ |
+| Potatooo   | Great  |
+| Carrot     | Yuck   |
+";
+        let lines = Test::new(input).render().rows(6).columns(18).into_lines();
+        let expected_lines = &[
+            "                  ",
+            "  Name   │ Taste  ",
+            "─────────┼──────  ",
+            "Potatooo │ Great  ",
+            " Carrot  │ Yuck   ",
+            "                  ",
+        ];
+        assert_eq!(lines, expected_lines);
+    }
+
+    #[test]
+    fn table_right_aligned() {
+        let input = "
+| Name       | Taste  |
+| ---------: | ------ |
+| Potatooo   | Great  |
+| Carrot     | Yuck   |
+";
+        let lines = Test::new(input).render().rows(6).columns(18).into_lines();
+        let expected_lines = &[
+            "                  ",
+            "  Name   │ Taste  ",
+            "─────────┼──────  ",
+            "Potatooo │ Great  ",
+            "  Carrot │ Yuck   ",
+            "                  ",
         ];
         assert_eq!(lines, expected_lines);
     }
