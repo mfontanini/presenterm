@@ -3,14 +3,20 @@ use super::{
     html::{HtmlInline, HtmlParser, ParseHtmlError},
     text_style::TextStyle,
 };
-use crate::{markdown::html::HtmlTag, theme::raw::RawColor};
+use crate::{
+    markdown::{
+        elements::{TableColumn, TableColumnAlignment},
+        html::HtmlTag,
+    },
+    theme::raw::RawColor,
+};
 use comrak::{
     Arena, Options,
     arena_tree::Node,
     format_commonmark,
     nodes::{
         Ast, AstNode, ListDelimType, ListType, NodeAlert, NodeCodeBlock, NodeFootnoteDefinition, NodeHeading,
-        NodeHtmlBlock, NodeList, NodeValue, Sourcepos,
+        NodeHtmlBlock, NodeList, NodeTable, NodeValue, Sourcepos,
     },
     parse_document,
 };
@@ -106,7 +112,7 @@ impl<'a> MarkdownParser<'a> {
                 let items = self.parse_list(node, list.marker_offset as u8 / 2)?;
                 MarkdownElement::List(items)
             }
-            NodeValue::Table(_) => self.parse_table(node)?,
+            NodeValue::Table(table) => self.parse_table(table, node)?,
             NodeValue::CodeBlock(block) => Self::parse_code_block(block, data.sourcepos)?,
             NodeValue::ThematicBreak => MarkdownElement::ThematicBreak,
             NodeValue::HtmlBlock(block) => self.parse_html_block(block, data.sourcepos)?,
@@ -311,9 +317,19 @@ impl<'a> MarkdownParser<'a> {
         Ok(elements)
     }
 
-    fn parse_table(&self, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
-        let mut header = TableRow(Vec::new());
+    fn parse_table(&self, table: &NodeTable, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
+        let mut columns = Vec::new();
         let mut rows = Vec::new();
+        let alignments: Vec<_> = table
+            .alignments
+            .iter()
+            .map(|a| match a {
+                comrak::nodes::TableAlignment::None => TableColumnAlignment::default(),
+                comrak::nodes::TableAlignment::Left => TableColumnAlignment::Left,
+                comrak::nodes::TableAlignment::Center => TableColumnAlignment::Center,
+                comrak::nodes::TableAlignment::Right => TableColumnAlignment::Right,
+            })
+            .collect();
         for node in node.children() {
             let data = node.data.borrow();
             let NodeValue::TableRow(_) = &data.value else {
@@ -324,13 +340,18 @@ impl<'a> MarkdownParser<'a> {
                 .with_sourcepos(data.sourcepos));
             };
             let row = self.parse_table_row(node)?;
-            if header.0.is_empty() {
-                header = row;
+            if columns.is_empty() {
+                let TableRow(texts) = row;
+                columns = texts
+                    .into_iter()
+                    .zip(alignments.iter().copied())
+                    .map(|(text, alignment)| TableColumn { text, alignment })
+                    .collect();
             } else {
                 rows.push(row)
             }
         }
-        Ok(MarkdownElement::Table(Table { header, rows }))
+        Ok(MarkdownElement::Table(Table { columns, rows }))
     }
 
     fn parse_table_row(&self, node: &'a AstNode<'a>) -> ParseResult<TableRow> {
@@ -990,8 +1011,8 @@ let q = 42;
 | Carrot | Yuck |
 ",
         );
-        let MarkdownElement::Table(Table { header, rows }) = parsed else { panic!("not a table: {parsed:?}") };
-        assert_eq!(header.0.len(), 2);
+        let MarkdownElement::Table(Table { columns, rows }) = parsed else { panic!("not a table: {parsed:?}") };
+        assert_eq!(columns.len(), 2);
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].0.len(), 2);
         assert_eq!(rows[1].0.len(), 2);
