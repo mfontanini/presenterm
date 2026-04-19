@@ -53,7 +53,6 @@ Code highlighting is supported for the following languages:
 | racket      |                   |
 | ruby        |         ✓         |
 | rust        |         ✓         |
-| rust-script |         ✓         |
 | scala       |                   |
 | shell       |         ✓         |
 | sql         |                   |
