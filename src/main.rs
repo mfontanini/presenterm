@@ -457,16 +457,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 height: dimensions.rows * DEFAULT_EXPORT_PIXELS_PER_ROW,
                 width: dimensions.columns * DEFAULT_EXPORT_PIXELS_PER_COLUMN,
             },
-            None => {
-                const DEFAULT_EXPORT_ROWS: u16 = 40;
-                const DEFAULT_EXPORT_COLUMNS: u16 = 120;
-                WindowSize {
-                    rows: DEFAULT_EXPORT_ROWS,
-                    columns: DEFAULT_EXPORT_COLUMNS,
-                    height: DEFAULT_EXPORT_ROWS * DEFAULT_EXPORT_PIXELS_PER_ROW,
-                    width: DEFAULT_EXPORT_COLUMNS * DEFAULT_EXPORT_PIXELS_PER_COLUMN,
-                }
-            }
+            None => WindowSize::current(config.defaults.terminal_font_size)?,
         };
         let exporter = Exporter::new(
             parser,
