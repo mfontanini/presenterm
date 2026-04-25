@@ -127,7 +127,9 @@ mod tests {
             language: SnippetLanguage::Rust,
             attributes: SnippetAttributes { expected_execution_result, ..Default::default() },
         };
-        let executor = SnippetExecutor::default().language_executor(&snippet.language, &Default::default()).unwrap();
+        let executor = SnippetExecutor::default()
+            .language_executor(&snippet.language, &Default::default(), Default::default())
+            .unwrap();
         let state = Arc::new(Mutex::new(State::default()));
         let mut pollable =
             OperationPollable { snippet: snippet.clone(), executor: executor.clone(), state: state.clone() };
@@ -154,7 +156,9 @@ mod tests {
             language: SnippetLanguage::Rust,
             attributes: SnippetAttributes { expected_execution_result, ..Default::default() },
         };
-        let executor = SnippetExecutor::default().language_executor(&snippet.language, &Default::default()).unwrap();
+        let executor = SnippetExecutor::default()
+            .language_executor(&snippet.language, &Default::default(), Default::default())
+            .unwrap();
         let state = Arc::new(Mutex::new(State::default()));
         let mut pollable =
             OperationPollable { snippet: snippet.clone(), executor: executor.clone(), state: state.clone() };

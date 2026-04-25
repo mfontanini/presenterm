@@ -66,6 +66,7 @@ impl SnippetExecutor {
         &self,
         language: &SnippetLanguage,
         spec: &SnippetExecutorSpec,
+        custom_env: HashMap<String, String>,
     ) -> Result<LanguageSnippetExecutor, UnsupportedExecution> {
         let language_config = self
             .executors
@@ -79,10 +80,14 @@ impl SnippetExecutor {
                 })?
             }
         };
+
+        let mut env = config.environment.clone();
+        env.extend(custom_env);
         Ok(LanguageSnippetExecutor {
             hidden_line_prefix: language_config.hidden_line_prefix.clone(),
             config,
             cwd: self.cwd.clone(),
+            env,
         })
     }
 
@@ -126,6 +131,7 @@ pub(crate) struct LanguageSnippetExecutor {
     hidden_line_prefix: Option<String>,
     config: SnippetExecutorConfig,
     cwd: PathBuf,
+    env: HashMap<String, String>,
 }
 
 impl LanguageSnippetExecutor {
@@ -141,7 +147,7 @@ impl LanguageSnippetExecutor {
             state.clone(),
             script_dir,
             self.config.commands.clone(),
-            self.config.environment.clone(),
+            self.env.clone(),
             self.cwd.clone(),
             output_type,
         );
@@ -177,7 +183,7 @@ impl LanguageSnippetExecutor {
         let mut command = portable_pty::CommandBuilder::new(command);
         command.args(args);
         command.cwd(&self.cwd);
-        for (key, value) in &self.config.environment {
+        for (key, value) in &self.env {
             command.env(key, value);
         }
         Ok(PtySnippetContext { command, _temp: script_dir })
@@ -190,7 +196,7 @@ impl LanguageSnippetExecutor {
         let (command, args) = commands.split_first().expect("no commands");
         let child = process::Command::new(command)
             .args(args)
-            .envs(&self.config.environment)
+            .envs(&self.env)
             .current_dir(&self.cwd)
             .stderr(Stdio::piped())
             .spawn()
@@ -419,7 +425,9 @@ echo 'bye'"
                 ..Default::default()
             },
         };
-        let executor = SnippetExecutor::default().language_executor(&snippet.language, &Default::default()).unwrap();
+        let executor = SnippetExecutor::default()
+            .language_executor(&snippet.language, &Default::default(), Default::default())
+            .unwrap();
         let handle = executor.execute_async(&snippet).expect("execution failed");
         let state = loop {
             let state = handle.state.lock().unwrap();
@@ -447,7 +455,9 @@ echo 'hello world'
                 ..Default::default()
             },
         };
-        let executor = SnippetExecutor::default().language_executor(&snippet.language, &Default::default()).unwrap();
+        let executor = SnippetExecutor::default()
+            .language_executor(&snippet.language, &Default::default(), Default::default())
+            .unwrap();
         let handle = executor.execute_async(&snippet).expect("execution failed");
         let state = loop {
             let state = handle.state.lock().unwrap();
@@ -476,7 +486,9 @@ echo 'hello world'
                 ..Default::default()
             },
         };
-        let executor = SnippetExecutor::default().language_executor(&snippet.language, &Default::default()).unwrap();
+        let executor = SnippetExecutor::default()
+            .language_executor(&snippet.language, &Default::default(), Default::default())
+            .unwrap();
         let handle = executor.execute_async(&snippet).expect("execution failed");
         let state = loop {
             let state = handle.state.lock().unwrap();

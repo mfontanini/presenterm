@@ -122,6 +122,9 @@ pub(crate) enum InvalidPresentation {
 
     #[error("snippet id '{0}' already exists")]
     SnippetAlreadyExists(String),
+
+    #[error("invalid env file format: expected <key>=<value>")]
+    InvalidEnvFile,
 }
 
 #[derive(Clone, Debug)]

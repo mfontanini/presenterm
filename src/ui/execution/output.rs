@@ -346,7 +346,9 @@ mod tests {
                 ..Default::default()
             },
         };
-        let executor = SnippetExecutor::default().language_executor(&snippet.language, &Default::default()).unwrap();
+        let executor = SnippetExecutor::default()
+            .language_executor(&snippet.language, &Default::default(), Default::default())
+            .unwrap();
         let policy = RenderAsyncStartPolicy::OnDemand;
         let handle = SnippetHandle::new(snippet, executor, policy);
         RunSnippetTrigger::new(handle)
