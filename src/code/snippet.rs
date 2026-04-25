@@ -289,6 +289,7 @@ impl SnippetParser {
                 HighlightedLines(lines) => attributes.highlight_groups = lines,
                 Width(width) => attributes.width = Some(width),
                 ExpectedExecutionResult(result) => attributes.expected_execution_result = result,
+                Env(path) => attributes.env_file = Some(path),
             };
             processed_attributes.push(discriminant);
             input = rest;
@@ -352,6 +353,7 @@ impl SnippetParser {
                                 }
                             },
                             "pty" => SnippetAttribute::ExecPty(SnippetExecutorSpec::default(), parameter.parse()?),
+                            "env" => SnippetAttribute::Env(parameter.to_string().into()),
                             _ => return Err(SnippetBlockParseError::InvalidToken(Self::next_identifier(input).into())),
                         }
                     }
@@ -471,6 +473,7 @@ enum SnippetAttribute {
     AcquireTerminal(SnippetExecutorSpec),
     ExpectedExecutionResult(ExpectedSnippetExecutionResult),
     Id(String),
+    Env(PathBuf),
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -717,6 +720,9 @@ pub(crate) struct SnippetAttributes {
 
     /// The identifier for a snippet.
     pub(crate) id: Option<String>,
+
+    /// The environment file to load.
+    pub(crate) env_file: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

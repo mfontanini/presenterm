@@ -25,7 +25,7 @@ use crate::{
     },
 };
 use itertools::Itertools;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, path::Path, rc::Rc};
 
 impl PresentationBuilder<'_, '_> {
     pub(crate) fn push_code(&mut self, info: String, code: String, source_position: SourcePosition) -> BuildResult {
@@ -61,7 +61,11 @@ impl PresentationBuilder<'_, '_> {
                 (SnippetExecutorSpec::Default, SnippetExecution::Exec(args)) => &args.spec,
                 _ => spec,
             };
-            let executor = self.snippet_executor.language_executor(&snippet.language, spec)?;
+            let env = match &snippet.attributes.env_file {
+                Some(path) => self.load_env(path, source_position)?,
+                None => HashMap::new(),
+            };
+            let executor = self.snippet_executor.language_executor(&snippet.language, spec, env)?;
             self.push_validator(&snippet, &executor);
         }
 
@@ -85,7 +89,11 @@ impl PresentationBuilder<'_, '_> {
                 self.push_execution_disabled_operation(exec_type);
             }
             SnippetExecution::Exec(args) => {
-                let executor = self.snippet_executor.language_executor(&snippet.language, &args.spec)?;
+                let env = match &snippet.attributes.env_file {
+                    Some(path) => self.load_env(path, source_position)?,
+                    None => HashMap::new(),
+                };
+                let executor = self.snippet_executor.language_executor(&snippet.language, &args.spec, env)?;
                 match args.repr {
                     SnippetRepr::Image => {
                         self.push_code_as_image(snippet, executor)?;
@@ -403,6 +411,31 @@ impl PresentationBuilder<'_, '_> {
         }
         let operation = ValidateSnippetOperation::new(snippet.clone(), executor.clone());
         self.chunk_operations.push(RenderOperation::RenderAsync(Rc::new(operation)));
+    }
+
+    fn load_env(&self, path: &Path, source_position: SourcePosition) -> Result<HashMap<String, String>, BuildError> {
+        let base = self.resource_base_path();
+        let contents = self.resources.external_text_file(path, &base).map_err(|e| {
+            self.invalid_presentation(
+                source_position,
+                InvalidPresentation::IncludeMarkdown { path: path.to_path_buf(), error: e },
+            )
+        })?;
+        let mut vars = HashMap::new();
+        for line in contents.lines() {
+            if line.starts_with('#') {
+                continue;
+            }
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let Some((key, value)) = line.split_once('=') else {
+                return Err(self.invalid_presentation(source_position, InvalidPresentation::InvalidEnvFile));
+            };
+            vars.insert(key.to_string(), value.to_string());
+        }
+        Ok(vars)
     }
 }
 
@@ -887,6 +920,27 @@ echo "{qr}"
         let lines = Test::new(input).render().rows(rows).columns(columns).into_lines();
         let empty = " ".repeat(columns as usize);
         let expected: Vec<_> = [empty.as_str()].into_iter().chain(qr.lines()).chain([empty.as_str()]).collect();
+        assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn env_file() {
+        let temp = tempfile::NamedTempFile::new().expect("failed to create tempfile");
+        let path = temp.path();
+        fs::write(path, "FOO=42\nBAR=1337\n\nTAR=hi\n# a comment\n").unwrap();
+
+        let path = path.to_string_lossy();
+        let input = format!(
+            "
+```bash +exec_replace +env:{path}
+echo \"$FOO\"
+echo \"$BAR\"
+echo \"$TAR\"
+```
+"
+        );
+        let lines = Test::new(input).render().rows(5).columns(5).into_lines();
+        let expected = &["     ", "42   ", "1337 ", "hi   ", "     "];
         assert_eq!(lines, expected);
     }
 }
