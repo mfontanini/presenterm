@@ -174,6 +174,11 @@ impl ExportRenderer {
 
         {font_face} 
 
+        html {{
+            overflow: hidden;
+            background-color: {background_color};
+        }}
+
         body {{
             margin: 0;
             font-size: {FONT_SIZE}px;
@@ -224,6 +229,7 @@ let originalHeight = {height};
                 "
 <head>
 <meta charset=\"UTF-8\">
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
 <style>
 {css}
 </style>

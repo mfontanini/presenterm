@@ -422,8 +422,8 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }
         return Ok(());
     }
-    // Disable this so we don't mess things up when generating PDFs
-    if cli.export_pdf {
+    // Disable this so we don't mess things up when exporting.
+    if cli.export_pdf || cli.export_html {
         TerminalEmulator::disable_capability_detection();
     }
 
