@@ -36,6 +36,7 @@ pub struct ThirdPartyConfigs {
     pub mermaid_config_file: Option<String>,
     pub d2_scale: String,
     pub threads: usize,
+    pub temp_dir: Option<String>,
 }
 
 pub struct ThirdPartyRender {
@@ -75,6 +76,7 @@ impl Default for ThirdPartyRender {
             mermaid_config_file: None,
             d2_scale: "-1".to_string(),
             threads: default_snippet_render_threads(),
+            temp_dir: None,
         };
         Self::new(config, Default::default(), Path::new("."))
     }
@@ -256,7 +258,14 @@ impl Worker {
         input: &str,
         style: &TypstStyle,
     ) -> Result<Image, ThirdPartyRenderError> {
-        let workdir = tempfile::Builder::default().prefix(".presenterm").tempdir_in(&self.shared.root_dir)?;
+        let workdir = match &self.shared.config.temp_dir {
+            Some(temp_dir) => {
+                let path = Path::new(temp_dir);
+                fs::create_dir_all(path)?;
+                tempfile::Builder::default().prefix(".presenterm").tempdir_in(path)?
+            }
+            None => tempfile::Builder::default().prefix(".presenterm").tempdir()?,
+        };
         let mut typst_input = Self::generate_page_header(style)?;
         typst_input.push_str(input);
 
