@@ -65,7 +65,7 @@ jobs:
       - name: Install nix
         uses: DeterminateSystems/nix-installer-action@v17
       - name: Build
-        run: nix build .#dev.presenterm
+        run: nix build .#presenterm
 
   bat-assets:
     name: Validate bat assets
