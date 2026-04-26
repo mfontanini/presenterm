@@ -86,3 +86,5 @@ typst:
   horizontal_margin: 2
   vertical_margin: 2
 ```
+
+You can also make use of an alpha channel for typst colours, e.g. `background: ff0000aa`.
