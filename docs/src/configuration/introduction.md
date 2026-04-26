@@ -4,7 +4,7 @@ _presenterm_ allows you to customize its behavior via a configuration file. This
 custom themes, in the following directories:
 
 * `$XDG_CONFIG_HOME/presenterm/` if that environment variable is defined, otherwise:
-* `~/.config/presenterm/` in Linux.
+* `~/.config/presenterm/` in Linux or macOS.
 * `~/Library/Application Support/presenterm/` in macOS.
 * `~/AppData/Roaming/presenterm/config/` in Windows.
 

@@ -155,7 +155,7 @@ fn create_splash() -> String {
   ┌─┐┬─┐┌─┐┌─┐┌─┐┌┐┌┌┬┐┌─┐┬─┐┌┬┐
   ├─┘├┬┘├┤ └─┐├┤ │││ │ ├┤ ├┬┘│││
   ┴  ┴└─└─┘└─┘└─┘┘└┘ ┴ └─┘┴└─┴ ┴ v{crate_version}
-    A terminal slideshow tool 
+    A terminal slideshow tool
                     @mfontanini/presenterm
 "#,
     )
@@ -171,13 +171,32 @@ struct Customizations {
 
 impl Customizations {
     fn load(config_file_path: Option<PathBuf>, cwd: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        let get_default_config_dir = || -> Result<PathBuf, Box<dyn std::error::Error>> {
+            let Some(project_dirs) = ProjectDirs::from("", "", "presenterm") else {
+                return Ok(Default::default());
+            };
+            Ok(project_dirs.config_dir().into())
+        };
         let configs_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
             Ok(path) => Path::new(&path).join("presenterm"),
             Err(_) => {
-                let Some(project_dirs) = ProjectDirs::from("", "", "presenterm") else {
-                    return Ok(Default::default());
-                };
-                project_dirs.config_dir().into()
+                #[cfg(target_os = "macos")]
+                if let Ok(home) = env::var("HOME") {
+                    let xdg_path = Path::new(&home).join(".config").join("presenterm");
+                    if xdg_path.exists() {
+                        println!("Using Home config");
+                        xdg_path
+                    } else {
+                        get_default_config_dir()?
+                    }
+                } else {
+                    get_default_config_dir()?
+                }
+
+                #[cfg(not(target_os = "macos"))]
+                {
+                    get_default_config_dir()?
+                }
             }
         };
         let themes_path = configs_path.join("themes");
