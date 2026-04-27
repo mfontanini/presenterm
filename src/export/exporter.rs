@@ -177,12 +177,7 @@ impl<'a> Exporter<'a> {
 
         render.generate(&pdf_path, &config.fonts)?;
 
-        execute!(
-            io::stdout(),
-            PrintStyledContent(
-                format!("output file is at {}\n", pdf_path.display()).stylize().with(Color::Green.into())
-            )
-        )?;
+        Self::log_success(&format!("output file is at {}", pdf_path.display()))?;
         Ok(())
     }
 
@@ -207,12 +202,7 @@ impl<'a> Exporter<'a> {
 
         render.generate(&output_path, &None)?;
 
-        execute!(
-            io::stdout(),
-            PrintStyledContent(
-                format!("output file is at {}\n", output_path.display()).stylize().with(Color::Green.into())
-            )
-        )?;
+        Self::log_success(&format!("output file is at {}", output_path.display()))?;
         Ok(())
     }
 
@@ -298,14 +288,28 @@ impl<'a> Exporter<'a> {
     }
 
     fn log(text: &str) -> io::Result<()> {
-        execute!(
-            io::stdout(),
-            MoveUp(1),
-            Clear(ClearType::CurrentLine),
-            MoveToColumn(0),
-            Print(text),
-            MoveToNextLine(1)
-        )
+        if crate::terminal::has_sized_terminal() {
+            execute!(
+                io::stdout(),
+                MoveUp(1),
+                Clear(ClearType::CurrentLine),
+                MoveToColumn(0),
+                Print(text),
+                MoveToNextLine(1)
+            )
+        } else {
+            println!("{text}");
+            Ok(())
+        }
+    }
+
+    fn log_success(text: &str) -> io::Result<()> {
+        if crate::terminal::has_sized_terminal() {
+            execute!(io::stdout(), PrintStyledContent(format!("{text}\n").stylize().with(Color::Green.into())))
+        } else {
+            println!("{text}");
+            Ok(())
+        }
     }
 }
 
