@@ -177,6 +177,10 @@ python:
       filename: "snippet.py"
       commands:
         - ["uv", "run", "--script", "-q", "$pwd/snippet.py"]
+    pytest:
+      filename: "test_snippet.py"
+      commands:
+        - ["pytest", "$pwd/test_snippet.py"]
 r:
   filename: snippet.R
   commands:
