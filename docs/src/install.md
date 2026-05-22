@@ -12,7 +12,7 @@ The recommended way to install _presenterm_ is to download the latest pre-built 
 If you're a [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) user:
 
 ```bash
-cargo binstall presenterm
+cargo install presenterm
 ```
 
 #### From source
