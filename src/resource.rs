@@ -92,6 +92,29 @@ impl Resources {
         Ok(image)
     }
 
+    /// Resolve a theme image path, falling back to the themes directory.
+    pub(crate) fn resolve_theme_image_path<P: AsRef<Path>>(&self, path: P) -> PathBuf {
+        let presentation_path = self.resolve_path(&path, &ResourceBasePath::Presentation);
+        if presentation_path.exists() {
+            return presentation_path;
+        }
+        let inner = self.inner.borrow();
+        inner.themes_path.join(path)
+    }
+
+    pub(crate) fn load_dynamic_image(&self, path: &Path) -> Result<image::DynamicImage, RegisterImageError> {
+        image::open(path).map_err(RegisterImageError::Image)
+    }
+
+    /// Register a generated (in-memory) image.
+    pub(crate) fn register_generated_image(
+        &self,
+        image: image::DynamicImage,
+    ) -> Result<Image, RegisterImageError> {
+        let inner = self.inner.borrow();
+        inner.image_registry.register(ImageSpec::Generated(image))
+    }
+
     /// Get the theme at the given path.
     pub(crate) fn theme<P: AsRef<Path>>(&self, path: P) -> Result<PresentationTheme, LoadThemeError> {
         let mut inner = self.inner.borrow_mut();

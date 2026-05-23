@@ -264,27 +264,45 @@ where
             CursorPosition { row: starting_row.saturating_sub(rect.start_row), column: rect.start_column };
 
         let (width, height) = image.image().dimensions();
-        let (columns, rows) = match properties.size {
+        let (columns, rows, cursor_override) = match properties.size {
             ImageSize::ShrinkIfNeeded => {
                 let image_scale =
                     self.image_scaler.fit_image_to_rect(&rect.dimensions, width, height, &starting_cursor);
-                (image_scale.columns, image_scale.rows)
+                (image_scale.columns, image_scale.rows, None)
             }
-            ImageSize::Specific(columns, rows) => (columns, rows),
+            ImageSize::Specific(columns, rows) => (columns, rows, None),
             ImageSize::WidthScaled { ratio } => {
                 let extra_columns = (rect.dimensions.columns as f64 * (1.0 - ratio)).ceil() as u16;
                 let dimensions = rect.dimensions.shrink_columns(extra_columns);
                 let image_scale =
                     self.image_scaler.scale_image(&dimensions, &rect.dimensions, width, height, &starting_cursor);
-                (image_scale.columns, image_scale.rows)
+                (image_scale.columns, image_scale.rows, None)
+            }
+            ImageSize::Stretch => (rect.dimensions.columns, rect.dimensions.rows, None),
+            ImageSize::Cover => {
+                let (cols, rows) = Self::scale_to_fit(width, height, &rect.dimensions, f64::max);
+                (cols, rows, None)
+            }
+            ImageSize::Contain => {
+                let (cols, rows) = Self::scale_to_fit(width, height, &rect.dimensions, f64::min);
+                let col_offset = (rect.dimensions.columns.saturating_sub(cols)) / 2;
+                let row_offset = (rect.dimensions.rows.saturating_sub(rows)) / 2;
+                let cursor = CursorPosition {
+                    column: starting_cursor.column + col_offset,
+                    row: starting_cursor.row + row_offset,
+                };
+                (cols, rows, Some(cursor))
             }
         };
-        let cursor = match &properties.position {
+        let cursor = cursor_override.unwrap_or_else(|| match &properties.position {
             ImagePosition::Cursor => starting_cursor.clone(),
             ImagePosition::Center => Self::center_cursor(columns, &rect.dimensions, &starting_cursor),
             ImagePosition::Right => Self::align_cursor_right(columns, &rect.dimensions, &starting_cursor),
-        };
+        });
         self.terminal.execute(&TerminalCommand::MoveToColumn(cursor.column))?;
+        if cursor.row != starting_cursor.row {
+            self.terminal.execute(&TerminalCommand::MoveToRow(rect.start_row + cursor.row))?;
+        }
 
         let options = PrintOptions {
             columns,
@@ -301,6 +319,30 @@ where
             self.terminal.execute(&TerminalCommand::MoveToRow(starting_row + rows))?;
         }
         self.apply_colors()
+    }
+
+    /// Scale image to cell dimensions using the given strategy to pick between horizontal and
+    /// vertical scale factors. `f64::max` gives cover semantics, `f64::min` gives contain.
+    fn scale_to_fit(
+        image_width: u32,
+        image_height: u32,
+        dimensions: &WindowSize,
+        pick_scale: fn(f64, f64) -> f64,
+    ) -> (u16, u16) {
+        // Pixels per cell; fall back to common 8x16 when the terminal doesn't report pixel size.
+        let px_per_col = if dimensions.width > 0 { dimensions.pixels_per_column() } else { 8.0 };
+        let px_per_row = if dimensions.height > 0 { dimensions.pixels_per_row() } else { 16.0 };
+
+        let natural_cols = image_width as f64 / px_per_col;
+        let natural_rows = image_height as f64 / px_per_row;
+
+        let scale_x = dimensions.columns as f64 / natural_cols;
+        let scale_y = dimensions.rows as f64 / natural_rows;
+        let scale = pick_scale(scale_x, scale_y);
+
+        let cols = (natural_cols * scale).round().max(1.0) as u16;
+        let rows = (natural_rows * scale).round().max(1.0) as u16;
+        (cols, rows)
     }
 
     fn center_cursor(columns: u16, window: &WindowSize, cursor: &CursorPosition) -> CursorPosition {
@@ -959,7 +1001,96 @@ mod tests {
         assert_eq!(ops, expected);
     }
 
-    // same as the above but center it
+    #[test]
+    fn stretch_image() {
+        let image = DynamicImage::new(40, 10, ColorType::Rgba8);
+        let image = Image::new(TerminalImage::Ascii(image.into()), ImageSource::Generated);
+        let properties = ImageRenderProperties {
+            z_index: -1,
+            size: ImageSize::Stretch,
+            restore_cursor: true,
+            background_color: None,
+            position: ImagePosition::Cursor,
+        };
+        let ops = render_with_max_size(&[RenderOperation::RenderImage(image, properties)]);
+        let expected = [
+            Instruction::MoveTo(40, 45),
+            Instruction::MoveToColumn(40),
+            Instruction::PrintImage(PrintOptions {
+                columns: 20,
+                rows: 10,
+                z_index: -1,
+                background_color: None,
+                column_width: 2,
+                row_height: 2,
+            }),
+            Instruction::MoveTo(40, 45),
+        ];
+        assert_eq!(ops, expected);
+    }
+
+    #[test]
+    fn cover_image() {
+        // 40x10 px image → natural 20x5 cells (at 2px/cell). Cover a 20x10 area:
+        // scale_x=1.0, scale_y=2.0, pick max → 40x10 cells.
+        let image = DynamicImage::new(40, 10, ColorType::Rgba8);
+        let image = Image::new(TerminalImage::Ascii(image.into()), ImageSource::Generated);
+        let properties = ImageRenderProperties {
+            z_index: -1,
+            size: ImageSize::Cover,
+            restore_cursor: true,
+            background_color: None,
+            position: ImagePosition::Cursor,
+        };
+        let ops = render_with_max_size(&[RenderOperation::RenderImage(image, properties)]);
+        let expected = [
+            Instruction::MoveTo(40, 45),
+            Instruction::MoveToColumn(40),
+            Instruction::PrintImage(PrintOptions {
+                columns: 40,
+                rows: 10,
+                z_index: -1,
+                background_color: None,
+                column_width: 2,
+                row_height: 2,
+            }),
+            Instruction::MoveTo(40, 45),
+        ];
+        assert_eq!(ops, expected);
+    }
+
+    #[test]
+    fn contain_image() {
+        // 40x10 px → natural 20x5 cells. Contain in 20x10: scale_x=1.0, scale_y=2.0,
+        // pick min → 20x5 cells. Centered: col_offset=0, row_offset=(10-5)/2=2.
+        let image = DynamicImage::new(40, 10, ColorType::Rgba8);
+        let image = Image::new(TerminalImage::Ascii(image.into()), ImageSource::Generated);
+        let properties = ImageRenderProperties {
+            z_index: -1,
+            size: ImageSize::Contain,
+            restore_cursor: true,
+            background_color: None,
+            position: ImagePosition::Cursor,
+        };
+        let ops = render_with_max_size(&[RenderOperation::RenderImage(image, properties)]);
+        let expected = [
+            Instruction::MoveTo(40, 45),
+            Instruction::MoveToColumn(40),
+            // row offset: start_row(45) + cursor.row(0) + offset(2) = 47
+            Instruction::MoveToRow(47),
+            Instruction::PrintImage(PrintOptions {
+                columns: 20,
+                rows: 5,
+                z_index: -1,
+                background_color: None,
+                column_width: 2,
+                row_height: 2,
+            }),
+            Instruction::MoveTo(40, 45),
+        ];
+        assert_eq!(ops, expected);
+    }
+
     #[rstest]
     fn restore_cursor_after_image() {
         let image = DynamicImage::new(2, 2, ColorType::Rgba8);
