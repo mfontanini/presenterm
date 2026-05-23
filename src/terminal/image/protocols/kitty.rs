@@ -6,7 +6,10 @@ use crate::{
     },
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
-use image::{AnimationDecoder, Delay, EncodableLayout, ImageReader, RgbaImage, codecs::gif::GifDecoder};
+use image::{
+    AnimationDecoder, Delay, EncodableLayout, ImageReader, RgbaImage, codecs::gif::GifDecoder, codecs::png::PngDecoder,
+    metadata::LoopCount,
+};
 use std::{
     fmt,
     fs::{self, File},
@@ -43,7 +46,7 @@ const DIACRITICS: &[u32] = &[
 
 enum GenericResource<B> {
     Image(B),
-    Gif(Vec<GifFrame<B>>),
+    Animated { frames: Vec<AnimationFrame<B>>, loop_count: LoopCount },
 }
 
 type RawResource = GenericResource<RgbaImage>;
@@ -55,13 +58,13 @@ impl RawResource {
                 dimensions: image.dimensions(),
                 resource: GenericResource::Image(KittyBuffer::Memory(image.into_raw())),
             },
-            Self::Gif(frames) => {
+            Self::Animated { frames, loop_count } => {
                 let dimensions = frames[0].buffer.dimensions();
                 let frames = frames
                     .into_iter()
-                    .map(|frame| GifFrame { delay: frame.delay, buffer: KittyBuffer::Memory(frame.buffer.into_raw()) })
+                    .map(|frame| AnimationFrame { delay: frame.delay, buffer: KittyBuffer::Memory(frame.buffer.into_raw()) })
                     .collect();
-                let resource = GenericResource::Gif(frames);
+                let resource = GenericResource::Animated { frames, loop_count };
                 KittyImage { dimensions, resource }
             }
         }
@@ -77,7 +80,7 @@ impl KittyImage {
     pub(crate) fn as_rgba8(&self) -> RgbaImage {
         let first_frame = match &self.resource {
             GenericResource::Image(buffer) => buffer,
-            GenericResource::Gif(gif_frames) => &gif_frames[0].buffer,
+            GenericResource::Animated { frames: animation_frames, .. } => &animation_frames[0].buffer,
         };
         let buffer = match first_frame {
             KittyBuffer::Filesystem(path) => {
@@ -111,7 +114,7 @@ impl Drop for KittyBuffer {
     }
 }
 
-struct GifFrame<T> {
+struct AnimationFrame<T> {
     delay: Delay,
     buffer: T,
 }
@@ -143,7 +146,7 @@ impl KittyPrinter {
         Ok(resource)
     }
 
-    fn persist_gif(&self, frames: Vec<GifFrame<RgbaImage>>) -> io::Result<KittyImage> {
+    fn persist_animation(&self, frames: Vec<AnimationFrame<RgbaImage>>, loop_count: LoopCount) -> io::Result<KittyImage> {
         let mut persisted_frames = Vec::new();
         let mut dimensions = (0, 0);
         for frame in frames {
@@ -151,16 +154,16 @@ impl KittyPrinter {
             fs::write(&path, frame.buffer.as_bytes())?;
             dimensions = frame.buffer.dimensions();
 
-            let frame = GifFrame { delay: frame.delay, buffer: KittyBuffer::Filesystem(path) };
+            let frame = AnimationFrame { delay: frame.delay, buffer: KittyBuffer::Filesystem(path) };
             persisted_frames.push(frame);
         }
-        Ok(KittyImage { dimensions, resource: GenericResource::Gif(persisted_frames) })
+        Ok(KittyImage { dimensions, resource: GenericResource::Animated { frames: persisted_frames, loop_count } })
     }
 
     fn persist_resource(&self, resource: RawResource) -> io::Result<KittyImage> {
         match resource {
             RawResource::Image(image) => self.persist_image(image),
-            RawResource::Gif(frames) => self.persist_gif(frames),
+            RawResource::Animated { frames, loop_count } => self.persist_animation(frames, loop_count),
         }
     }
 
@@ -205,20 +208,25 @@ impl KittyPrinter {
         Ok(())
     }
 
-    fn print_gif<T>(
+    fn print_animation<T>(
         &self,
         dimensions: (u32, u32),
-        frames: &[GifFrame<KittyBuffer>],
+        frames: &[AnimationFrame<KittyBuffer>],
+        loop_count: LoopCount,
         terminal: &mut T,
         print_options: &PrintOptions,
     ) -> Result<(), PrintImageError>
     where
         T: TerminalIo,
     {
+        let loops = match loop_count {
+            LoopCount::Infinite => 1u32,
+            LoopCount::Finite(n) => n.get() + 1,
+        };
         let image_id = Self::generate_image_id();
+
         for (frame_id, frame) in frames.iter().enumerate() {
             let (num, denom) = frame.delay.numer_denom_ms();
-            // default to 100ms in case somehow the denominator is 0
             let delay = num.checked_div(denom).unwrap_or(100);
             let mut options = vec![
                 ControlOption::Format(ImageFormat::Rgba),
@@ -252,7 +260,7 @@ impl KittyPrinter {
                     ControlOption::Action(Action::Animate),
                     ControlOption::ImageId(image_id),
                     ControlOption::FrameId(1),
-                    ControlOption::Loops(1),
+                    ControlOption::Loops(loops),
                 ];
                 let command = self.make_command(options, "").to_string();
                 terminal.execute(&TerminalCommand::PrintText { content: &command, style: Default::default() })?;
@@ -267,6 +275,7 @@ impl KittyPrinter {
                 terminal.execute(&TerminalCommand::PrintText { content: &command, style: Default::default() })?;
             }
         }
+
         if self.tmux {
             self.print_unicode_placeholders(terminal, print_options, image_id)?;
         }
@@ -275,7 +284,7 @@ impl KittyPrinter {
             ControlOption::ImageId(image_id),
             ControlOption::FrameId(1),
             ControlOption::AnimationState(3),
-            ControlOption::Loops(1),
+            ControlOption::Loops(loops),
             ControlOption::Quiet(2),
         ];
         let command = self.make_command(options, "").to_string();
@@ -380,16 +389,35 @@ impl KittyPrinter {
             let mut frames = Vec::new();
             for frame in decoder.into_frames() {
                 let frame = frame?;
-                let frame = GifFrame { delay: frame.delay(), buffer: frame.into_buffer() };
+                let frame = AnimationFrame { delay: frame.delay(), buffer: frame.into_buffer() };
                 frames.push(frame);
             }
-            Ok(RawResource::Gif(frames))
+            Ok(RawResource::Animated { frames, loop_count: LoopCount::Infinite })
         } else {
+            let reader = BufReader::new(file);
+            let png_decoder = PngDecoder::new(reader);
+            if let Ok(decoder) = png_decoder {
+                if decoder.is_apng().unwrap_or(false) {
+                    let apng_decoder = decoder.apng()?;
+                    let loop_count = apng_decoder.loop_count();
+                    let mut frames = Vec::new();
+                    for frame in apng_decoder.into_frames() {
+                        let frame = frame?;
+                        let frame = AnimationFrame { delay: frame.delay(), buffer: frame.into_buffer() };
+                        frames.push(frame);
+                    }
+                    if !frames.is_empty() {
+                        return Ok(RawResource::Animated { frames, loop_count });
+                    }
+                }
+            }
+            let file = File::open(path)?;
             let reader = ImageReader::new(BufReader::new(file)).with_guessed_format()?;
             let image = reader.decode()?;
             Ok(RawResource::Image(image.into_rgba8()))
         }
     }
+
 }
 
 impl PrintImage for KittyPrinter {
@@ -413,7 +441,9 @@ impl PrintImage for KittyPrinter {
     {
         match &image.resource {
             GenericResource::Image(resource) => self.print_image(image.dimensions, resource, terminal, options)?,
-            GenericResource::Gif(frames) => self.print_gif(image.dimensions, frames, terminal, options)?,
+            GenericResource::Animated { frames, loop_count } => {
+                self.print_animation(image.dimensions, frames, *loop_count, terminal, options)?
+            }
         };
         Ok(())
     }
