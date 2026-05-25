@@ -81,6 +81,10 @@ struct Cli {
     #[clap(long, requires = "export")]
     export_temporary_path: Option<PathBuf>,
 
+    /// The path in which to store temporary files used when rendering typst/latex.
+    #[clap(long)]
+    temp_dir: Option<PathBuf>,
+
     /// The output path for the exported PDF.
     #[clap(short = 'o', long = "output", requires = "export")]
     export_output: Option<PathBuf>,
@@ -259,6 +263,7 @@ impl CoreComponents {
             mermaid_config_file: config.mermaid.config_path.clone(),
             d2_scale: config.d2.scale.map(|s| s.to_string()).unwrap_or_else(|| "-1".to_string()),
             threads: config.snippet.render.threads,
+            temp_dir: cli.temp_dir.map(|p| p.to_string_lossy().to_string()),
         };
         let third_party = ThirdPartyRender::new(third_party_config, registry, &resources_path);
         let code_executor = Arc::new(code_executor);
