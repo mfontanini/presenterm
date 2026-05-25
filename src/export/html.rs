@@ -84,6 +84,7 @@ pub(crate) fn color_to_html(color: &Color) -> String {
         Color::White => "#ffffff".into(),
         Color::Grey => "#808080".into(),
         Color::Rgb { r, g, b } => format!("#{r:02x}{g:02x}{b:02x}"),
+        Color::Rgba { r, g, b, a } => format!("#{r:02x}{g:02x}{b:02x}{a:02x}"),
     }
 }
 
@@ -105,6 +106,8 @@ mod test {
     )]
     #[case::foreground_color(TextStyle::default().fg_color(Color::new(1,2,3)), "color: #010203")]
     #[case::background_color(TextStyle::default().bg_color(Color::new(1,2,3)), "background-color: #010203")]
+    #[case::foreground_color_alpha(TextStyle::default().fg_color(Color::Rgba {r: 1, g: 2, b: 3, a:4 }), "color: #01020304")]
+    #[case::background_color_alpha(TextStyle::default().bg_color(Color::Rgba { r: 1, g: 2, b: 3, a: 4 }), "background-color: #01020304")]
     #[case::font_size(TextStyle::default().size(3), "font-size: 6px")]
     fn html_text(#[case] style: TextStyle, #[case] expected_style: &str) {
         let html_text = HtmlText::new("", &style, FontSize::Pixels(2));
