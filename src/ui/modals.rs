@@ -235,6 +235,10 @@ struct ContentRow {
 }
 
 impl ContentRow {
+    /// Overwrite the style of a content row.
+    ///
+    /// The current background and foreground style is overwritten with the respective definitions
+    /// of `style`, if they are set.
     fn with_style(mut self, style: TextStyle) -> ContentRow {
         for chunk in &mut self.content {
             chunk.style.merge(&style);
