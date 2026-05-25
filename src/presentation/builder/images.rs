@@ -4,10 +4,18 @@ use crate::{
         BuildResult, PresentationBuilder,
         error::{BuildError, InvalidPresentation},
     },
-    render::operation::{ImageRenderProperties, ImageSize, RenderOperation},
-    terminal::image::Image,
+    render::{
+        operation::{AsRenderOperations, ImageRenderProperties, ImageSize, RenderOperation},
+        properties::WindowSize,
+    },
+    terminal::image::{
+        Image,
+        printer::{ImageRegistry, ImageSpec},
+    },
+    theme::raw::BackgroundImageFit,
 };
-use std::path::PathBuf;
+use image::DynamicImage;
+use std::{cell::RefCell, fmt, path::PathBuf, rc::Rc};
 
 impl PresentationBuilder<'_, '_> {
     pub(crate) fn push_image_from_path(
@@ -67,6 +75,122 @@ impl PresentationBuilder<'_, '_> {
                 Ok(())
             }
             _ => Err(ImageAttributeError::UnknownAttribute(key.to_string())),
+        }
+    }
+}
+
+pub(crate) struct CoverImageRenderer {
+    source: DynamicImage,
+    registry: ImageRegistry,
+    cache: RefCell<Option<(u16, u16, Image)>>,
+}
+
+impl CoverImageRenderer {
+    fn new(source: DynamicImage, registry: ImageRegistry) -> Self {
+        Self { source, registry, cache: RefCell::new(None) }
+    }
+
+    fn crop_to_aspect(&self, dimensions: &WindowSize) -> DynamicImage {
+        let px_per_col = if dimensions.width > 0 { dimensions.pixels_per_column() } else { 8.0 };
+        let px_per_row = if dimensions.height > 0 { dimensions.pixels_per_row() } else { 16.0 };
+
+        let screen_w = dimensions.columns as f64 * px_per_col;
+        let screen_h = dimensions.rows as f64 * px_per_row;
+
+        let img_w = self.source.width() as f64;
+        let img_h = self.source.height() as f64;
+
+        let screen_ratio = screen_w / screen_h;
+        let img_ratio = img_w / img_h;
+
+        let (crop_w, crop_h) = if img_ratio > screen_ratio {
+            ((img_h * screen_ratio).round(), img_h)
+        } else {
+            (img_w, (img_w / screen_ratio).round())
+        };
+
+        let x = ((img_w - crop_w) / 2.0).round() as u32;
+        let y = ((img_h - crop_h) / 2.0).round() as u32;
+        self.source.crop_imm(x, y, crop_w as u32, crop_h as u32)
+    }
+}
+
+impl fmt::Debug for CoverImageRenderer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CoverImageRenderer").finish()
+    }
+}
+
+impl AsRenderOperations for CoverImageRenderer {
+    fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
+        let cols = dimensions.columns;
+        let rows = dimensions.rows;
+
+        let mut cache = self.cache.borrow_mut();
+        let image = match &*cache {
+            Some((c, r, img)) if *c == cols && *r == rows => img.clone(),
+            _ => {
+                let cropped = self.crop_to_aspect(dimensions);
+                let Ok(img) = self.registry.register(ImageSpec::Generated(cropped)) else {
+                    return Vec::new();
+                };
+                *cache = Some((cols, rows, img.clone()));
+                img
+            }
+        };
+
+        vec![RenderOperation::RenderImage(image, ImageRenderProperties::background(ImageSize::Stretch))]
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct BackgroundImageSlot {
+    inner: Rc<RefCell<Option<BackgroundImageOp>>>,
+}
+
+enum BackgroundImageOp {
+    Static(Image, ImageSize),
+    Cover(CoverImageRenderer),
+}
+
+impl fmt::Debug for BackgroundImageOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Static(img, size) => f.debug_tuple("Static").field(img).field(size).finish(),
+            Self::Cover(_) => f.write_str("Cover"),
+        }
+    }
+}
+
+impl BackgroundImageSlot {
+    pub(crate) fn new() -> Self {
+        Self { inner: Rc::new(RefCell::new(None)) }
+    }
+
+    pub(crate) fn set_static(&self, image: Image, fit: BackgroundImageFit) {
+        *self.inner.borrow_mut() = Some(BackgroundImageOp::Static(image, fit.into()));
+    }
+
+    pub(crate) fn set_cover(&self, source: DynamicImage, registry: ImageRegistry) {
+        let renderer = CoverImageRenderer::new(source, registry);
+        *self.inner.borrow_mut() = Some(BackgroundImageOp::Cover(renderer));
+    }
+}
+
+impl fmt::Debug for BackgroundImageSlot {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BackgroundImageSlot").finish()
+    }
+}
+
+impl AsRenderOperations for BackgroundImageSlot {
+    fn as_render_operations(&self, dimensions: &WindowSize) -> Vec<RenderOperation> {
+        match &*self.inner.borrow() {
+            None => Vec::new(),
+            Some(BackgroundImageOp::Static(image, size)) => {
+                vec![RenderOperation::RenderImage(image.clone(), ImageRenderProperties::background(size.clone()))]
+            }
+            Some(BackgroundImageOp::Cover(renderer)) => renderer.as_render_operations(dimensions),
         }
     }
 }

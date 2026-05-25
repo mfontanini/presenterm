@@ -5,7 +5,7 @@ use crate::{
         text_style::{Color, Colors, TextStyle},
     },
     terminal::image::Image,
-    theme::{Alignment, Margin},
+    theme::{Alignment, Margin, raw::BackgroundImageFit},
 };
 use std::{
     fmt::Debug,
@@ -14,6 +14,7 @@ use std::{
 };
 
 const DEFAULT_IMAGE_Z_INDEX: i32 = -2;
+const BACKGROUND_IMAGE_Z_INDEX: i32 = -3;
 
 /// A line of preformatted text to be rendered.
 #[derive(Clone, Debug, PartialEq)]
@@ -130,6 +131,18 @@ impl Default for ImageRenderProperties {
     }
 }
 
+impl ImageRenderProperties {
+    pub(crate) fn background(size: ImageSize) -> Self {
+        Self {
+            z_index: BACKGROUND_IMAGE_Z_INDEX,
+            size,
+            restore_cursor: true,
+            background_color: None,
+            position: ImagePosition::Cursor,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ImagePosition {
     Cursor,
@@ -146,6 +159,19 @@ pub(crate) enum ImageSize {
     WidthScaled {
         ratio: f64,
     },
+    Stretch,
+    Cover,
+    Contain,
+}
+
+impl From<BackgroundImageFit> for ImageSize {
+    fn from(fit: BackgroundImageFit) -> Self {
+        match fit {
+            BackgroundImageFit::Stretch => Self::Stretch,
+            BackgroundImageFit::Cover => Self::Cover,
+            BackgroundImageFit::Contain => Self::Contain,
+        }
+    }
 }
 
 /// Slide properties, set on initialization.
