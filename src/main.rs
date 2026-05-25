@@ -59,6 +59,8 @@ const DEFAULT_THEME: &str = "dark";
 const DEFAULT_THEME_DYNAMIC_DETECTION_TIMEOUT: u64 = 100;
 const DEFAULT_EXPORT_PIXELS_PER_COLUMN: u16 = 20;
 const DEFAULT_EXPORT_PIXELS_PER_ROW: u16 = DEFAULT_EXPORT_PIXELS_PER_COLUMN * 2;
+const DEFAULT_EXPORT_COLUMNS: u16 = 200;
+const DEFAULT_EXPORT_ROWS: u16 = 50;
 
 /// Run slideshows from your terminal.
 #[derive(Parser)]
@@ -326,6 +328,9 @@ impl CoreComponents {
                 config::ThemeConfig::None => DEFAULT_THEME.into(),
                 config::ThemeConfig::Some(theme_name) => theme_name.clone(),
                 config::ThemeConfig::Dynamic { dark, light, timeout } => {
+                    if !terminal::has_sized_terminal() {
+                        return dark.clone();
+                    }
                     let default_timeout = timeout.unwrap_or(DEFAULT_THEME_DYNAMIC_DETECTION_TIMEOUT);
                     let timeout_duration = Duration::from_millis(default_timeout);
                     if let Ok(theme) = termbg::theme(timeout_duration) {
@@ -450,6 +455,12 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         builder_options.validate_snippets = cli.validate_snippets;
     }
     if cli.export_pdf || cli.export_html {
+        let default_dimensions = WindowSize {
+            rows: DEFAULT_EXPORT_ROWS,
+            columns: DEFAULT_EXPORT_COLUMNS,
+            height: DEFAULT_EXPORT_ROWS * DEFAULT_EXPORT_PIXELS_PER_ROW,
+            width: DEFAULT_EXPORT_COLUMNS * DEFAULT_EXPORT_PIXELS_PER_COLUMN,
+        };
         let dimensions = match config.export.dimensions {
             Some(dimensions) => WindowSize {
                 rows: dimensions.rows,
@@ -457,6 +468,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 height: dimensions.rows * DEFAULT_EXPORT_PIXELS_PER_ROW,
                 width: dimensions.columns * DEFAULT_EXPORT_PIXELS_PER_COLUMN,
             },
+            None if !terminal::has_sized_terminal() => default_dimensions,
             None => WindowSize::current(config.defaults.terminal_font_size)?,
         };
         let exporter = Exporter::new(
@@ -521,8 +533,14 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 fn main() {
     let cli = Cli::parse();
     if let Err(e) = run(cli) {
-        let _ =
-            execute!(io::stdout(), PrintStyledContent(format!("{e}\n").stylize().with(crossterm::style::Color::Red)));
+        if terminal::has_sized_terminal() {
+            let _ = execute!(
+                io::stdout(),
+                PrintStyledContent(format!("{e}\n").stylize().with(crossterm::style::Color::Red))
+            );
+        } else {
+            eprintln!("{e}");
+        }
         std::process::exit(1);
     }
 }

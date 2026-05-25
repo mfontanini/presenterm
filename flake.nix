@@ -32,6 +32,16 @@
           "executors.yaml"
         ];
 
+        testPresentation = pkgs.writeText "test.md" ''
+          ---
+          title: Test
+          ---
+
+          # Hello
+
+          This is a test slide.
+        '';
+
         buildSrc = flakeboxLib.filterSubPaths {
           root = builtins.path {
             name = projectName;
@@ -55,6 +65,13 @@
       in
       {
         packages.default = multiBuild.${projectName};
+
+        packages.test-export-html = pkgs.runCommand "test-export-html" {
+          nativeBuildInputs = [ multiBuild.${projectName} ];
+        } ''
+          mkdir -p $out
+          presenterm -E --theme dark -o $out/index.html ${testPresentation}
+        '';
 
         legacyPackages = multiBuild;
 
