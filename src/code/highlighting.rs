@@ -4,7 +4,7 @@ use crate::{
         elements::{Line, Text},
         text_style::{Color, TextStyle},
     },
-    theme::CodeBlockStyle,
+    theme::{CodeBlockStyle, CodeBlockStyleBackground},
 };
 use flate2::read::ZlibDecoder;
 use once_cell::sync::Lazy;
@@ -229,8 +229,10 @@ pub(crate) struct StyledTokens<'a> {
 
 impl<'a> StyledTokens<'a> {
     pub(crate) fn new(style: Style, tokens: &'a str, block_style: &CodeBlockStyle) -> Self {
-        let has_background = block_style.background;
-        let background = has_background.then_some(parse_color(style.background)).flatten();
+        let background = match block_style.background {
+            CodeBlockStyleBackground::Color(color) => color,
+            CodeBlockStyleBackground::Enabled(enabled) => enabled.then_some(parse_color(style.background)).flatten(),
+        };
         let foreground = parse_color(style.foreground);
         let mut style = TextStyle::default();
         style.colors.background = background;
