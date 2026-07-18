@@ -79,6 +79,24 @@ impl LinkRender {
     }
 }
 
+/// Whether a URL can safely be used as a hyperlink target.
+///
+/// Only absolute http/https/mailto URLs qualify: OSC 8 leaves the meaning of relative URIs
+/// unspecified (so `./notes.md` or `#anchor` would silently become dead links with their target
+/// hidden), and other schemes such as `javascript:` must never become live links in HTML exports.
+/// Everything else falls back to being rendered inline next to its label.
+fn is_hyperlink_target(url: &str) -> bool {
+    let has_scheme = |scheme: &str| {
+        url.as_bytes().get(..scheme.len()).is_some_and(|prefix| prefix.eq_ignore_ascii_case(scheme.as_bytes()))
+    };
+    has_scheme("http://") || has_scheme("https://") || has_scheme("mailto:")
+}
+
+/// Whether this node contains an image anywhere in its descendants.
+fn contains_image<'a>(node: &'a AstNode<'a>) -> bool {
+    node.descendants().any(|child| matches!(child.data.borrow().value, NodeValue::Image(_)))
+}
+
 /// A markdown parser.
 ///
 /// This takes the contents of a markdown file and parses it into a list of [MarkdownElement].
@@ -471,7 +489,11 @@ impl<'a> InlinesParser<'a> {
                 self.pending_text.push(Text::new(text.clone(), style));
             }
             NodeValue::Code(code) => {
-                self.pending_text.push(Text::new(code.literal.clone(), TextStyle::default().code()));
+                // Carry over a potential enclosing link so labels like [`code`](url) stay
+                // clickable, but no other styling since code spans use their own style.
+                let mut code_style = TextStyle::default().code();
+                code_style.link = style.link;
+                self.pending_text.push(Text::new(code.literal.clone(), code_style));
             }
             NodeValue::Strong => self.process_children(node, style.bold())?,
             NodeValue::Emph => self.process_children(node, style.italics())?,
@@ -485,19 +507,29 @@ impl<'a> InlinesParser<'a> {
                     SoftBreak::Space => self.pending_text.push(Text::new(" ", style)),
                 };
             }
-            NodeValue::Link(link) => match self.link_render {
-                LinkRender::Hyperlink => {
+            NodeValue::Link(link) => {
+                // Only use a hyperlink if the URL can safely be a hyperlink target and the label
+                // can carry it: labels containing images can't, since images aren't rendered as
+                // styled text and the URL would be lost entirely.
+                let hyperlink = matches!(self.link_render, LinkRender::Hyperlink)
+                    && is_hyperlink_target(&link.url)
+                    && !contains_image(node);
+                if hyperlink {
                     if node.first_child().is_some() {
                         // Render the label as a clickable hyperlink (OSC 8), hiding the raw URL
                         // just like a GitHub markdown preview does.
-                        self.process_children(node, TextStyle::default().link_label().link(link.url.clone()))?;
+                        self.process_children(
+                            node,
+                            TextStyle::default().link_label().link_with_title(&link.url, &link.title),
+                        )?;
                     } else {
                         // No label: show the URL itself, made clickable.
-                        self.pending_text
-                            .push(Text::new(link.url.clone(), TextStyle::default().link_url().link(link.url.clone())));
+                        self.pending_text.push(Text::new(
+                            link.url.clone(),
+                            TextStyle::default().link_url().link_with_title(&link.url, &link.title),
+                        ));
                     }
-                }
-                LinkRender::InlineUrl => {
+                } else {
                     let has_label = node.first_child().is_some();
                     if has_label {
                         self.process_children(node, TextStyle::default().link_label())?;
@@ -513,9 +545,13 @@ impl<'a> InlinesParser<'a> {
                         self.pending_text.push(Text::from(")"));
                     }
                 }
-            },
+            }
             NodeValue::WikiLink(link) => {
-                self.pending_text.push(Text::new(link.url.clone(), TextStyle::default().link_url()));
+                let mut style = TextStyle::default().link_url();
+                if matches!(self.link_render, LinkRender::Hyperlink) && is_hyperlink_target(&link.url) {
+                    style = style.link(link.url.clone());
+                }
+                self.pending_text.push(Text::new(link.url.clone(), style));
             }
             NodeValue::LineBreak => {
                 self.store_pending_text();
@@ -580,9 +616,11 @@ impl<'a> InlinesParser<'a> {
                 };
             }
             NodeValue::FootnoteReference(reference) => {
-                // Keep only colors here, we don't care about e.g. italics footnotes.
-                let style = TextStyle::colored(style.colors).superscript();
-                self.pending_text.push(Text::new(reference.name.clone(), style));
+                // Keep only colors and a potential enclosing link here, we don't care about e.g.
+                // italics footnotes.
+                let mut footnote_style = TextStyle::colored(style.colors).superscript();
+                footnote_style.link = style.link;
+                self.pending_text.push(Text::new(reference.name.clone(), footnote_style));
             }
             other => {
                 return Err(ParseErrorKind::UnsupportedStructure { container: "text", element: other.identifier() }
@@ -780,7 +818,8 @@ mod test {
 
     fn try_parse(input: &str) -> Result<Vec<MarkdownElement>, ParseError> {
         let arena = Arena::new();
-        MarkdownParser::new(&arena).parse(input)
+        // Pin the link render mode so these tests don't depend on the process-wide default.
+        MarkdownParser::new(&arena).with_link_render(LinkRender::Hyperlink).parse(input)
     }
 
     fn parse_single_inline_urls(input: &str) -> MarkdownElement {
@@ -902,7 +941,10 @@ boop
         // The title is not rendered; the URL itself is the clickable link.
         let expected_chunks = vec![
             Text::from("my "),
-            Text::new("https://example.com", TextStyle::default().link_url().link("https://example.com")),
+            Text::new(
+                "https://example.com",
+                TextStyle::default().link_url().link_with_title("https://example.com", "Example"),
+            ),
         ];
 
         let expected_elements = &[Line(expected_chunks)];
@@ -913,10 +955,11 @@ boop
     fn link_w_label_w_title() {
         let parsed = parse_single("my [website](https://example.com \"Example\")");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        // Only the clickable label is shown; both the URL and the title are hidden.
+        // Only the clickable label is shown; both the URL and the title are hidden from the
+        // rendered text (the title is still carried on the link's target).
         let expected_chunks = vec![
             Text::from("my "),
-            Text::new("website", TextStyle::default().link_label().link("https://example.com")),
+            Text::new("website", TextStyle::default().link_label().link_with_title("https://example.com", "Example")),
         ];
 
         let expected_elements = &[Line(expected_chunks)];
@@ -974,10 +1017,79 @@ boop
     fn wikilink_wo_title() {
         let parsed = parse_single("[[https://example.com]]");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        let expected_chunks = vec![Text::new("https://example.com", TextStyle::default().link_url())];
+        let expected_chunks =
+            vec![Text::new("https://example.com", TextStyle::default().link_url().link("https://example.com"))];
 
         let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn link_code_label_stays_clickable() {
+        let parsed = parse_single("[`serde`](https://serde.rs)");
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_chunks = vec![Text::new("serde", TextStyle::default().code().link("https://serde.rs"))];
+
+        let expected_elements = &[Line(expected_chunks)];
+        assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn link_relative_url_falls_back_to_inline() {
+        // Relative URLs aren't valid OSC 8 targets so the URL must stay visible.
+        let parsed = parse_single("[notes](./notes.md)");
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_chunks = vec![
+            Text::new("notes", TextStyle::default().link_label()),
+            Text::from(" ("),
+            Text::new("./notes.md", TextStyle::default().link_url()),
+            Text::from(")"),
+        ];
+
+        let expected_elements = &[Line(expected_chunks)];
+        assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn link_unsafe_scheme_falls_back_to_inline() {
+        // javascript: and friends must never become hyperlink targets (e.g. HTML export anchors).
+        let parsed = parse_single("[click](javascript:alert(1))");
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_chunks = vec![
+            Text::new("click", TextStyle::default().link_label()),
+            Text::from(" ("),
+            Text::new("javascript:alert(1)", TextStyle::default().link_url()),
+            Text::from(")"),
+        ];
+
+        let expected_elements = &[Line(expected_chunks)];
+        assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn link_image_label_falls_back_to_inline() {
+        // An image can't carry a hyperlink so the URL must stay visible.
+        let elements = try_parse("[![](potato.png)](https://example.com)").expect("failed to parse");
+        let mut found_url = false;
+        let mut found_image = false;
+        for element in &elements {
+            match element {
+                MarkdownElement::Image { path, .. } => found_image = path.as_os_str() == "potato.png",
+                MarkdownElement::Paragraph(lines) => {
+                    for Line(chunks) in lines {
+                        for chunk in chunks {
+                            if chunk.content.contains("https://example.com") {
+                                found_url = true;
+                                assert_eq!(chunk.style.link, None, "URL itself must not carry a hyperlink");
+                            }
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+        assert!(found_image, "image not found: {elements:?}");
+        assert!(found_url, "url not visible: {elements:?}");
     }
 
     #[test]

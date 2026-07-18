@@ -69,8 +69,22 @@ impl TerminalCapabilities {
 
         let mut response = response?;
         response.tmux = tmux;
-        response.hyperlinks = Self::hyperlinks_supported(|name| env::var(name).ok());
         Ok(response)
+    }
+
+    /// Detect OSC 8 hyperlink support from the environment.
+    pub(crate) fn hyperlinks_supported_from_env() -> bool {
+        Self::hyperlinks_supported(|name| env::var(name).ok())
+    }
+
+    /// The hyperlink support override requested via `FORCE_HYPERLINK`, if any.
+    pub(crate) fn hyperlink_force_override() -> Option<bool> {
+        Self::parse_force_hyperlink(env::var("FORCE_HYPERLINK").ok())
+    }
+
+    fn parse_force_hyperlink(value: Option<String>) -> Option<bool> {
+        let value = value?;
+        Some(!matches!(value.trim().to_ascii_lowercase().as_str(), "" | "0" | "false" | "no" | "off"))
     }
 
     /// Whether the terminal emulator supports OSC 8 hyperlinks.
@@ -81,18 +95,20 @@ impl TerminalCapabilities {
     /// false positive would cause them to be silently dropped by the terminal.
     fn hyperlinks_supported<F: Fn(&str) -> Option<String>>(var: F) -> bool {
         // Allow forcing hyperlinks on/off, following the convention used by other tools.
-        if let Some(force) = var("FORCE_HYPERLINK") {
-            return !matches!(force.trim(), "" | "0");
+        if let Some(force) = Self::parse_force_hyperlink(var("FORCE_HYPERLINK")) {
+            return force;
         }
         // Multiplexers swallow OSC 8 sequences: GNU screen entirely, and tmux only passes them
         // through on >= 3.4 when the outer terminal supports them, which we can't detect from in
         // here. Note that these must be checked first since environment variables set by the
-        // terminal that hosts the multiplexer (e.g. `VTE_VERSION`) leak into its sessions.
+        // terminal that hosts the multiplexer (e.g. `VTE_VERSION`) leak into its sessions, and
+        // `TERM` must be checked too since only it survives into ssh sessions.
         if var("TMUX").is_some() || var("TERM_PROGRAM").as_deref() == Some("tmux") {
             return false;
         }
         let term = var("TERM").unwrap_or_default();
-        if term == "screen" || term.starts_with("screen-") || term.starts_with("screen.") {
+        let term_is = |name: &str, prefix: &str| term == name || term.starts_with(prefix);
+        if term_is("screen", "screen-") || term.starts_with("screen.") || term_is("tmux", "tmux-") {
             return false;
         }
         // Terminals that advertise themselves via $TERM.
@@ -373,9 +389,13 @@ mod tests {
     #[case::jetbrains(&[("TERMINAL_EMULATOR", "JetBrains-JediTerm")], true)]
     #[case::tmux(&[("TMUX", "/tmp/tmux-1/default,42,0"), ("TERM_PROGRAM", "tmux"), ("VTE_VERSION", "7802")], false)]
     #[case::screen(&[("TERM", "screen-256color"), ("LC_TERMINAL", "iTerm2")], false)]
+    #[case::ssh_from_tmux(&[("TERM", "tmux-256color"), ("LC_TERMINAL", "iTerm2")], false)]
     #[case::force_on(&[("FORCE_HYPERLINK", "1"), ("TERM", "xterm-256color")], true)]
     #[case::force_on_beats_tmux(&[("FORCE_HYPERLINK", "1"), ("TMUX", "/tmp/tmux-1/default,42,0")], true)]
     #[case::force_off(&[("FORCE_HYPERLINK", "0"), ("TERM_PROGRAM", "iTerm.app")], false)]
+    #[case::force_off_false(&[("FORCE_HYPERLINK", "false"), ("TERM_PROGRAM", "iTerm.app")], false)]
+    #[case::force_off_no(&[("FORCE_HYPERLINK", "No"), ("TERM_PROGRAM", "iTerm.app")], false)]
+    #[case::force_off_off(&[("FORCE_HYPERLINK", "off"), ("TERM_PROGRAM", "iTerm.app")], false)]
     fn hyperlink_detection(#[case] vars: &[(&str, &str)], #[case] expected: bool) {
         let lookup = |name: &str| vars.iter().find(|(key, _)| *key == name).map(|(_, value)| value.to_string());
         assert_eq!(TerminalCapabilities::hyperlinks_supported(lookup), expected);

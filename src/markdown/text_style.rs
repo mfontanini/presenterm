@@ -88,13 +88,18 @@ where
     /// Set the hyperlink target for this text.
     ///
     /// This turns the text into a clickable link pointing at `url`.
-    pub(crate) fn link<U: AsRef<str>>(mut self, url: U) -> Self {
-        self.link = Some(intern_link(url.as_ref()));
+    pub(crate) fn link<U: AsRef<str>>(self, url: U) -> Self {
+        self.link_with_title(url, "")
+    }
+
+    /// Set the hyperlink target for this text, along with the link's title.
+    pub(crate) fn link_with_title<U: AsRef<str>, T: AsRef<str>>(mut self, url: U, title: T) -> Self {
+        self.link = Some(intern_link(url.as_ref(), title.as_ref()));
         self
     }
 
     /// Get this style's hyperlink target, if any.
-    pub(crate) fn link_target(&self) -> Option<Arc<str>> {
+    pub(crate) fn link_target(&self) -> Option<LinkTarget> {
         self.link.map(resolve_link)
     }
 
@@ -191,7 +196,7 @@ impl TextStyle<Color> {
                 TextAttribute::BackgroundColor(color) => style.on(color.into()),
             }
         }
-        let text = FontSizedStr { contents, font_size, link_target: self.link_target() };
+        let text = FontSizedStr { contents, font_size, link_target: self.link_target().map(|target| target.url) };
         StyledContent::new(style, text)
     }
 
@@ -282,34 +287,59 @@ pub(crate) enum TextAttribute {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct LinkId(u32);
 
+/// A hyperlink target: its URL plus the link's title, if any.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub(crate) struct LinkTarget {
+    pub(crate) url: Arc<str>,
+    pub(crate) title: Arc<str>,
+}
+
 static LINK_TABLE: Lazy<RwLock<LinkTable>> = Lazy::new(|| RwLock::new(LinkTable::default()));
 
 #[derive(Default)]
 struct LinkTable {
-    urls: Vec<Arc<str>>,
-    ids: HashMap<Arc<str>, LinkId>,
+    targets: Vec<LinkTarget>,
+    ids: HashMap<LinkTarget, LinkId>,
 }
 
-/// Intern a URL, returning a stable id. Identical URLs always map to the same id.
-fn intern_link(url: &str) -> LinkId {
-    if let Some(id) = LINK_TABLE.read().expect("link table poisoned").ids.get(url) {
-        return *id;
+/// Percent-encode any URL byte outside of the printable ASCII range.
+///
+/// URLs end up interpolated in OSC 8 escape sequences, where a raw ESC/BEL byte would terminate
+/// the sequence early and let the rest of the URL be interpreted as arbitrary terminal escape
+/// sequences. Markdown allows such bytes in link destinations (e.g. via `[label](<...>)`) so
+/// encode them, which is both safe and semantically equivalent for well-behaved consumers.
+fn sanitize_url(url: &str) -> Cow<'_, str> {
+    let is_safe = |byte: u8| (33..=126).contains(&byte);
+    if url.bytes().all(is_safe) {
+        return Cow::Borrowed(url);
     }
+    let mut sanitized = String::with_capacity(url.len());
+    for byte in url.bytes() {
+        if is_safe(byte) {
+            sanitized.push(byte as char);
+        } else {
+            sanitized.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    Cow::Owned(sanitized)
+}
+
+/// Intern a link, returning a stable id. Identical links always map to the same id.
+fn intern_link(url: &str, title: &str) -> LinkId {
+    let target = LinkTarget { url: Arc::from(sanitize_url(url).as_ref()), title: Arc::from(title) };
     let mut table = LINK_TABLE.write().expect("link table poisoned");
-    // Re-check in case another thread inserted while we were waiting for the write lock.
-    if let Some(id) = table.ids.get(url) {
+    if let Some(id) = table.ids.get(&target) {
         return *id;
     }
-    let id = LinkId(table.urls.len() as u32);
-    let url: Arc<str> = Arc::from(url);
-    table.urls.push(url.clone());
-    table.ids.insert(url, id);
+    let id = LinkId(table.targets.len() as u32);
+    table.targets.push(target.clone());
+    table.ids.insert(target, id);
     id
 }
 
-/// Resolve an interned link id back into its URL.
-fn resolve_link(id: LinkId) -> Arc<str> {
-    LINK_TABLE.read().expect("link table poisoned").urls[id.0 as usize].clone()
+/// Resolve an interned link id back into its target.
+fn resolve_link(id: LinkId) -> LinkTarget {
+    LINK_TABLE.read().expect("link table poisoned").targets[id.0 as usize].clone()
 }
 
 #[derive(Clone, Debug)]
@@ -612,5 +642,27 @@ mod tests {
         let c = TextStyle::<Color>::default().link("https://other.example");
         assert_eq!(a.link, b.link);
         assert_ne!(a.link, c.link);
+    }
+
+    #[test]
+    fn url_control_bytes_are_percent_encoded() {
+        // An embedded ESC byte must not be emitted raw inside the OSC 8 sequence, as it would
+        // terminate it early and allow terminal escape sequence injection.
+        let style = TextStyle::<Color>::default().link("https://x.example/\x1b\\evil\x07 end");
+        let target = style.link_target().expect("no link");
+        assert_eq!(&*target.url, "https://x.example/%1B\\evil%07%20end");
+        let rendered = style.apply("x", &Default::default()).to_string();
+        assert!(!rendered.contains("\x1b\\evil"), "raw ESC leaked: {rendered:?}");
+    }
+
+    #[test]
+    fn link_titles_are_interned() {
+        let styled = TextStyle::<Color>::default().link_with_title("https://t.example", "My title");
+        let target = styled.link_target().expect("no link");
+        assert_eq!(&*target.url, "https://t.example");
+        assert_eq!(&*target.title, "My title");
+        // Same URL with a different title is a different link target.
+        let other = TextStyle::<Color>::default().link("https://t.example");
+        assert_ne!(styled.link, other.link);
     }
 }

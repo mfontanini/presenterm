@@ -10,6 +10,7 @@ use crate::{
     resource::Resources,
     terminal::{
         GraphicsMode,
+        capabilities::TerminalCapabilities,
         image::printer::{ImagePrinter, ImageRegistry},
     },
     theme::{raw::PresentationTheme, registry::PresentationThemeRegistry},
@@ -452,10 +453,18 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     } = CoreComponents::new(&cli, &path)?;
     let arena = Arena::new();
     // Only use OSC 8 hyperlinks when we know the terminal supports them; otherwise keep URLs
-    // visible next to their labels so they're not lost. Exports always use hyperlinks since
-    // they're turned into HTML anchors. This is set process-wide so every parsing path (body,
-    // footers, intro slide) renders links consistently.
-    let link_render = if cli.export_pdf || cli.export_html { LinkRender::Hyperlink } else { terminal_link_render() };
+    // visible next to their labels so they're not lost. Exports use hyperlinks since they're
+    // turned into HTML anchors, unless explicitly disabled via `FORCE_HYPERLINK=0` to keep URLs
+    // visible (e.g. for printable handouts). This is set process-wide so every parsing path
+    // (body, footers, intro slide) renders links consistently.
+    let link_render = if cli.export_pdf || cli.export_html {
+        match TerminalCapabilities::hyperlink_force_override() {
+            Some(false) => LinkRender::InlineUrl,
+            _ => LinkRender::Hyperlink,
+        }
+    } else {
+        terminal_link_render()
+    };
     LinkRender::set_global(link_render);
     let parser = MarkdownParser::new(&arena);
     let validate_overflows =
