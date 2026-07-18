@@ -1,14 +1,20 @@
-use crate::markdown::text_style::{Color, TextAttribute, TextStyle};
+use crate::markdown::text_style::{Color, LinkTarget, TextAttribute, TextStyle};
 use std::{borrow::Cow, fmt};
+
+/// Escape a value so it can be safely embedded in a double quoted HTML attribute.
+fn escape_attribute(value: &str) -> String {
+    value.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+}
 
 pub(crate) enum HtmlText {
     Plain(String),
-    Styled { text: String, style: String },
+    Styled { text: String, style: String, link: Option<LinkTarget> },
 }
 
 impl HtmlText {
     pub(crate) fn new(text: &str, style: &TextStyle, font_size: FontSize) -> Self {
         let mut text = text.to_string();
+        let link = style.link_target();
         if style == &TextStyle::default() {
             return Self::Plain(text);
         }
@@ -40,7 +46,7 @@ impl HtmlText {
             css_styles.push(format!("font-size: {font_size}").into());
         }
         let css_style = css_styles.join("; ");
-        Self::Styled { text, style: css_style }
+        Self::Styled { text, style: css_style, link }
     }
 }
 
@@ -48,7 +54,22 @@ impl fmt::Display for HtmlText {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Plain(text) => write!(f, "{text}"),
-            Self::Styled { text, style } => write!(f, "<span style=\"{style}\">{text}</span>"),
+            Self::Styled { text, style, link: Some(target) } => {
+                let href = escape_attribute(&target.url);
+                // Open in a new tab so clicking a link doesn't unload the presentation, inherit
+                // the surrounding styling rather than the browser's default link look, and don't
+                // let the presentation's click-to-advance handler see this click.
+                write!(
+                    f,
+                    "<a href=\"{href}\" target=\"_blank\" rel=\"noopener\" \
+                     style=\"color: inherit; text-decoration: inherit\""
+                )?;
+                if !target.title.is_empty() {
+                    write!(f, " title=\"{}\"", escape_attribute(&target.title))?;
+                }
+                write!(f, "><span style=\"{style}\">{text}</span></a>")
+            }
+            Self::Styled { text, style, link: None } => write!(f, "<span style=\"{style}\">{text}</span>"),
         }
     }
 }
@@ -120,5 +141,38 @@ mod test {
         let html_text = HtmlText::new("hi", &TextStyle::default().bold(), FontSize::Pixels(1));
         let rendered = html_text.to_string();
         assert_eq!(rendered, "<span style=\"font-weight: bold\">hi</span>");
+    }
+
+    #[test]
+    fn render_link() {
+        let style = TextStyle::default().link_label().link("https://example.com");
+        let html_text = HtmlText::new("website", &style, FontSize::Pixels(1));
+        let rendered = html_text.to_string();
+        assert_eq!(
+            rendered,
+            "<a href=\"https://example.com\" target=\"_blank\" rel=\"noopener\" \
+             style=\"color: inherit; text-decoration: inherit\">\
+             <span style=\"font-weight: bold\">website</span></a>"
+        );
+    }
+
+    #[test]
+    fn render_link_escapes_href() {
+        // `&` must be escaped or legacy HTML entity parsing rewrites the URL.
+        let style = TextStyle::default().link_label().link("https://example.com/?a=1&copy=2\"x");
+        let html_text = HtmlText::new("report", &style, FontSize::Pixels(1));
+        let rendered = html_text.to_string();
+        assert!(
+            rendered.starts_with("<a href=\"https://example.com/?a=1&amp;copy=2&quot;x\""),
+            "unexpected href: {rendered}"
+        );
+    }
+
+    #[test]
+    fn render_link_with_title() {
+        let style = TextStyle::default().link_label().link_with_title("https://example.com", "The <docs> & more");
+        let html_text = HtmlText::new("docs", &style, FontSize::Pixels(1));
+        let rendered = html_text.to_string();
+        assert!(rendered.contains(" title=\"The &lt;docs&gt; &amp; more\""), "missing title: {rendered}");
     }
 }
