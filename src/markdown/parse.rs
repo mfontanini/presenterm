@@ -24,6 +24,7 @@ use std::{
     cell::RefCell,
     fmt::{self, Debug, Display},
     mem,
+    sync::OnceLock,
 };
 
 /// The result of parsing a markdown file.
@@ -47,18 +48,57 @@ impl Default for ParserOptions {
     }
 }
 
+/// How to render links.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum LinkRender {
+    /// Render the link as an OSC 8 terminal hyperlink, showing only its label and hiding the URL.
+    #[default]
+    Hyperlink,
+
+    /// Render the link's URL (and title, if any) inline next to its label.
+    ///
+    /// This is meant for terminals that don't support OSC 8 hyperlinks, where the URL would
+    /// otherwise be lost.
+    InlineUrl,
+}
+
+/// The process-wide link render mode used by [MarkdownParser::new].
+static GLOBAL_LINK_RENDER: OnceLock<LinkRender> = OnceLock::new();
+
+impl LinkRender {
+    /// Set the process-wide link render mode used by parsers that don't set one explicitly.
+    ///
+    /// This ensures every parsing path (presentation body, footers, intro slide, etc) renders
+    /// links consistently. It can only be set once; subsequent calls have no effect.
+    pub fn set_global(mode: LinkRender) {
+        let _ = GLOBAL_LINK_RENDER.set(mode);
+    }
+
+    fn global() -> LinkRender {
+        GLOBAL_LINK_RENDER.get().copied().unwrap_or_default()
+    }
+}
+
 /// A markdown parser.
 ///
 /// This takes the contents of a markdown file and parses it into a list of [MarkdownElement].
 pub struct MarkdownParser<'a> {
     arena: &'a Arena<'a>,
     options: comrak::Options<'static>,
+    link_render: LinkRender,
 }
 
 impl<'a> MarkdownParser<'a> {
     /// Construct a new markdown parser.
     pub fn new(arena: &'a Arena<'a>) -> Self {
-        Self { arena, options: ParserOptions::default().0 }
+        Self { arena, options: ParserOptions::default().0, link_render: LinkRender::global() }
+    }
+
+    /// Set how links should be rendered, overriding the process-wide default.
+    #[cfg(test)]
+    pub fn with_link_render(mut self, link_render: LinkRender) -> Self {
+        self.link_render = link_render;
+        self
     }
 
     /// Parse the contents of a markdown file.
@@ -86,7 +126,7 @@ impl<'a> MarkdownParser<'a> {
         let NodeValue::Paragraph = &data.value else {
             return Err(ParseInlinesError("inline must be simple text".into()));
         };
-        let parser = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No);
+        let parser = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No, self.link_render);
         let inlines = parser.parse(node).map_err(|e| ParseInlinesError(e.to_string()))?;
         let mut output = Line::default();
         for inline in inlines {
@@ -150,7 +190,8 @@ impl<'a> MarkdownParser<'a> {
 
     fn parse_block_quote(&self, node: &'a AstNode<'a>) -> ParseResult<MarkdownElement> {
         let mut lines = Vec::new();
-        let inlines = InlinesParser::new(self.arena, SoftBreak::Newline, StringifyImages::Yes).parse(node)?;
+        let inlines =
+            InlinesParser::new(self.arena, SoftBreak::Newline, StringifyImages::Yes, self.link_render).parse(node)?;
         for inline in inlines {
             match inline {
                 Inline::Text(text) => lines.push(text),
@@ -186,7 +227,8 @@ impl<'a> MarkdownParser<'a> {
         node: &'a AstNode<'a>,
     ) -> ParseResult<MarkdownElement> {
         let mut line = vec![Text::new(definition.name.clone(), TextStyle::default().superscript())];
-        let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::Yes).parse(node)?;
+        let inlines =
+            InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::Yes, self.link_render).parse(node)?;
         for inline in inlines {
             match inline {
                 Inline::Text(text) => line.extend(text.0),
@@ -208,7 +250,8 @@ impl<'a> MarkdownParser<'a> {
 
     fn parse_paragraph(&self, node: &'a AstNode<'a>) -> ParseResult<Vec<MarkdownElement>> {
         let mut elements = Vec::new();
-        let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No).parse(node)?;
+        let inlines =
+            InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No, self.link_render).parse(node)?;
         let mut paragraph_elements = Vec::new();
         for inline in inlines {
             match inline {
@@ -233,7 +276,8 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn parse_exheading(&self, node: &'a AstNode<'a>) -> ParseResult<Vec<Line<RawColor>>> {
-        let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No).parse(node)?;
+        let inlines =
+            InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No, self.link_render).parse(node)?;
         let mut lines = Vec::new();
         let mut chunks = Vec::new();
         for inline in inlines {
@@ -254,7 +298,8 @@ impl<'a> MarkdownParser<'a> {
     }
 
     fn parse_text(&self, node: &'a AstNode<'a>) -> ParseResult<Line<RawColor>> {
-        let inlines = InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No).parse(node)?;
+        let inlines =
+            InlinesParser::new(self.arena, SoftBreak::Space, StringifyImages::No, self.link_render).parse(node)?;
         let mut chunks = Vec::new();
         for inline in inlines {
             match inline {
@@ -388,11 +433,17 @@ struct InlinesParser<'a> {
     arena: &'a Arena<'a>,
     soft_break: SoftBreak,
     stringify_images: StringifyImages,
+    link_render: LinkRender,
 }
 
 impl<'a> InlinesParser<'a> {
-    fn new(arena: &'a Arena<'a>, soft_break: SoftBreak, stringify_images: StringifyImages) -> Self {
-        Self { inlines: Vec::new(), pending_text: Vec::new(), arena, soft_break, stringify_images }
+    fn new(
+        arena: &'a Arena<'a>,
+        soft_break: SoftBreak,
+        stringify_images: StringifyImages,
+        link_render: LinkRender,
+    ) -> Self {
+        Self { inlines: Vec::new(), pending_text: Vec::new(), arena, soft_break, stringify_images, link_render }
     }
 
     fn parse(mut self, node: &'a AstNode<'a>) -> ParseResult<Vec<Inline>> {
@@ -434,22 +485,35 @@ impl<'a> InlinesParser<'a> {
                     SoftBreak::Space => self.pending_text.push(Text::new(" ", style)),
                 };
             }
-            NodeValue::Link(link) => {
-                let has_label = node.first_child().is_some();
-                if has_label {
-                    self.process_children(node, TextStyle::default().link_label())?;
-                    self.pending_text.push(Text::from(" ("));
+            NodeValue::Link(link) => match self.link_render {
+                LinkRender::Hyperlink => {
+                    if node.first_child().is_some() {
+                        // Render the label as a clickable hyperlink (OSC 8), hiding the raw URL
+                        // just like a GitHub markdown preview does.
+                        self.process_children(node, TextStyle::default().link_label().link(link.url.clone()))?;
+                    } else {
+                        // No label: show the URL itself, made clickable.
+                        self.pending_text
+                            .push(Text::new(link.url.clone(), TextStyle::default().link_url().link(link.url.clone())));
+                    }
                 }
-                self.pending_text.push(Text::new(link.url.clone(), TextStyle::default().link_url()));
-                if !link.title.is_empty() {
-                    self.pending_text.push(Text::from(" \""));
-                    self.pending_text.push(Text::new(link.title.clone(), TextStyle::default().link_title()));
-                    self.pending_text.push(Text::from("\""));
+                LinkRender::InlineUrl => {
+                    let has_label = node.first_child().is_some();
+                    if has_label {
+                        self.process_children(node, TextStyle::default().link_label())?;
+                        self.pending_text.push(Text::from(" ("));
+                    }
+                    self.pending_text.push(Text::new(link.url.clone(), TextStyle::default().link_url()));
+                    if !link.title.is_empty() {
+                        self.pending_text.push(Text::from(" \""));
+                        self.pending_text.push(Text::new(link.title.clone(), TextStyle::default().link_title()));
+                        self.pending_text.push(Text::from("\""));
+                    }
+                    if has_label {
+                        self.pending_text.push(Text::from(")"));
+                    }
                 }
-                if has_label {
-                    self.pending_text.push(Text::from(")"));
-                }
-            }
+            },
             NodeValue::WikiLink(link) => {
                 self.pending_text.push(Text::new(link.url.clone(), TextStyle::default().link_url()));
             }
@@ -719,6 +783,14 @@ mod test {
         MarkdownParser::new(&arena).parse(input)
     }
 
+    fn parse_single_inline_urls(input: &str) -> MarkdownElement {
+        let arena = Arena::new();
+        let elements =
+            MarkdownParser::new(&arena).with_link_render(LinkRender::InlineUrl).parse(input).expect("failed to parse");
+        assert_eq!(elements.len(), 1, "more than one element: {elements:?}");
+        elements.into_iter().next().unwrap()
+    }
+
     fn parse_single(input: &str) -> MarkdownElement {
         let elements = try_parse(input).expect("failed to parse");
         assert_eq!(elements.len(), 1, "more than one element: {elements:?}");
@@ -799,8 +871,11 @@ boop
     fn link_wo_label_wo_title() {
         let parsed = parse_single("my [](https://example.com)");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
-        let expected_chunks =
-            vec![Text::from("my "), Text::new("https://example.com", TextStyle::default().link_url())];
+        // Without a label the URL is shown as text and made clickable.
+        let expected_chunks = vec![
+            Text::from("my "),
+            Text::new("https://example.com", TextStyle::default().link_url().link("https://example.com")),
+        ];
 
         let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);
@@ -810,12 +885,10 @@ boop
     fn link_w_label_wo_title() {
         let parsed = parse_single("my [website](https://example.com)");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        // The label becomes a clickable hyperlink and the raw URL is hidden.
         let expected_chunks = vec![
             Text::from("my "),
-            Text::new("website", TextStyle::default().link_label()),
-            Text::from(" ("),
-            Text::new("https://example.com", TextStyle::default().link_url()),
-            Text::from(")"),
+            Text::new("website", TextStyle::default().link_label().link("https://example.com")),
         ];
 
         let expected_elements = &[Line(expected_chunks)];
@@ -826,12 +899,10 @@ boop
     fn link_wo_label_w_title() {
         let parsed = parse_single("my [](https://example.com \"Example\")");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        // The title is not rendered; the URL itself is the clickable link.
         let expected_chunks = vec![
             Text::from("my "),
-            Text::new("https://example.com", TextStyle::default().link_url()),
-            Text::from(" \""),
-            Text::new("Example", TextStyle::default().link_title()),
-            Text::from("\""),
+            Text::new("https://example.com", TextStyle::default().link_url().link("https://example.com")),
         ];
 
         let expected_elements = &[Line(expected_chunks)];
@@ -841,6 +912,37 @@ boop
     #[test]
     fn link_w_label_w_title() {
         let parsed = parse_single("my [website](https://example.com \"Example\")");
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        // Only the clickable label is shown; both the URL and the title are hidden.
+        let expected_chunks = vec![
+            Text::from("my "),
+            Text::new("website", TextStyle::default().link_label().link("https://example.com")),
+        ];
+
+        let expected_elements = &[Line(expected_chunks)];
+        assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn link_w_label_wo_title_inline_urls() {
+        let parsed = parse_single_inline_urls("my [website](https://example.com)");
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        // The pre-hyperlink rendering: label followed by the visible URL.
+        let expected_chunks = vec![
+            Text::from("my "),
+            Text::new("website", TextStyle::default().link_label()),
+            Text::from(" ("),
+            Text::new("https://example.com", TextStyle::default().link_url()),
+            Text::from(")"),
+        ];
+
+        let expected_elements = &[Line(expected_chunks)];
+        assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn link_w_label_w_title_inline_urls() {
+        let parsed = parse_single_inline_urls("my [website](https://example.com \"Example\")");
         let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
         let expected_chunks = vec![
             Text::from("my "),
@@ -852,6 +954,17 @@ boop
             Text::from("\""),
             Text::from(")"),
         ];
+
+        let expected_elements = &[Line(expected_chunks)];
+        assert_eq!(elements, expected_elements);
+    }
+
+    #[test]
+    fn link_wo_label_inline_urls() {
+        let parsed = parse_single_inline_urls("my [](https://example.com)");
+        let MarkdownElement::Paragraph(elements) = parsed else { panic!("not a paragraph: {parsed:?}") };
+        let expected_chunks =
+            vec![Text::from("my "), Text::new("https://example.com", TextStyle::default().link_url())];
 
         let expected_elements = &[Line(expected_chunks)];
         assert_eq!(elements, expected_elements);

@@ -4,7 +4,7 @@ use crate::{
     config::{Config, ImageProtocol, ValidateOverflows},
     demo::ThemesDemo,
     export::exporter::Exporter,
-    markdown::parse::MarkdownParser,
+    markdown::parse::{LinkRender, MarkdownParser},
     presentation::builder::{CommentCommand, PresentationBuilderOptions, Themes},
     presenter::{PresentMode, Presenter, PresenterOptions},
     resource::Resources,
@@ -389,6 +389,13 @@ fn overflow_validation_enabled(mode: &PresentMode, config: &ValidateOverflows) -
     }
 }
 
+fn terminal_link_render() -> LinkRender {
+    match TerminalEmulator::capabilities().hyperlinks {
+        true => LinkRender::Hyperlink,
+        false => LinkRender::InlineUrl,
+    }
+}
+
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "json-schema")]
     if cli.generate_config_file_schema {
@@ -403,6 +410,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     } else if cli.list_themes {
         // Load this ahead of time so we don't do it when we're already in raw mode.
         TerminalEmulator::capabilities();
+        LinkRender::set_global(terminal_link_render());
         let Customizations { config, themes, .. } =
             Customizations::load(cli.config_file.clone().map(PathBuf::from), &current_dir()?)?;
         let bindings = config.bindings.try_into()?;
@@ -443,6 +451,12 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         graphics_mode,
     } = CoreComponents::new(&cli, &path)?;
     let arena = Arena::new();
+    // Only use OSC 8 hyperlinks when we know the terminal supports them; otherwise keep URLs
+    // visible next to their labels so they're not lost. Exports always use hyperlinks since
+    // they're turned into HTML anchors. This is set process-wide so every parsing path (body,
+    // footers, intro slide) renders links consistently.
+    let link_render = if cli.export_pdf || cli.export_html { LinkRender::Hyperlink } else { terminal_link_render() };
+    LinkRender::set_global(link_render);
     let parser = MarkdownParser::new(&arena);
     let validate_overflows =
         overflow_validation_enabled(&present_mode, &config.defaults.validate_overflows) || cli.validate_overflows;

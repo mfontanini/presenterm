@@ -3,12 +3,14 @@ use std::{borrow::Cow, fmt};
 
 pub(crate) enum HtmlText {
     Plain(String),
-    Styled { text: String, style: String },
+    Styled { text: String, style: String, link: Option<String> },
 }
 
 impl HtmlText {
     pub(crate) fn new(text: &str, style: &TextStyle, font_size: FontSize) -> Self {
         let mut text = text.to_string();
+        // Percent-encode the only character that could break out of the href attribute.
+        let link = style.link_target().map(|url| url.replace('"', "%22"));
         if style == &TextStyle::default() {
             return Self::Plain(text);
         }
@@ -40,7 +42,7 @@ impl HtmlText {
             css_styles.push(format!("font-size: {font_size}").into());
         }
         let css_style = css_styles.join("; ");
-        Self::Styled { text, style: css_style }
+        Self::Styled { text, style: css_style, link }
     }
 }
 
@@ -48,7 +50,10 @@ impl fmt::Display for HtmlText {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Plain(text) => write!(f, "{text}"),
-            Self::Styled { text, style } => write!(f, "<span style=\"{style}\">{text}</span>"),
+            Self::Styled { text, style, link: Some(href) } => {
+                write!(f, "<a href=\"{href}\"><span style=\"{style}\">{text}</span></a>")
+            }
+            Self::Styled { text, style, link: None } => write!(f, "<span style=\"{style}\">{text}</span>"),
         }
     }
 }
@@ -120,5 +125,13 @@ mod test {
         let html_text = HtmlText::new("hi", &TextStyle::default().bold(), FontSize::Pixels(1));
         let rendered = html_text.to_string();
         assert_eq!(rendered, "<span style=\"font-weight: bold\">hi</span>");
+    }
+
+    #[test]
+    fn render_link() {
+        let style = TextStyle::default().link_label().link("https://example.com");
+        let html_text = HtmlText::new("website", &style, FontSize::Pixels(1));
+        let rendered = html_text.to_string();
+        assert_eq!(rendered, "<a href=\"https://example.com\"><span style=\"font-weight: bold\">website</span></a>");
     }
 }

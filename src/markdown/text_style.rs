@@ -3,10 +3,13 @@ use crate::{
     theme::{ColorPalette, raw::RawColor},
 };
 use crossterm::style::{ContentStyle, StyledContent, Stylize};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
+    collections::HashMap,
     fmt::{self, Display},
+    sync::{Arc, RwLock},
 };
 
 /// The style of a piece of text.
@@ -15,11 +18,17 @@ pub(crate) struct TextStyle<C = Color> {
     flags: u8,
     pub(crate) colors: Colors<C>,
     pub(crate) size: u8,
+    /// The target of a hyperlink, if this text is a link.
+    ///
+    /// When set, the text is emitted as an OSC 8 terminal hyperlink (and an `<a href>` when
+    /// exporting to HTML), making the text itself clickable rather than showing the raw URL. The
+    /// URL is interned (see [`LinkId`]) so that this style stays cheap to copy.
+    pub(crate) link: Option<LinkId>,
 }
 
 impl<C> Default for TextStyle<C> {
     fn default() -> Self {
-        Self { flags: Default::default(), colors: Default::default(), size: 1 }
+        Self { flags: Default::default(), colors: Default::default(), size: 1, link: None }
     }
 }
 
@@ -76,6 +85,19 @@ where
         self.italics().underlined()
     }
 
+    /// Set the hyperlink target for this text.
+    ///
+    /// This turns the text into a clickable link pointing at `url`.
+    pub(crate) fn link<U: AsRef<str>>(mut self, url: U) -> Self {
+        self.link = Some(intern_link(url.as_ref()));
+        self
+    }
+
+    /// Get this style's hyperlink target, if any.
+    pub(crate) fn link_target(&self) -> Option<Arc<str>> {
+        self.link.map(resolve_link)
+    }
+
     /// Indicate this is a superscript.
     pub(crate) fn superscript(self) -> Self {
         self.add_flag(TextFormatFlags::Superscript)
@@ -120,6 +142,9 @@ where
         self.size = self.size.max(other.size);
         self.colors.background = self.colors.background.clone().or(other.colors.background.clone());
         self.colors.foreground = self.colors.foreground.clone().or(other.colors.foreground.clone());
+        if self.link.is_none() {
+            self.link = other.link;
+        }
     }
 
     /// Return a new style merged with the one passed in.
@@ -166,7 +191,7 @@ impl TextStyle<Color> {
                 TextAttribute::BackgroundColor(color) => style.on(color.into()),
             }
         }
-        let text = FontSizedStr { contents, font_size };
+        let text = FontSizedStr { contents, font_size, link_target: self.link_target() };
         StyledContent::new(style, text)
     }
 
@@ -175,7 +200,7 @@ impl TextStyle<Color> {
             background: self.colors.background.map(Into::into),
             foreground: self.colors.foreground.map(Into::into),
         };
-        TextStyle { flags: self.flags, colors, size: self.size }
+        TextStyle { flags: self.flags, colors, size: self.size, link: self.link }
     }
 
     /// Iterate all attributes in this style.
@@ -192,7 +217,7 @@ impl TextStyle<Color> {
 impl TextStyle<RawColor> {
     pub(crate) fn resolve(&self, palette: &ColorPalette) -> Result<TextStyle, UndefinedPaletteColorError> {
         let colors = self.colors.resolve(palette)?;
-        Ok(TextStyle { flags: self.flags, colors, size: self.size })
+        Ok(TextStyle { flags: self.flags, colors, size: self.size, link: self.link })
     }
 }
 
@@ -250,22 +275,69 @@ pub(crate) enum TextAttribute {
     BackgroundColor(Color),
 }
 
+/// An interned hyperlink target.
+///
+/// Links are stored in a global table and referenced by id so that [`TextStyle`] stays `Copy` and
+/// cheap to pass around while still supporting arbitrary URLs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct LinkId(u32);
+
+static LINK_TABLE: Lazy<RwLock<LinkTable>> = Lazy::new(|| RwLock::new(LinkTable::default()));
+
+#[derive(Default)]
+struct LinkTable {
+    urls: Vec<Arc<str>>,
+    ids: HashMap<Arc<str>, LinkId>,
+}
+
+/// Intern a URL, returning a stable id. Identical URLs always map to the same id.
+fn intern_link(url: &str) -> LinkId {
+    if let Some(id) = LINK_TABLE.read().expect("link table poisoned").ids.get(url) {
+        return *id;
+    }
+    let mut table = LINK_TABLE.write().expect("link table poisoned");
+    // Re-check in case another thread inserted while we were waiting for the write lock.
+    if let Some(id) = table.ids.get(url) {
+        return *id;
+    }
+    let id = LinkId(table.urls.len() as u32);
+    let url: Arc<str> = Arc::from(url);
+    table.urls.push(url.clone());
+    table.ids.insert(url, id);
+    id
+}
+
+/// Resolve an interned link id back into its URL.
+fn resolve_link(id: LinkId) -> Arc<str> {
+    LINK_TABLE.read().expect("link table poisoned").urls[id.0 as usize].clone()
+}
+
 #[derive(Clone, Debug)]
 struct FontSizedStr<'a> {
     contents: Cow<'a, str>,
     font_size: FontSize,
+    link_target: Option<Arc<str>>,
 }
 
 impl fmt::Display for FontSizedStr<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Open an OSC 8 hyperlink so the text below is clickable. Terminals that don't support
+        // OSC 8 ignore these sequences and simply render the text as-is.
+        if let Some(url) = &self.link_target {
+            write!(f, "\x1b]8;;{url}\x1b\\")?;
+        }
         let contents = &self.contents;
         match self.font_size {
-            FontSize::Scaled(0 | 1) => write!(f, "{contents}"),
-            FontSize::Scaled(size) => write!(f, "\x1b]66;s={size};{contents}\x1b\\"),
+            FontSize::Scaled(0 | 1) => write!(f, "{contents}")?,
+            FontSize::Scaled(size) => write!(f, "\x1b]66;s={size};{contents}\x1b\\")?,
             FontSize::Fractional { numerator, denominator } => {
-                write!(f, "\x1b]66;n={numerator}:d={denominator};{contents}\x1b\\")
+                write!(f, "\x1b]66;n={numerator}:d={denominator};{contents}\x1b\\")?
             }
         }
+        if self.link_target.is_some() {
+            write!(f, "\x1b]8;;\x1b\\")?;
+        }
+        Ok(())
     }
 }
 
@@ -517,5 +589,28 @@ mod tests {
     fn iterate_attributes(#[case] style: TextStyle, #[case] expected: &[TextAttribute]) {
         let attrs: Vec<_> = style.iter_attributes().collect();
         assert_eq!(attrs, expected);
+    }
+
+    #[test]
+    fn apply_wraps_link_in_osc8() {
+        let style = TextStyle::default().link_label().link("https://example.com");
+        let rendered = style.apply("website", &Default::default()).to_string();
+        assert!(rendered.contains("\x1b]8;;https://example.com\x1b\\website"), "no OSC 8 open: {rendered:?}");
+        assert!(rendered.contains("website\x1b]8;;\x1b\\"), "no OSC 8 close: {rendered:?}");
+    }
+
+    #[test]
+    fn no_link_emits_no_osc8() {
+        let rendered = TextStyle::default().bold().apply("plain", &Default::default()).to_string();
+        assert!(!rendered.contains("\x1b]8"), "unexpected OSC 8: {rendered:?}");
+    }
+
+    #[test]
+    fn identical_urls_share_a_link_id() {
+        let a = TextStyle::<Color>::default().link("https://dup.example");
+        let b = TextStyle::<Color>::default().link("https://dup.example");
+        let c = TextStyle::<Color>::default().link("https://other.example");
+        assert_eq!(a.link, b.link);
+        assert_ne!(a.link, c.link);
     }
 }

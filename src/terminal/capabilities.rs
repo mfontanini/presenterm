@@ -27,6 +27,7 @@ pub(crate) struct TerminalCapabilities {
     pub(crate) tmux: bool,
     pub(crate) font_size: bool,
     pub(crate) fractional_font_size: bool,
+    pub(crate) hyperlinks: bool,
 }
 
 impl TerminalCapabilities {
@@ -68,7 +69,55 @@ impl TerminalCapabilities {
 
         let mut response = response?;
         response.tmux = tmux;
+        response.hyperlinks = Self::hyperlinks_supported(|name| env::var(name).ok());
         Ok(response)
+    }
+
+    /// Whether the terminal emulator supports OSC 8 hyperlinks.
+    ///
+    /// There is no escape sequence to query hyperlink support so, like the rest of the ecosystem,
+    /// this relies on environment variable heuristics. The heuristic errs on the side of "no": a
+    /// false negative merely causes URLs to be displayed inline next to their label, whereas a
+    /// false positive would cause them to be silently dropped by the terminal.
+    fn hyperlinks_supported<F: Fn(&str) -> Option<String>>(var: F) -> bool {
+        // Allow forcing hyperlinks on/off, following the convention used by other tools.
+        if let Some(force) = var("FORCE_HYPERLINK") {
+            return !matches!(force.trim(), "" | "0");
+        }
+        // Multiplexers swallow OSC 8 sequences: GNU screen entirely, and tmux only passes them
+        // through on >= 3.4 when the outer terminal supports them, which we can't detect from in
+        // here. Note that these must be checked first since environment variables set by the
+        // terminal that hosts the multiplexer (e.g. `VTE_VERSION`) leak into its sessions.
+        if var("TMUX").is_some() || var("TERM_PROGRAM").as_deref() == Some("tmux") {
+            return false;
+        }
+        let term = var("TERM").unwrap_or_default();
+        if term == "screen" || term.starts_with("screen-") || term.starts_with("screen.") {
+            return false;
+        }
+        // Terminals that advertise themselves via $TERM.
+        if ["xterm-kitty", "alacritty", "foot", "foot-extra", "xterm-ghostty", "contour", "rio"]
+            .contains(&term.as_str())
+        {
+            return true;
+        }
+        // Terminals that advertise themselves via $TERM_PROGRAM, falling back to $LC_TERMINAL
+        // which iTerm2 propagates over ssh.
+        let program = var("TERM_PROGRAM").or_else(|| var("LC_TERMINAL")).unwrap_or_default();
+        if ["iTerm.app", "iTerm2", "WezTerm", "ghostty", "vscode", "Hyper", "mintty", "terminology", "rio", "Tabby"]
+            .contains(&program.as_str())
+        {
+            return true;
+        }
+        // VTE based terminals (GNOME terminal, xfce4-terminal, tilix, etc) support these since 0.50.
+        if var("VTE_VERSION").and_then(|version| version.parse::<u32>().ok()).is_some_and(|version| version >= 5000) {
+            return true;
+        }
+        // Konsole, Windows Terminal, DomTerm, and jetbrains IDE terminals.
+        var("KONSOLE_VERSION").is_some()
+            || var("WT_SESSION").is_some()
+            || var("DOMTERM").is_some()
+            || var("TERMINAL_EMULATOR").as_deref() == Some("JetBrains-JediTerm")
     }
 
     fn build_capabilities(ids: KittyImageIds) -> io::Result<TerminalCapabilities> {
@@ -305,5 +354,30 @@ mod tests {
         assert_eq!(capabilities.kitty_local, kitty_local);
         assert_eq!(capabilities.kitty_remote, kitty_remote);
         assert_eq!(capabilities.sixel, sixel);
+    }
+
+    #[rstest]
+    #[case::nothing(&[], false)]
+    #[case::dumb_xterm(&[("TERM", "xterm-256color")], false)]
+    #[case::apple_terminal(&[("TERM", "xterm-256color"), ("TERM_PROGRAM", "Apple_Terminal")], false)]
+    #[case::iterm(&[("TERM", "xterm-256color"), ("TERM_PROGRAM", "iTerm.app")], true)]
+    #[case::iterm_over_ssh(&[("TERM", "xterm-256color"), ("LC_TERMINAL", "iTerm2")], true)]
+    #[case::kitty(&[("TERM", "xterm-kitty")], true)]
+    #[case::alacritty(&[("TERM", "alacritty")], true)]
+    #[case::wezterm(&[("TERM_PROGRAM", "WezTerm")], true)]
+    #[case::ghostty(&[("TERM", "xterm-ghostty"), ("TERM_PROGRAM", "ghostty")], true)]
+    #[case::vte(&[("TERM", "xterm-256color"), ("VTE_VERSION", "7802")], true)]
+    #[case::old_vte(&[("TERM", "xterm-256color"), ("VTE_VERSION", "4999")], false)]
+    #[case::konsole(&[("KONSOLE_VERSION", "230800")], true)]
+    #[case::windows_terminal(&[("WT_SESSION", "some-guid")], true)]
+    #[case::jetbrains(&[("TERMINAL_EMULATOR", "JetBrains-JediTerm")], true)]
+    #[case::tmux(&[("TMUX", "/tmp/tmux-1/default,42,0"), ("TERM_PROGRAM", "tmux"), ("VTE_VERSION", "7802")], false)]
+    #[case::screen(&[("TERM", "screen-256color"), ("LC_TERMINAL", "iTerm2")], false)]
+    #[case::force_on(&[("FORCE_HYPERLINK", "1"), ("TERM", "xterm-256color")], true)]
+    #[case::force_on_beats_tmux(&[("FORCE_HYPERLINK", "1"), ("TMUX", "/tmp/tmux-1/default,42,0")], true)]
+    #[case::force_off(&[("FORCE_HYPERLINK", "0"), ("TERM_PROGRAM", "iTerm.app")], false)]
+    fn hyperlink_detection(#[case] vars: &[(&str, &str)], #[case] expected: bool) {
+        let lookup = |name: &str| vars.iter().find(|(key, _)| *key == name).map(|(_, value)| value.to_string());
+        assert_eq!(TerminalCapabilities::hyperlinks_supported(lookup), expected);
     }
 }
