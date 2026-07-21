@@ -544,27 +544,15 @@
     "MermaidConfig": {
       "type": "object",
       "properties": {
-        "cli": {
-          "description": "The application to use to generate diagrams.",
-          "default": "mmdc",
-          "type": "string"
-        },
         "config_path": {
-          "description": "A path to a mermaid JSON configuration file to be used by the `mmdc` tool.",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "puppeteer_config_path": {
-          "description": "A path to a puppeteer JSON configuration file to be used by the `mmdc` tool.",
+          "description": "A path to a mermaid JSON configuration file applied as site config defaults.",
           "type": [
             "string",
             "null"
           ]
         },
         "scale": {
-          "description": "The scaling parameter to be used in the mermaid CLI.",
+          "description": "The scaling parameter used when rasterizing mermaid diagrams.",
           "default": 2,
           "type": "integer",
           "format": "uint32",

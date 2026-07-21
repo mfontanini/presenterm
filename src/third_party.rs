@@ -1,6 +1,6 @@
 use crate::{
     ImageRegistry,
-    config::{default_mermaid_cli, default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
+    config::{default_mermaid_scale, default_snippet_render_threads, default_typst_ppi},
     markdown::{
         elements::{Line, Percent, Text},
         text_style::{Color, TextStyle},
@@ -19,6 +19,7 @@ use crate::{
     theme::{Alignment, D2Style, MermaidStyle, PresentationTheme, TypstStyle, raw::RawColor},
     tools::{ExecutionError, ThirdPartyTools},
 };
+use merman::render::{HeadlessRenderer, RootBackgroundPostprocessor, SvgPipeline, raster::RasterOptions};
 use std::{
     collections::{HashMap, VecDeque},
     fs, io, mem,
@@ -30,9 +31,7 @@ use std::{
 
 pub struct ThirdPartyConfigs {
     pub typst_ppi: String,
-    pub mermaid_cli: String,
-    pub mermaid_scale: String,
-    pub mermaid_puppeteer_file: Option<String>,
+    pub mermaid_scale: u32,
     pub mermaid_config_file: Option<String>,
     pub d2_scale: String,
     pub threads: usize,
@@ -68,10 +67,8 @@ impl ThirdPartyRender {
 impl Default for ThirdPartyRender {
     fn default() -> Self {
         let config = ThirdPartyConfigs {
-            mermaid_cli: default_mermaid_cli(),
             typst_ppi: default_typst_ppi().to_string(),
-            mermaid_scale: default_mermaid_scale().to_string(),
-            mermaid_puppeteer_file: None,
+            mermaid_scale: default_mermaid_scale(),
             mermaid_config_file: None,
             d2_scale: "-1".to_string(),
             threads: default_snippet_render_threads(),
@@ -198,35 +195,44 @@ impl Worker {
         if let Some(image) = self.state.lock().unwrap().cache.get(&snippet).cloned() {
             return Ok(image);
         }
-        let workdir = tempfile::Builder::default().prefix(".presenterm").tempdir()?;
-        let output_path = workdir.path().join("output.png");
-        let input_path = workdir.path().join("input.mmd");
-        fs::write(&input_path, input)?;
 
-        let input_path = input_path.to_string_lossy();
-        let output_path_str = output_path.to_string_lossy();
-        let mut args = vec![
-            "-i",
-            &input_path,
-            "-o",
-            &output_path_str,
-            "-s",
-            &self.shared.config.mermaid_scale,
-            "-t",
-            &style.theme,
-            "-b",
-            &style.background,
-        ];
-        if let Some(path) = &self.shared.config.mermaid_puppeteer_file {
-            args.extend(&["-p", path]);
-        }
-        if let Some(path) = &self.shared.config.mermaid_config_file {
-            args.extend(&["-c", path]);
-        }
+        let site_config = self.build_mermaid_site_config(style)?;
+        // merman hardcodes `background-color: white` on the root SVG (mermaid parity). That
+        // overrides RasterOptions alone, so rewrite the root background to the theme value
+        // (typically `transparent`) the way `mmdc -b` used to.
+        let pipeline = SvgPipeline::resvg_safe()
+            .with_postprocessor(RootBackgroundPostprocessor::new(style.background.clone()));
+        let renderer = HeadlessRenderer::new()
+            .with_site_config(site_config)
+            .with_diagram_id("presenterm")
+            .with_svg_pipeline(pipeline);
+        let raster = RasterOptions::default()
+            .with_scale(self.shared.config.mermaid_scale as f32)
+            .with_background(style.background.clone());
+        let png_bytes = renderer
+            .render_png_sync(&input, &raster)
+            .map_err(|error| ThirdPartyRenderError::Mermaid(error.to_string()))?
+            .ok_or_else(|| ThirdPartyRenderError::Mermaid("no mermaid diagram detected in snippet".into()))?;
 
-        ThirdPartyTools::mermaid(&self.shared.config.mermaid_cli, &args).run()?;
+        self.load_image_bytes(snippet, &png_bytes)
+    }
 
-        self.load_image(snippet, &output_path)
+    fn build_mermaid_site_config(&self, style: &MermaidStyle) -> Result<merman::MermaidConfig, ThirdPartyRenderError> {
+        let mut site_config = match &self.shared.config.mermaid_config_file {
+            Some(path) => {
+                let contents = fs::read_to_string(path).map_err(|error| {
+                    ThirdPartyRenderError::Mermaid(format!("failed to read mermaid config '{path}': {error}"))
+                })?;
+                let value: serde_json::Value = serde_json::from_str(&contents).map_err(|error| {
+                    ThirdPartyRenderError::Mermaid(format!("invalid mermaid config JSON in '{path}': {error}"))
+                })?;
+                merman::MermaidConfig::from_value(value)
+            }
+            None => merman::MermaidConfig::empty_object(),
+        };
+        // Presentation theme settings override the optional site config file.
+        site_config.set_value("theme", serde_json::Value::String(style.theme.clone()));
+        Ok(site_config)
     }
 
     pub(crate) fn render_d2(&self, input: String, style: &D2Style) -> Result<Image, ThirdPartyRenderError> {
@@ -309,7 +315,11 @@ impl Worker {
 
     fn load_image(&self, snippet: ImageSnippet, path: &Path) -> Result<Image, ThirdPartyRenderError> {
         let contents = fs::read(path)?;
-        let image = image::load_from_memory(&contents)?;
+        self.load_image_bytes(snippet, &contents)
+    }
+
+    fn load_image_bytes(&self, snippet: ImageSnippet, contents: &[u8]) -> Result<Image, ThirdPartyRenderError> {
+        let image = image::load_from_memory(contents)?;
         let image = self.state.lock().unwrap().image_registry.register(ImageSpec::Generated(image))?;
         self.state.lock().unwrap().cache.insert(snippet, image.clone());
         Ok(image)
@@ -332,6 +342,9 @@ pub enum ThirdPartyRenderError {
 
     #[error("unsupported color '{0}', only RGB is supported")]
     UnsupportedColor(String),
+
+    #[error("mermaid: {0}")]
+    Mermaid(String),
 }
 
 #[derive(Hash, PartialEq, Eq)]
@@ -429,5 +442,65 @@ impl Pollable for OperationPollable {
             }
             RenderResult::Pending => PollableState::Unmodified,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_worker() -> Worker {
+        let config = ThirdPartyConfigs {
+            typst_ppi: default_typst_ppi().to_string(),
+            mermaid_scale: default_mermaid_scale(),
+            mermaid_config_file: None,
+            d2_scale: "-1".into(),
+            threads: 1,
+        };
+        let shared = Arc::new(Shared { config, root_dir: ".".into(), signal: Default::default() });
+        let state = Arc::new(Mutex::new(RenderPoolState {
+            requests: Default::default(),
+            image_registry: Default::default(),
+            cache: Default::default(),
+        }));
+        Worker { state, shared }
+    }
+
+    #[test]
+    fn render_mermaid_flowchart() {
+        let worker = test_worker();
+        let style = MermaidStyle { theme: "default".into(), background: "transparent".into() };
+        let image = worker
+            .render_mermaid("flowchart TD\nA[Start] --> B[Done]".into(), &style)
+            .expect("mermaid render should succeed");
+        // Generated images are registered successfully and can be cloned from the cache.
+        let _ = image;
+        let cached = worker
+            .render_mermaid("flowchart TD\nA[Start] --> B[Done]".into(), &style)
+            .expect("cached mermaid render should succeed");
+        let _ = cached;
+    }
+
+    #[test]
+    fn render_mermaid_respects_transparent_background() {
+        let site_config = {
+            let mut config = merman::MermaidConfig::empty_object();
+            config.set_value("theme", serde_json::Value::String("dark".into()));
+            config
+        };
+        let pipeline = SvgPipeline::resvg_safe()
+            .with_postprocessor(RootBackgroundPostprocessor::new("transparent"));
+        let renderer = HeadlessRenderer::new()
+            .with_site_config(site_config)
+            .with_diagram_id("bg-test")
+            .with_svg_pipeline(pipeline);
+        let raster = RasterOptions::default().with_scale(1.0).with_background("transparent");
+        let png = renderer
+            .render_png_sync("flowchart TD\nA[Start] --> B[Done]", &raster)
+            .expect("render")
+            .expect("diagram");
+        let image = image::load_from_memory(&png).expect("png").to_rgba8();
+        let corner = image.get_pixel(0, 0).0;
+        assert_eq!(corner[3], 0, "corner should be transparent, got {corner:?}");
     }
 }

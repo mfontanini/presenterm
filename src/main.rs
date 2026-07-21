@@ -253,9 +253,7 @@ impl CoreComponents {
         );
         let third_party_config = ThirdPartyConfigs {
             typst_ppi: config.typst.ppi.to_string(),
-            mermaid_cli: config.mermaid.cli.clone(),
-            mermaid_scale: config.mermaid.scale.to_string(),
-            mermaid_puppeteer_file: config.mermaid.puppeteer_config_path.clone(),
+            mermaid_scale: config.mermaid.scale,
             mermaid_config_file: config.mermaid.config_path.clone(),
             d2_scale: config.d2.scale.map(|s| s.to_string()).unwrap_or_else(|| "-1".to_string()),
             threads: config.snippet.render.threads,
