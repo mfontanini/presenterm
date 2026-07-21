@@ -19,7 +19,7 @@ use crate::{
     theme::{Alignment, D2Style, MermaidStyle, PresentationTheme, TypstStyle, raw::RawColor},
     tools::{ExecutionError, ThirdPartyTools},
 };
-use merman::render::{HeadlessRenderer, raster::RasterOptions};
+use merman::render::{HeadlessRenderer, RootBackgroundPostprocessor, SvgPipeline, raster::RasterOptions};
 use std::{
     collections::{HashMap, VecDeque},
     fs, io, mem,
@@ -197,7 +197,15 @@ impl Worker {
         }
 
         let site_config = self.build_mermaid_site_config(style)?;
-        let renderer = HeadlessRenderer::new().with_site_config(site_config).with_diagram_id("presenterm");
+        // merman hardcodes `background-color: white` on the root SVG (mermaid parity). That
+        // overrides RasterOptions alone, so rewrite the root background to the theme value
+        // (typically `transparent`) the way `mmdc -b` used to.
+        let pipeline = SvgPipeline::resvg_safe()
+            .with_postprocessor(RootBackgroundPostprocessor::new(style.background.clone()));
+        let renderer = HeadlessRenderer::new()
+            .with_site_config(site_config)
+            .with_diagram_id("presenterm")
+            .with_svg_pipeline(pipeline);
         let raster = RasterOptions::default()
             .with_scale(self.shared.config.mermaid_scale as f32)
             .with_background(style.background.clone());
@@ -471,5 +479,28 @@ mod tests {
             .render_mermaid("flowchart TD\nA[Start] --> B[Done]".into(), &style)
             .expect("cached mermaid render should succeed");
         let _ = cached;
+    }
+
+    #[test]
+    fn render_mermaid_respects_transparent_background() {
+        let site_config = {
+            let mut config = merman::MermaidConfig::empty_object();
+            config.set_value("theme", serde_json::Value::String("dark".into()));
+            config
+        };
+        let pipeline = SvgPipeline::resvg_safe()
+            .with_postprocessor(RootBackgroundPostprocessor::new("transparent"));
+        let renderer = HeadlessRenderer::new()
+            .with_site_config(site_config)
+            .with_diagram_id("bg-test")
+            .with_svg_pipeline(pipeline);
+        let raster = RasterOptions::default().with_scale(1.0).with_background("transparent");
+        let png = renderer
+            .render_png_sync("flowchart TD\nA[Start] --> B[Done]", &raster)
+            .expect("render")
+            .expect("diagram");
+        let image = image::load_from_memory(&png).expect("png").to_rgba8();
+        let corner = image.get_pixel(0, 0).0;
+        assert_eq!(corner[3], 0, "corner should be transparent, got {corner:?}");
     }
 }
