@@ -94,7 +94,7 @@ Currently, the following themes are supported:
 * `terminal-dark`: A theme that uses your terminals color and looks best if your terminal uses a dark color scheme. This 
 means if your terminal background is e.g. transparent, or uses an image, the presentation will inherit that.
 * `terminal-light`: The same as `terminal-dark` but works best if your terminal uses a light color scheme.
-* A set of themes based on the [toyonight](https://github.com/folke/tokyonight.nvim) color palette:
+* A set of themes based on the [tokyonight](https://github.com/folke/tokyonight.nvim) color palette:
     * `tokyonight-moon`
     * `tokyonight-day`
     * `tokyonight-night`
