@@ -22,6 +22,14 @@ use std::{
     sync::{Arc, Mutex},
     thread,
 };
+use rio_vt::ansi::CursorShape;
+use rio_vt::config::colors::{AnsiColor, NamedColor};
+use rio_vt::crosswords::pos::Column as RioColumn;
+use rio_vt::crosswords::square::ContentTag;
+use rio_vt::crosswords::style::StyleFlags;
+use rio_vt::crosswords::{Crosswords, CrosswordsSize, Mode};
+use rio_vt::event::{VoidListener, WindowId};
+use rio_vt::performer::handler::Processor;
 use unicode_width::UnicodeWidthStr;
 
 const DEFAULT_COLUMNS: u16 = 80;
@@ -42,7 +50,7 @@ enum State {
 struct Inner {
     snippet: Snippet,
     executor: LanguageSnippetExecutor,
-    parser: vt100::Parser,
+    parser: PtyParser,
     expected_size: WindowSize,
     actual_size: WindowSize,
     update_size: bool,
@@ -102,7 +110,7 @@ impl AsRenderOperations for PtySnippetOutputOperation {
 
         if inner.update_size && inner.expected_size != dimensions && dimensions.rows > 0 {
             inner.expected_size = dimensions;
-            inner.parser.screen_mut().set_size(dimensions.rows, dimensions.columns);
+            inner.parser.set_size(dimensions.rows, dimensions.columns);
         }
         if matches!(inner.state, State::Initial) {
             let mut operations = Vec::new();
@@ -301,29 +309,171 @@ fn process_output(mut reader: Box<dyn io::Read>, handle: PtySnippetHandle) {
     handle.0.lock().unwrap().state = State::ProcessTerminated(status);
 }
 
-impl From<&vt100::Cell> for TextStyle {
-    fn from(cell: &vt100::Cell) -> Self {
+impl From<&PtyCell> for TextStyle {
+    fn from(cell: &PtyCell) -> Self {
         let mut style = TextStyle::default();
-        if cell.bold() {
+        if cell.bold {
             style = style.bold();
         }
-        if cell.italic() {
+        if cell.italic {
             style = style.italics();
         }
-        if cell.underline() {
+        if cell.underline {
             style = style.underlined();
         }
-        style.colors.foreground = parse_color(cell.fgcolor());
-        style.colors.background = parse_color(cell.bgcolor());
+        style.colors.foreground = cell.fg;
+        style.colors.background = cell.bg;
         style
     }
 }
 
-fn parse_color(color: vt100::Color) -> Option<Color> {
+fn parse_color(color: AnsiColor) -> Option<Color> {
     match color {
-        vt100::Color::Default => None,
-        vt100::Color::Idx(value) => Color::from_8bit(value),
-        vt100::Color::Rgb(r, g, b) => Some(Color::Rgb { r, g, b }),
+        AnsiColor::Named(NamedColor::Foreground | NamedColor::Background) => None,
+        AnsiColor::Named(named) => {
+            let index = named as u32;
+            if index < 16 { Color::from_8bit(index as u8) } else { None }
+        }
+        AnsiColor::Indexed(value) => Color::from_8bit(value),
+        AnsiColor::Spec(rgb) => Some(Color::Rgb { r: rgb.r, g: rgb.g, b: rgb.b }),
+    }
+}
+
+// rio-vt backed terminal, exposing the small Parser/Screen/Cell surface this
+// module used from vt100. rio-vt stores each cell as a packed handle into the
+// grid style table, so the screen is resolved into owned cells on snapshot.
+struct PtyParser {
+    term: Crosswords<VoidListener>,
+    processor: Processor,
+}
+
+impl PtyParser {
+    fn new(rows: u16, columns: u16, scrollback: usize) -> Self {
+        Self {
+            term: Crosswords::new(
+                pty_grid_size(rows, columns),
+                CursorShape::Block,
+                VoidListener,
+                WindowId::from(0),
+                0,
+                scrollback,
+            ),
+            processor: Processor::default(),
+        }
+    }
+
+    fn process(&mut self, bytes: &[u8]) {
+        self.processor.advance(&mut self.term, bytes);
+    }
+
+    fn set_size(&mut self, rows: u16, columns: u16) {
+        self.term.resize(pty_grid_size(rows, columns));
+    }
+
+    fn screen(&self) -> PtyScreen {
+        PtyScreen::snapshot(&self.term)
+    }
+}
+
+fn pty_grid_size(rows: u16, columns: u16) -> CrosswordsSize {
+    CrosswordsSize::new(columns.max(1) as usize, rows.max(1) as usize)
+}
+
+struct PtyScreen {
+    rows: u16,
+    columns: u16,
+    cells: Vec<PtyCell>,
+    hide_cursor: bool,
+    cursor: (u16, u16),
+}
+
+impl PtyScreen {
+    fn snapshot(term: &Crosswords<VoidListener>) -> Self {
+        let columns = term.columns();
+        let rows = term.visible_rows();
+        let styles = term.grid.style_set.styles();
+
+        let mut cells = Vec::with_capacity(rows.len() * columns);
+        for row in &rows {
+            for column in 0..columns {
+                let square = row[RioColumn(column)];
+                let symbol = square.c();
+                let contents = if symbol == ' ' || symbol == '\u{0}' {
+                    String::new()
+                } else {
+                    symbol.to_string()
+                };
+                let (bold, italic, underline, fg, bg) = match square.content_tag() {
+                    ContentTag::Codepoint => {
+                        let style = styles
+                            .get(square.style_id() as usize)
+                            .copied()
+                            .unwrap_or_default();
+                        (
+                            style.flags.contains(StyleFlags::BOLD),
+                            style.flags.contains(StyleFlags::ITALIC),
+                            style.flags.intersects(StyleFlags::ALL_UNDERLINES),
+                            parse_color(style.fg),
+                            parse_color(style.bg),
+                        )
+                    }
+                    ContentTag::BgPalette => {
+                        (false, false, false, None, Color::from_8bit(square.bg_palette_index()))
+                    }
+                    ContentTag::BgRgb => {
+                        let (r, g, b) = square.bg_rgb();
+                        (false, false, false, None, Some(Color::Rgb { r, g, b }))
+                    }
+                };
+                cells.push(PtyCell { contents, bold, italic, underline, fg, bg });
+            }
+        }
+
+        let cursor = term.cursor();
+        Self {
+            rows: rows.len() as u16,
+            columns: columns as u16,
+            cells,
+            hide_cursor: !term.mode().contains(Mode::SHOW_CURSOR),
+            cursor: (
+                u16::try_from(cursor.pos.row.0.max(0)).unwrap_or(u16::MAX),
+                u16::try_from(cursor.pos.col.0).unwrap_or(u16::MAX),
+            ),
+        }
+    }
+
+    fn size(&self) -> (u16, u16) {
+        (self.rows, self.columns)
+    }
+
+    fn hide_cursor(&self) -> bool {
+        self.hide_cursor
+    }
+
+    fn cursor_position(&self) -> (u16, u16) {
+        self.cursor
+    }
+
+    fn cell(&self, row: u16, column: u16) -> Option<&PtyCell> {
+        if column >= self.columns {
+            return None;
+        }
+        self.cells.get(row as usize * self.columns as usize + column as usize)
+    }
+}
+
+struct PtyCell {
+    contents: String,
+    bold: bool,
+    italic: bool,
+    underline: bool,
+    fg: Option<Color>,
+    bg: Option<Color>,
+}
+
+impl PtyCell {
+    fn contents(&self) -> &str {
+        &self.contents
     }
 }
 
@@ -344,7 +494,7 @@ impl PtySnippetHandle {
             width: 0,
         };
         let update_size = args.columns.is_none() || args.rows.is_none();
-        let parser = vt100::Parser::new(expected_size.rows, expected_size.columns, 1000);
+        let parser = PtyParser::new(expected_size.rows, expected_size.columns, 1000);
         let inner = Inner {
             snippet,
             executor,

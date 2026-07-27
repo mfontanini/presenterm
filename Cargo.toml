@@ -39,7 +39,7 @@ os_pipe = "1.1.5"
 libc = "0.2"
 vte = "0.15"
 termbg = "0.6.2"
-vt100 = "0.16"
+rio-vt = "0.5.0"
 
 [dev-dependencies]
 rstest = { version = "0.26", default-features = false }
