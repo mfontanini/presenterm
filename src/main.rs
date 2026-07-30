@@ -500,6 +500,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 max_rows_alignment: config.defaults.max_rows_alignment,
             },
             transition: config.transition,
+            terminal_progress_enabled: config.defaults.terminal_progress.enable,
         };
         let presenter = Presenter::new(
             &default_theme,

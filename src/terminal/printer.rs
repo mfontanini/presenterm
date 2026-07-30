@@ -59,10 +59,12 @@ pub(crate) struct Terminal<I: TerminalWrite> {
     last_cleared_background_color: Option<Color>,
     background_color: Option<Color>,
     osc11_background: bool,
+    terminal_progress_enabled: bool,
+    terminal_progress: u8,
 }
 
 impl<I: TerminalWrite> Terminal<I> {
-    pub(crate) fn new(mut writer: I, image_printer: Arc<ImagePrinter>) -> io::Result<Self> {
+    pub(crate) fn new(mut writer: I, image_printer: Arc<ImagePrinter>, terminal_progress_enabled: bool) -> io::Result<Self> {
         writer.init()?;
         Ok(Self {
             writer,
@@ -74,6 +76,8 @@ impl<I: TerminalWrite> Terminal<I> {
             background_color: None,
             // Only use OSC11 when outside of tmux temporarily since it somehow breaks under kitty
             osc11_background: !TerminalEmulator::capabilities().tmux,
+            terminal_progress_enabled,
+            terminal_progress: 0,
         })
     }
 
@@ -193,12 +197,35 @@ impl<I: TerminalWrite> Terminal<I> {
         Ok(())
     }
 
+    pub(crate) fn set_terminal_progress(&mut self, percentage: u8) {
+        if !self.terminal_progress_enabled {
+            return;
+        }
+        self.terminal_progress = percentage;
+        let _ = write!(self.writer, "\x1b]9;4;1;{percentage}\x1b\\");
+        let _ = self.writer.flush();
+    }
+
+    pub(crate) fn clear_terminal_progress(&mut self) {
+        if !self.terminal_progress_enabled {
+            return;
+        }
+        self.terminal_progress = 0;
+        let _ = write!(self.writer, "\x1b]9;4;0\x1b\\");
+        let _ = self.writer.flush();
+    }
+
     pub(crate) fn suspend(&mut self) {
+        self.clear_terminal_progress();
         self.writer.deinit();
     }
 
     pub(crate) fn resume(&mut self) {
         let _ = self.writer.init();
+        if self.terminal_progress_enabled && self.terminal_progress > 0 {
+            let _ = write!(self.writer, "\x1b]9;4;1;{}\x1b\\", self.terminal_progress);
+            let _ = self.writer.flush();
+        }
     }
 }
 
@@ -233,6 +260,7 @@ impl<I: TerminalWrite> TerminalIo for Terminal<I> {
 
 impl<I: TerminalWrite> Drop for Terminal<I> {
     fn drop(&mut self) {
+        self.clear_terminal_progress();
         if self.osc11_background {
             if let Some(Color::Rgb { .. }) = self.background_color {
                 let _ = write!(self.writer, "\x1b]111\x1b\\");

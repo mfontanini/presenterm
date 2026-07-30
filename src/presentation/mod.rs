@@ -67,6 +67,11 @@ impl Presentation {
         self.state.current_slide_index()
     }
 
+    /// Get the total number of slides.
+    pub(crate) fn total_slides(&self) -> usize {
+        self.slides.len()
+    }
+
     /// Jump forwards.
     pub(crate) fn jump_next(&mut self) -> bool {
         let current_slide = self.current_slide_mut();

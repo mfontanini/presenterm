@@ -17,7 +17,7 @@ impl OverflowValidator {
         let printer = Arc::new(ImagePrinter::Null);
         for (index, slide) in presentation.iter_slides().enumerate() {
             let index = index + 1;
-            let mut terminal = Terminal::new(io::Empty::default(), printer.clone()).map_err(RenderError::from)?;
+            let mut terminal = Terminal::new(io::Empty::default(), printer.clone(), false).map_err(RenderError::from)?;
             let options = RenderEngineOptions { validate_overflows: true, ..Default::default() };
             let engine = RenderEngine::new(&mut terminal, dimensions, options);
             match engine.render(slide.iter_visible_operations()) {
