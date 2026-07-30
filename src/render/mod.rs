@@ -36,11 +36,12 @@ pub(crate) type RenderResult = Result<(), RenderError>;
 pub(crate) struct TerminalDrawerOptions {
     pub(crate) font_size_fallback: u8,
     pub(crate) max_size: MaxSize,
+    pub(crate) terminal_progress_enabled: bool,
 }
 
 impl Default for TerminalDrawerOptions {
     fn default() -> Self {
-        Self { font_size_fallback: 1, max_size: Default::default() }
+        Self { font_size_fallback: 1, max_size: Default::default(), terminal_progress_enabled: false }
     }
 }
 
@@ -52,7 +53,7 @@ pub(crate) struct TerminalDrawer {
 
 impl TerminalDrawer {
     pub(crate) fn new(image_printer: Arc<ImagePrinter>, options: TerminalDrawerOptions) -> io::Result<Self> {
-        let terminal = Terminal::new(io::stdout(), image_printer)?;
+        let terminal = Terminal::new(io::stdout(), image_printer, options.terminal_progress_enabled)?;
         Ok(Self { terminal, options })
     }
 
