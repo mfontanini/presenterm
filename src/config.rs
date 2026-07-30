@@ -142,6 +142,10 @@ pub struct DefaultsConfig {
     /// The configuration for tables when incremental tables are enabled.
     #[serde(default)]
     pub incremental_tables: IncrementalElementConfig,
+
+    /// Whether to report presentation progress to the terminal.
+    #[serde(default)]
+    pub terminal_progress: TerminalProgressConfig,
 }
 
 impl Default for DefaultsConfig {
@@ -157,6 +161,7 @@ impl Default for DefaultsConfig {
             max_rows_alignment: Default::default(),
             incremental_lists: Default::default(),
             incremental_tables: Default::default(),
+            terminal_progress: Default::default(),
         }
     }
 }
@@ -707,6 +712,15 @@ pub enum SlideTransitionStyleConfig {
 
     /// Collapse the current slide into the center of the screen.
     CollapseHorizontal,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct TerminalProgressConfig {
+    /// Whether to report presentation progress to the terminal via OSC 9;4 escape sequences.
+    #[serde(default)]
+    pub enable: bool,
 }
 
 fn make_keybindings<const N: usize>(raw_bindings: [&str; N]) -> Vec<KeyBinding> {

@@ -10,6 +10,12 @@ defaults:
   # the image protocol to use.
   image_protocol: kitty-local
 
+  # whether to report presentation progress to the terminal via the OSC 9;4
+  # escape sequences. when enabled, terminals that support this protocol will
+  # show a progress bar in the window or tab title bar.
+  terminal_progress:
+    enable: false
+
 typst:
   # the pixels per inch when rendering latex/typst formulas.
   ppi: 300
