@@ -9,18 +9,63 @@ use crate::{
 use flate2::read::ZlibDecoder;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use std::{cell::RefCell, collections::BTreeMap, fs, path::Path, rc::Rc};
+use std::{cell::RefCell, collections::BTreeMap, fs, path::Path, rc::Rc, sync::OnceLock};
 use syntect::{
     LoadingError,
     easy::HighlightLines,
     highlighting::{Style, Theme, ThemeSet},
-    parsing::SyntaxSet,
+    parsing::{SyntaxReference, SyntaxSet},
 };
 
-static SYNTAX_SET: Lazy<SyntaxSet> = Lazy::new(|| {
+static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
+
+/// The syntaxes that are used to highlight code snippets.
+///
+/// Unless [register_syntaxes_from_directory] was called beforehand, this only contains the
+/// syntaxes that are shipped with the binary.
+fn syntax_set() -> &'static SyntaxSet {
+    SYNTAX_SET.get_or_init(bundled_syntaxes)
+}
+
+fn bundled_syntaxes() -> SyntaxSet {
     let contents = include_bytes!("../../bat/syntaxes.bin");
     bincode::deserialize(contents).expect("syntaxes are broken")
-});
+}
+
+/// Register all `.sublime-syntax` syntaxes in the given directory, in addition to the ones that are
+/// shipped with the binary.
+///
+/// Syntaxes are looked up recursively and take precedence over the bundled ones, meaning a syntax
+/// that claims an extension that's already claimed by a bundled one will be used instead of it.
+/// This is a no-op if the directory doesn't exist or contains no syntaxes.
+///
+/// This must be invoked before any code is highlighted, as otherwise the syntaxes will be ignored.
+pub fn register_syntaxes_from_directory<P: AsRef<Path>>(path: P) -> Result<(), LoadingError> {
+    let Some(syntaxes) = load_syntaxes(path)? else {
+        return Ok(());
+    };
+    // This can only fail if we already started highlighting code, in which case there's nothing we
+    // can do about it.
+    let _ = SYNTAX_SET.set(syntaxes);
+    Ok(())
+}
+
+/// Build a syntax set that contains the bundled syntaxes plus the ones in the given directory.
+///
+/// This returns `None` if there's no syntax to be loaded from that directory, as building a syntax
+/// set is not cheap and there's no point in doing it if it would be identical to the bundled one.
+fn load_syntaxes<P: AsRef<Path>>(path: P) -> Result<Option<SyntaxSet>, LoadingError> {
+    let path = path.as_ref();
+    if !fs::metadata(path).map(|metadata| metadata.is_dir()).unwrap_or(false) {
+        return Ok(None);
+    }
+    let mut builder = bundled_syntaxes().into_builder();
+    let bundled_count = builder.syntaxes().len();
+    // Snippet lines are fed to the highlighter including their trailing newline, which is also how
+    // bat builds the syntaxes we bundle.
+    builder.add_from_folder(path, /* lines_include_newline */ true)?;
+    if builder.syntaxes().len() == bundled_count { Ok(None) } else { Ok(Some(builder.build())) }
+}
 
 static BAT_THEMES: Lazy<LazyThemeSet> = Lazy::new(|| {
     let contents = include_bytes!("../../bat/themes.bin");
@@ -94,10 +139,24 @@ pub(crate) struct SnippetHighlighter {
 impl SnippetHighlighter {
     /// Create a highlighter for a specific language.
     pub(crate) fn language_highlighter(&self, language: &SnippetLanguage) -> LanguageHighlighter<'_> {
-        let extension = Self::language_extension(language);
-        let syntax = SYNTAX_SET.find_syntax_by_extension(extension).unwrap();
+        let syntax = Self::language_syntax(syntax_set(), language);
         let highlighter = HighlightLines::new(syntax, &self.theme);
         LanguageHighlighter::new(language.clone(), highlighter)
+    }
+
+    fn language_syntax<'a>(syntax_set: &'a SyntaxSet, language: &SnippetLanguage) -> &'a SyntaxReference {
+        match language {
+            // Languages we don't know about are looked up by name so that syntaxes we don't
+            // support natively, including any locally registered ones, can still be used by simply
+            // naming them in the code block.
+            SnippetLanguage::Unknown(token) => {
+                syntax_set.find_syntax_by_token(token).unwrap_or_else(|| syntax_set.find_syntax_plain_text())
+            }
+            _ => {
+                let extension = Self::language_extension(language);
+                syntax_set.find_syntax_by_extension(extension).unwrap_or_else(|| syntax_set.find_syntax_plain_text())
+            }
+        }
     }
 
     fn language_extension(language: &SnippetLanguage) -> &'static str {
@@ -207,13 +266,13 @@ impl<'a> LanguageHighlighter<'a> {
                 // Parse a fake "<?php" line if PHP code doesn't start with one so highlighting
                 // looks good.
                 if matches!(self.language, SnippetLanguage::Php) && !line.starts_with("<?php") {
-                    self.highlighter.highlight_line("<?php\n", &SYNTAX_SET).unwrap();
+                    self.highlighter.highlight_line("<?php\n", syntax_set()).unwrap();
                 }
             }
         }
         let texts: Vec<_> = self
             .highlighter
-            .highlight_line(line, &SYNTAX_SET)
+            .highlight_line(line, syntax_set())
             .unwrap()
             .into_iter()
             .map(|(style, tokens)| StyledTokens::new(style, tokens, block_style).apply_style())
@@ -283,7 +342,7 @@ mod test {
     fn language_extensions_exist() {
         for language in SnippetLanguage::iter() {
             let extension = SnippetHighlighter::language_extension(&language);
-            let syntax = SYNTAX_SET.find_syntax_by_extension(extension);
+            let syntax = syntax_set().find_syntax_by_extension(extension);
             assert!(syntax.is_some(), "extension {extension} for {language:?} not found");
         }
     }
@@ -291,6 +350,86 @@ mod test {
     #[test]
     fn default_highlighter() {
         SnippetHighlighter::default();
+    }
+
+    fn write_syntax(directory: &Path, name: &str, extension: &str) {
+        let syntax = format!(
+            r#"%YAML 1.2
+---
+name: {name}
+file_extensions: [{extension}]
+scope: source.{extension}
+contexts:
+  main:
+    - match: potato
+      scope: keyword.other
+"#
+        );
+        fs::write(directory.join(format!("{name}.sublime-syntax")), syntax).expect("writing syntax");
+    }
+
+    #[test]
+    fn load_custom_syntaxes() {
+        let directory = tempdir().expect("creating tempdir");
+        // Use a nested directory to ensure we look up syntaxes recursively.
+        let nested = directory.path().join("nested");
+        fs::create_dir(&nested).expect("creating directory");
+        write_syntax(&nested, "Potato", "potato");
+
+        let syntaxes = load_syntaxes(directory.path()).expect("loading syntaxes").expect("no syntaxes loaded");
+        assert!(syntaxes.find_syntax_by_name("Potato").is_some());
+        // Bundled syntaxes must still be there.
+        assert!(syntaxes.find_syntax_by_extension("rs").is_some());
+    }
+
+    #[test]
+    fn custom_syntaxes_take_precedence() {
+        let directory = tempdir().expect("creating tempdir");
+        write_syntax(directory.path(), "Not rust", "rs");
+
+        let syntaxes = load_syntaxes(directory.path()).expect("loading syntaxes").expect("no syntaxes loaded");
+        let syntax = SnippetHighlighter::language_syntax(&syntaxes, &SnippetLanguage::Rust);
+        assert_eq!(syntax.name, "Not rust");
+    }
+
+    #[test]
+    fn load_syntaxes_from_empty_directory() {
+        let directory = tempdir().expect("creating tempdir");
+        let syntaxes = load_syntaxes(directory.path()).expect("loading syntaxes");
+        assert!(syntaxes.is_none());
+    }
+
+    #[test]
+    fn load_syntaxes_from_missing_directory() {
+        let syntaxes =
+            load_syntaxes("/tmp/presenterm/8ee2027983915ec78acc45027d874316").expect("loading syntaxes failed");
+        assert!(syntaxes.is_none());
+    }
+
+    #[test]
+    fn load_invalid_syntax() {
+        let directory = tempdir().expect("creating tempdir");
+        fs::write(directory.path().join("potato.sublime-syntax"), "this is not a syntax").expect("writing syntax");
+        load_syntaxes(directory.path()).expect_err("loading syntaxes succeeded");
+    }
+
+    #[test]
+    fn unknown_language_syntax_lookup() {
+        let directory = tempdir().expect("creating tempdir");
+        write_syntax(directory.path(), "Potato", "potato");
+        let syntaxes = load_syntaxes(directory.path()).expect("loading syntaxes").expect("no syntaxes loaded");
+
+        let lookup = |name: &str| {
+            SnippetHighlighter::language_syntax(&syntaxes, &SnippetLanguage::Unknown(name.to_string())).name.clone()
+        };
+        // Custom syntaxes can be looked up by name and by extension.
+        assert_eq!(lookup("Potato"), "Potato");
+        assert_eq!(lookup("potato"), "Potato");
+        // As can bundled ones that we don't support natively.
+        assert_eq!(lookup("nim"), "Nim");
+        // Anything else falls back to plain text.
+        assert_eq!(lookup("something we don't know about"), "Plain Text");
+        assert_eq!(lookup(""), "Plain Text");
     }
 
     #[test]

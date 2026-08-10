@@ -75,6 +75,10 @@ Other languages that are supported are:
 
 * nushell, for which highlighting isn't supported but execution is.
 
+Besides these, any other syntax that's bundled with [bat](https://github.com/sharkdp/bat) can be used by naming it in the 
+code block, even if it's not in the list above. For example ```` ```nim ```` will use _bat_'s _Nim_ syntax. See 
+[below](#adding-highlighting-syntaxes-for-new-languages) if you'd like to use a syntax that _bat_ doesn't ship with.
+
 If there's a language that is not in this list and you would like it to be supported, please [create an 
 issue](https://github.com/mfontanini/presenterm/issues/new). If you'd also like code execution support, provide details 
 on how to compile (if necessary) and run snippets for that language. You can also configure how to run code snippet for 
@@ -173,16 +177,31 @@ languages supported by _bat_ natively can be added to _presenterm_ easily. Pleas
 [this](https://github.com/mfontanini/presenterm/pull/385) as a reference to submit a pull request to make a syntax 
 officially supported by _presenterm_ as well.
 
-If a language isn't natively supported by _bat_ but you'd like to use it, you can follow
-[this guide in the bat docs](https://github.com/sharkdp/bat#adding-new-syntaxes--language-definitions) and
-invoke _bat_ directly in a presentation:
+If a language isn't natively supported by _bat_ but you'd like to use it, drop the syntax definition for it in _bat_'s 
+syntaxes directory and _presenterm_ will load it on startup, in addition to the ones it ships with:
+
+```bash
+mkdir -p "$(bat --config-dir)/syntaxes"
+cp /path/to/MyLanguage.sublime-syntax "$(bat --config-dir)/syntaxes"
+```
+
+Syntax definitions must be [Sublime Text](https://www.sublimetext.com/docs/syntax.html) `.sublime-syntax` files and are 
+looked up recursively, so you can organize them in subdirectories or check out entire repositories in there. See
+[this guide in the bat docs](https://github.com/sharkdp/bat#adding-new-syntaxes--language-definitions) for pointers on 
+where to find syntax definitions. Note that unlike _bat_, _presenterm_ reads these files directly so there's no need to 
+run `bat cache --build` after adding one.
+
+Once a syntax is in there, use its name or any of the file extensions it claims as the language in a code block:
 
 ~~~markdown
-```bash +exec_replace
-bat --color always script.py
+```mylanguage
+this will be highlighted using MyLanguage.sublime-syntax
 ```
 ~~~
 
+Locally installed syntaxes take precedence over the bundled ones, so you can also use this to override the syntax used 
+for any of the languages listed above.
+
 > [!note]
-> Check the [code execution docs](execution.md#executing-and-replacing) for more details on how to allow the tool to run 
-> `exec_replace` blocks.
+> _presenterm_ looks up _bat_'s config directory the same way _bat_ does: `$BAT_CONFIG_DIR` if set, otherwise
+> `$XDG_CONFIG_HOME/bat`, defaulting to `~/.config/bat`. Run `bat --config-dir` to see which one it is on your system.

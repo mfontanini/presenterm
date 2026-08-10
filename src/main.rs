@@ -1,5 +1,8 @@
 use crate::{
-    code::{execute::SnippetExecutor, highlighting::HighlightThemeSet},
+    code::{
+        execute::SnippetExecutor,
+        highlighting::{self, HighlightThemeSet},
+    },
     commands::listener::CommandListener,
     config::{Config, ImageProtocol, ValidateOverflows},
     demo::ThemesDemo,
@@ -24,7 +27,7 @@ use crossterm::{
     execute,
     style::{PrintStyledContent, Stylize},
 };
-use directories::ProjectDirs;
+use directories::{BaseDirs, ProjectDirs};
 use export::exporter::OutputDirectory;
 use render::{engine::MaxSize, properties::WindowSize};
 use std::{
@@ -182,6 +185,7 @@ impl Customizations {
         };
         let themes_path = configs_path.join("themes");
         let themes = Self::load_themes(&themes_path)?;
+        Self::load_syntaxes()?;
         let require_config_file = config_file_path.is_some();
         let config_file_path = config_file_path.unwrap_or_else(|| configs_path.join("config.yaml"));
         let config = match Config::load(&config_file_path) {
@@ -202,6 +206,32 @@ impl Customizations {
 
         let themes = Themes { presentation: presentation_themes, highlight: highlight_themes };
         Ok(themes)
+    }
+
+    /// Load any syntaxes the user dropped in `bat`'s config directory, on top of the ones we bundle.
+    fn load_syntaxes() -> Result<(), Box<dyn std::error::Error>> {
+        let Some(bat_config_path) = Self::bat_config_path() else {
+            return Ok(());
+        };
+        highlighting::register_syntaxes_from_directory(bat_config_path.join("syntaxes"))?;
+        Ok(())
+    }
+
+    /// Find `bat`'s config directory, mimicking the way `bat --config-dir` resolves it.
+    fn bat_config_path() -> Option<PathBuf> {
+        if let Some(path) = env::var_os("BAT_CONFIG_DIR").filter(|path| !path.is_empty()) {
+            return Some(path.into());
+        }
+        // bat follows the XDG spec everywhere except on Windows, so we can't blindly use the config
+        // directory the `directories` crate hands us as that one uses macOS specific paths there.
+        if cfg!(windows) {
+            BaseDirs::new().map(|dirs| dirs.config_dir().join("bat"))
+        } else {
+            match env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).filter(|path| path.is_absolute()) {
+                Some(path) => Some(path.join("bat")),
+                None => BaseDirs::new().map(|dirs| dirs.home_dir().join(".config").join("bat")),
+            }
+        }
     }
 }
 
