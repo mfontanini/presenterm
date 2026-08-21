@@ -52,6 +52,7 @@ pub struct PresenterOptions {
     pub validate_overflows: bool,
     pub max_size: MaxSize,
     pub transition: Option<SlideTransitionConfig>,
+    pub start_slide: Option<usize>,
 }
 
 /// A slideshow presenter.
@@ -110,7 +111,10 @@ impl<'a> Presenter<'a> {
         }
         self.state = PresenterState::Presenting(Presentation::from(vec![]));
         self.try_reload(path, true)?;
-
+        if let Some(idx) = self.options.start_slide {
+            let presentation = self.state.presentation_mut();
+            presentation.go_to_slide(idx);
+        }
         let drawer_options = TerminalDrawerOptions {
             font_size_fallback: self.options.font_size_fallback,
             max_size: self.options.max_size.clone(),
@@ -140,6 +144,9 @@ impl<'a> Presenter<'a> {
                 match self.apply_command(command) {
                     CommandSideEffect::Exit => {
                         self.publish_event(SpeakerNotesEvent::Exit)?;
+                        if self.options.start_slide.is_some() {
+                            self.save_start_slide(path)?;
+                        }
                         return Ok(());
                     }
                     CommandSideEffect::Suspend => {
@@ -175,6 +182,14 @@ impl<'a> Presenter<'a> {
                 })?;
             }
         }
+    }
+
+    fn save_start_slide(&self, base: &Path) -> Result<(), crate::io::Error> {
+        let path = base.with_added_extension("idx");
+        let presentation = self.state.presentation();
+        let idx = presentation.current_slide_index();
+        std::fs::write(path, format!("{idx}\n"))?;
+        Ok(())
     }
 
     fn process_poller_effects(&mut self) -> Result<bool, PresentationError> {
