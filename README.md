@@ -60,6 +60,7 @@ See the [introduction page][docs-introduction] to learn more.
 
 Here are some talks and demos that feature _presenterm_:
 
+- [Are we Ratatui yet?][are-we-ratatui-yet] by [Samuel Åkesson][sermuns-github]
 - [If it can compute, it can run Ratatui][it-can-run-ratatui] by [Orhun Parmaksız][orhun-github]
 - [Building Embedded TUIs with Rust & Ratatui][building-embedded-tuis] by [Orhun Parmaksız][orhun-github]
 - [Bringing Terminal Aesthetics to the Web With Rust][bringing-terminal-aesthetics] by [Orhun Parmaksız][orhun-github]
@@ -108,3 +109,5 @@ Gave a talk using _presenterm_? We would love to feature it here! Open a PR or i
 [hayasen]: https://github.com/Vaishnav-Sabari-Girish/rust_bangalore_oct_2025
 [vaishnav]: https://github.com/Vaishnav-Sabari-Girish
 [mousefood]: https://github.com/Vaishnav-Sabari-Girish/rust_bangalore_december_2025/
+[sermuns-github]: https://github.com/sermuns
+[are-we-ratatui-yet]: https://www.youtube.com/watch?v=nUzT3t-bjME
