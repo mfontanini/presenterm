@@ -158,6 +158,10 @@ nushell:
   filename: snippet.nu
   commands:
     - ["nu", "$pwd/snippet.nu"]
+odin:
+  filename: snippet.odin
+  commands:
+    - ["odin", "run", "$pwd/snippet.odin", "-file"]
 ocaml:
     filename: "snippet.ml"
     hidden_line_prefix: "(* "
