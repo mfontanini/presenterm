@@ -145,6 +145,7 @@ impl SnippetHighlighter {
             Mermaid => "txt",
             Nix => "nix",
             Nushell => "txt",
+            Odin => "odin",
             OCaml => "ml",
             Perl => "pl",
             Php => "php",
