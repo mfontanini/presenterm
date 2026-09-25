@@ -38,6 +38,7 @@ Code highlighting is supported for the following languages:
 | julia       |         ✓         |
 | kotlin      |         ✓         |
 | latex       |                   |
+| lean        |         ✓         |
 | lua         |         ✓         |
 | makefile    |                   |
 | markdown    |                   |

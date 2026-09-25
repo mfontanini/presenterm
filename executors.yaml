@@ -150,6 +150,10 @@ kotlin:
   commands:
     - ["kotlinc", "-script", "$pwd/snippet.kts"]
   hidden_line_prefix: "/// "
+lean:
+  filename: snippet.lean
+  commands:
+    - ["lean", "$pwd/snippet.lean"]
 lua:
   filename: snippet.lua
   commands:
