@@ -26,7 +26,7 @@ impl PresentationBuilder<'_, '_> {
         };
 
         if self.options.render_speaker_notes_only {
-            self.process_comment_command_speaker_notes_mode(command);
+            self.process_comment_command_speaker_notes_mode(command, source_position)?;
         } else {
             self.process_comment_command_presentation_mode(command, source_position)?;
         }
@@ -136,7 +136,11 @@ impl PresentationBuilder<'_, '_> {
         Ok(())
     }
 
-    fn process_comment_command_speaker_notes_mode(&mut self, comment_command: CommentCommand) {
+    fn process_comment_command_speaker_notes_mode(
+        &mut self,
+        comment_command: CommentCommand,
+        source_position: SourcePosition,
+    ) -> BuildResult {
         match comment_command {
             CommentCommand::SpeakerNote(note) => {
                 for line in note.lines() {
@@ -148,8 +152,10 @@ impl PresentationBuilder<'_, '_> {
             CommentCommand::EndSlide => self.terminate_slide(),
             CommentCommand::Pause => self.push_pause(),
             CommentCommand::SkipSlide => self.slide_state.skip_slide = true,
+            CommentCommand::Include(path) => self.process_include(path, source_position)?,
             _ => {}
         }
+        Ok(())
     }
 
     fn should_ignore_comment(&self, comment: &str) -> bool {
@@ -191,7 +197,11 @@ impl PresentationBuilder<'_, '_> {
                 return Err(self.invalid_presentation(source_position, InvalidPresentation::IncludeFrontMatter));
             }
             self.slide_state.ignore_element_line_break = false;
-            self.process_element_for_presentation_mode(element)?;
+            if self.options.render_speaker_notes_only {
+                self.process_element_for_speaker_notes_mode(element)?;
+            } else {
+                self.process_element_for_presentation_mode(element)?;
+            }
             if !self.slide_state.ignore_element_line_break {
                 self.push_line_break();
             }
@@ -814,6 +824,19 @@ hi
             "a           ",
         ];
         assert_eq!(lines, expected);
+    }
+
+    #[test]
+    fn include_speaker_notes() {
+        let dir = tempdir().expect("failed to create tempdir");
+        let path = dir.path();
+
+        fs::write(path.join("included.md"), "<!-- speaker_note: included note -->\n").unwrap();
+        let input = "<!-- include: included.md -->";
+        let options = PresentationBuilderOptions { render_speaker_notes_only: true, ..Default::default() };
+
+        let lines = Test::new(input).resources_path(path).options(options).render().rows(2).columns(13).into_lines();
+        assert_eq!(lines, &["             ", "included note"]);
     }
 
     #[test]
