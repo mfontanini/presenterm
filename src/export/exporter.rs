@@ -146,7 +146,6 @@ impl<'a> Exporter<'a> {
             Self::log(&format!("processing slide {index}..."))?;
             render.process_slide(slide)?;
         }
-        Self::log("invoking weasyprint...")?;
 
         Ok(render)
     }
@@ -169,6 +168,7 @@ impl<'a> Exporter<'a> {
         Self::log("weasyprint installation found")?;
 
         let render = self.build_renderer(presentation_path, output_directory, OutputFormat::Pdf)?;
+        Self::log("invoking weasyprint...")?;
 
         let pdf_path = match output_path {
             Some(path) => path.to_path_buf(),
@@ -214,6 +214,19 @@ impl<'a> Exporter<'a> {
             )
         )?;
         Ok(())
+    }
+
+    /// Build the presentation into a self contained HTML document.
+    ///
+    /// The returned HTML embeds every image as an inline base64 data URI and all styles inline, so
+    /// it can be served over HTTP as a single response with no accompanying assets.
+    pub fn build_html(
+        mut self,
+        presentation_path: &Path,
+        output_directory: OutputDirectory,
+    ) -> Result<String, ExportError> {
+        let render = self.build_renderer(presentation_path, output_directory, OutputFormat::Html)?;
+        Ok(render.into_html(&None))
     }
 
     fn wait_async_renders_parallel(presentation: &mut Presentation) -> Result<(), ExportError> {

@@ -4,6 +4,7 @@ use crate::{
     config::{Config, ImageProtocol, ValidateOverflows},
     demo::ThemesDemo,
     export::exporter::Exporter,
+    http::PresentationServer,
     markdown::parse::MarkdownParser,
     presentation::builder::{CommentCommand, PresentationBuilderOptions, Themes},
     presenter::{PresentMode, Presenter, PresenterOptions},
@@ -30,6 +31,7 @@ use render::{engine::MaxSize, properties::WindowSize};
 use std::{
     env::{self, current_dir},
     io,
+    net::SocketAddr,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -42,6 +44,7 @@ mod commands;
 mod config;
 mod demo;
 mod export;
+mod http;
 mod markdown;
 mod presentation;
 mod presenter;
@@ -76,6 +79,14 @@ struct Cli {
     /// Export the presentation as a HTML rather than displaying it.
     #[clap(short = 'E', long, group = "export")]
     export_html: bool,
+
+    /// Serve the presentation over HTTP so it can be viewed in a web browser.
+    #[clap(short = 'S', long, conflicts_with = "export")]
+    serve: bool,
+
+    /// The address to bind the HTTP server to when using `--serve`.
+    #[clap(long, requires = "serve", default_value = "127.0.0.1:8080", value_name = "ADDRESS")]
+    serve_address: SocketAddr,
 
     /// The path in which to store temporary files used when exporting.
     #[clap(long, requires = "export")]
@@ -311,7 +322,7 @@ impl CoreComponents {
     }
 
     fn select_graphics_mode(cli: &Cli, config: &Config) -> GraphicsMode {
-        if cli.export_pdf | cli.export_html {
+        if cli.export_pdf | cli.export_html | cli.serve {
             GraphicsMode::Raw
         } else {
             cli.image_protocol.as_ref().unwrap_or(&config.defaults.image_protocol).into()
@@ -422,8 +433,8 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }
         return Ok(());
     }
-    // Disable this so we don't mess things up when exporting.
-    if cli.export_pdf || cli.export_html {
+    // Disable this so we don't mess things up when exporting or serving.
+    if cli.export_pdf || cli.export_html || cli.serve {
         TerminalEmulator::disable_capability_detection();
     }
 
@@ -449,7 +460,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     if cli.validate_snippets {
         builder_options.validate_snippets = cli.validate_snippets;
     }
-    if cli.export_pdf || cli.export_html {
+    if cli.export_pdf || cli.export_html || cli.serve {
         let dimensions = match config.export.dimensions {
             Some(dimensions) => WindowSize {
                 rows: dimensions.rows,
@@ -478,8 +489,21 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         }?;
         if cli.export_pdf {
             exporter.export_pdf(&path, output_directory, cli.export_output.as_deref(), config.export.pdf)?;
-        } else {
+        } else if cli.export_html {
             exporter.export_html(&path, output_directory, cli.export_output.as_deref())?;
+        } else {
+            let html = exporter.build_html(&path, output_directory)?;
+            let server = PresentationServer::bind(html, cli.serve_address)?;
+            let address = server.local_addr()?;
+            execute!(
+                io::stdout(),
+                PrintStyledContent(
+                    format!("serving presentation at http://{address}/ (press Ctrl-C to stop)\n")
+                        .stylize()
+                        .with(crossterm::style::Color::Green)
+                )
+            )?;
+            server.run()?;
         }
     } else {
         let SpeakerNotesComponents { events_listener, events_publisher } =

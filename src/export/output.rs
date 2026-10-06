@@ -142,11 +142,46 @@ impl ExportRenderer {
     }
 
     pub(crate) fn generate(self, output_path: &Path, fonts: &Option<ExportFontsConfig>) -> Result<(), ExportError> {
+        let HtmlDocument { html, css } = self.build_html(fonts);
+
+        let html_path = self.content_manager.persist_file("index.html", html.as_bytes())?;
+        let css_path = self.content_manager.persist_file("styles.css", css.as_bytes())?;
+
+        match self.output_format {
+            OutputFormat::Pdf => {
+                ThirdPartyTools::weasyprint(&[
+                    "-s",
+                    css_path.to_string_lossy().as_ref(),
+                    "--presentational-hints",
+                    "-e",
+                    "utf8",
+                    html_path.to_string_lossy().as_ref(),
+                    output_path.to_string_lossy().as_ref(),
+                ])
+                .run()?;
+            }
+            OutputFormat::Html => {
+                fs::write(output_path, html.as_bytes())?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Build the self contained HTML document for this presentation.
+    ///
+    /// The returned HTML embeds all images as inline base64 data URIs and all styles inline, so it
+    /// can be written to a file or served over HTTP without any accompanying assets.
+    pub(crate) fn into_html(self, fonts: &Option<ExportFontsConfig>) -> String {
+        self.build_html(fonts).html
+    }
+
+    fn build_html(&self, fonts: &Option<ExportFontsConfig>) -> HtmlDocument {
         let html_body = &self.html_body;
         let script = include_str!("script.js");
         let width = (self.dimensions.columns as f64 * FONT_SIZE as f64 * FONT_SIZE_WIDTH).ceil();
         let height = self.dimensions.rows * LINE_HEIGHT;
-        let background_color = self.background_color.unwrap_or_else(|| "black".into());
+        let background_color = self.background_color.as_deref().unwrap_or("black");
         let container = match self.output_format {
             OutputFormat::Pdf => String::from("display: contents;"),
             OutputFormat::Html => String::from(
@@ -248,28 +283,7 @@ let originalHeight = {height};
 </html>"
         );
 
-        let html_path = self.content_manager.persist_file("index.html", html.as_bytes())?;
-        let css_path = self.content_manager.persist_file("styles.css", css.as_bytes())?;
-
-        match self.output_format {
-            OutputFormat::Pdf => {
-                ThirdPartyTools::weasyprint(&[
-                    "-s",
-                    css_path.to_string_lossy().as_ref(),
-                    "--presentational-hints",
-                    "-e",
-                    "utf8",
-                    html_path.to_string_lossy().as_ref(),
-                    output_path.to_string_lossy().as_ref(),
-                ])
-                .run()?;
-            }
-            OutputFormat::Html => {
-                fs::write(output_path, html.as_bytes())?;
-            }
-        }
-
-        Ok(())
+        HtmlDocument { html, css }
     }
 
     fn font_configs(config: &ExportFontsConfig) -> FontConfig {
@@ -305,4 +319,10 @@ let originalHeight = {height};
 struct FontConfig {
     font_face: String,
     font_family: String,
+}
+
+/// A rendered, self contained HTML document along with its standalone stylesheet.
+struct HtmlDocument {
+    html: String,
+    css: String,
 }

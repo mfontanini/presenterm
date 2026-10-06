@@ -44,6 +44,29 @@ presenterm --export-html examples/demo.md
 The output file will be placed in `examples/demo.html` but this behavior can be configured via the `--output` flag just 
 like for PDF exports.
 
+## Serving over HTTP
+
+Instead of writing the HTML to a file, _presenterm_ can serve it directly over HTTP so it can be viewed in a web browser,
+for example to share it with your audience or to open it on another device. Use the `--serve` parameter:
+
+```bash
+presenterm --serve examples/demo.md
+```
+
+This renders the same single self contained HTML document used by `--export-html` — with all images embedded as inline 
+base64 data URIs and all styles inline — and serves it. No extra dependencies are required and nothing is written to 
+disk. The presentation is navigated in the browser with the arrow keys (or by swiping on touch devices).
+
+By default the server binds to `127.0.0.1:8080`. Use `--serve-address` to bind to a different address and port, for 
+example to make the presentation reachable from other machines on your network:
+
+```bash
+presenterm --serve --serve-address 0.0.0.0:3000 examples/demo.md
+```
+
+> [!note]
+> The HTML is rendered once when the server starts, so restart _presenterm_ to pick up changes to the presentation.
+
 # Configurable behavior
 
 See the [settings page](../configuration/settings.md#presentation-exports) to see all the configurable behavior around 
