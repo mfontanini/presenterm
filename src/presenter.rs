@@ -293,7 +293,7 @@ impl<'a> Presenter<'a> {
         let needs_redraw = match command {
             Command::Next => {
                 let current_slide = presentation.current_slide_index();
-                if !presentation.jump_next() {
+                if !presentation.jump_next(self.options.builder_options.restart_at_end) {
                     false
                 } else if presentation.current_slide_index() != current_slide {
                     return CommandSideEffect::AnimateNextSlide;
@@ -301,7 +301,7 @@ impl<'a> Presenter<'a> {
                     true
                 }
             }
-            Command::NextFast => presentation.jump_next_fast(),
+            Command::NextFast => presentation.jump_next_fast(self.options.builder_options.restart_at_end),
             Command::Previous => {
                 let current_slide = presentation.current_slide_index();
                 if !presentation.jump_previous() {
@@ -492,7 +492,7 @@ impl<'a> Presenter<'a> {
         let dimensions = WindowSize::current(self.options.font_size_fallback)?;
         presentation.jump_previous();
         let left = Self::virtual_render(presentation.current_slide(), dimensions, &options)?;
-        presentation.jump_next();
+        presentation.jump_next(self.options.builder_options.restart_at_end);
         let right = Self::virtual_render(presentation.current_slide(), dimensions, &options)?;
         let direction = TransitionDirection::Next;
         self.animate_transition(drawer, left, right, direction, dimensions, config)
@@ -506,7 +506,7 @@ impl<'a> Presenter<'a> {
         let options = drawer.render_engine_options();
         let presentation = self.state.presentation_mut();
         let dimensions = WindowSize::current(self.options.font_size_fallback)?;
-        presentation.jump_next();
+        presentation.jump_next(self.options.builder_options.restart_at_end);
 
         // Re-borrow to avoid calling fns above while mutably borrowing
         let presentation = self.state.presentation_mut();

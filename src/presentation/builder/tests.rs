@@ -37,11 +37,11 @@ author: bob
 # bye
 "#;
     // land in first slide after into
-    let lines = Test::new(input).render().rows(2).columns(5).advances(1).into_lines();
+    let lines = Test::new(input).render().rows(2).columns(5).advances(1).into_lines(false);
     assert_eq!(lines, &["     ", "hello"]);
 
     // land in second one
-    let lines = Test::new(input).render().rows(2).columns(5).advances(2).into_lines();
+    let lines = Test::new(input).render().rows(2).columns(5).advances(2).into_lines(false);
     assert_eq!(lines, &["     ", "bye  "]);
 }
 
@@ -62,11 +62,11 @@ hi
 ";
     // first slide
     let options = PresentationBuilderOptions { end_slide_shorthand: true, ..Default::default() };
-    let lines = Test::new(input).options(options.clone()).render().rows(2).columns(5).into_lines();
+    let lines = Test::new(input).options(options.clone()).render().rows(2).columns(5).into_lines(false);
     assert_eq!(lines, &["     ", "hola "]);
 
     // second slide
-    let lines = Test::new(input).options(options).render().rows(2).columns(5).advances(1).into_lines();
+    let lines = Test::new(input).options(options).render().rows(2).columns(5).advances(1).into_lines(false);
     assert_eq!(lines, &["     ", "hi   "]);
 }
 
@@ -81,7 +81,7 @@ fn parse_front_matter_strict() {
 #[test]
 fn footnote() {
     let elements = vec![MarkdownElement::Footnote(Line::from("hi")), MarkdownElement::Footnote(Line::from("bye"))];
-    let lines = Test::new(elements).render().rows(3).columns(5).into_lines();
+    let lines = Test::new(elements).render().rows(3).columns(5).into_lines(false);
     let expected = &["     ", "hi   ", "bye  "];
     assert_eq!(lines, expected);
 }

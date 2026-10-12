@@ -209,7 +209,7 @@ mod tests {
 * B
     * BA 
 ";
-        let lines = Test::new(input).render().rows(7).columns(16).into_lines();
+        let lines = Test::new(input).render().rows(7).columns(16).into_lines(false);
         let expected = &[
             "                ",
             "   •  A         ",
@@ -231,7 +231,7 @@ mod tests {
 <!-- pause -->
 * C
 ";
-        let lines = Test::new(input).render().rows(4).columns(8).into_lines();
+        let lines = Test::new(input).render().rows(4).columns(8).into_lines(false);
         let expected = &["        ", "   •  A ", "   •  B ", "   •  C "];
         assert_eq!(lines, expected);
     }
@@ -246,7 +246,7 @@ mod tests {
 2. B
     1. BA 
 ";
-        let lines = Test::new(input).render().rows(7).columns(16).into_lines();
+        let lines = Test::new(input).render().rows(7).columns(16).into_lines(false);
         let expected = &[
             "                ",
             "   1. A         ",
@@ -266,7 +266,7 @@ mod tests {
     1) AA
 2) B
 ";
-        let lines = Test::new(input).render().rows(4).columns(12).into_lines();
+        let lines = Test::new(input).render().rows(4).columns(12).into_lines(false);
         let expected = &["            ", "   1) A     ", "      1) AA ", "   2) B     "];
         assert_eq!(lines, expected);
     }
@@ -280,7 +280,7 @@ mod tests {
 <!-- pause -->
 3. C
 ";
-        let lines = Test::new(input).render().rows(4).columns(8).into_lines();
+        let lines = Test::new(input).render().rows(4).columns(8).into_lines(false);
         let expected = &["        ", "   1. A ", "   2. B ", "   3. C "];
         assert_eq!(lines, expected);
     }
@@ -297,7 +297,7 @@ mod tests {
 <!-- pause -->
 * C
 ";
-        let lines = Test::new(input).render().rows(4).columns(8).advances(advances).into_lines();
+        let lines = Test::new(input).render().rows(4).columns(8).advances(advances).into_lines(false);
         let mut expected = vec!["        ", "   •  A "];
         if advances >= 1 {
             expected.push("   •  B ");
@@ -337,7 +337,7 @@ hi
             pause_after_incremental_lists: pause_after,
             ..Default::default()
         };
-        let lines = Test::new(input).options(options).render().rows(6).columns(8).advances(advances).into_lines();
+        let lines = Test::new(input).options(options).render().rows(6).columns(8).advances(advances).into_lines(false);
         let mut expected = vec!["        "];
         if visible >= 1 {
             expected.push("   •  A ");
@@ -363,7 +363,7 @@ hi
 * A
 * B
 ";
-        let lines = Test::new(input).render().rows(4).columns(12).into_lines();
+        let lines = Test::new(input).render().rows(4).columns(12).into_lines(false);
         let expected = &["            ", "    •     A ", "            ", "    •     B "];
         assert_eq!(lines, expected);
     }
@@ -375,7 +375,7 @@ hi
 * A
 * B
 ";
-        let lines = Test::new(input).render().rows(4).columns(8).into_lines();
+        let lines = Test::new(input).render().rows(4).columns(8).into_lines(false);
         let expected = &["        ", "   •  A ", "        ", "   •  B "];
         assert_eq!(lines, expected);
     }
@@ -392,7 +392,7 @@ hi
 other
 ";
         // 3 moves forward should land in the second slide, not an extra pause at the end
-        let lines = Test::new(input).render().rows(4).columns(8).advances(3).into_lines();
+        let lines = Test::new(input).render().rows(4).columns(8).advances(3).into_lines(false);
         let expected = &["        ", "other   ", "        ", "        "];
         assert_eq!(lines, expected);
     }
@@ -408,7 +408,7 @@ other
 
 2. B
 ";
-        let lines = Test::new(input).render().rows(4).columns(8).advances(0).into_lines();
+        let lines = Test::new(input).render().rows(4).columns(8).advances(0).into_lines(false);
         let expected = &["        ", "   1. A ", "        ", "        "];
         assert_eq!(lines, expected);
     }

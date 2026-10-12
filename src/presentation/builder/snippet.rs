@@ -703,7 +703,7 @@ echo hi
             .map_background(Color::new(45, 45, 45), 'x')
             .rows(8)
             .columns(16)
-            .into_parts();
+            .into_parts(false);
         let expected_lines = &[
             "                ",
             "echo hi         ",
@@ -777,7 +777,7 @@ echo hi
             .map_background(Color::new(45, 45, 45), 'x')
             .rows(10)
             .columns(40)
-            .into_parts();
+            .into_parts(false);
         let expected_lines = &[
             "                                        ",
             "e c h o   h i                           ",
