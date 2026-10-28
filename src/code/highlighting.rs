@@ -139,6 +139,7 @@ impl SnippetHighlighter {
             Julia => "jl",
             Kotlin => "kt",
             Latex => "tex",
+            Lean => "lean",
             Lua => "lua",
             Makefile => "make",
             Markdown => "md",
