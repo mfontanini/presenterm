@@ -17,10 +17,6 @@ impl ThirdPartyTools {
         Tool::new("typst", args)
     }
 
-    pub(crate) fn mermaid(binary: &str, args: &[&str]) -> Tool {
-        Tool::new(binary, args)
-    }
-
     pub(crate) fn d2(args: &[&str]) -> Tool {
         Tool::new("d2", args)
     }

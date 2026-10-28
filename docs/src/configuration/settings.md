@@ -292,32 +292,23 @@ snippet:
 ## Mermaid
 
 The following configuration parameters can be set to alter the behavior when displaying 
-[mermaid](https://mermaid.js.org/) diagrams.
+[mermaid](https://mermaid.js.org/) diagrams. Rendering is performed in-process with 
+[merman](https://github.com/Latias94/merman); no external CLI is required.
 
 ### Config file
 
 A custom [mermaid config file](https://mermaid.ai/open-source/config/schema-docs/config.html) can be configured via the 
-`mermaid.config_file` config parameter. This should point to a configuration file where you can set any configs you 
-consider appropriate, such as the font family to use:
+`mermaid.config_path` config parameter. This should point to a JSON configuration file applied as mermaid site config 
+defaults (for example font family). Theme values from the presentation theme still take precedence over this file:
 
 ```yaml
 mermaid:
-  config_file: /home/foo/my_config_file.yml
-```
-
-### Puppeteer config file
-
-A custom puppeteer config file can be configured via the `mermaid.puppeteer_config_file` config parameter. This should 
-point to a configuration file that will be given to puppeteer by the `mmdc` tool:
-
-```yaml
-mermaid:
-  puppeteer_config_file: /home/foo/puppeteer.json
+  config_path: /home/foo/mermaid-config.json
 ```
 
 ### Scaling
 
-mermaid graphs will use a default scaling of `2` when invoking the mermaid CLI. If you'd like to change this use:
+mermaid graphs will use a default raster scale of `2`. If you'd like to change this use:
 
 
 ```yaml

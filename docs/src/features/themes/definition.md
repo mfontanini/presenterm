@@ -352,7 +352,7 @@ block_quote:
 
 The [mermaid](https://mermaid.js.org/) graphs can be customized using the following parameters:
 
-* `mermaid.background` the background color passed to the CLI (e.g., `transparent`, `red`, `#F0F0F0`).
+* `mermaid.background` the background color used when rasterizing (e.g., `transparent`, `red`, `#F0F0F0`).
 * `mermaid.theme` the [mermaid theme](https://mermaid.js.org/config/theming.html#available-themes) to use.
 
 ```yaml
