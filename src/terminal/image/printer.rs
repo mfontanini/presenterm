@@ -181,7 +181,6 @@ impl ImageRegistry {
         let (source, cache_key) = match &spec {
             ImageSpec::Generated(_) => (ImageSource::Generated, None),
             ImageSpec::Filesystem(path) => {
-                // Return if already cached
                 if let Some(image) = images.get(path) {
                     return Ok(image.clone());
                 }

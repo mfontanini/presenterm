@@ -358,6 +358,40 @@ pub(crate) struct DefaultStyle {
     /// The alignment for all elements.
     #[serde(flatten, default)]
     pub(crate) alignment: Option<Alignment>,
+
+    /// The background image to display behind slide content.
+    #[serde(default)]
+    pub(crate) background_image: Option<BackgroundImage>,
+}
+
+/// The background image configuration.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub(crate) struct BackgroundImage {
+    /// The path to the image file.
+    pub(crate) path: PathBuf,
+
+    /// The opacity of the background image (0-100).
+    #[serde(default)]
+    pub(crate) opacity: Option<u8>,
+
+    /// How the image should fit the screen.
+    #[serde(default)]
+    pub(crate) fit: Option<BackgroundImageFit>,
+}
+
+/// How a background image should fit the screen.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum BackgroundImageFit {
+    /// Scale to cover the entire screen, maintaining aspect ratio.
+    #[default]
+    Cover,
+
+    /// Scale to fit within the screen, maintaining aspect ratio.
+    Contain,
+
+    /// Stretch to fill the screen exactly, ignoring aspect ratio.
+    Stretch,
 }
 
 /// The column layout style.
