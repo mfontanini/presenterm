@@ -145,6 +145,10 @@ struct Cli {
     /// List all available comment commands.
     #[clap(long, group = "target")]
     list_comment_commands: bool,
+
+    /// Record/reload current slide on exit/startup
+    #[clap(short = 'i', long)]
+    start_slide: bool,
 }
 
 fn create_splash() -> String {
@@ -500,6 +504,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
                 max_rows_alignment: config.defaults.max_rows_alignment,
             },
             transition: config.transition,
+            start_slide: load_start_slide(&path, cli.start_slide),
         };
         let presenter = Presenter::new(
             &default_theme,
@@ -516,6 +521,21 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         presenter.present(&path)?;
     }
     Ok(())
+}
+
+fn load_start_slide(base: &Path, load: bool) -> Option<usize> {
+    if load {
+        let path = base.with_added_extension("idx");
+        let Ok(txt) = std::fs::read_to_string(path) else {
+            return Some(0);
+        };
+        let Ok(idx) = txt.trim().parse::<usize>() else {
+            return Some(0);
+        };
+        Some(idx)
+    } else {
+        None
+    }
 }
 
 fn main() {
