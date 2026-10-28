@@ -116,7 +116,7 @@ impl AsRenderOperations for FooterGenerator {
             ProgressBar { character, style } => {
                 let character = character.to_string();
                 let total_columns = dimensions.columns as usize / character.width();
-                let progress_ratio = (self.current_slide + 1) as f64 / self.total_slides as f64;
+                let progress_ratio = (self.current_slide - 1) as f64 / (self.total_slides - 1) as f64;
                 let columns_ratio = (total_columns as f64 * progress_ratio).ceil();
                 let bar = character.repeat(columns_ratio as usize);
                 let bar = Text::new(bar, *style);
