@@ -484,10 +484,8 @@ impl DefaultStyle {
         let margin = margin.unwrap_or_default();
         let style = TextStyle::colored(colors.resolve(palette)?);
         let alignment = alignment.clone().unwrap_or_default().into();
-        let background_image = background_image
-            .as_ref()
-            .map(|bg| Self::load_background_image(bg, resources))
-            .transpose()?;
+        let background_image =
+            background_image.as_ref().map(|bg| Self::load_background_image(bg, resources)).transpose()?;
         Ok(Self { margin, style, alignment, background_image })
     }
 
@@ -503,8 +501,7 @@ impl DefaultStyle {
             return Ok(BackgroundImage { image, fit, source: None });
         }
         let path = resources.resolve_theme_image_path(&bg.path);
-        let mut dynamic =
-            resources.load_dynamic_image(&path).map_err(ProcessingThemeError::BackgroundImage)?;
+        let mut dynamic = resources.load_dynamic_image(&path).map_err(ProcessingThemeError::BackgroundImage)?;
         if opacity < 100 {
             crate::terminal::image::apply_opacity(&mut dynamic, opacity);
         }
