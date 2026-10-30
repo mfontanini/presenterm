@@ -7,7 +7,8 @@ use crate::{
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use image::{
-    AnimationDecoder, Delay, EncodableLayout, ImageReader, RgbaImage, codecs::gif::GifDecoder, codecs::png::PngDecoder,
+    AnimationDecoder, Delay, DynamicImage, EncodableLayout, ImageReader, RgbaImage,
+    codecs::{gif::GifDecoder, png::PngDecoder},
     metadata::LoopCount,
 };
 use std::{
@@ -62,7 +63,10 @@ impl RawResource {
                 let dimensions = frames[0].buffer.dimensions();
                 let frames = frames
                     .into_iter()
-                    .map(|frame| AnimationFrame { delay: frame.delay, buffer: KittyBuffer::Memory(frame.buffer.into_raw()) })
+                    .map(|frame| AnimationFrame {
+                        delay: frame.delay,
+                        buffer: KittyBuffer::Memory(frame.buffer.into_raw()),
+                    })
                     .collect();
                 let resource = GenericResource::Animated { frames, loop_count };
                 KittyImage { dimensions, resource }
@@ -146,7 +150,11 @@ impl KittyPrinter {
         Ok(resource)
     }
 
-    fn persist_animation(&self, frames: Vec<AnimationFrame<RgbaImage>>, loop_count: LoopCount) -> io::Result<KittyImage> {
+    fn persist_animation(
+        &self,
+        frames: Vec<AnimationFrame<RgbaImage>>,
+        loop_count: LoopCount,
+    ) -> io::Result<KittyImage> {
         let mut persisted_frames = Vec::new();
         let mut dimensions = (0, 0);
         for frame in frames {
@@ -394,30 +402,38 @@ impl KittyPrinter {
             }
             Ok(RawResource::Animated { frames, loop_count: LoopCount::Infinite })
         } else {
-            let reader = BufReader::new(file);
-            let png_decoder = PngDecoder::new(reader);
-            if let Ok(decoder) = png_decoder {
-                if decoder.is_apng().unwrap_or(false) {
-                    let apng_decoder = decoder.apng()?;
-                    let loop_count = apng_decoder.loop_count();
-                    let mut frames = Vec::new();
-                    for frame in apng_decoder.into_frames() {
-                        let frame = frame?;
-                        let frame = AnimationFrame { delay: frame.delay(), buffer: frame.into_buffer() };
-                        frames.push(frame);
-                    }
-                    if !frames.is_empty() {
-                        return Ok(RawResource::Animated { frames, loop_count });
+            let reader = ImageReader::new(BufReader::new(file)).with_guessed_format()?;
+            let resource = match reader.format() {
+                Some(image::ImageFormat::Png) => {
+                    let decoder = PngDecoder::new(reader.into_inner())?;
+                    if decoder.is_apng().unwrap_or_default() {
+                        // If it's apng, read frames and return an animation.
+                        let apng_decoder = decoder.apng()?;
+                        let loop_count = apng_decoder.loop_count();
+                        let mut frames = Vec::new();
+                        for frame in apng_decoder.into_frames() {
+                            let frame = frame?;
+                            let frame = AnimationFrame { delay: frame.delay(), buffer: frame.into_buffer() };
+                            frames.push(frame);
+                        }
+                        if frames.is_empty() {
+                            return Err(RegisterImageError::ApngNoFrames);
+                        }
+                        RawResource::Animated { frames, loop_count }
+                    } else {
+                        // Otherwise process this normally.
+                        let image = DynamicImage::from_decoder(decoder)?;
+                        RawResource::Image(image.into_rgba8())
                     }
                 }
-            }
-            let file = File::open(path)?;
-            let reader = ImageReader::new(BufReader::new(file)).with_guessed_format()?;
-            let image = reader.decode()?;
-            Ok(RawResource::Image(image.into_rgba8()))
+                _ => {
+                    let image = reader.decode()?;
+                    RawResource::Image(image.into_rgba8())
+                }
+            };
+            Ok(resource)
         }
     }
-
 }
 
 impl PrintImage for KittyPrinter {
