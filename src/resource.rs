@@ -107,10 +107,7 @@ impl Resources {
     }
 
     /// Register a generated (in-memory) image.
-    pub(crate) fn register_generated_image(
-        &self,
-        image: image::DynamicImage,
-    ) -> Result<Image, RegisterImageError> {
+    pub(crate) fn register_generated_image(&self, image: image::DynamicImage) -> Result<Image, RegisterImageError> {
         let inner = self.inner.borrow();
         inner.image_registry.register(ImageSpec::Generated(image))
     }

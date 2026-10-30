@@ -262,7 +262,10 @@ impl CommentCommand {
                     Alignment => {
                         vec!["<!-- alignment: left -->", "<!-- alignment: center -->", "<!-- alignment: right -->"]
                     }
-                    BgImage => vec!["<!-- bg_image: {path: bg.png} -->", "<!-- bg_image: {path: bg.png, fit: cover, opacity: 80} -->"],
+                    BgImage => vec![
+                        "<!-- bg_image: {path: bg.png} -->",
+                        "<!-- bg_image: {path: bg.png, fit: cover, opacity: 80} -->",
+                    ],
                     Column => vec!["<!-- column: 0 -->"],
                     EndSlide => vec!["<!-- end_slide -->"],
                     FontSize => vec!["<!-- font_size: 2 -->"],
