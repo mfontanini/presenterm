@@ -104,7 +104,7 @@ hi
             },
             ..Default::default()
         };
-        let lines = Test::new(input).theme(theme).render().rows(8).columns(5).into_lines();
+        let lines = Test::new(input).theme(theme).render().rows(8).columns(5).into_lines(false);
         let expected = &["     ", "     ", "title", "     ", "—————", "     ", "hi   ", "     "];
         assert_eq!(lines, expected);
     }
@@ -122,7 +122,7 @@ title
 ===
 
 ";
-        let lines = Test::new(input).render().rows(2).columns(7).into_lines();
+        let lines = Test::new(input).render().rows(2).columns(7).into_lines(false);
         let expected = &["       ", "# title"];
         assert_eq!(lines, expected);
     }
@@ -142,7 +142,7 @@ theme:
 
 hi
 ";
-        let lines = Test::new(input).render().rows(6).columns(5).into_lines();
+        let lines = Test::new(input).render().rows(6).columns(5).into_lines(false);
         let expected = &["     ", "title", "—————", "     ", "hi   ", "     "];
         assert_eq!(lines, expected);
     }
@@ -167,7 +167,7 @@ hi
 
 bye
 ";
-        let lines = Test::new(input).render().rows(8).columns(5).into_lines();
+        let lines = Test::new(input).render().rows(8).columns(5).into_lines(false);
         let expected = &["     ", "title", "—————", "     ", "hi   ", "     ", "     ", "     "];
         assert_eq!(lines, expected);
     }
@@ -186,7 +186,7 @@ hi
             },
             ..Default::default()
         };
-        let lines = Test::new(input).theme(theme).render().rows(3).columns(6).into_lines();
+        let lines = Test::new(input).theme(theme).render().rows(3).columns(6).into_lines(false);
         let expected = &["      ", "  hi  ", "      "];
         assert_eq!(lines, expected);
     }
@@ -206,7 +206,7 @@ bar
 
 ";
         let options = PresentationBuilderOptions { implicit_slide_ends: true, ..Default::default() };
-        let lines = Test::new(input).options(options).render().rows(4).columns(6).advances(1).into_lines();
+        let lines = Test::new(input).options(options).render().rows(4).columns(6).advances(1).into_lines(false);
         let expected = &["      ", "bye   ", "      ", "bar   "];
         assert_eq!(lines, expected);
     }
@@ -232,7 +232,7 @@ bar
             },
             ..Default::default()
         };
-        let lines = Test::new(input).theme(theme).render().rows(10).columns(6).advances(1).into_lines();
+        let lines = Test::new(input).theme(theme).render().rows(10).columns(6).advances(1).into_lines(false);
         let expected =
             &["      ", "! A   ", "      ", "@@ B  ", "      ", "  C   ", "      ", "D     ", "      ", "E     "];
         assert_eq!(lines, expected);
@@ -246,7 +246,7 @@ bar
 <!-- font_size: 2 -->
 ## bye
 ";
-        let lines = Test::new(input).render().rows(6).columns(10).into_lines();
+        let lines = Test::new(input).render().rows(6).columns(10).into_lines(false);
         let expected = &[
             //
             "          ",

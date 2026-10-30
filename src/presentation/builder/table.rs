@@ -106,7 +106,7 @@ mod tests {
 | Potatooo   | Great  |
 | Carrot     | Yuck   |
 ";
-        let lines = Test::new(input).render().rows(6).columns(18).into_lines();
+        let lines = Test::new(input).render().rows(6).columns(18).into_lines(false);
         let expected_lines = &[
             "                  ",
             "  Name   │ Taste  ",
@@ -126,7 +126,7 @@ mod tests {
 | Potatooo   | Great  |
 | Carrot     | Yuck   |
 ";
-        let lines = Test::new(input).render().rows(6).columns(18).into_lines();
+        let lines = Test::new(input).render().rows(6).columns(18).into_lines(false);
         let expected_lines = &[
             "                  ",
             "  Name   │ Taste  ",
@@ -146,7 +146,7 @@ mod tests {
 | Potatooo   | Great  |
 | Carrot     | Yuck   |
 ";
-        let lines = Test::new(input).render().rows(6).columns(18).into_lines();
+        let lines = Test::new(input).render().rows(6).columns(18).into_lines(false);
         let expected_lines = &[
             "                  ",
             "  Name   │ Taste  ",
@@ -166,7 +166,7 @@ mod tests {
 | Potatooo   | Great  |
 | Carrot     | Yuck   |
 ";
-        let lines = Test::new(input).render().rows(6).columns(18).into_lines();
+        let lines = Test::new(input).render().rows(6).columns(18).into_lines(false);
         let expected_lines = &[
             "                  ",
             "  Name   │ Taste  ",

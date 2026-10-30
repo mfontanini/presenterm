@@ -97,6 +97,7 @@ pub struct PresentationBuilderOptions {
     pub validate_snippets: bool,
     pub layout_grid: bool,
     pub h1_slide_titles: bool,
+    pub restart_at_end: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -150,6 +151,7 @@ impl Default for PresentationBuilderOptions {
             validate_snippets: false,
             layout_grid: false,
             h1_slide_titles: false,
+            restart_at_end: false,
         }
     }
 }
@@ -443,11 +445,9 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         match element {
             MarkdownElement::Comment { comment, source_position } => self.process_comment(comment, source_position)?,
             MarkdownElement::SetexHeading { text } => self.push_slide_title(text)?,
-            MarkdownElement::ThematicBreak => {
-                if self.options.end_slide_shorthand {
-                    self.terminate_slide();
-                    self.slide_state.ignore_element_line_break = true;
-                }
+            MarkdownElement::ThematicBreak if self.options.end_slide_shorthand => {
+                self.terminate_slide();
+                self.slide_state.ignore_element_line_break = true;
             }
             _ => {}
         }
@@ -863,11 +863,11 @@ pub(crate) mod utils {
             self
         }
 
-        pub(crate) fn into_lines(self) -> Vec<String> {
-            self.into_parts().0
+        pub(crate) fn into_lines(self, restart: bool) -> Vec<String> {
+            self.into_parts(restart).0
         }
 
-        pub(crate) fn into_parts(self) -> (Vec<String>, Vec<String>) {
+        pub(crate) fn into_parts(self, restart: bool) -> (Vec<String>, Vec<String>) {
             let Self { mut presentation, columns, rows, run_async_renders, background_maps, advances } = self;
             let columns = columns.expect("no columns");
             let rows = rows.expect("no rows");
@@ -875,7 +875,7 @@ pub(crate) mod utils {
             let only_visible = advances.is_some();
             if let Some(advances) = advances {
                 for _ in 0..advances {
-                    presentation.jump_next();
+                    presentation.jump_next(restart);
                 }
             }
 

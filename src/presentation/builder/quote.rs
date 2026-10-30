@@ -117,7 +117,7 @@ mod tests {
             ..Default::default()
         };
         let (lines, styles) =
-            Test::new(input).theme(theme).render().map_background(color, 'X').rows(4).columns(7).into_parts();
+            Test::new(input).theme(theme).render().map_background(color, 'X').rows(4).columns(7).into_parts(false);
         let expected_lines = &["       ", line, line, "       "];
         let expected_styles = &["       ", style, style, "       "];
         assert_eq!(lines, expected_lines);
@@ -140,7 +140,7 @@ mod tests {
             },
             ..Default::default()
         };
-        let lines = Test::new(input).theme(theme).render().rows(5).columns(9).into_lines();
+        let lines = Test::new(input).theme(theme).render().rows(5).columns(9).into_lines(false);
         let expected = &["         ", "▍ ! Note ", "▍        ", "▍ hi     ", "         "];
         assert_eq!(lines, expected);
     }

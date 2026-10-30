@@ -268,7 +268,7 @@ title: |
             },
             ..Default::default()
         };
-        let lines = Test::new(input).theme(theme).render().rows(7).columns(16).advances(0).into_lines();
+        let lines = Test::new(input).theme(theme).render().rows(7).columns(16).advances(0).into_lines(false);
         let expected = &[
             "                ",
             "                ",

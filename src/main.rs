@@ -312,6 +312,7 @@ impl CoreComponents {
             validate_snippets: config.snippet.validate,
             layout_grid: false,
             h1_slide_titles: options.h1_slide_titles.unwrap_or_default(),
+            restart_at_end: options.restart_at_end.unwrap_or_default(),
         }
     }
 

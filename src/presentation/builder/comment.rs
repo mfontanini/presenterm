@@ -473,7 +473,7 @@ bar2
 
 ---
 ";
-        let lines = Test::new(input).render().rows(7).columns(20).into_lines();
+        let lines = Test::new(input).render().rows(7).columns(20).into_lines(false);
         let expected = &[
             "                    ",
             "foo1        bar1    ",
@@ -519,7 +519,7 @@ bar2
 
 ---
 ";
-        let lines = Test::new(input).render().rows(7).columns(20).into_lines();
+        let lines = Test::new(input).render().rows(7).columns(20).into_lines(false);
         let expected = &[
             "                    ",
             "foo1        bar1    ",
@@ -558,7 +558,7 @@ bar2
 
 ---
 ";
-        let lines = Test::new(input).render().rows(7).columns(24).into_lines();
+        let lines = Test::new(input).render().rows(7).columns(24).into_lines(false);
         let expected = &[
             "                        ",
             "foo1                bar1",
@@ -594,7 +594,7 @@ theme:
 
 ---
 ";
-        let lines = Test::new(input).render().rows(2).columns(32).into_lines();
+        let lines = Test::new(input).render().rows(2).columns(32).into_lines(false);
         let expected = &[
             //
             "                                ",
@@ -614,7 +614,7 @@ hi
 <!-- column: 1 -->
 bye
 ";
-        let lines = Test::new(input).render().rows(5).columns(12).advances(1).into_lines();
+        let lines = Test::new(input).render().rows(5).columns(12).advances(1).into_lines(false);
         let expected = &["            ", "hi          ", "            ", "            ", "            "];
         assert_eq!(lines, expected);
     }
@@ -651,7 +651,7 @@ hi
 bye
 ";
         let options = PresentationBuilderOptions { pause_create_new_slide: true, ..Default::default() };
-        let lines = Test::new(input).options(options).render().rows(3).columns(15).advances(1).into_lines();
+        let lines = Test::new(input).options(options).render().rows(3).columns(15).advances(1).into_lines(false);
         let expected = &["               ", "hi         bye ", "               "];
         assert_eq!(lines, expected);
     }
@@ -666,7 +666,7 @@ hi
 
 bye
 ";
-        let lines = Test::new(input).render().rows(5).columns(3).into_lines();
+        let lines = Test::new(input).render().rows(5).columns(3).into_lines(false);
         let expected = &["   ", "bye", "   ", "   ", "   "];
         assert_eq!(lines, expected);
     }
@@ -678,7 +678,7 @@ hi
 
 <!-- skip_slide -->
 ";
-        let lines = Test::new(input).render().rows(5).columns(3).into_lines();
+        let lines = Test::new(input).render().rows(5).columns(3).into_lines(false);
         let expected = &["   ", "   ", "   ", "   ", "   "];
         assert_eq!(lines, expected);
     }
@@ -694,7 +694,7 @@ hi
 
 bye
 ";
-        let lines = Test::new(input).render().rows(2).columns(3).into_lines();
+        let lines = Test::new(input).render().rows(2).columns(3).into_lines(false);
         let expected = &["   ", "bye"];
         assert_eq!(lines, expected);
     }
@@ -709,7 +709,7 @@ hi
 <!-- speaker_note: bye -->
 ";
         let options = PresentationBuilderOptions { render_speaker_notes_only: true, ..Default::default() };
-        let lines = Test::new(input).options(options).render().rows(2).columns(3).into_lines();
+        let lines = Test::new(input).options(options).render().rows(2).columns(3).into_lines(false);
         let expected = &["   ", "bye"];
         assert_eq!(lines, expected);
     }
@@ -722,7 +722,7 @@ hi
 <!-- speaker_note: bye -->
 ";
         let options = PresentationBuilderOptions { render_speaker_notes_only: true, ..Default::default() };
-        let lines = Test::new(input).options(options).render().rows(4).columns(3).into_lines();
+        let lines = Test::new(input).options(options).render().rows(4).columns(3).into_lines(false);
         let expected = &["   ", "hi ", "   ", "bye"];
         assert_eq!(lines, expected);
     }
@@ -737,7 +737,7 @@ hi
 <!-- speaker_note: bye -->
 ";
         let options = PresentationBuilderOptions { render_speaker_notes_only: true, ..Default::default() };
-        let lines = Test::new(input).options(options).render().rows(4).columns(3).advances(0).into_lines();
+        let lines = Test::new(input).options(options).render().rows(4).columns(3).advances(0).into_lines(false);
         let expected = &["   ", "hi ", "   ", "   "];
         assert_eq!(lines, expected);
     }
@@ -756,7 +756,7 @@ hello
 hola
 ";
 
-        let lines = Test::new(input).render().rows(6).columns(16).into_lines();
+        let lines = Test::new(input).render().rows(6).columns(16).into_lines(false);
         let expected = &[
             "                ",
             "hi              ",
@@ -876,7 +876,7 @@ hi
 <!-- include: first.md -->
         ";
 
-        let lines = Test::new(input).resources_path(path).render().rows(14).columns(12).into_lines();
+        let lines = Test::new(input).resources_path(path).render().rows(14).columns(12).into_lines(false);
         let expected = &[
             "            ",
             "hi          ",
