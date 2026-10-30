@@ -14,6 +14,7 @@ use crate::{
     },
     theme::{raw::PresentationTheme, registry::PresentationThemeRegistry},
     third_party::{ThirdPartyConfigs, ThirdPartyRender},
+    utils::PathExt,
 };
 use anyhow::anyhow;
 use clap::{CommandFactory, Parser, error::ErrorKind};
@@ -525,7 +526,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
 
 fn load_start_slide(base: &Path, load: bool) -> Option<usize> {
     if load {
-        let path = base.with_added_extension("idx");
+        let path = base.presentation_index_path();
         let Ok(txt) = std::fs::read_to_string(path) else {
             return Some(0);
         };

@@ -2,6 +2,7 @@ use serde::{Deserializer, Serializer};
 use std::{
     fmt::{self, Display},
     marker::PhantomData,
+    path::{Path, PathBuf},
     str::FromStr,
 };
 
@@ -72,4 +73,22 @@ where
     S: Serializer,
 {
     serializer.serialize_str(&value.to_string())
+}
+
+pub trait PathExt {
+    fn presentation_index_path(&self) -> PathBuf;
+}
+
+impl PathExt for Path {
+    fn presentation_index_path(&self) -> PathBuf {
+        let extension = self
+            .extension()
+            .map(|extension| {
+                let mut extension = extension.to_os_string();
+                extension.push(".idx");
+                extension
+            })
+            .unwrap_or_else(|| "md.idx".into());
+        self.with_extension(extension)
+    }
 }

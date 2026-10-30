@@ -33,6 +33,7 @@ use crate::{
         collapse_horizontal::CollapseHorizontalAnimation, fade::FadeAnimation,
         slide_horizontal::SlideHorizontalAnimation,
     },
+    utils::PathExt,
 };
 use std::{
     fmt::Display,
@@ -185,7 +186,7 @@ impl<'a> Presenter<'a> {
     }
 
     fn save_start_slide(&self, base: &Path) -> Result<(), crate::io::Error> {
-        let path = base.with_added_extension("idx");
+        let path = base.presentation_index_path();
         let presentation = self.state.presentation();
         let idx = presentation.current_slide_index();
         std::fs::write(path, format!("{idx}\n"))?;
