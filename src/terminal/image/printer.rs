@@ -251,6 +251,9 @@ pub(crate) enum RegisterImageError {
 
     #[error("printer can't register images")]
     Unsupported,
+
+    #[error("no frames in apng image")]
+    ApngNoFrames,
 }
 
 impl PrintImageError {
