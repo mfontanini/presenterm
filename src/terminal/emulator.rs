@@ -33,7 +33,15 @@ impl TerminalEmulator {
     }
 
     pub(crate) fn capabilities() -> TerminalCapabilities {
-        CAPABILITIES.get_or_init(|| TerminalCapabilities::query().unwrap_or_default()).clone()
+        CAPABILITIES
+            .get_or_init(|| {
+                let mut capabilities = TerminalCapabilities::query().unwrap_or_default();
+                // Hyperlink detection is purely environment based, so run it even if the terminal
+                // query above failed.
+                capabilities.hyperlinks = TerminalCapabilities::hyperlinks_supported_from_env();
+                capabilities
+            })
+            .clone()
     }
 
     pub(crate) fn disable_capability_detection() {

@@ -77,6 +77,10 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function handleClick(event) {
+    // Don't hijack clicks on hyperlinks: let the browser follow them.
+    if (event.target.closest && event.target.closest('a')) {
+      return;
+    }
     if (event.clientX < document.documentElement.clientWidth / 3) {
       showPreviousSlide();
       return;
