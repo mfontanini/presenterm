@@ -343,38 +343,22 @@ pub(crate) fn default_typst_ppi() -> u32 {
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MermaidConfig {
-    /// The application to use to generate diagrams.
-    #[serde(default = "default_mermaid_cli")]
-    pub cli: String,
-
-    /// The scaling parameter to be used in the mermaid CLI.
+    /// The scaling parameter used when rasterizing mermaid diagrams.
     #[serde(default = "default_mermaid_scale")]
     pub scale: u32,
 
-    /// A path to a puppeteer JSON configuration file to be used by the `mmdc` tool.
-    pub puppeteer_config_path: Option<String>,
-
-    /// A path to a mermaid JSON configuration file to be used by the `mmdc` tool.
+    /// A path to a mermaid JSON configuration file applied as site config defaults.
     pub config_path: Option<String>,
 }
 
 impl Default for MermaidConfig {
     fn default() -> Self {
-        Self {
-            cli: default_mermaid_cli(),
-            scale: default_mermaid_scale(),
-            puppeteer_config_path: None,
-            config_path: None,
-        }
+        Self { scale: default_mermaid_scale(), config_path: None }
     }
 }
 
 pub(crate) fn default_mermaid_scale() -> u32 {
     2
-}
-
-pub(crate) fn default_mermaid_cli() -> String {
-    if cfg!(windows) { "mmdc.cmd" } else { "mmdc" }.to_string()
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

@@ -15,7 +15,7 @@ typst:
   ppi: 300
 
 mermaid:
-  # the scale parameter passed to the mermaid CLI (mmdc).
+  # the scale parameter used when rasterizing mermaid diagrams.
   scale: 2
 
 options:
