@@ -506,6 +506,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             },
             transition: config.transition,
             start_slide: load_start_slide(&path, cli.start_slide),
+            terminal_progress_enabled: config.defaults.terminal_progress.enable,
         };
         let presenter = Presenter::new(
             &default_theme,

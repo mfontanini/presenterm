@@ -54,6 +54,7 @@ pub struct PresenterOptions {
     pub max_size: MaxSize,
     pub transition: Option<SlideTransitionConfig>,
     pub start_slide: Option<usize>,
+    pub terminal_progress_enabled: bool,
 }
 
 /// A slideshow presenter.
@@ -72,6 +73,7 @@ pub struct Presenter<'a> {
     options: PresenterOptions,
     speaker_notes_event_publisher: Option<SpeakerNotesEventPublisher>,
     poller: Poller,
+    terminal_progress_enabled: bool,
 }
 
 impl<'a> Presenter<'a> {
@@ -89,6 +91,7 @@ impl<'a> Presenter<'a> {
         options: PresenterOptions,
         speaker_notes_event_publisher: Option<SpeakerNotesEventPublisher>,
     ) -> Self {
+        let terminal_progress_enabled = options.terminal_progress_enabled;
         Self {
             default_theme,
             listener,
@@ -102,6 +105,7 @@ impl<'a> Presenter<'a> {
             options,
             speaker_notes_event_publisher,
             poller: Poller::launch(),
+            terminal_progress_enabled,
         }
     }
 
@@ -119,8 +123,10 @@ impl<'a> Presenter<'a> {
         let drawer_options = TerminalDrawerOptions {
             font_size_fallback: self.options.font_size_fallback,
             max_size: self.options.max_size.clone(),
+            terminal_progress_enabled: self.terminal_progress_enabled,
         };
         let mut drawer = TerminalDrawer::new(self.image_printer.clone(), drawer_options)?;
+        self.update_terminal_progress(&mut drawer);
         loop {
             // Poll async renders once before we draw just in case.
             self.render(&mut drawer)?;
@@ -175,6 +181,7 @@ impl<'a> Presenter<'a> {
             }
 
             if !matches!(self.state, PresenterState::Failure { .. }) {
+                self.update_terminal_progress(&mut drawer);
                 let slide_index = self.state.presentation().current_slide_index() as u32 + 1;
                 let slide = self.state.presentation().current_slide();
                 self.publish_event(SpeakerNotesEvent::GoTo {
@@ -404,6 +411,20 @@ impl<'a> Presenter<'a> {
             }
         };
         Ok(())
+    }
+
+    fn update_terminal_progress(&self, drawer: &mut TerminalDrawer) {
+        if !self.terminal_progress_enabled {
+            return;
+        }
+        let presentation = self.state.presentation();
+        let total = presentation.total_slides();
+        if total == 0 {
+            return;
+        }
+        let current = presentation.current_slide_index();
+        let percentage = ((current + 1) * 100 / total) as u8;
+        drawer.terminal.set_terminal_progress(percentage);
     }
 
     fn try_scale_transition_images(&self) -> RenderResult {
