@@ -23,8 +23,8 @@ use image::{DynamicImage, ImageError};
 use std::{
     borrow::Cow,
     collections::HashMap,
-    fmt, io,
-    path::PathBuf,
+    fmt, fs, io,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
@@ -187,6 +187,14 @@ impl ImageRegistry {
                 (ImageSource::Filesystem(path.clone()), Some(path.clone()))
             }
         };
+        let spec = match spec {
+            ImageSpec::Filesystem(ref path)
+                if path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("svg")) =>
+            {
+                ImageSpec::Generated(rasterize_svg(path)?)
+            }
+            other => other,
+        };
         let resource = self.printer.register(spec)?;
         let image = Image::new(resource, source);
         if let Some(key) = cache_key {
@@ -203,6 +211,21 @@ impl ImageRegistry {
 pub(crate) enum ImageSpec {
     Generated(DynamicImage),
     Filesystem(PathBuf),
+}
+
+pub(crate) fn rasterize_svg(path: &Path) -> Result<DynamicImage, RegisterImageError> {
+    use resvg::{tiny_skia, usvg};
+
+    let data = fs::read(path)?;
+    let tree = usvg::Tree::from_data(&data, &usvg::Options::default())
+        .map_err(|e| RegisterImageError::Svg(e.to_string()))?;
+    let size = tree.size();
+    let mut pixmap = tiny_skia::Pixmap::new(size.width() as u32, size.height() as u32)
+        .ok_or_else(|| RegisterImageError::Svg("invalid SVG dimensions".into()))?;
+    resvg::render(&tree, tiny_skia::Transform::default(), &mut pixmap.as_mut());
+    let rgba = image::RgbaImage::from_raw(pixmap.width(), pixmap.height(), pixmap.take())
+        .ok_or_else(|| RegisterImageError::Svg("rasterization failed".into()))?;
+    Ok(DynamicImage::from(rgba))
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -248,6 +271,9 @@ pub(crate) enum RegisterImageError {
 
     #[error("image decoding: {0}")]
     Image(#[from] ImageError),
+
+    #[error("svg: {0}")]
+    Svg(String),
 
     #[error("printer can't register images")]
     Unsupported,
