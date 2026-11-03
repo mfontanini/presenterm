@@ -100,9 +100,11 @@ impl AsRenderOperations for PtySnippetOutputOperation {
             .shrink_rows(dimensions.rows - dimensions.rows / self.font_size as u16)
             .shrink_columns(dimensions.columns - dimensions.columns / self.font_size as u16);
 
-        if inner.update_size && inner.expected_size != dimensions && dimensions.rows > 0 {
+        if inner.update_size && inner.expected_size != dimensions && dimensions.rows > 0 && dimensions.columns > 0 {
             inner.expected_size = dimensions;
-            inner.parser.screen_mut().set_size(dimensions.rows, dimensions.columns);
+            let rows = dimensions.rows.try_into().unwrap();
+            let columns = dimensions.columns.try_into().unwrap();
+            inner.parser.screen_mut().set_size(rows, columns);
         }
         if matches!(inner.state, State::Initial) {
             let mut operations = Vec::new();
@@ -132,6 +134,8 @@ impl AsRenderOperations for PtySnippetOutputOperation {
 
         let screen = inner.parser.screen();
         let (rows, columns) = screen.size();
+        let rows = rows.into();
+        let columns = columns.into();
         let mut operations = vec![];
         let cursor_position = if screen.hide_cursor() { None } else { Some(screen.cursor_position()) };
 
@@ -344,7 +348,11 @@ impl PtySnippetHandle {
             width: 0,
         };
         let update_size = args.columns.is_none() || args.rows.is_none();
-        let parser = vt100::Parser::new(expected_size.rows, expected_size.columns, 1000);
+        let parser = vt100::Parser::new(
+            expected_size.rows.max(1).try_into().unwrap(),
+            expected_size.columns.max(1).try_into().unwrap(),
+            1000,
+        );
         let inner = Inner {
             snippet,
             executor,

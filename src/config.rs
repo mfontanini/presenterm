@@ -78,7 +78,6 @@ pub enum ConfigLoadError {
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 #[serde(untagged)]
-#[cfg_attr(feature = "json-schema", schemars(with = "ThemeConfigSchema"))]
 pub enum ThemeConfig {
     #[default]
     None,
