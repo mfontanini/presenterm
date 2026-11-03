@@ -1,41 +1,37 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Config",
   "type": "object",
   "properties": {
     "bindings": {
-      "$ref": "#/definitions/KeyBindingsConfig"
+      "$ref": "#/$defs/KeyBindingsConfig"
     },
     "d2": {
-      "$ref": "#/definitions/D2Config"
+      "$ref": "#/$defs/D2Config"
     },
     "defaults": {
       "description": "The default configuration for the presentation.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/DefaultsConfig"
-        }
-      ]
+      "$ref": "#/$defs/DefaultsConfig"
     },
     "export": {
-      "$ref": "#/definitions/ExportConfig"
+      "$ref": "#/$defs/ExportConfig"
     },
     "mermaid": {
-      "$ref": "#/definitions/MermaidConfig"
+      "$ref": "#/$defs/MermaidConfig"
     },
     "options": {
-      "$ref": "#/definitions/OptionsConfig"
+      "$ref": "#/$defs/OptionsConfig"
     },
     "snippet": {
-      "$ref": "#/definitions/SnippetConfig"
+      "$ref": "#/$defs/SnippetConfig"
     },
     "speaker_notes": {
-      "$ref": "#/definitions/SpeakerNotesConfig"
+      "$ref": "#/$defs/SpeakerNotesConfig"
     },
     "transition": {
       "anyOf": [
         {
-          "$ref": "#/definitions/SlideTransitionConfig"
+          "$ref": "#/$defs/SlideTransitionConfig"
         },
         {
           "type": "null"
@@ -43,22 +39,22 @@
       ]
     },
     "typst": {
-      "$ref": "#/definitions/TypstConfig"
+      "$ref": "#/$defs/TypstConfig"
     }
   },
   "additionalProperties": false,
-  "definitions": {
+  "$defs": {
     "D2Config": {
       "type": "object",
       "properties": {
         "scale": {
           "description": "The scaling parameter to be used in the d2 CLI.",
-          "default": null,
           "type": [
             "number",
             "null"
           ],
-          "format": "float"
+          "format": "float",
+          "default": null
         }
       },
       "additionalProperties": false
@@ -68,80 +64,59 @@
       "properties": {
         "image_protocol": {
           "description": "The image protocol to use.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/ImageProtocol"
-            }
-          ]
+          "$ref": "#/$defs/ImageProtocol"
         },
         "incremental_lists": {
           "description": "The configuration for lists when incremental lists are enabled.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/IncrementalElementConfig"
-            }
-          ]
+          "$ref": "#/$defs/IncrementalElementConfig"
         },
         "incremental_tables": {
           "description": "The configuration for tables when incremental tables are enabled.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/IncrementalElementConfig"
-            }
-          ]
+          "$ref": "#/$defs/IncrementalElementConfig"
         },
         "max_columns": {
           "description": "A max width in columns that the presentation must always be capped to.",
-          "default": 65535,
           "type": "integer",
           "format": "uint16",
-          "minimum": 0.0
+          "default": 65535,
+          "maximum": 65535,
+          "minimum": 0
         },
         "max_columns_alignment": {
-          "description": "The alignment the presentation should have if `max_columns` is set and the terminal is larger than that.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/MaxColumnsAlignment"
-            }
-          ]
+          "description": "The alignment the presentation should have if `max_columns` is set and the terminal is\nlarger than that.",
+          "$ref": "#/$defs/MaxColumnsAlignment"
         },
         "max_rows": {
           "description": "A max height in rows that the presentation must always be capped to.",
-          "default": 65535,
           "type": "integer",
           "format": "uint16",
-          "minimum": 0.0
+          "default": 65535,
+          "maximum": 65535,
+          "minimum": 0
         },
         "max_rows_alignment": {
-          "description": "The alignment the presentation should have if `max_rows` is set and the terminal is larger than that.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/MaxRowsAlignment"
-            }
-          ]
+          "description": "The alignment the presentation should have if `max_rows` is set and the terminal is\nlarger than that.",
+          "$ref": "#/$defs/MaxRowsAlignment"
         },
         "terminal_font_size": {
           "description": "Override the terminal font size when in windows or when using sixel.",
-          "default": 16,
           "type": "integer",
           "format": "uint8",
-          "minimum": 1.0
+          "default": 16,
+          "maximum": 255,
+          "minimum": 1
+        },
+        "terminal_progress": {
+          "description": "Whether to report presentation progress to the terminal.",
+          "$ref": "#/$defs/TerminalProgressConfig"
         },
         "theme": {
           "description": "The theme to use by default in every presentation unless overridden.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/ThemeConfig"
-            }
-          ]
+          "$ref": "#/$defs/ThemeConfig"
         },
         "validate_overflows": {
           "description": "Validate that the presentation does not overflow the terminal screen.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/ValidateOverflows"
-            }
-          ]
+          "$ref": "#/$defs/ValidateOverflows"
         }
       },
       "additionalProperties": false
@@ -154,7 +129,7 @@
           "description": "The dimensions to use for presentation exports.",
           "anyOf": [
             {
-              "$ref": "#/definitions/ExportDimensionsConfig"
+              "$ref": "#/$defs/ExportDimensionsConfig"
             },
             {
               "type": "null"
@@ -163,27 +138,15 @@
         },
         "pauses": {
           "description": "Whether pauses should create new slides.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/PauseExportPolicy"
-            }
-          ]
+          "$ref": "#/$defs/PauseExportPolicy"
         },
         "pdf": {
           "description": "The PDF specific export configs.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/PdfExportConfig"
-            }
-          ]
+          "$ref": "#/$defs/PdfExportConfig"
         },
         "snippets": {
           "description": "The policy for executable snippets when exporting.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/SnippetsExportPolicy"
-            }
-          ]
+          "$ref": "#/$defs/SnippetsExportPolicy"
         }
       },
       "additionalProperties": false
@@ -191,32 +154,31 @@
     "ExportDimensionsConfig": {
       "description": "The dimensions to use for presentation exports.",
       "type": "object",
-      "required": [
-        "columns",
-        "rows"
-      ],
       "properties": {
         "columns": {
           "description": "The number of columns.",
           "type": "integer",
           "format": "uint16",
-          "minimum": 0.0
+          "maximum": 65535,
+          "minimum": 0
         },
         "rows": {
           "description": "The number of rows.",
           "type": "integer",
           "format": "uint16",
-          "minimum": 0.0
+          "maximum": 65535,
+          "minimum": 0
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "rows",
+        "columns"
+      ]
     },
     "ExportFontsConfig": {
       "description": "The fonts used for exports.",
       "type": "object",
-      "required": [
-        "normal"
-      ],
       "properties": {
         "bold": {
           "description": "The path to the font file to be used for the \"bold\" variable of this font.",
@@ -244,58 +206,47 @@
           "type": "string"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "normal"
+      ]
     },
     "ImageProtocol": {
       "oneOf": [
         {
           "description": "Automatically detect the best image protocol to use.",
           "type": "string",
-          "enum": [
-            "auto"
-          ]
+          "const": "auto"
         },
         {
           "description": "Use the iTerm2 image protocol.",
           "type": "string",
-          "enum": [
-            "iterm2"
-          ]
+          "const": "iterm2"
         },
         {
           "description": "Use the iTerm2 image protocol in multipart mode.",
           "type": "string",
-          "enum": [
-            "iterm2-multipart"
-          ]
+          "const": "iterm2-multipart"
         },
         {
-          "description": "Use the kitty protocol in \"local\" mode, meaning both presenterm and the terminal run in the same host and can share the filesystem to communicate.",
+          "description": "Use the kitty protocol in \"local\" mode, meaning both presenterm and the terminal run in the\nsame host and can share the filesystem to communicate.",
           "type": "string",
-          "enum": [
-            "kitty-local"
-          ]
+          "const": "kitty-local"
         },
         {
-          "description": "Use the kitty protocol in \"remote\" mode, meaning presenterm and the terminal run in different hosts and therefore can only communicate via terminal escape codes.",
+          "description": "Use the kitty protocol in \"remote\" mode, meaning presenterm and the terminal run in\ndifferent hosts and therefore can only communicate via terminal escape codes.",
           "type": "string",
-          "enum": [
-            "kitty-remote"
-          ]
+          "const": "kitty-remote"
         },
         {
           "description": "Use the sixel protocol.",
           "type": "string",
-          "enum": [
-            "sixel"
-          ]
+          "const": "sixel"
         },
         {
           "description": "The default image protocol to use when no other is specified.",
           "type": "string",
-          "enum": [
-            "ascii-blocks"
-          ]
+          "const": "ascii-blocks"
         }
       ]
     },
@@ -305,19 +256,19 @@
       "properties": {
         "pause_after": {
           "description": "Whether to pause after.",
-          "default": null,
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "default": null
         },
         "pause_before": {
           "description": "Whether to pause before.",
-          "default": null,
           "type": [
             "boolean",
             "null"
-          ]
+          ],
+          "default": null
         }
       },
       "additionalProperties": false
@@ -332,112 +283,112 @@
           "description": "The key binding to close the currently open modal.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "execute_code": {
           "description": "The key binding to execute a piece of shell code.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "exit": {
           "description": "The key binding to close the application.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "first_slide": {
           "description": "The key binding to jump to the first slide.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "go_to_slide": {
           "description": "The key binding to jump to a specific slide.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "last_slide": {
           "description": "The key binding to jump to the last slide.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "next": {
           "description": "The keys that cause the presentation to move forwards.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "next_fast": {
-          "description": "The keys that cause the presentation to jump to the next slide \"fast\".\n\n\"fast\" means for slides that contain pauses, we will skip all pauses and jump straight to the next slide.",
+          "description": "The keys that cause the presentation to jump to the next slide \"fast\".\n\n\"fast\" means for slides that contain pauses, we will skip all pauses and jump straight to\nthe next slide.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "previous": {
           "description": "The keys that cause the presentation to move backwards.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "previous_fast": {
-          "description": "The keys that cause the presentation to move backwards \"fast\".\n\n\"fast\" means for slides that contain pauses, we will skip all pauses and jump straight to the previous slide.",
+          "description": "The keys that cause the presentation to move backwards \"fast\".\n\n\"fast\" means for slides that contain pauses, we will skip all pauses and jump straight to\nthe previous slide.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "reload": {
           "description": "The key binding to reload the presentation.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "skip_pauses": {
           "description": "The key binding to show the entire slide, after skipping any pauses in it.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "suspend": {
           "description": "The key binding to suspend the application.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "toggle_bindings": {
           "description": "The key binding to toggle the key bindings modal.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "toggle_layout_grid": {
           "description": "The key binding to toggle the layout grid.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         },
         "toggle_slide_index": {
           "description": "The key binding to toggle the slide index modal.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/KeyBinding"
+            "$ref": "#/$defs/KeyBinding"
           }
         }
       },
@@ -446,16 +397,12 @@
     "LanguageSnippetExecutionConfig": {
       "description": "The snippet execution configuration for a specific programming language.",
       "type": "object",
-      "required": [
-        "commands",
-        "filename"
-      ],
       "properties": {
         "alternative": {
           "description": "Alternative executors for this language.",
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/SnippetExecutorConfig"
+            "$ref": "#/$defs/SnippetExecutorConfig"
           }
         },
         "commands": {
@@ -470,11 +417,11 @@
         },
         "environment": {
           "description": "The environment variables to set before invoking every command.",
-          "default": {},
           "type": "object",
           "additionalProperties": {
             "type": "string"
-          }
+          },
+          "default": {}
         },
         "filename": {
           "description": "The filename to use for the snippet input file.",
@@ -487,7 +434,11 @@
             "null"
           ]
         }
-      }
+      },
+      "required": [
+        "filename",
+        "commands"
+      ]
     },
     "MaxColumnsAlignment": {
       "description": "The alignment to use when `defaults.max_columns` is set.",
@@ -495,23 +446,17 @@
         {
           "description": "Align the presentation to the left.",
           "type": "string",
-          "enum": [
-            "left"
-          ]
+          "const": "left"
         },
         {
           "description": "Align the presentation on the center.",
           "type": "string",
-          "enum": [
-            "center"
-          ]
+          "const": "center"
         },
         {
           "description": "Align the presentation to the right.",
           "type": "string",
-          "enum": [
-            "right"
-          ]
+          "const": "right"
         }
       ]
     },
@@ -521,23 +466,17 @@
         {
           "description": "Align the presentation to the top.",
           "type": "string",
-          "enum": [
-            "top"
-          ]
+          "const": "top"
         },
         {
           "description": "Align the presentation on the center.",
           "type": "string",
-          "enum": [
-            "center"
-          ]
+          "const": "center"
         },
         {
           "description": "Align the presentation to the bottom.",
           "type": "string",
-          "enum": [
-            "bottom"
-          ]
+          "const": "bottom"
         }
       ]
     },
@@ -546,8 +485,8 @@
       "properties": {
         "cli": {
           "description": "The application to use to generate diagrams.",
-          "default": "mmdc",
-          "type": "string"
+          "type": "string",
+          "default": "mmdc"
         },
         "config_path": {
           "description": "A path to a mermaid JSON configuration file to be used by the `mmdc` tool.",
@@ -565,10 +504,10 @@
         },
         "scale": {
           "description": "The scaling parameter to be used in the mermaid CLI.",
-          "default": 2,
           "type": "integer",
           "format": "uint32",
-          "minimum": 0.0
+          "default": 2,
+          "minimum": 0
         }
       },
       "additionalProperties": false
@@ -580,7 +519,7 @@
           "description": "Assume snippets for these languages contain `+render` and render them automatically.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/SnippetLanguage"
+            "$ref": "#/$defs/SnippetLanguage"
           }
         },
         "command_prefix": {
@@ -639,7 +578,8 @@
             "null"
           ],
           "format": "uint8",
-          "minimum": 1.0
+          "maximum": 255,
+          "minimum": 1
         },
         "strict_front_matter_parsing": {
           "description": "Whether to be strict about parsing the presentation's front matter.",
@@ -657,16 +597,12 @@
         {
           "description": "Whether to ignore pauses.",
           "type": "string",
-          "enum": [
-            "ignore"
-          ]
+          "const": "ignore"
         },
         {
           "description": "Create a new slide when a pause is found.",
           "type": "string",
-          "enum": [
-            "new_slide"
-          ]
+          "const": "new_slide"
         }
       ]
     },
@@ -678,7 +614,7 @@
           "description": "The path to the font file to be used.",
           "anyOf": [
             {
-              "$ref": "#/definitions/ExportFontsConfig"
+              "$ref": "#/$defs/ExportFontsConfig"
             },
             {
               "type": "null"
@@ -690,84 +626,75 @@
     },
     "SlideTransitionConfig": {
       "type": "object",
-      "required": [
-        "animation"
-      ],
       "properties": {
         "animation": {
           "description": "The slide transition style.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/SlideTransitionStyleConfig"
-            }
-          ]
+          "$ref": "#/$defs/SlideTransitionStyleConfig"
         },
         "duration_millis": {
           "description": "The amount of time to take to perform the transition.",
-          "default": 1000,
           "type": "integer",
           "format": "uint16",
-          "minimum": 0.0
+          "default": 1000,
+          "maximum": 65535,
+          "minimum": 0
         },
         "frames": {
           "description": "The number of frames in a transition.",
-          "default": 30,
           "type": "integer",
           "format": "uint",
-          "minimum": 0.0
+          "default": 30,
+          "minimum": 0
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "animation"
+      ]
     },
     "SlideTransitionStyleConfig": {
       "oneOf": [
         {
           "description": "Slide horizontally.",
           "type": "object",
-          "required": [
-            "style"
-          ],
           "properties": {
             "style": {
               "type": "string",
-              "enum": [
-                "slide_horizontal"
-              ]
+              "const": "slide_horizontal"
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "required": [
+            "style"
+          ]
         },
         {
           "description": "Fade the new slide into the previous one.",
           "type": "object",
-          "required": [
-            "style"
-          ],
           "properties": {
             "style": {
               "type": "string",
-              "enum": [
-                "fade"
-              ]
+              "const": "fade"
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "required": [
+            "style"
+          ]
         },
         {
           "description": "Collapse the current slide into the center of the screen.",
           "type": "object",
-          "required": [
-            "style"
-          ],
           "properties": {
             "style": {
               "type": "string",
-              "enum": [
-                "collapse_horizontal"
-              ]
+              "const": "collapse_horizontal"
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "required": [
+            "style"
+          ]
         }
       ]
     },
@@ -776,32 +703,20 @@
       "properties": {
         "exec": {
           "description": "The properties for snippet execution.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/SnippetExecConfig"
-            }
-          ]
+          "$ref": "#/$defs/SnippetExecConfig"
         },
         "exec_replace": {
           "description": "The properties for snippet execution.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/SnippetExecReplaceConfig"
-            }
-          ]
+          "$ref": "#/$defs/SnippetExecReplaceConfig"
         },
         "render": {
           "description": "The properties for snippet auto rendering.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/SnippetRenderConfig"
-            }
-          ]
+          "$ref": "#/$defs/SnippetRenderConfig"
         },
         "validate": {
           "description": "Whether to validate snippets.",
-          "default": false,
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         }
       },
       "additionalProperties": false
@@ -813,37 +728,33 @@
           "description": "Custom snippet executors.",
           "type": "object",
           "additionalProperties": {
-            "$ref": "#/definitions/LanguageSnippetExecutionConfig"
+            "$ref": "#/$defs/LanguageSnippetExecutionConfig"
           }
         },
         "enable": {
           "description": "Whether to enable snippet execution.",
-          "default": false,
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         }
       },
       "additionalProperties": false
     },
     "SnippetExecReplaceConfig": {
       "type": "object",
-      "required": [
-        "enable"
-      ],
       "properties": {
         "enable": {
-          "description": "Whether to enable snippet replace-executions, which automatically run code snippets without the user's intervention.",
+          "description": "Whether to enable snippet replace-executions, which automatically run code snippets without\nthe user's intervention.",
           "type": "boolean"
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "required": [
+        "enable"
+      ]
     },
     "SnippetExecutorConfig": {
       "description": "A snippet executor configuration.",
       "type": "object",
-      "required": [
-        "commands",
-        "filename"
-      ],
       "properties": {
         "commands": {
           "description": "The commands to be ran when executing snippets for this programming language.",
@@ -857,17 +768,21 @@
         },
         "environment": {
           "description": "The environment variables to set before invoking every command.",
-          "default": {},
           "type": "object",
           "additionalProperties": {
             "type": "string"
-          }
+          },
+          "default": {}
         },
         "filename": {
           "description": "The filename to use for the snippet input file.",
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "filename",
+        "commands"
+      ]
     },
     "SnippetLanguage": {
       "description": "The language of a code snippet.",
@@ -953,15 +868,15 @@
         },
         {
           "type": "object",
-          "required": [
-            "Unknown"
-          ],
           "properties": {
             "Unknown": {
               "type": "string"
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "required": [
+            "Unknown"
+          ]
         }
       ]
     },
@@ -970,10 +885,10 @@
       "properties": {
         "threads": {
           "description": "The number of threads to use when rendering.",
-          "default": 2,
           "type": "integer",
           "format": "uint",
-          "minimum": 0.0
+          "default": 2,
+          "minimum": 0
         }
       },
       "additionalProperties": false
@@ -984,16 +899,12 @@
         {
           "description": "Render all executable snippets in parallel.",
           "type": "string",
-          "enum": [
-            "parallel"
-          ]
+          "const": "parallel"
         },
         {
           "description": "Render all executable snippets sequentially.",
           "type": "string",
-          "enum": [
-            "sequential"
-          ]
+          "const": "sequential"
         }
       ]
     },
@@ -1002,18 +913,29 @@
       "properties": {
         "always_publish": {
           "description": "Whether to always publish speaker notes.",
-          "default": false,
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "listen_address": {
           "description": "The address in which to listen for speaker note events.",
-          "default": "127.255.255.255:59418",
-          "type": "string"
+          "type": "string",
+          "default": "127.255.255.255:59418"
         },
         "publish_address": {
           "description": "The address in which to publish speaker notes events.",
-          "default": "127.255.255.255:59418",
-          "type": "string"
+          "type": "string",
+          "default": "127.255.255.255:59418"
+        }
+      },
+      "additionalProperties": false
+    },
+    "TerminalProgressConfig": {
+      "type": "object",
+      "properties": {
+        "enable": {
+          "description": "Whether to report presentation progress to the terminal via OSC 9;4 escape sequences.",
+          "type": "boolean",
+          "default": false
         }
       },
       "additionalProperties": false
@@ -1030,10 +952,6 @@
         {
           "description": "Automatic dark/light theme switch based on the terminal background luminance.",
           "type": "object",
-          "required": [
-            "dark",
-            "light"
-          ],
           "properties": {
             "dark": {
               "description": "Dark theme of the presentation.",
@@ -1050,10 +968,14 @@
                 "null"
               ],
               "format": "uint64",
-              "minimum": 1.0
+              "minimum": 1
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "required": [
+            "dark",
+            "light"
+          ]
         }
       ]
     },
@@ -1062,10 +984,10 @@
       "properties": {
         "ppi": {
           "description": "The pixels per inch when rendering latex/typst formulas.",
-          "default": 300,
           "type": "integer",
           "format": "uint32",
-          "minimum": 0.0
+          "default": 300,
+          "minimum": 0
         }
       },
       "additionalProperties": false
