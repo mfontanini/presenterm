@@ -143,7 +143,7 @@ impl VirtualTerminal {
     }
 
     fn print_text(&mut self, content: &str, style: &TextStyle) -> io::Result<()> {
-        let style = style.merged(&TextStyle::default().colors(self.colors));
+        let style = TextStyle::default().colors(self.colors).merged(style);
         for c in content.chars() {
             let Some(cell) = self.current_cell_mut() else {
                 continue;
