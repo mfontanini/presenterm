@@ -68,17 +68,17 @@ impl Presentation {
     }
 
     /// Jump forwards.
-    pub(crate) fn jump_next(&mut self, restart: bool) -> bool {
+    pub(crate) fn jump_next(&mut self) -> bool {
         let current_slide = self.current_slide_mut();
         if current_slide.move_next() {
             return true;
         }
-        self.jump_next_slide(restart)
+        self.jump_next_slide()
     }
 
     /// Jump to the next slide, ignoring any chunks and modifiers.
-    pub(crate) fn jump_next_fast(&mut self, restart: bool) -> bool {
-        self.jump_next_slide(restart)
+    pub(crate) fn jump_next_fast(&mut self) -> bool {
+        self.jump_next_slide()
     }
 
     /// Jump backwards.
@@ -140,15 +140,10 @@ impl Presentation {
         self.current_slide_mut().show_all_chunks();
     }
 
-    fn jump_next_slide(&mut self, restart: bool) -> bool {
+    fn jump_next_slide(&mut self) -> bool {
         let current_slide_index = self.current_slide_index();
         if current_slide_index < self.slides.len() - 1 {
             self.state.set_current_slide_index(current_slide_index + 1);
-            // Going forward we show only the first chunk.
-            self.current_slide_mut().show_first_chunk();
-            true
-        } else if restart {
-            self.state.set_current_slide_index(0);
             // Going forward we show only the first chunk.
             self.current_slide_mut().show_first_chunk();
             true
@@ -479,13 +474,13 @@ mod test {
     }
 
     impl Jump {
-        fn apply(&self, presentation: &mut Presentation, restart: bool) {
+        fn apply(&self, presentation: &mut Presentation) {
             use Jump::*;
             match self {
                 First => presentation.jump_first_slide(),
                 Last => presentation.jump_last_slide(),
-                Next => presentation.jump_next(restart),
-                NextFast => presentation.jump_next_fast(restart),
+                Next => presentation.jump_next(),
+                NextFast => presentation.jump_next_fast(),
                 Previous => presentation.jump_previous(),
                 PreviousFast => presentation.jump_previous_fast(),
                 Specific(index) => presentation.go_to_slide(*index),
@@ -572,7 +567,7 @@ mod test {
         presentation.go_to_slide(from);
 
         for jump in jumps {
-            jump.apply(&mut presentation, false);
+            jump.apply(&mut presentation);
         }
         assert_eq!(presentation.current_slide_index(), expected_slide);
         assert_eq!(presentation.current_slide().visible_chunks - 1, expected_chunk);
@@ -615,7 +610,7 @@ mod test {
         presentation.go_to_slide(from);
 
         for jump in jumps {
-            jump.apply(&mut presentation, false);
+            jump.apply(&mut presentation);
         }
         let mutators: Vec<_> = presentation
             .iter_slides()
