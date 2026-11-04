@@ -581,8 +581,8 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
             self.slide_builders.push(builder);
         }
 
-        self.push_slide_prelude();
         self.slide_state = Default::default();
+        self.push_slide_prelude();
     }
 
     fn apply_theme_text_style(&self, text: &mut Text) {
