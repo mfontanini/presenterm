@@ -260,6 +260,9 @@ pub struct OptionsConfig {
 
     /// Whether the first `h1` header on a slide should be considered a slide title.
     pub h1_slide_titles: Option<bool>,
+
+    /// Whether to cycle through the presentation after the last slide.
+    pub cycle_presentation: Option<bool>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
