@@ -23,13 +23,14 @@ pub(crate) struct Modals {
 pub(crate) struct Presentation {
     slides: Vec<Slide>,
     modals: Modals,
+    cycle: bool,
     pub(crate) state: PresentationState,
 }
 
 impl Presentation {
     /// Construct a new presentation.
-    pub(crate) fn new(slides: Vec<Slide>, modals: Modals, state: PresentationState) -> Self {
-        Self { slides, modals, state }
+    pub(crate) fn new(slides: Vec<Slide>, modals: Modals, cycle: bool, state: PresentationState) -> Self {
+        Self { slides, modals, cycle, state }
     }
 
     /// Iterate the slides in this presentation.
@@ -152,6 +153,8 @@ impl Presentation {
             // Going forward we show only the first chunk.
             self.current_slide_mut().show_first_chunk();
             true
+        } else if self.cycle {
+            self.jump_first_slide()
         } else {
             false
         }
@@ -173,7 +176,7 @@ impl Presentation {
 impl From<Vec<Slide>> for Presentation {
     fn from(slides: Vec<Slide>) -> Self {
         let modals = Modals { slide_index: vec![], bindings: vec![] };
-        Self::new(slides, modals, Default::default())
+        Self::new(slides, modals, false, Default::default())
     }
 }
 

@@ -97,6 +97,7 @@ pub struct PresentationBuilderOptions {
     pub validate_snippets: bool,
     pub layout_grid: bool,
     pub h1_slide_titles: bool,
+    pub cycle_presentation: bool,
 }
 
 impl PresentationBuilderOptions {
@@ -108,6 +109,7 @@ impl PresentationBuilderOptions {
         self.strict_front_matter_parsing =
             options.strict_front_matter_parsing.unwrap_or(self.strict_front_matter_parsing);
         self.h1_slide_titles = options.h1_slide_titles.unwrap_or(self.h1_slide_titles);
+        self.cycle_presentation = options.cycle_presentation.unwrap_or(self.cycle_presentation);
         if let Some(prefix) = options.command_prefix {
             self.command_prefix = prefix;
         }
@@ -150,6 +152,7 @@ impl Default for PresentationBuilderOptions {
             validate_snippets: false,
             layout_grid: false,
             h1_slide_titles: false,
+            cycle_presentation: false,
         }
     }
 }
@@ -287,7 +290,8 @@ impl<'a, 'b> PresentationBuilder<'a, 'b> {
         let bindings = bindings_modal_builder.build(&self.theme, &self.bindings_config);
         let slide_index = self.index_builder.build(&self.theme, self.presentation_state.clone());
         let modals = Modals { slide_index, bindings };
-        let presentation = Presentation::new(slides, modals, self.presentation_state);
+        let cycle = self.options.cycle_presentation;
+        let presentation = Presentation::new(slides, modals, cycle, self.presentation_state);
         Ok(presentation)
     }
 

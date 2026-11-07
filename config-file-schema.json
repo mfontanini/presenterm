@@ -529,6 +529,13 @@
             "null"
           ]
         },
+        "cycle_presentation": {
+          "description": "Whether to cycle through the presentation after the last slide.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
         "end_slide_shorthand": {
           "description": "Whether to treat a thematic break as a slide end.",
           "type": [
