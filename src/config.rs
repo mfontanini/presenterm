@@ -425,6 +425,10 @@ pub struct SnippetExecutorConfig {
 
     /// The commands to be ran when executing snippets for this programming language.
     pub commands: Vec<Vec<String>>,
+
+    /// Whether to discard the output of every command except the last one.
+    #[serde(default)]
+    pub quiet: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, ValueEnum)]
@@ -839,5 +843,16 @@ mod test {
     #[test]
     fn default_options_serde() {
         serde_yaml::from_str::<'_, OptionsConfig>("implicit_slide_ends: true").expect("failed to parse");
+    }
+
+    #[test]
+    fn snippet_executor_quiet_serde() {
+        let yaml = "filename: snippet.cpp\ncommands: [[\"g++\"]]";
+        let config: SnippetExecutorConfig = serde_yaml::from_str(yaml).expect("failed to parse");
+        assert!(!config.quiet);
+
+        let yaml = format!("{yaml}\nquiet: true");
+        let config: SnippetExecutorConfig = serde_yaml::from_str(&yaml).expect("failed to parse");
+        assert!(config.quiet);
     }
 }
