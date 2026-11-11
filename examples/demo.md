@@ -150,6 +150,20 @@ _Picture by Alexis Bailey / CC BY-NC 4.0_
 
 <!-- end_slide -->
 
+Diagrams
+---
+
+Mermaid diagrams can be rendered into images:
+
+```mermaid +render
+flowchart LR
+    A[Markdown] --> B[presenterm]
+    B --> C[Terminal]
+    B --> D[PDF]
+```
+
+<!-- end_slide -->
+
 Column layouts
 ---
 
