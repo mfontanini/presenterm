@@ -292,23 +292,51 @@ snippet:
 ## Mermaid
 
 The following configuration parameters can be set to alter the behavior when displaying 
-[mermaid](https://mermaid.js.org/) diagrams. Rendering is performed in-process with 
-[merman](https://github.com/Latias94/merman); no external CLI is required.
+[mermaid](https://mermaid.js.org/) diagrams. By default, rendering is performed in-process with 
+[merman](https://github.com/Latias94/merman).
+
+### CLI renderer
+
+Set `mermaid.cli` to the executable name or path of an external renderer to use that tool instead of 
+merman. The executable must accept the same flags as 
+[mermaid-cli](https://github.com/mermaid-js/mermaid-cli) (`mmdc`): `-i`, `-o`, `-s`, `-t`, `-b`, and, 
+when the matching options below are set, `-c` and `-p`.
+
+```yaml
+mermaid:
+  cli: mmdc
+```
+
+On Windows the mermaid-cli executable is typically `mmdc.cmd`. Other compatible tools, such as 
+`mmd-cli`, can be configured the same way.
 
 ### Config file
 
 A custom [mermaid config file](https://mermaid.ai/open-source/config/schema-docs/config.html) can be configured via the 
-`mermaid.config_path` config parameter. This should point to a JSON configuration file applied as mermaid site config 
-defaults (for example font family). Theme values from the presentation theme still take precedence over this file:
+`mermaid.config_path` config parameter. This should point to a JSON configuration file. The built-in 
+renderer applies it as mermaid site config defaults (for example font family). Theme values from the 
+presentation theme still take precedence over this file. A configured CLI receives the path via `-c`.
 
 ```yaml
 mermaid:
   config_path: /home/foo/mermaid-config.json
 ```
 
+### Puppeteer config file
+
+When `mermaid.cli` is set, a puppeteer config file can be passed through to the CLI via 
+`mermaid.puppeteer_config_path`:
+
+```yaml
+mermaid:
+  cli: mmdc
+  puppeteer_config_path: /home/foo/puppeteer.json
+```
+
 ### Scaling
 
-mermaid graphs will use a default raster scale of `2`. If you'd like to change this use:
+mermaid graphs will use a default raster scale of `2` for both the built-in renderer and a configured 
+CLI. If you'd like to change this use:
 
 
 ```yaml

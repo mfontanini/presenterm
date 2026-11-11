@@ -24,6 +24,12 @@ mermaid:
   # the scale parameter used when rasterizing mermaid diagrams.
   scale: 2
 
+  # optional external renderer. when set, this executable is used instead of the
+  # built-in merman renderer. it must accept mermaid-cli (mmdc) flags.
+  # examples: mmdc, mmdc.cmd, mmd-cli.
+  # cli: mmdc
+  # puppeteer_config_path: /home/foo/puppeteer.json
+
 options:
   # whether slides are automatically terminated when a slide title is found.
   implicit_slide_ends: false

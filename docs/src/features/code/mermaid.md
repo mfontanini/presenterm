@@ -11,8 +11,9 @@ sequenceDiagram
 ```
 ~~~
 
-Mermaid diagrams are rendered in-process via the [merman](https://github.com/Latias94/merman) Rust library. No external 
-`mmdc` / mermaid-cli installation or browser is required.
+Mermaid diagrams are rendered in-process via the [merman](https://github.com/Latias94/merman) Rust library. To use an 
+external renderer instead, set `mermaid.cli` in the 
+[configuration file](../../configuration/settings.md#cli-renderer) to a mermaid-cli compatible tool such as `mmdc`.
 
 Mermaid graphs are rendered asynchronously by a number of threads that can be configured in the 
 [configuration file](../../configuration/settings.md#snippet-rendering-threads). This configuration value currently 
@@ -41,7 +42,7 @@ cause the image to become blurry.
 The theme of the rendered mermaid diagrams can be changed through the following [theme](../themes/introduction.md) 
 parameters:
 
-* `mermaid.background` the background color used when rasterizing (e.g., `transparent`, `red`, `#F0F0F0`).
+* `mermaid.background` the background color of the rendered diagram (e.g., `transparent`, `red`, `#F0F0F0`).
 * `mermaid.theme` the [mermaid theme](https://mermaid.js.org/config/theming.html#available-themes) to use.
 
 ## Always render diagrams

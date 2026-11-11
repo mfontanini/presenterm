@@ -31,7 +31,10 @@ use std::{
 
 pub struct ThirdPartyConfigs {
     pub typst_ppi: String,
+    /// When set, diagrams are rendered with this executable instead of merman.
+    pub mermaid_cli: Option<String>,
     pub mermaid_scale: u32,
+    pub mermaid_puppeteer_file: Option<String>,
     pub mermaid_config_file: Option<String>,
     pub d2_scale: String,
     pub threads: usize,
@@ -68,7 +71,9 @@ impl Default for ThirdPartyRender {
     fn default() -> Self {
         let config = ThirdPartyConfigs {
             typst_ppi: default_typst_ppi().to_string(),
+            mermaid_cli: None,
             mermaid_scale: default_mermaid_scale(),
+            mermaid_puppeteer_file: None,
             mermaid_config_file: None,
             d2_scale: "-1".to_string(),
             threads: default_snippet_render_threads(),
@@ -196,6 +201,56 @@ impl Worker {
             return Ok(image);
         }
 
+        match self.shared.config.mermaid_cli.clone() {
+            Some(cli) => self.render_mermaid_cli(snippet, &input, style, &cli),
+            None => self.render_mermaid_merman(snippet, &input, style),
+        }
+    }
+
+    fn render_mermaid_cli(
+        &self,
+        snippet: ImageSnippet,
+        input: &str,
+        style: &MermaidStyle,
+        cli: &str,
+    ) -> Result<Image, ThirdPartyRenderError> {
+        let workdir = tempfile::Builder::default().prefix(".presenterm").tempdir()?;
+        let output_path = workdir.path().join("output.png");
+        let input_path = workdir.path().join("input.mmd");
+        fs::write(&input_path, input)?;
+
+        let input_path = input_path.to_string_lossy();
+        let output_path_str = output_path.to_string_lossy();
+        let scale = self.shared.config.mermaid_scale.to_string();
+        let mut args = vec![
+            "-i",
+            input_path.as_ref(),
+            "-o",
+            output_path_str.as_ref(),
+            "-s",
+            scale.as_str(),
+            "-t",
+            style.theme.as_str(),
+            "-b",
+            style.background.as_str(),
+        ];
+        if let Some(path) = &self.shared.config.mermaid_puppeteer_file {
+            args.extend(["-p", path]);
+        }
+        if let Some(path) = &self.shared.config.mermaid_config_file {
+            args.extend(["-c", path]);
+        }
+
+        ThirdPartyTools::mermaid(cli, &args).run()?;
+        self.load_image(snippet, &output_path)
+    }
+
+    fn render_mermaid_merman(
+        &self,
+        snippet: ImageSnippet,
+        input: &str,
+        style: &MermaidStyle,
+    ) -> Result<Image, ThirdPartyRenderError> {
         let site_config = self.build_mermaid_site_config(style)?;
         // merman hardcodes `background-color: white` on the root SVG (mermaid parity). That
         // overrides RasterOptions alone, so rewrite the root background to the theme value
@@ -210,7 +265,7 @@ impl Worker {
             .with_scale(self.shared.config.mermaid_scale as f32)
             .with_background(style.background.clone());
         let png_bytes = renderer
-            .render_png_sync(&input, &raster)
+            .render_png_sync(input, &raster)
             .map_err(|error| ThirdPartyRenderError::Mermaid(error.to_string()))?
             .ok_or_else(|| ThirdPartyRenderError::Mermaid("no mermaid diagram detected in snippet".into()))?;
 
@@ -452,7 +507,9 @@ mod tests {
     fn test_worker() -> Worker {
         let config = ThirdPartyConfigs {
             typst_ppi: default_typst_ppi().to_string(),
+            mermaid_cli: None,
             mermaid_scale: default_mermaid_scale(),
+            mermaid_puppeteer_file: None,
             mermaid_config_file: None,
             d2_scale: "-1".into(),
             threads: 1,
@@ -502,5 +559,86 @@ mod tests {
         let image = image::load_from_memory(&png).expect("png").to_rgba8();
         let corner = image.get_pixel(0, 0).0;
         assert_eq!(corner[3], 0, "corner should be transparent, got {corner:?}");
+    }
+
+    #[test]
+    fn render_mermaid_uses_configured_cli() {
+        let config = ThirdPartyConfigs {
+            typst_ppi: default_typst_ppi().to_string(),
+            mermaid_cli: Some("presenterm-missing-mmdc".into()),
+            mermaid_scale: default_mermaid_scale(),
+            mermaid_puppeteer_file: Some("puppeteer.json".into()),
+            mermaid_config_file: Some("mermaid.json".into()),
+            d2_scale: "-1".into(),
+            threads: 1,
+        };
+        let shared = Arc::new(Shared { config, root_dir: ".".into(), signal: Default::default() });
+        let state = Arc::new(Mutex::new(RenderPoolState {
+            requests: Default::default(),
+            image_registry: Default::default(),
+            cache: Default::default(),
+        }));
+        let worker = Worker { state, shared };
+        let style = MermaidStyle { theme: "default".into(), background: "transparent".into() };
+        let error = worker
+            .render_mermaid("flowchart TD\nA[Start] --> B[Done]".into(), &style)
+            .expect_err("missing cli should fail");
+        let message = error.to_string();
+        assert!(
+            message.contains("presenterm-missing-mmdc"),
+            "expected the configured CLI to be invoked, got {message}"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn render_mermaid_cli_passes_mmdc_flags() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let png_src = dir.path().join("pixel.png");
+        image::RgbaImage::from_pixel(1, 1, image::Rgba([1, 2, 3, 255])).save(&png_src).expect("png");
+        let log_path = dir.path().join("args.txt");
+        let script_path = dir.path().join("fake-mmdc");
+        let script = format!(
+            "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{}'\nwhile [ $# -gt 0 ]; do\n  if [ \"$1\" = \"-o\" ]; then\n    cp '{}' \"$2\"\n    exit 0\n  fi\n  shift\ndone\nexit 1\n",
+            log_path.display(),
+            png_src.display()
+        );
+        fs::write(&script_path, script).expect("script");
+        let mut permissions = fs::metadata(&script_path).expect("metadata").permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&script_path, permissions).expect("chmod");
+
+        let config = ThirdPartyConfigs {
+            typst_ppi: default_typst_ppi().to_string(),
+            mermaid_cli: Some(script_path.to_string_lossy().into_owned()),
+            mermaid_scale: 3,
+            mermaid_puppeteer_file: Some("puppeteer.json".into()),
+            mermaid_config_file: Some("mermaid.json".into()),
+            d2_scale: "-1".into(),
+            threads: 1,
+        };
+        let shared = Arc::new(Shared { config, root_dir: ".".into(), signal: Default::default() });
+        let state = Arc::new(Mutex::new(RenderPoolState {
+            requests: Default::default(),
+            image_registry: Default::default(),
+            cache: Default::default(),
+        }));
+        let worker = Worker { state, shared };
+        let style = MermaidStyle { theme: "forest".into(), background: "transparent".into() };
+        worker
+            .render_mermaid("flowchart TD\nA[Start] --> B[Done]".into(), &style)
+            .expect("configured cli should render");
+
+        let args: Vec<String> = fs::read_to_string(&log_path).expect("args").lines().map(str::to_string).collect();
+        assert_eq!(args.first().map(String::as_str), Some("-i"));
+        assert!(args.get(1).is_some_and(|path| path.ends_with("input.mmd")), "input path: {args:?}");
+        assert_eq!(args.get(2).map(String::as_str), Some("-o"));
+        assert!(args.get(3).is_some_and(|path| path.ends_with("output.png")), "output path: {args:?}");
+        assert_eq!(
+            args.iter().skip(4).map(String::as_str).collect::<Vec<_>>(),
+            vec!["-s", "3", "-t", "forest", "-b", "transparent", "-p", "puppeteer.json", "-c", "mermaid.json"]
+        );
     }
 }

@@ -483,8 +483,22 @@
     "MermaidConfig": {
       "type": "object",
       "properties": {
+        "cli": {
+          "description": "The CLI application used to generate diagrams.\n\nWhen set, this executable is used instead of the built-in merman renderer. It must accept\nmermaid-cli (`mmdc`) flags.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "config_path": {
-          "description": "A path to a mermaid JSON configuration file applied as site config defaults.",
+          "description": "A path to a mermaid JSON configuration file.\n\nThe built-in renderer applies this as site config defaults. A configured CLI receives the\npath via `-c`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "puppeteer_config_path": {
+          "description": "A path to a puppeteer JSON configuration file passed to the mermaid CLI.",
           "type": [
             "string",
             "null"

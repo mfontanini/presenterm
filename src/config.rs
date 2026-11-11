@@ -350,17 +350,29 @@ pub(crate) fn default_typst_ppi() -> u32 {
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MermaidConfig {
+    /// The CLI application used to generate diagrams.
+    ///
+    /// When set, this executable is used instead of the built-in merman renderer. It must accept
+    /// mermaid-cli (`mmdc`) flags.
+    pub cli: Option<String>,
+
     /// The scaling parameter used when rasterizing mermaid diagrams.
     #[serde(default = "default_mermaid_scale")]
     pub scale: u32,
 
-    /// A path to a mermaid JSON configuration file applied as site config defaults.
+    /// A path to a puppeteer JSON configuration file passed to the mermaid CLI.
+    pub puppeteer_config_path: Option<String>,
+
+    /// A path to a mermaid JSON configuration file.
+    ///
+    /// The built-in renderer applies this as site config defaults. A configured CLI receives the
+    /// path via `-c`.
     pub config_path: Option<String>,
 }
 
 impl Default for MermaidConfig {
     fn default() -> Self {
-        Self { scale: default_mermaid_scale(), config_path: None }
+        Self { cli: None, scale: default_mermaid_scale(), puppeteer_config_path: None, config_path: None }
     }
 }
 
@@ -823,5 +835,21 @@ mod test {
     #[test]
     fn default_options_serde() {
         serde_yaml::from_str::<'_, OptionsConfig>("implicit_slide_ends: true").expect("failed to parse");
+    }
+
+    #[test]
+    fn mermaid_cli_is_optional() {
+        let config = serde_yaml::from_str::<MermaidConfig>("scale: 3").expect("failed to parse");
+        assert!(config.cli.is_none());
+        assert!(config.puppeteer_config_path.is_none());
+        assert_eq!(config.scale, 3);
+
+        let config = serde_yaml::from_str::<MermaidConfig>(
+            "cli: mmdc\npuppeteer_config_path: /tmp/puppeteer.json\nconfig_path: /tmp/mermaid.json",
+        )
+        .expect("failed to parse");
+        assert_eq!(config.cli.as_deref(), Some("mmdc"));
+        assert_eq!(config.puppeteer_config_path.as_deref(), Some("/tmp/puppeteer.json"));
+        assert_eq!(config.config_path.as_deref(), Some("/tmp/mermaid.json"));
     }
 }
