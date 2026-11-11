@@ -292,32 +292,52 @@ snippet:
 ## Mermaid
 
 The following configuration parameters can be set to alter the behavior when displaying 
-[mermaid](https://mermaid.js.org/) diagrams.
+[mermaid](https://mermaid.js.org/) diagrams. By default, rendering is performed in-process with 
+[merman](https://github.com/Latias94/merman). That renderer is the default Cargo feature `merman`. Build without it 
+with `cargo build --no-default-features`. A build without `merman` requires `mermaid.cli`.
+
+### CLI renderer
+
+Set `mermaid.cli` to the executable name or path of an external renderer to use that tool instead of 
+merman. The executable must accept the same flags as 
+[mermaid-cli](https://github.com/mermaid-js/mermaid-cli) (`mmdc`): `-i`, `-o`, `-s`, `-t`, `-b`, and, 
+when the matching options below are set, `-c` and `-p`.
+
+```yaml
+mermaid:
+  cli: mmdc
+```
+
+On Windows the mermaid-cli executable is typically `mmdc.cmd`. Other compatible tools, such as 
+`mmd-cli`, can be configured the same way.
 
 ### Config file
 
 A custom [mermaid config file](https://mermaid.ai/open-source/config/schema-docs/config.html) can be configured via the 
-`mermaid.config_file` config parameter. This should point to a configuration file where you can set any configs you 
-consider appropriate, such as the font family to use:
+`mermaid.config_path` config parameter. This should point to a JSON configuration file. The built-in 
+renderer applies it as mermaid site config defaults (for example font family). Theme values from the 
+presentation theme still take precedence over this file. A configured CLI receives the path via `-c`.
 
 ```yaml
 mermaid:
-  config_file: /home/foo/my_config_file.yml
+  config_path: /home/foo/mermaid-config.json
 ```
 
 ### Puppeteer config file
 
-A custom puppeteer config file can be configured via the `mermaid.puppeteer_config_file` config parameter. This should 
-point to a configuration file that will be given to puppeteer by the `mmdc` tool:
+When `mermaid.cli` is set, a puppeteer config file can be passed through to the CLI via 
+`mermaid.puppeteer_config_path`:
 
 ```yaml
 mermaid:
-  puppeteer_config_file: /home/foo/puppeteer.json
+  cli: mmdc
+  puppeteer_config_path: /home/foo/puppeteer.json
 ```
 
 ### Scaling
 
-mermaid graphs will use a default scaling of `2` when invoking the mermaid CLI. If you'd like to change this use:
+mermaid graphs will use a default raster scale of `2` for both the built-in renderer and a configured 
+CLI. If you'd like to change this use:
 
 
 ```yaml

@@ -23,6 +23,14 @@ Alternatively, build from source by downloading [rust](https://www.rust-lang.org
 cargo install --locked presenterm
 ```
 
+The in-process mermaid renderer is the default `merman` feature. Install without it with:
+
+```bash
+cargo install --locked --no-default-features presenterm
+```
+
+Set [`mermaid.cli`](configuration/settings.md#cli-renderer) so mermaid diagrams still render.
+
 ## Latest unreleased version
 
 The latest unreleased version can be installed either in binary form or by building it from source.

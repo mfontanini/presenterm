@@ -484,26 +484,29 @@
       "type": "object",
       "properties": {
         "cli": {
-          "description": "The application to use to generate diagrams.",
-          "type": "string",
-          "default": "mmdc"
+          "description": "The CLI application used to generate diagrams.\n\nWhen set, this executable is used instead of the built-in merman renderer. It must accept\nmermaid-cli (`mmdc`) flags. Builds without the `merman` feature require this.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "config_path": {
-          "description": "A path to a mermaid JSON configuration file to be used by the `mmdc` tool.",
+          "description": "A path to a mermaid JSON configuration file.\n\nThe built-in renderer applies this as site config defaults. A configured CLI receives the\npath via `-c`.",
           "type": [
             "string",
             "null"
           ]
         },
         "puppeteer_config_path": {
-          "description": "A path to a puppeteer JSON configuration file to be used by the `mmdc` tool.",
+          "description": "A path to a puppeteer JSON configuration file passed to the mermaid CLI.",
           "type": [
             "string",
             "null"
           ]
         },
         "scale": {
-          "description": "The scaling parameter to be used in the mermaid CLI.",
+          "description": "The scaling parameter used when rasterizing mermaid diagrams.",
+          "default": 2,
           "type": "integer",
           "format": "uint32",
           "default": 2,

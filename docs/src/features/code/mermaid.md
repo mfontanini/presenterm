@@ -11,12 +11,14 @@ sequenceDiagram
 ```
 ~~~
 
-**This requires having [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) installed**.
+Mermaid diagrams are rendered in-process via the [merman](https://github.com/Latias94/merman) Rust library. That 
+renderer is included by default. Leave it out of a build with `--no-default-features`. To use an external renderer, 
+or when the `merman` feature is disabled, set `mermaid.cli` in the 
+[configuration file](../../configuration/settings.md#cli-renderer) to a mermaid-cli compatible tool such as `mmdc`.
 
-Note that because the mermaid CLI will spin up a browser under the hood, this may not work in all environments and can 
-also be a bit slow (e.g. ~2 seconds to generate every image). Mermaid graphs are rendered asynchronously by a number of 
-threads that can be configured in the [configuration file](../../configuration/settings.md#snippet-rendering-threads). 
-This configuration value currently defaults to 2.
+Mermaid graphs are rendered asynchronously by a number of threads that can be configured in the 
+[configuration file](../../configuration/settings.md#snippet-rendering-threads). This configuration value currently 
+defaults to 2.
 
 The size of the rendered image can be configured by changing:
 * The `mermaid.scale` [configuration parameter](../../configuration/settings.md#mermaid-scaling).
@@ -41,7 +43,7 @@ cause the image to become blurry.
 The theme of the rendered mermaid diagrams can be changed through the following [theme](../themes/introduction.md) 
 parameters:
 
-* `mermaid.background` the background color passed to the CLI (e.g., `transparent`, `red`, `#F0F0F0`).
+* `mermaid.background` the background color of the rendered diagram (e.g., `transparent`, `red`, `#F0F0F0`).
 * `mermaid.theme` the [mermaid theme](https://mermaid.js.org/config/theming.html#available-themes) to use.
 
 ## Always render diagrams
