@@ -26,6 +26,7 @@ mermaid:
 
   # optional external renderer. when set, this executable is used instead of the
   # built-in merman renderer. it must accept mermaid-cli (mmdc) flags.
+  # required when presenterm is built without the merman feature.
   # examples: mmdc, mmdc.cmd, mmd-cli.
   # cli: mmdc
   # puppeteer_config_path: /home/foo/puppeteer.json

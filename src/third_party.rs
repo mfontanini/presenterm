@@ -19,6 +19,7 @@ use crate::{
     theme::{Alignment, D2Style, MermaidStyle, PresentationTheme, TypstStyle, raw::RawColor},
     tools::{ExecutionError, ThirdPartyTools},
 };
+#[cfg(feature = "merman")]
 use merman::render::{HeadlessRenderer, RootBackgroundPostprocessor, SvgPipeline, raster::RasterOptions};
 use std::{
     collections::{HashMap, VecDeque},
@@ -32,6 +33,7 @@ use std::{
 pub struct ThirdPartyConfigs {
     pub typst_ppi: String,
     /// When set, diagrams are rendered with this executable instead of merman.
+    /// Required when built without the `merman` feature.
     pub mermaid_cli: Option<String>,
     pub mermaid_scale: u32,
     pub mermaid_puppeteer_file: Option<String>,
@@ -203,7 +205,12 @@ impl Worker {
 
         match self.shared.config.mermaid_cli.clone() {
             Some(cli) => self.render_mermaid_cli(snippet, &input, style, &cli),
+            #[cfg(feature = "merman")]
             None => self.render_mermaid_merman(snippet, &input, style),
+            #[cfg(not(feature = "merman"))]
+            None => Err(ThirdPartyRenderError::Mermaid(
+                "built without the merman feature; set mermaid.cli to a mermaid-cli compatible executable".into(),
+            )),
         }
     }
 
@@ -245,6 +252,7 @@ impl Worker {
         self.load_image(snippet, &output_path)
     }
 
+    #[cfg(feature = "merman")]
     fn render_mermaid_merman(
         &self,
         snippet: ImageSnippet,
@@ -255,8 +263,8 @@ impl Worker {
         // merman hardcodes `background-color: white` on the root SVG (mermaid parity). That
         // overrides RasterOptions alone, so rewrite the root background to the theme value
         // (typically `transparent`) the way `mmdc -b` used to.
-        let pipeline = SvgPipeline::resvg_safe()
-            .with_postprocessor(RootBackgroundPostprocessor::new(style.background.clone()));
+        let pipeline =
+            SvgPipeline::resvg_safe().with_postprocessor(RootBackgroundPostprocessor::new(style.background.clone()));
         let renderer = HeadlessRenderer::new()
             .with_site_config(site_config)
             .with_diagram_id("presenterm")
@@ -272,6 +280,7 @@ impl Worker {
         self.load_image_bytes(snippet, &png_bytes)
     }
 
+    #[cfg(feature = "merman")]
     fn build_mermaid_site_config(&self, style: &MermaidStyle) -> Result<merman::MermaidConfig, ThirdPartyRenderError> {
         let mut site_config = match &self.shared.config.mermaid_config_file {
             Some(path) => {
@@ -523,6 +532,7 @@ mod tests {
         Worker { state, shared }
     }
 
+    #[cfg(feature = "merman")]
     #[test]
     fn render_mermaid_flowchart() {
         let worker = test_worker();
@@ -538,6 +548,20 @@ mod tests {
         let _ = cached;
     }
 
+    #[cfg(not(feature = "merman"))]
+    #[test]
+    fn render_mermaid_requires_cli_without_merman() {
+        let worker = test_worker();
+        let style = MermaidStyle { theme: "default".into(), background: "transparent".into() };
+        let error = worker
+            .render_mermaid("flowchart TD\nA[Start] --> B[Done]".into(), &style)
+            .expect_err("missing built-in renderer should fail");
+        let message = error.to_string();
+        assert!(message.contains("merman"), "expected the merman feature to be mentioned, got {message}");
+        assert!(message.contains("mermaid.cli"), "expected mermaid.cli to be mentioned, got {message}");
+    }
+
+    #[cfg(feature = "merman")]
     #[test]
     fn render_mermaid_respects_transparent_background() {
         let site_config = {
@@ -545,17 +569,14 @@ mod tests {
             config.set_value("theme", serde_json::Value::String("dark".into()));
             config
         };
-        let pipeline = SvgPipeline::resvg_safe()
-            .with_postprocessor(RootBackgroundPostprocessor::new("transparent"));
+        let pipeline = SvgPipeline::resvg_safe().with_postprocessor(RootBackgroundPostprocessor::new("transparent"));
         let renderer = HeadlessRenderer::new()
             .with_site_config(site_config)
             .with_diagram_id("bg-test")
             .with_svg_pipeline(pipeline);
         let raster = RasterOptions::default().with_scale(1.0).with_background("transparent");
-        let png = renderer
-            .render_png_sync("flowchart TD\nA[Start] --> B[Done]", &raster)
-            .expect("render")
-            .expect("diagram");
+        let png =
+            renderer.render_png_sync("flowchart TD\nA[Start] --> B[Done]", &raster).expect("render").expect("diagram");
         let image = image::load_from_memory(&png).expect("png").to_rgba8();
         let corner = image.get_pixel(0, 0).0;
         assert_eq!(corner[3], 0, "corner should be transparent, got {corner:?}");

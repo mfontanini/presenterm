@@ -353,7 +353,7 @@ pub struct MermaidConfig {
     /// The CLI application used to generate diagrams.
     ///
     /// When set, this executable is used instead of the built-in merman renderer. It must accept
-    /// mermaid-cli (`mmdc`) flags.
+    /// mermaid-cli (`mmdc`) flags. Builds without the `merman` feature require this.
     pub cli: Option<String>,
 
     /// The scaling parameter used when rasterizing mermaid diagrams.

@@ -293,7 +293,8 @@ snippet:
 
 The following configuration parameters can be set to alter the behavior when displaying 
 [mermaid](https://mermaid.js.org/) diagrams. By default, rendering is performed in-process with 
-[merman](https://github.com/Latias94/merman).
+[merman](https://github.com/Latias94/merman). That renderer is the default Cargo feature `merman`. Build without it 
+with `cargo build --no-default-features`. A build without `merman` requires `mermaid.cli`.
 
 ### CLI renderer
 

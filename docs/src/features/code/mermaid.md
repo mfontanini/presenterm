@@ -11,8 +11,9 @@ sequenceDiagram
 ```
 ~~~
 
-Mermaid diagrams are rendered in-process via the [merman](https://github.com/Latias94/merman) Rust library. To use an 
-external renderer instead, set `mermaid.cli` in the 
+Mermaid diagrams are rendered in-process via the [merman](https://github.com/Latias94/merman) Rust library. That 
+renderer is included by default. Leave it out of a build with `--no-default-features`. To use an external renderer, 
+or when the `merman` feature is disabled, set `mermaid.cli` in the 
 [configuration file](../../configuration/settings.md#cli-renderer) to a mermaid-cli compatible tool such as `mmdc`.
 
 Mermaid graphs are rendered asynchronously by a number of threads that can be configured in the 

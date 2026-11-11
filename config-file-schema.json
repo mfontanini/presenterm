@@ -484,7 +484,7 @@
       "type": "object",
       "properties": {
         "cli": {
-          "description": "The CLI application used to generate diagrams.\n\nWhen set, this executable is used instead of the built-in merman renderer. It must accept\nmermaid-cli (`mmdc`) flags.",
+          "description": "The CLI application used to generate diagrams.\n\nWhen set, this executable is used instead of the built-in merman renderer. It must accept\nmermaid-cli (`mmdc`) flags. Builds without the `merman` feature require this.",
           "type": [
             "string",
             "null"

@@ -40,13 +40,14 @@ libc = "0.2"
 vte = "0.15"
 termbg = "0.6.2"
 vt100 = "0.18"
-merman = { version = "0.7.0", features = ["raster"] }
+merman = { version = "0.7.0", features = ["raster"], optional = true }
 
 [dev-dependencies]
 rstest = { version = "0.28", default-features = false }
 
 [features]
-default = []
+default = ["merman"]
+merman = ["dep:merman"]
 json-schema = ["dep:schemars"]
 
 [profile.dev]
