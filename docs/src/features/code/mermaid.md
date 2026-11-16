@@ -11,15 +11,24 @@ sequenceDiagram
 ```
 ~~~
 
-**This requires having [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) installed**.
+By default this this requires having the [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) installed. Note
+that because the mermaid CLI will spin up a browser under the hood, this may not work in all environments and can 
+also be a bit slow (e.g. ~2 seconds to generate every image).
 
-Note that because the mermaid CLI will spin up a browser under the hood, this may not work in all environments and can 
-also be a bit slow (e.g. ~2 seconds to generate every image). Mermaid graphs are rendered asynchronously by a number of 
-threads that can be configured in the [configuration file](../../configuration/settings.md#snippet-rendering-threads). 
-This configuration value currently defaults to 2.
+Alternatively, other tools like [merman](https://github.com/Latias94/merman) can be used instead by configuring
+the `mermaid.cli` parameter in [the configuration file](../../configuration/settings.md#mermaid):
+
+```yaml
+mermaid:
+  cli: "merman-cli"
+```
+
+Mermaid graphs are rendered asynchronously by a number of  threads that can be configured in
+the [configuration file](../../configuration/settings.md#snippet-rendering-threads). This configuration value
+currently defaults to 2.
 
 The size of the rendered image can be configured by changing:
-* The `mermaid.scale` [configuration parameter](../../configuration/settings.md#mermaid-scaling).
+* The `mermaid.scale` [configuration parameter](../../configuration/settings.md#mermaid).
 * Using the `+width:<number>%` attribute in the code snippet.
 
 For example, this diagram will take up 50% of the width of the window and will preserve its aspect ratio:

@@ -294,6 +294,20 @@ snippet:
 The following configuration parameters can be set to alter the behavior when displaying 
 [mermaid](https://mermaid.js.org/) diagrams.
 
+### CLI
+
+The path to the CLI tool to use to render mermaid graphs. This can point to any mermaid tool that respects the
+mermaid CLI's parameter names:
+
+```yaml
+mermaid:
+  # default
+  cli: "mermaid"
+
+  # use merman
+  # cli: "merman-cli"
+```
+
 ### Config file
 
 A custom [mermaid config file](https://mermaid.ai/open-source/config/schema-docs/config.html) can be configured via the 
