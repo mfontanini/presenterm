@@ -308,6 +308,45 @@ mermaid:
   # cli: "merman-cli"
 ```
 
+This is not restricted to just binaries but can point to any executable script in your filesystem. For example, the following
+script would allow you to use [`mmdr`](https://github.com/1jehuang/mermaid-rs-renderer), which takes a slightly different
+parameter list:
+
+```bash
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+INPUT_FILE=""
+OUTPUT_FILE=""
+SCALE=""
+THEME=""
+BACKGROUND=""
+
+# Parse command-line arguments
+while getopts ":i:o:s:t:b:h" opt; do
+  case "$opt" in
+  i) INPUT_FILE="$OPTARG" ;;
+  o) OUTPUT_FILE="$OPTARG" ;;
+  s) SCALE="$OPTARG" ;;
+  t) THEME="$OPTARG" ;;
+  b) BACKGROUND="$OPTARG" ;;
+  h) usage 0 ;;
+  :)
+    echo "Error: Option -$OPTARG requires an argument." >&2
+    usage 1
+    ;;
+  \?)
+    echo "Error: Invalid option -$OPTARG" >&2
+    usage 1
+    ;;
+  esac
+done
+
+# Finally, invoke it
+mmdr -i "$INPUT_FILE" -o "$OUTPUT_FILE" -e png -t "$THEME" -H 1000
+```
+
 ### Config file
 
 A custom [mermaid config file](https://mermaid.ai/open-source/config/schema-docs/config.html) can be configured via the 
