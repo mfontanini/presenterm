@@ -489,7 +489,7 @@ impl<D: fmt::Display> fmt::Display for ControlCommand<'_, D> {
             }
             write!(f, "{option}")?;
         }
-        write!(f, ";{}", &self.payload)?;
+        write!(f, ";{}", self.payload)?;
         if self.tmux {
             write!(f, "\x1b\x1b\\\x1b\\")?;
         } else {
