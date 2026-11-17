@@ -294,14 +294,9 @@ impl KeyMatcher {
             };
 
             let next = number.unwrap_or(0u32).checked_mul(10).and_then(|number| number.checked_add(digit));
-            match next {
-                Some(n) => {
-                    number = Some(n);
-                    events = rest;
-                }
-                // if we overflow we're done
-                None => return None,
-            }
+            let next = next?;
+            number = Some(next);
+            events = rest;
         }
         number.map(|number| (MatchContext::Number(number), events))
     }

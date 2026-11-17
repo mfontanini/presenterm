@@ -73,10 +73,7 @@ impl AnsiColorParser {
 
     pub(crate) fn parse(self, mut codes: ParamsIter) -> TextStyle {
         let mut style = self.starting_style;
-        loop {
-            let Some(&[next]) = codes.next() else {
-                break;
-            };
+        while let Some(&[next]) = codes.next() {
             match next {
                 0 => style = Default::default(),
                 1 => style = style.bold(),

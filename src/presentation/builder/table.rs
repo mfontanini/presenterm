@@ -68,24 +68,24 @@ impl PresentationBuilder<'_, '_> {
             let cell_width = widths[column];
             let padding = cell_width.saturating_sub(text_length);
             if padding == 0 {
-                flattened_row.0.extend(text.0.into_iter());
+                flattened_row.0.extend(text.0);
             } else {
                 match alignment {
                     TableColumnAlignment::Left => {
-                        flattened_row.0.extend(text.0.into_iter());
+                        flattened_row.0.extend(text.0);
                         flattened_row.0.push(Text::from(" ".repeat(padding)));
                     }
                     TableColumnAlignment::Center => {
                         let padding_after = padding / 2;
                         let padding_before = padding_after + (padding % 2);
                         flattened_row.0.push(Text::from(" ".repeat(padding_before)));
-                        flattened_row.0.extend(text.0.into_iter());
+                        flattened_row.0.extend(text.0);
                         flattened_row.0.push(Text::from(" ".repeat(padding_after)));
                     }
                     TableColumnAlignment::Right => {
                         let padding = " ".repeat(padding);
                         flattened_row.0.push(Text::from(padding));
-                        flattened_row.0.extend(text.0.into_iter());
+                        flattened_row.0.extend(text.0);
                     }
                 }
             }
