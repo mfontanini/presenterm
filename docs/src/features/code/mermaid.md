@@ -16,12 +16,7 @@ that because the mermaid CLI will spin up a browser under the hood, this may not
 also be a bit slow (e.g. ~2 seconds to generate every image).
 
 Alternatively, other tools like [merman](https://github.com/Latias94/merman) can be used instead by configuring
-the `mermaid.cli` parameter in [the configuration file](../../configuration/settings.md#mermaid):
-
-```yaml
-mermaid:
-  cli: "merman-cli"
-```
+the `mermaid.cli` parameter in [the configuration file](../../configuration/settings.md#mermaid).
 
 Mermaid graphs are rendered asynchronously by a number of  threads that can be configured in
 the [configuration file](../../configuration/settings.md#snippet-rendering-threads). This configuration value
@@ -57,3 +52,4 @@ parameters:
 
 If you don't want to use `+render` every time, you can configure which languages get this automatically via the [config 
 file](../../configuration/settings.md#auto_render_languages).
+
