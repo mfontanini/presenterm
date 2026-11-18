@@ -419,6 +419,10 @@ pub struct SnippetExecutorConfig {
     /// The filename to use for the snippet input file.
     pub filename: String,
 
+    /// Whether to ignore output in all commands but the last one.
+    #[serde(default)]
+    pub quiet: bool,
+
     /// The environment variables to set before invoking every command.
     #[serde(default)]
     pub environment: HashMap<String, String>,
