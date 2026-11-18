@@ -266,10 +266,14 @@ snippet:
           - ["g++", "-std=c++20", "snippet.cpp", "-o", "snippet"]
           # Now run it 
           - ["./snippet"]
+
+        # Only show the output of the last command. The output of a command that fails will still be shown.
+        quiet: false
 ```
 
 The output of all commands will be included in the code snippet execution output so if a command (like the `g++` 
-invocation) was to emit any output, make sure to use whatever flags are needed to mute its output.
+invocation) was to emit any output, make sure to use whatever flags are needed to mute its output. Alternatively, 
+setting `quiet` to `true` will only include the output of the last command in the execution output.
 
 Also note that you can override built-in executors in case you want to run them differently (e.g. use `c++23` in the 
 example above).

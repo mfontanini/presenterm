@@ -150,6 +150,7 @@ impl LanguageSnippetExecutor {
             self.env.clone(),
             self.cwd.clone(),
             output_type,
+            self.config.quiet,
         );
         let handle = ExecutionHandle { state, reader_handle };
         Ok(handle)
@@ -159,8 +160,9 @@ impl LanguageSnippetExecutor {
     pub(crate) fn execute_sync(&self, snippet: &Snippet) -> Result<(), CodeExecuteError> {
         let script_dir = self.write_snippet(snippet)?;
         let script_dir_path = script_dir.path().to_string_lossy();
-        for commands in self.config.commands.clone() {
-            self.execute_command(commands, &script_dir_path)?;
+        let last_command = self.config.commands.len().saturating_sub(1);
+        for (index, commands) in self.config.commands.clone().into_iter().enumerate() {
+            self.execute_command(commands, &script_dir_path, self.config.quiet && index < last_command)?;
         }
         Ok(())
     }
@@ -173,7 +175,7 @@ impl LanguageSnippetExecutor {
         // Run the first N-1 commands normally and assume the last one is the one that actually
         // invokes the thing (e.g. rust snippet compilation happens here, snippet execution in PTY)
         for commands in self.config.commands.iter().take(self.config.commands.len() - 1).cloned() {
-            self.execute_command(commands, &script_dir_path)?;
+            self.execute_command(commands, &script_dir_path, self.config.quiet)?;
         }
         let mut commands = self.config.commands.last().cloned().unwrap();
         for command in &mut commands {
@@ -189,15 +191,25 @@ impl LanguageSnippetExecutor {
         Ok(PtySnippetContext { command, _temp: script_dir })
     }
 
-    fn execute_command(&self, mut commands: Vec<String>, script_dir_path: &str) -> Result<(), CodeExecuteError> {
+    fn execute_command(
+        &self,
+        mut commands: Vec<String>,
+        script_dir_path: &str,
+        quiet: bool,
+    ) -> Result<(), CodeExecuteError> {
         for command in &mut commands {
             *command = command.replace("$pwd", script_dir_path);
         }
         let (command, args) = commands.split_first().expect("no commands");
+        let stdout = match quiet {
+            true => Stdio::null(),
+            false => Stdio::inherit(),
+        };
         let child = process::Command::new(command)
             .args(args)
             .envs(&self.env)
             .current_dir(&self.cwd)
+            .stdout(stdout)
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| CodeExecuteError::SpawnProcess(command.clone(), e))?;
@@ -279,15 +291,24 @@ impl CommandsRunner {
         env: HashMap<String, String>,
         cwd: PathBuf,
         output_type: OutputType,
+        quiet: bool,
     ) -> thread::JoinHandle<()> {
         let reader = Self { state, script_directory };
-        thread::spawn(move || reader.run(commands, env, cwd, output_type))
+        thread::spawn(move || reader.run(commands, env, cwd, output_type, quiet))
     }
 
-    fn run(self, commands: Vec<Vec<String>>, env: HashMap<String, String>, cwd: PathBuf, output_type: OutputType) {
+    fn run(
+        self,
+        commands: Vec<Vec<String>>,
+        env: HashMap<String, String>,
+        cwd: PathBuf,
+        output_type: OutputType,
+        quiet: bool,
+    ) {
+        let last_command = commands.len().saturating_sub(1);
         let mut last_result = true;
-        for command in commands {
-            last_result = self.run_command(command, &env, &cwd, output_type);
+        for (index, command) in commands.into_iter().enumerate() {
+            last_result = self.run_command(command, &env, &cwd, output_type, quiet && index < last_command);
             if !last_result {
                 break;
             }
@@ -305,7 +326,13 @@ impl CommandsRunner {
         env: &HashMap<String, String>,
         cwd: &Path,
         output_type: OutputType,
+        quiet: bool,
     ) -> bool {
+        // Output is collected separately so that it can be discarded unless the command fails.
+        let state = match quiet {
+            true => Arc::new(Mutex::new(ExecutionState::default())),
+            false => self.state.clone(),
+        };
         let (mut child, reader) = match self.launch_process(command, env, cwd) {
             Ok(inner) => inner,
             Err(e) => {
@@ -315,12 +342,17 @@ impl CommandsRunner {
                 return false;
             }
         };
-        let _ = Self::process_output(self.state.clone(), reader, output_type);
+        let _ = Self::process_output(state.clone(), reader, output_type);
 
-        match child.wait() {
+        let success = match child.wait() {
             Ok(code) => code.success(),
             _ => false,
+        };
+        if quiet && !success {
+            let output = std::mem::take(&mut state.lock().unwrap().output);
+            self.state.lock().unwrap().output.extend(output);
         }
+        success
     }
 
     fn launch_process(
@@ -504,5 +536,74 @@ echo 'hello world'
     #[test]
     fn built_in_executors() {
         SnippetExecutor::new(Default::default(), PathBuf::from("./")).expect("invalid default executors");
+    }
+
+    fn executor_with_commands(commands: Vec<Vec<&str>>, quiet: bool) -> LanguageSnippetExecutor {
+        let config = SnippetExecutorConfig {
+            filename: "script.sh".into(),
+            environment: Default::default(),
+            commands: commands.into_iter().map(|command| command.into_iter().map(String::from).collect()).collect(),
+            quiet,
+        };
+        let language_config = LanguageSnippetExecutionConfig {
+            executor: config,
+            hidden_line_prefix: None,
+            alternative: Default::default(),
+        };
+        let mut custom_executors = BTreeMap::new();
+        custom_executors.insert(SnippetLanguage::Shell, language_config);
+        SnippetExecutor::new(custom_executors, PathBuf::from("./"))
+            .expect("invalid executor")
+            .language_executor(&SnippetLanguage::Shell, &Default::default(), Default::default())
+            .expect("executor not found")
+    }
+
+    fn execute_and_wait(executor: &LanguageSnippetExecutor, contents: &str) -> ExecutionState {
+        let snippet = Snippet {
+            contents: contents.into(),
+            language: SnippetLanguage::Shell,
+            attributes: SnippetAttributes {
+                execution: SnippetExecution::Exec(Default::default()),
+                ..Default::default()
+            },
+        };
+        let handle = executor.execute_async(&snippet).expect("execution failed");
+        loop {
+            let state = handle.state.lock().unwrap();
+            if state.status.is_finished() {
+                return state.clone();
+            }
+        }
+    }
+
+    #[test]
+    fn quiet_execution_only_shows_last_command_output() {
+        let command = vec!["sh", "$pwd/script.sh"];
+        let executor = executor_with_commands(vec![command.clone(), command], true);
+        let state = execute_and_wait(&executor, "echo 'hello world'");
+
+        assert_eq!(state.output, b"hello world\n");
+        assert!(matches!(state.status, ProcessStatus::Success));
+    }
+
+    #[test]
+    fn quiet_execution_shows_failed_command_output() {
+        let executor = executor_with_commands(
+            vec![vec!["sh", "-c", "echo 'build failed' >&2; exit 1"], vec!["sh", "-c", "echo 'this does not run'"]],
+            true,
+        );
+        let state = execute_and_wait(&executor, "echo 'hello world'");
+
+        assert_eq!(state.output, b"build failed\n");
+        assert!(matches!(state.status, ProcessStatus::Failure));
+    }
+
+    #[test]
+    fn non_quiet_execution_shows_all_command_output() {
+        let command = vec!["sh", "$pwd/script.sh"];
+        let executor = executor_with_commands(vec![command.clone(), command], false);
+        let state = execute_and_wait(&executor, "echo 'hello world'");
+
+        assert_eq!(state.output, b"hello world\nhello world\n");
     }
 }
