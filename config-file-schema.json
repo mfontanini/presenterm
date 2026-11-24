@@ -433,6 +433,11 @@
             "string",
             "null"
           ]
+        },
+        "quiet": {
+          "description": "Whether to ignore output in all commands but the last one.",
+          "type": "boolean",
+          "default": false
         }
       },
       "required": [
@@ -784,6 +789,11 @@
         "filename": {
           "description": "The filename to use for the snippet input file.",
           "type": "string"
+        },
+        "quiet": {
+          "description": "Whether to ignore output in all commands but the last one.",
+          "type": "boolean",
+          "default": false
         }
       },
       "required": [
