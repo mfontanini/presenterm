@@ -12,11 +12,15 @@ use image::{
     metadata::LoopCount,
 };
 use std::{
+    collections::HashMap,
     fmt,
     fs::{self, File},
     io::{self, BufReader},
     path::{Path, PathBuf},
-    sync::atomic::{AtomicU32, Ordering},
+    sync::{
+        Mutex,
+        atomic::{AtomicU32, Ordering},
+    },
 };
 use tempfile::{TempDir, tempdir};
 
@@ -56,6 +60,7 @@ impl RawResource {
     fn into_memory_resource(self) -> KittyImage {
         match self {
             Self::Image(image) => KittyImage {
+                id: KittyPrinter::generate_image_id(),
                 dimensions: image.dimensions(),
                 resource: GenericResource::Image(KittyBuffer::Memory(image.into_raw())),
             },
@@ -69,13 +74,14 @@ impl RawResource {
                     })
                     .collect();
                 let resource = GenericResource::Animated { frames, loop_count };
-                KittyImage { dimensions, resource }
+                KittyImage { id: KittyPrinter::generate_image_id(), dimensions, resource }
             }
         }
     }
 }
 
 pub(crate) struct KittyImage {
+    id: u32,
     dimensions: (u32, u32),
     resource: GenericResource<KittyBuffer>,
 }
@@ -128,12 +134,50 @@ pub struct KittyPrinter {
     tmux: bool,
     base_directory: TempDir,
     next: AtomicU32,
+    // Images uploaded to the current terminal, and whether this redraw uses them.
+    uploaded: Mutex<HashMap<u32, bool>>,
 }
 
 impl KittyPrinter {
     pub(crate) fn new(mode: KittyMode, tmux: bool) -> io::Result<Self> {
         let base_directory = tempdir()?;
-        Ok(Self { mode, tmux, base_directory, next: Default::default() })
+        Ok(Self { mode, tmux, base_directory, next: Default::default(), uploaded: Default::default() })
+    }
+
+    /// Remove placements while retaining their image data and animation state.
+    pub(crate) fn begin_redraw<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        let mut uploaded = self.uploaded.lock().unwrap();
+        for (&id, used) in uploaded.iter_mut() {
+            self.delete_image(id, false, writer)?;
+            *used = false;
+        }
+        Ok(())
+    }
+
+    /// Release images that are no longer visible, including their animation frames.
+    pub(crate) fn end_redraw<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        let mut uploaded = self.uploaded.lock().unwrap();
+        for (&id, &used) in uploaded.iter() {
+            if !used {
+                self.delete_image(id, true, writer)?;
+            }
+        }
+        uploaded.retain(|_, used| *used);
+        Ok(())
+    }
+
+    pub(crate) fn reset(&self) {
+        self.uploaded.lock().unwrap().clear();
+    }
+
+    fn delete_image<W: io::Write>(&self, id: u32, free: bool, writer: &mut W) -> io::Result<()> {
+        let options = [
+            ControlOption::Action(Action::Delete),
+            ControlOption::Delete(if free { 'I' } else { 'i' }),
+            ControlOption::ImageId(id),
+            ControlOption::Quiet(2),
+        ];
+        write!(writer, "{}", self.make_command(&options, ""))
     }
 
     fn allocate_tempfile(&self) -> PathBuf {
@@ -146,7 +190,11 @@ impl KittyPrinter {
         fs::write(&path, image.as_bytes())?;
 
         let buffer = KittyBuffer::Filesystem(path);
-        let resource = KittyImage { dimensions: image.dimensions(), resource: GenericResource::Image(buffer) };
+        let resource = KittyImage {
+            id: Self::generate_image_id(),
+            dimensions: image.dimensions(),
+            resource: GenericResource::Image(buffer),
+        };
         Ok(resource)
     }
 
@@ -165,7 +213,11 @@ impl KittyPrinter {
             let frame = AnimationFrame { delay: frame.delay, buffer: KittyBuffer::Filesystem(path) };
             persisted_frames.push(frame);
         }
-        Ok(KittyImage { dimensions, resource: GenericResource::Animated { frames: persisted_frames, loop_count } })
+        Ok(KittyImage {
+            id: Self::generate_image_id(),
+            dimensions,
+            resource: GenericResource::Animated { frames: persisted_frames, loop_count },
+        })
     }
 
     fn persist_resource(&self, resource: RawResource) -> io::Result<KittyImage> {
@@ -181,6 +233,7 @@ impl KittyPrinter {
 
     fn print_image<T>(
         &self,
+        image_id: u32,
         dimensions: (u32, u32),
         buffer: &KittyBuffer,
         terminal: &mut T,
@@ -192,6 +245,7 @@ impl KittyPrinter {
         let mut options = vec![
             ControlOption::Format(ImageFormat::Rgba),
             ControlOption::Action(Action::TransmitAndDisplay),
+            ControlOption::ImageId(image_id),
             ControlOption::Width(dimensions.0),
             ControlOption::Height(dimensions.1),
             ControlOption::Columns(print_options.columns),
@@ -199,10 +253,8 @@ impl KittyPrinter {
             ControlOption::ZIndex(print_options.z_index),
             ControlOption::Quiet(2),
         ];
-        let mut image_id = 0;
         if self.tmux {
-            image_id = Self::generate_image_id();
-            options.extend([ControlOption::UnicodePlaceholder, ControlOption::ImageId(image_id)]);
+            options.push(ControlOption::UnicodePlaceholder);
         }
 
         match &buffer {
@@ -218,7 +270,7 @@ impl KittyPrinter {
 
     fn print_animation<T>(
         &self,
-        dimensions: (u32, u32),
+        image: &KittyImage,
         frames: &[AnimationFrame<KittyBuffer>],
         loop_count: LoopCount,
         terminal: &mut T,
@@ -227,12 +279,12 @@ impl KittyPrinter {
     where
         T: TerminalIo,
     {
+        let image_id = image.id;
+        let dimensions = image.dimensions;
         let loops = match loop_count {
             LoopCount::Infinite => 1u32,
             LoopCount::Finite(n) => n.get() + 1,
         };
-        let image_id = Self::generate_image_id();
-
         for (frame_id, frame) in frames.iter().enumerate() {
             let (num, denom) = frame.delay.numer_denom_ms();
             let delay = num.checked_div(denom).unwrap_or(100);
@@ -455,12 +507,35 @@ impl PrintImage for KittyPrinter {
     where
         T: TerminalIo,
     {
-        match &image.resource {
-            GenericResource::Image(resource) => self.print_image(image.dimensions, resource, terminal, options)?,
-            GenericResource::Animated { frames, loop_count } => {
-                self.print_animation(image.dimensions, frames, *loop_count, terminal, options)?
+        let mut uploaded = self.uploaded.lock().unwrap();
+        if uploaded.contains_key(&image.id) {
+            let mut placement = vec![
+                ControlOption::Action(Action::Display),
+                ControlOption::ImageId(image.id),
+                ControlOption::Columns(options.columns),
+                ControlOption::Rows(options.rows),
+                ControlOption::ZIndex(options.z_index),
+                ControlOption::Quiet(2),
+            ];
+            if self.tmux {
+                placement.push(ControlOption::UnicodePlaceholder);
             }
-        };
+            let command = self.make_command(&placement, "").to_string();
+            terminal.execute(&TerminalCommand::PrintText { content: &command, style: Default::default() })?;
+            if self.tmux {
+                self.print_unicode_placeholders(terminal, options, image.id)?;
+            }
+        } else {
+            match &image.resource {
+                GenericResource::Image(resource) => {
+                    self.print_image(image.id, image.dimensions, resource, terminal, options)?
+                }
+                GenericResource::Animated { frames, loop_count } => {
+                    self.print_animation(image, frames, *loop_count, terminal, options)?;
+                }
+            }
+        }
+        uploaded.insert(image.id, true);
         Ok(())
     }
 }
@@ -502,6 +577,7 @@ impl<D: fmt::Display> fmt::Display for ControlCommand<'_, D> {
 #[derive(Debug, Clone)]
 pub(crate) enum ControlOption {
     Action(Action),
+    Delete(char),
     Format(ImageFormat),
     Medium(TransmissionMedium),
     Width(u32),
@@ -523,6 +599,7 @@ impl fmt::Display for ControlOption {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use ControlOption::*;
         match self {
+            Delete(target) => write!(f, "d={target}"),
             Action(action) => write!(f, "a={action}"),
             Format(format) => write!(f, "f={format}"),
             Medium(medium) => write!(f, "t={medium}"),
@@ -579,6 +656,8 @@ impl fmt::Display for TransmissionMedium {
 #[derive(Debug, Clone)]
 pub(crate) enum Action {
     Animate,
+    Display,
+    Delete,
     TransmitAndDisplay,
     TransmitFrame,
     Query,
@@ -589,6 +668,8 @@ impl fmt::Display for Action {
         use Action::*;
         let value = match self {
             Animate => 'a',
+            Display => 'p',
+            Delete => 'd',
             TransmitAndDisplay => 'T',
             TransmitFrame => 'f',
             Query => 'q',
