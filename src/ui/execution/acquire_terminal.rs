@@ -5,7 +5,7 @@ use crate::{
         operation::{AsRenderOperations, Pollable, PollableState, RenderAsync, RenderOperation},
         properties::WindowSize,
     },
-    terminal::should_hide_cursor,
+    terminal::{image::printer::ImageRegistry, should_hide_cursor},
     theme::{Alignment, ExecutionStatusBlockStyle, Margin},
     ui::separator::{RenderSeparator, SeparatorWidth},
 };
@@ -27,6 +27,7 @@ pub(crate) struct RunAcquireTerminalSnippet {
     snippet: Snippet,
     block_length: u16,
     executor: LanguageSnippetExecutor,
+    image_registry: ImageRegistry,
     colors: ExecutionStatusBlockStyle,
     state: Arc<Mutex<State>>,
     font_size: u8,
@@ -36,11 +37,12 @@ impl RunAcquireTerminalSnippet {
     pub(crate) fn new(
         snippet: Snippet,
         executor: LanguageSnippetExecutor,
+        image_registry: ImageRegistry,
         colors: ExecutionStatusBlockStyle,
         block_length: u16,
         font_size: u8,
     ) -> Self {
-        Self { snippet, block_length, executor, colors, state: Default::default(), font_size }
+        Self { snippet, block_length, executor, image_registry, colors, state: Default::default(), font_size }
     }
 
     fn invoke(&self) -> Result<(), String> {
@@ -53,6 +55,9 @@ impl RunAcquireTerminalSnippet {
         // save result for later, but first reinit the terminal
         let result = self.executor.execute_sync(&self.snippet).map_err(|e| format!("failed to run snippet: {e}"));
 
+        // Re-entering the alternate screen clears Kitty's image data. Invalidate
+        // uploads even when the snippet failed so the next redraw sends them again.
+        self.image_registry.reset_terminal_images();
         stdout
             .execute(terminal::EnterAlternateScreen)
             .and_then(|_| enable_raw_mode())

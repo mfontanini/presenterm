@@ -348,6 +348,7 @@ impl PresentationBuilder<'_, '_> {
         let operation = RunAcquireTerminalSnippet::new(
             snippet,
             executor,
+            self.image_registry.clone(),
             self.theme.execution_output.status,
             block_length,
             self.slide_font_size(),

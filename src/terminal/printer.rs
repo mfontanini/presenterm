@@ -91,6 +91,10 @@ impl<I: TerminalWrite> Terminal<I> {
     }
 
     fn end_update(&mut self) -> io::Result<()> {
+        let image_printer = self.image_printer.clone();
+        if let ImagePrinter::Kitty(printer) = image_printer.as_ref() {
+            printer.end_redraw(&mut self.writer)?;
+        }
         self.writer.queue(terminal::EndSynchronizedUpdate)?;
         Ok(())
     }
@@ -161,7 +165,16 @@ impl<I: TerminalWrite> Terminal<I> {
             };
         }
         self.last_cleared_background_color = self.background_color;
-        self.writer.queue(terminal::Clear(terminal::ClearType::All))?;
+        let image_printer = self.image_printer.clone();
+        if let ImagePrinter::Kitty(printer) = image_printer.as_ref() {
+            printer.begin_redraw(&mut self.writer)?;
+            // ED 2 also destroys Kitty image data. ED 0 from the origin clears
+            // all text while leaving uploaded animations available for reuse.
+            self.writer.queue(cursor::MoveTo(0, 0))?;
+            self.writer.queue(terminal::Clear(terminal::ClearType::FromCursorDown))?;
+        } else {
+            self.writer.queue(terminal::Clear(terminal::ClearType::All))?;
+        }
         self.cursor_row = 0;
         self.current_row_height = 1;
         Ok(())
@@ -221,6 +234,9 @@ impl<I: TerminalWrite> Terminal<I> {
 
     pub(crate) fn suspend(&mut self) {
         self.clear_terminal_progress();
+        if let ImagePrinter::Kitty(printer) = self.image_printer.as_ref() {
+            printer.reset();
+        }
         self.writer.deinit();
     }
 
@@ -270,6 +286,9 @@ impl<I: TerminalWrite> Drop for Terminal<I> {
                 let _ = write!(self.writer, "\x1b]111\x1b\\");
             }
         }
+        if let ImagePrinter::Kitty(printer) = self.image_printer.as_ref() {
+            printer.reset();
+        }
         self.writer.deinit();
     }
 }
@@ -310,5 +329,176 @@ impl TerminalWrite for io::Stdout {
         }
         let _ = self.flush();
         let _ = terminal::disable_raw_mode();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::terminal::image::{
+        ImageSource,
+        printer::{ImageRegistry, ImageSpec},
+        protocols::kitty::{KittyMode, KittyPrinter},
+    };
+    use image::{Delay, Frame, RgbaImage, codecs::gif::GifEncoder};
+    use rstest::rstest;
+
+    #[derive(Default)]
+    struct Buffer(Vec<u8>);
+
+    impl io::Write for Buffer {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.0.extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl TerminalWrite for Buffer {
+        fn init(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+
+        fn deinit(&mut self) {}
+    }
+
+    fn animation(printer: &ImagePrinter) -> Image {
+        let file = tempfile::Builder::new().suffix(".gif").tempfile().unwrap();
+        let mut encoder = GifEncoder::new(file.reopen().unwrap());
+        for color in [image::Rgba([255, 0, 0, 255]), image::Rgba([0, 255, 0, 255])] {
+            let buffer = RgbaImage::from_pixel(2, 2, color);
+            encoder.encode_frame(Frame::from_parts(buffer, 0, 0, Delay::from_numer_denom_ms(1000, 1))).unwrap();
+        }
+        drop(encoder);
+        let image = printer.register(ImageSpec::Filesystem(file.path().to_path_buf())).unwrap();
+        Image::new(image, ImageSource::Generated)
+    }
+
+    fn options() -> PrintOptions {
+        PrintOptions { columns: 4, rows: 2, z_index: 0, background_color: None, column_width: 8, row_height: 16 }
+    }
+
+    fn draw(terminal: &mut Terminal<Buffer>, images: &[(&Image, PrintOptions)]) -> String {
+        terminal.writer.0.clear();
+        terminal.execute(&TerminalCommand::BeginUpdate).unwrap();
+        terminal.execute(&TerminalCommand::ClearScreen).unwrap();
+        for (image, options) in images {
+            terminal.execute(&TerminalCommand::MoveTo { column: 2, row: 3 }).unwrap();
+            terminal
+                .execute(&TerminalCommand::PrintImage { image: (*image).clone(), options: options.clone() })
+                .unwrap();
+        }
+        terminal.execute(&TerminalCommand::EndUpdate).unwrap();
+        String::from_utf8(terminal.writer.0.clone()).unwrap()
+    }
+
+    #[rstest]
+    fn kitty_animation_survives_redraw(
+        #[values(KittyMode::Local, KittyMode::Remote)] mode: KittyMode,
+        #[values(false, true)] tmux: bool,
+    ) {
+        TerminalEmulator::disable_capability_detection();
+        let printer = Arc::new(ImagePrinter::Kitty(KittyPrinter::new(mode, tmux).unwrap()));
+        let image = animation(&printer);
+        let mut terminal = Terminal::new(Buffer::default(), printer, false).unwrap();
+        let first = draw(&mut terminal, &[(&image, options())]);
+        assert!(first.contains("a=T"));
+        assert!(first.contains("a=f"));
+        assert!(first.contains("a=a"));
+
+        let mut resized = options();
+        resized.columns = 8;
+        for opts in [options(), resized] {
+            let next = draw(&mut terminal, &[(&image, opts)]);
+            assert!(!next.contains("a=T"), "redraw must not retransmit the animation");
+            assert!(!next.contains("a=f"));
+            assert!(!next.contains("a=a"), "redraw must not alter animation playback");
+            assert!(!next.contains("\x1b[2J"), "full-screen erase deletes Kitty image data");
+            assert!(next.contains("a=p"));
+        }
+
+        // Hiding the image (including going backwards past its pause) releases it.
+        let hidden = draw(&mut terminal, &[]);
+        assert!(hidden.contains("d=I"));
+        let shown_again = draw(&mut terminal, &[(&image, options())]);
+        assert!(shown_again.contains("a=T"));
+
+        // The alternate screen is cleared when resuming after suspension.
+        terminal.suspend();
+        terminal.resume();
+        let resumed = draw(&mut terminal, &[(&image, options())]);
+        assert!(resumed.contains("a=T"));
+    }
+
+    #[test]
+    fn kitty_image_lifecycle() {
+        TerminalEmulator::disable_capability_detection();
+        let printer = Arc::new(ImagePrinter::Kitty(KittyPrinter::new(KittyMode::Remote, false).unwrap()));
+        let create_image = || {
+            let pixels = image::DynamicImage::new_rgba8(2, 2);
+            Image::new(printer.register(ImageSpec::Generated(pixels)).unwrap(), ImageSource::Generated)
+        };
+        let first = create_image();
+        let second = create_image();
+        let mut terminal = Terminal::new(Buffer::default(), printer.clone(), false).unwrap();
+        let initial = draw(&mut terminal, &[(&first, options()), (&first, options()), (&second, options())]);
+        assert_eq!(initial.matches("a=T").count(), 2);
+        assert_eq!(initial.matches("a=p").count(), 1);
+
+        let next = draw(&mut terminal, &[(&first, options())]);
+        assert_eq!(next.matches("d=I").count(), 1);
+        assert!(next.contains("a=p"));
+        assert!(!next.contains("a=T"));
+
+        // A reloaded/generated image must not reuse another image's terminal data.
+        let replacement = create_image();
+        let reloaded = draw(&mut terminal, &[(&replacement, options())]);
+        assert!(reloaded.contains("a=T"));
+        assert_eq!(reloaded.matches("d=I").count(), 1);
+
+        // Cleanup must work even when text rendering would be clipped below the screen.
+        terminal.execute(&TerminalCommand::ClearScreen).unwrap();
+        terminal.execute(&TerminalCommand::SetCursorBoundaries { rows: 10 }).unwrap();
+        terminal.execute(&TerminalCommand::MoveToRow(10)).unwrap();
+        terminal.writer.0.clear();
+        terminal.execute(&TerminalCommand::EndUpdate).unwrap();
+        assert!(String::from_utf8(terminal.writer.0.clone()).unwrap().contains("d=I"));
+    }
+
+    #[test]
+    fn other_protocols_keep_full_screen_clear() {
+        TerminalEmulator::disable_capability_detection();
+        let mut terminal = Terminal::new(Buffer::default(), Arc::new(ImagePrinter::Null), false).unwrap();
+        let output = draw(&mut terminal, &[]);
+        assert!(output.contains("\x1b[2J"));
+    }
+
+    #[rstest]
+    fn kitty_images_are_reuploaded_after_terminal_reset(
+        #[values(KittyMode::Local, KittyMode::Remote)] mode: KittyMode,
+        #[values(false, true)] tmux: bool,
+    ) {
+        TerminalEmulator::disable_capability_detection();
+        let printer = Arc::new(ImagePrinter::Kitty(KittyPrinter::new(mode, tmux).unwrap()));
+        let registry = ImageRegistry::new(printer.clone());
+        let image = registry.register(ImageSpec::Generated(image::DynamicImage::new_rgba8(2, 2))).unwrap();
+        let mut terminal = Terminal::new(Buffer::default(), printer, false).unwrap();
+
+        assert!(draw(&mut terminal, &[(&image, options())]).contains("a=T"));
+        assert!(!draw(&mut terminal, &[(&image, options())]).contains("a=T"));
+
+        // Terminal-acquiring snippets hold a clone of the shared registry. Images
+        // already stored in render operations must be uploaded again on return.
+        registry.clone().reset_terminal_images();
+        let returned = draw(&mut terminal, &[(&image, options())]);
+        assert!(returned.contains("a=T"));
+        assert!(!returned.contains("a=p"));
+
+        let pause = draw(&mut terminal, &[(&image, options())]);
+        assert!(pause.contains("a=p"));
+        assert!(!pause.contains("a=T"));
     }
 }

@@ -198,6 +198,13 @@ impl ImageRegistry {
     pub(crate) fn clear(&self) {
         self.images.lock().unwrap().clear();
     }
+
+    /// Forget terminal uploads after its screen buffer is reset, keeping loaded images.
+    pub(crate) fn reset_terminal_images(&self) {
+        if let ImagePrinter::Kitty(printer) = self.printer.as_ref() {
+            printer.reset();
+        }
+    }
 }
 
 pub(crate) enum ImageSpec {
