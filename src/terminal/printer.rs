@@ -337,7 +337,7 @@ mod tests {
     use super::*;
     use crate::terminal::image::{
         ImageSource,
-        printer::ImageSpec,
+        printer::{ImageRegistry, ImageSpec},
         protocols::kitty::{KittyMode, KittyPrinter},
     };
     use image::{Delay, Frame, RgbaImage, codecs::gif::GifEncoder};
@@ -474,5 +474,31 @@ mod tests {
         let mut terminal = Terminal::new(Buffer::default(), Arc::new(ImagePrinter::Null), false).unwrap();
         let output = draw(&mut terminal, &[]);
         assert!(output.contains("\x1b[2J"));
+    }
+
+    #[rstest]
+    fn kitty_images_are_reuploaded_after_terminal_reset(
+        #[values(KittyMode::Local, KittyMode::Remote)] mode: KittyMode,
+        #[values(false, true)] tmux: bool,
+    ) {
+        TerminalEmulator::disable_capability_detection();
+        let printer = Arc::new(ImagePrinter::Kitty(KittyPrinter::new(mode, tmux).unwrap()));
+        let registry = ImageRegistry::new(printer.clone());
+        let image = registry.register(ImageSpec::Generated(image::DynamicImage::new_rgba8(2, 2))).unwrap();
+        let mut terminal = Terminal::new(Buffer::default(), printer, false).unwrap();
+
+        assert!(draw(&mut terminal, &[(&image, options())]).contains("a=T"));
+        assert!(!draw(&mut terminal, &[(&image, options())]).contains("a=T"));
+
+        // Terminal-acquiring snippets hold a clone of the shared registry. Images
+        // already stored in render operations must be uploaded again on return.
+        registry.clone().reset_terminal_images();
+        let returned = draw(&mut terminal, &[(&image, options())]);
+        assert!(returned.contains("a=T"));
+        assert!(!returned.contains("a=p"));
+
+        let pause = draw(&mut terminal, &[(&image, options())]);
+        assert!(pause.contains("a=p"));
+        assert!(!pause.contains("a=T"));
     }
 }
